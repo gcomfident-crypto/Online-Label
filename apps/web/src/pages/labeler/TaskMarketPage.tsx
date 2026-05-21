@@ -7,6 +7,8 @@ import {
   type MarketClaimStatus,
   type MarketTaskDto,
 } from '../../api/assignments';
+import { EmptyState } from '../../components/EmptyState';
+import { PageLoading } from '../../components/PageLoading';
 
 const LABELER_ID = 'user_labeler_li_lei';
 
@@ -59,13 +61,23 @@ export const TaskMarketPage = () => {
     [tasks],
   );
 
-  const loadTasks = async () => {
+  const loadTasks = async (
+    overrides: Partial<{
+      keyword: string;
+      tag: string;
+      claimStatus: MarketClaimStatus | 'ALL';
+    }> = {},
+  ) => {
+    const nextKeyword = overrides.keyword ?? keyword;
+    const nextTag = overrides.tag ?? tag;
+    const nextClaimStatus = overrides.claimStatus ?? claimStatus;
+
     setIsLoading(true);
     try {
       const nextTasks = await listMarketTasks({
-        keyword: keyword.trim() || undefined,
-        tag: tag.trim() || undefined,
-        claimStatus,
+        keyword: nextKeyword.trim() || undefined,
+        tag: nextTag.trim() || undefined,
+        claimStatus: nextClaimStatus,
         labelerId: LABELER_ID,
       });
       setTasks(nextTasks);
@@ -169,8 +181,8 @@ export const TaskMarketPage = () => {
       </div>
 
       {isLoading ? (
-        <p>正在加载任务广场。</p>
-      ) : (
+        <PageLoading title="正在加载任务广场" description="正在获取可领取任务、配额和标签筛选项。" />
+      ) : tasks.length > 0 ? (
         <div className="task-market-grid">
           {tasks.map((task) => (
             <article className="task-market-card" key={task.id}>
@@ -224,6 +236,24 @@ export const TaskMarketPage = () => {
             </article>
           ))}
         </div>
+      ) : (
+        <EmptyState
+          title="暂无可领取任务"
+          description="调整关键词、标签或领取状态后再试。"
+          action={
+            <button
+              type="button"
+              onClick={() => {
+                setKeyword('');
+                setTag('');
+                setClaimStatus('ALL');
+                void loadTasks({ keyword: '', tag: '', claimStatus: 'ALL' });
+              }}
+            >
+              清空筛选
+            </button>
+          }
+        />
       )}
     </section>
   );

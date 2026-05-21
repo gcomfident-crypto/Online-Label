@@ -8,6 +8,8 @@ import {
   type LabelerStatsDto,
   type LabelerSubmissionDto,
 } from '../../api/submissions';
+import { EmptyState } from '../../components/EmptyState';
+import { PageLoading } from '../../components/PageLoading';
 
 const LABELER_ID = 'user_labeler_li_lei';
 
@@ -128,8 +130,8 @@ export const MyDataPage = () => {
       </div>
 
       {isLoading ? (
-        <p>正在加载我的数据。</p>
-      ) : (
+        <PageLoading title="正在加载我的数据" description="正在同步提交记录、状态和打回信息。" />
+      ) : submissions.length > 0 ? (
         <div className="my-data-table-scroll">
           <table className="my-data-table" aria-label="我的数据列表">
             <thead>
@@ -168,6 +170,11 @@ export const MyDataPage = () => {
             </tbody>
           </table>
         </div>
+      ) : (
+        <EmptyState
+          title="暂无提交数据"
+          description="提交题目后会在这里查看审核状态、轮次和返回标注台入口。"
+        />
       )}
     </section>
   );

@@ -10,6 +10,8 @@ import {
   type TaskDto,
   type TaskFormInput,
 } from '../../api/tasks';
+import { EmptyState } from '../../components/EmptyState';
+import { PageLoading } from '../../components/PageLoading';
 import { PublishDrawer } from './components/PublishDrawer';
 import { DISTRIBUTION_LABELS, TaskTable } from './components/TaskTable';
 
@@ -37,6 +39,7 @@ export const TaskListPage = () => {
   const [taskForm, setTaskForm] = useState<TaskFormInput | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -45,11 +48,14 @@ export const TaskListPage = () => {
   }, []);
 
   const loadTasks = async () => {
+    setIsLoading(true);
     try {
       setTasks(await listTasks({ ownerId: OWNER_ID }));
       setErrorMessage(null);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '任务列表加载失败。');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -241,13 +247,34 @@ export const TaskListPage = () => {
         </select>
       </div>
 
-      <TaskTable
-        tasks={filteredTasks}
-        onPublish={openPublishDrawer}
-        onPause={(task) => void transitionTask(task, 'PAUSED', '任务已暂停。')}
-        onResume={(task) => void transitionTask(task, 'PUBLISHED', '任务已恢复发布。')}
-        onEnd={(task) => void transitionTask(task, 'ENDED', '任务已结束。')}
-      />
+      {isLoading ? (
+        <PageLoading title="正在加载任务列表" description="正在同步任务状态、配额和发布信息。" />
+      ) : filteredTasks.length > 0 ? (
+        <TaskTable
+          tasks={filteredTasks}
+          onPublish={openPublishDrawer}
+          onPause={(task) => void transitionTask(task, 'PAUSED', '任务已暂停。')}
+          onResume={(task) => void transitionTask(task, 'PUBLISHED', '任务已恢复发布。')}
+          onEnd={(task) => void transitionTask(task, 'ENDED', '任务已结束。')}
+        />
+      ) : (
+        <EmptyState
+          title="暂无匹配任务"
+          description="调整任务名、状态或分发策略筛选后再查看。"
+          action={
+            <button
+              type="button"
+              onClick={() => {
+                setSearchKeyword('');
+                setStatusFilter('ALL');
+                setDistributionFilter('ALL');
+              }}
+            >
+              清空筛选
+            </button>
+          }
+        />
+      )}
 
       {selectedTask && taskForm ? (
         <PublishDrawer

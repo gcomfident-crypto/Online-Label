@@ -11,6 +11,8 @@ import {
   type ExportPreviewDto,
 } from '../../api/exports';
 import { listTasks, type TaskDto } from '../../api/tasks';
+import { EmptyState } from '../../components/EmptyState';
+import { PageLoading } from '../../components/PageLoading';
 import { ExportConfigDrawer } from '../../features/export/ExportConfigDrawer';
 import { ExportHistoryTable } from '../../features/export/ExportHistoryTable';
 
@@ -162,32 +164,44 @@ export const ExportCenterPage = () => {
         </div>
       ) : null}
 
-      {isLoading ? <p>正在加载导出中心。</p> : null}
+      {isLoading ? (
+        <PageLoading title="正在加载导出中心" description="正在同步任务、导出历史和预览字段映射。" />
+      ) : null}
 
-      <div className="export-center-layout">
-        <ExportConfigDrawer
-          tasks={tasks}
-          selectedTaskId={selectedTaskId}
-          format={format}
-          includeReviews={includeReviews}
-          fieldMapping={fieldMapping.length > 0 ? fieldMapping : preview?.fieldMapping ?? []}
-          preview={preview}
-          isBusy={isBusy}
-          onTaskChange={handleTaskChange}
-          onFormatChange={setFormat}
-          onIncludeReviewsChange={setIncludeReviews}
-          onFieldMappingChange={setFieldMapping}
-          onCreate={() => void handleCreate()}
-        />
-        <aside className="export-center-side">
-          <section className="export-summary-panel">
-            <span>当前任务</span>
-            <h2>{selectedTask?.title ?? '未选择任务'}</h2>
-            <p>{preview?.totalFinalApproved.toLocaleString() ?? 0} 条终审通过数据可导出。</p>
-          </section>
-          <ExportHistoryTable jobs={exports} isBusy={isBusy} onRetry={(exportJobId) => void handleRetry(exportJobId)} />
-        </aside>
-      </div>
+      {!isLoading && tasks.length === 0 ? (
+        <EmptyState title="暂无可导出任务" description="创建并发布任务后，终审通过数据会在这里生成导出任务。" />
+      ) : null}
+
+      {!isLoading && tasks.length > 0 ? (
+        <div className="export-center-layout">
+          <ExportConfigDrawer
+            tasks={tasks}
+            selectedTaskId={selectedTaskId}
+            format={format}
+            includeReviews={includeReviews}
+            fieldMapping={fieldMapping.length > 0 ? fieldMapping : preview?.fieldMapping ?? []}
+            preview={preview}
+            isBusy={isBusy}
+            onTaskChange={handleTaskChange}
+            onFormatChange={setFormat}
+            onIncludeReviewsChange={setIncludeReviews}
+            onFieldMappingChange={setFieldMapping}
+            onCreate={() => void handleCreate()}
+          />
+          <aside className="export-center-side">
+            <section className="export-summary-panel">
+              <span>当前任务</span>
+              <h2>{selectedTask?.title ?? '未选择任务'}</h2>
+              <p>{preview?.totalFinalApproved.toLocaleString() ?? 0} 条终审通过数据可导出。</p>
+            </section>
+            <ExportHistoryTable
+              jobs={exports}
+              isBusy={isBusy}
+              onRetry={(exportJobId) => void handleRetry(exportJobId)}
+            />
+          </aside>
+        </div>
+      ) : null}
     </section>
   );
 };

@@ -10,6 +10,8 @@ import {
   type ReviewDetailDto,
   type ReviewQueueItemDto,
 } from '../../api/reviews';
+import { EmptyState } from '../../components/EmptyState';
+import { PageLoading } from '../../components/PageLoading';
 import { AiReviewSummary } from '../../features/review/AiReviewSummary';
 import { AuditTimeline } from '../../features/review/AuditTimeline';
 import { RoundSelector } from '../../features/review/RoundSelector';
@@ -138,7 +140,13 @@ export const FinalReviewPage = () => {
 
       <div className="human-review-layout final-review-layout">
         <aside className="human-review-queue" aria-label="待终审队列">
-          {isLoading && reviews.length === 0 ? <p>正在加载待终审队列。</p> : null}
+          {isLoading && reviews.length === 0 ? (
+            <PageLoading
+              className="page-loading--compact"
+              title="正在加载待终审队列"
+              description="正在同步复审通过后的待终审提交。"
+            />
+          ) : null}
           <div className="human-review-list">
             {reviews.map((review) => (
               <article key={review.submissionId} className={review.submissionId === selectedReview?.submissionId ? 'is-active' : ''}>
@@ -153,10 +161,11 @@ export const FinalReviewPage = () => {
             ))}
           </div>
           {!isLoading && reviews.length === 0 ? (
-            <div className="review-empty">
-              <strong>暂无待终审数据</strong>
-              <span>复审通过后会进入这里。</span>
-            </div>
+            <EmptyState
+              className="empty-state--compact"
+              title="暂无待终审数据"
+              description="复审通过后会进入这里。"
+            />
           ) : null}
         </aside>
 
@@ -200,10 +209,11 @@ export const FinalReviewPage = () => {
               />
             </>
           ) : (
-            <div className="review-empty">
-              <strong>请选择一条待终审提交</strong>
-              <span>终审台会展示二次提交 Diff、AI 评语和完整时间线。</span>
-            </div>
+            <EmptyState
+              className="empty-state--compact"
+              title="请选择一条待终审提交"
+              description="终审台会展示二次提交 Diff、AI 评语和完整时间线。"
+            />
           )}
         </main>
 

@@ -15,6 +15,8 @@ import {
   type ReviewDetailDto,
   type ReviewQueueItemDto,
 } from '../../api/reviews';
+import { EmptyState } from '../../components/EmptyState';
+import { PageLoading } from '../../components/PageLoading';
 import { AiReviewSummary } from '../../features/review/AiReviewSummary';
 import { AuditTimeline } from '../../features/review/AuditTimeline';
 import { BatchReviewToolbar } from '../../features/review/BatchReviewToolbar';
@@ -254,7 +256,13 @@ export const ReviewListPage = () => {
               筛选
             </button>
           </div>
-          {isLoading && reviews.length === 0 ? <p>正在加载待复审队列。</p> : null}
+          {isLoading && reviews.length === 0 ? (
+            <PageLoading
+              className="page-loading--compact"
+              title="正在加载待复审队列"
+              description="正在同步 AI 结论、轮次和指派状态。"
+            />
+          ) : null}
           <div className="human-review-list">
             {reviews.map((review) => (
               <article key={review.submissionId} className={review.submissionId === selectedReview?.submissionId ? 'is-active' : ''}>
@@ -275,10 +283,11 @@ export const ReviewListPage = () => {
             ))}
           </div>
           {!isLoading && reviews.length === 0 ? (
-            <div className="review-empty">
-              <strong>暂无待复审数据</strong>
-              <span>切换 AI 结论筛选或等待 AI 预审入队。</span>
-            </div>
+            <EmptyState
+              className="empty-state--compact"
+              title="暂无待复审数据"
+              description="切换 AI 结论筛选或等待 AI 预审入队。"
+            />
           ) : null}
         </aside>
 
@@ -342,10 +351,11 @@ export const ReviewListPage = () => {
               />
             </>
           ) : (
-            <div className="review-empty">
-              <strong>请选择一条待复审提交</strong>
-              <span>左侧队列会按 AI 结论、状态和轮次展示。</span>
-            </div>
+            <EmptyState
+              className="empty-state--compact"
+              title="请选择一条待复审提交"
+              description="左侧队列会按 AI 结论、状态和轮次展示。"
+            />
           )}
         </main>
 

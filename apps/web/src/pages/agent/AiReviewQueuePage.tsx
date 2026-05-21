@@ -5,6 +5,8 @@ import {
   SUBMISSION_STATUS_LABELS,
   type AiReviewStatus,
 } from '@labelhub/shared';
+import { EmptyState } from '../../components/EmptyState';
+import { PageLoading } from '../../components/PageLoading';
 import {
   getSubmissionAiReview,
   listAiReviewJobs,
@@ -124,7 +126,7 @@ export const AiReviewQueuePage = () => {
   if (isLoading && jobs.length === 0) {
     return (
       <section className="ai-review-page">
-        <p>正在加载 AI 预审队列。</p>
+        <PageLoading title="正在加载 AI 预审队列" description="正在同步排队、处理、失败和转人工任务。" />
       </section>
     );
   }
@@ -186,10 +188,11 @@ export const AiReviewQueuePage = () => {
           </div>
 
           {jobs.length === 0 ? (
-            <div className="ai-review-empty">
-              <strong>暂无队列任务</strong>
-              <span>切换状态或等待标注员提交后再查看。</span>
-            </div>
+            <EmptyState
+              className="empty-state--compact"
+              title="暂无队列任务"
+              description="切换状态或等待标注员提交后再查看。"
+            />
           ) : null}
         </aside>
 
@@ -226,10 +229,11 @@ export const AiReviewQueuePage = () => {
               </div>
             </>
           ) : (
-            <div className="ai-review-empty">
-              <strong>请选择 AI 预审任务</strong>
-              <span>左侧队列会展示待处理、失败和转人工兜底的提交。</span>
-            </div>
+            <EmptyState
+              className="empty-state--compact"
+              title="请选择 AI 预审任务"
+              description="左侧队列会展示待处理、失败和转人工兜底的提交。"
+            />
           )}
         </main>
       </div>
@@ -253,7 +257,13 @@ const StatusPill = ({ status }: { status: AiReviewStatus }) => (
 const JsonFieldView = ({ detail, isLoading }: { detail: AiReviewDetailDto | null; isLoading: boolean }) => (
   <section className="ai-review-panel ai-review-panel--json" aria-label="JSON 字段视图">
     <PanelHeading title="JSON 字段视图" note={detail?.taskItem.externalId ?? '等待提交详情'} />
-    {isLoading ? <p>正在加载提交字段。</p> : null}
+    {isLoading ? (
+      <PageLoading
+        className="page-loading--compact"
+        title="正在加载提交字段"
+        description="正在获取题目原文、标注答案和结构化输出。"
+      />
+    ) : null}
     {detail ? (
       <div className="json-field-grid">
         <JsonBlock title="题目 rawData" value={detail.taskItem.rawData} />

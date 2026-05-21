@@ -320,6 +320,101 @@ p {
   margin-top: 12px;
 }
 
+.page-loading,
+.empty-state,
+.app-error-boundary {
+  width: min(100%, 720px);
+  display: grid;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #d8d5ce;
+  border-radius: 8px;
+  padding: 22px;
+  background: #fffdf8;
+  box-shadow: 0 18px 58px rgba(42, 35, 25, 0.08);
+}
+
+.page-loading {
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 104px;
+}
+
+.page-loading strong,
+.empty-state h2,
+.app-error-boundary h1 {
+  margin: 0;
+  color: #17211b;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.page-loading p,
+.empty-state p,
+.app-error-boundary p {
+  margin: 6px 0 0;
+}
+
+.page-loading__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #d8d5ce;
+  border-top-color: #194c3f;
+  border-radius: 50%;
+  animation: page-loading-spin 0.9s linear infinite;
+}
+
+.empty-state {
+  justify-items: start;
+  min-height: 180px;
+}
+
+.page-loading--compact,
+.empty-state--compact {
+  width: 100%;
+  min-height: 0;
+  box-shadow: none;
+}
+
+.page-loading--compact {
+  padding: 14px;
+}
+
+.empty-state--compact {
+  gap: 10px;
+  padding: 16px;
+}
+
+.empty-state--compact h2 {
+  font-size: 16px;
+}
+
+.empty-state__mark {
+  width: 40px;
+  height: 6px;
+  border-radius: 999px;
+  background: #194c3f;
+}
+
+.empty-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.app-error-boundary {
+  margin: 12vh auto;
+}
+
+.app-error-boundary h1 {
+  font-size: clamp(28px, 4vw, 40px);
+}
+
+@keyframes page-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .workspace-page {
   padding: 32px;
 }

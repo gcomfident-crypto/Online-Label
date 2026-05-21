@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 
+import { PageError } from '../../components/AppErrorBoundary';
+import { PageLoading } from '../../components/PageLoading';
 import { applySchemaLinkage, validateSchemaAnswers } from '../../features/schema-renderer';
 import { SchemaRenderer } from '../../features/schema-renderer';
 import { ContributionStats } from '../../features/labeler/ContributionStats';
@@ -233,7 +235,7 @@ export const WorkbenchPage = () => {
     return (
       <section className="labeler-workbench-page" aria-labelledby="labeler-workbench-title">
         <h1 id="labeler-workbench-title">标注台</h1>
-        <p>正在加载题目。</p>
+        <PageLoading title="正在加载题目" description="正在恢复草稿、题目材料和贡献统计。" />
       </section>
     );
   }
@@ -241,11 +243,14 @@ export const WorkbenchPage = () => {
   if (!workbench) {
     return (
       <section className="labeler-workbench-page" aria-labelledby="labeler-workbench-title">
-        <h1 id="labeler-workbench-title">标注台</h1>
-        <p role="alert">{errorMessage ?? '无法加载当前题目。'}</p>
-        <Link className="primary-link" to="/labeler/market">
-          返回任务广场
-        </Link>
+        <PageError
+          title="无法加载当前题目"
+          description={errorMessage ?? '请返回任务广场重新进入标注台。'}
+          actionLabel="返回任务广场"
+          onReset={() => {
+            window.location.assign('/labeler/market');
+          }}
+        />
       </section>
     );
   }
