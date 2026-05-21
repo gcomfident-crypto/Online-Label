@@ -157,6 +157,7 @@ model Task {
   distributionStrategy DistributionStrategy @default(FIRST_COME_FIRST_SERVE)
   aiPreReviewEnabled   Boolean              @default(false)
   aiRuleName           String?
+  reviewStageConfig    ReviewStage[]        @default([RECHECK, FINAL])
   status               TaskStatus           @default(DRAFT)
   templateId           String
   template             TaskTemplate         @relation(fields: [templateId], references: [id])

@@ -121,6 +121,16 @@ export {
 } from './stateMachines.ts';
 
 export {
+  DEFAULT_REVIEW_STAGE_CONFIG,
+  FULL_REVIEW_STAGE_CONFIG,
+  REVIEW_STAGE_CONFIG_LABELS,
+  REVIEW_STAGE_CONFIG_OPTIONS,
+  isConfigurableReviewStage,
+  normalizeReviewStageConfig,
+  type ConfigurableReviewStage,
+} from './reviewStages.ts';
+
+export {
   EXPORT_FORMATS,
   LLM_PROVIDER_NAMES,
   type AiReviewJobPayload,

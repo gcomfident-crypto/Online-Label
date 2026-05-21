@@ -5,6 +5,7 @@ import {
   DATASET_KINDS,
   FIELD_TYPES,
   LABELHUB_SHARED_VERSION,
+  DEFAULT_REVIEW_STAGE_CONFIG,
   TASK_STATUS_LABELS,
   canAccessRoute,
   getRoleHomePath,
@@ -17,6 +18,7 @@ describe('共享包名入口', () => {
     expect(canAccessRoute('LABELER', '/labeler/tasks')).toBe(true);
     expect(FIELD_TYPES).toContain('llm_assist');
     expect(DATASET_KINDS).toContain('preference_compare');
+    expect(DEFAULT_REVIEW_STAGE_CONFIG).toEqual(['RECHECK', 'FINAL']);
     expect(Object.values(TASK_STATUS_LABELS)).toContain('发布中');
   });
 

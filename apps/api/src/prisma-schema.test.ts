@@ -107,6 +107,7 @@ describe('Prisma schema', () => {
     );
     expect(modelBlock('Task')).toMatch(/\baiPreReviewEnabled\s+Boolean\s+@default\(false\)/);
     expect(modelBlock('Task')).toMatch(/\baiRuleName\s+String\?/);
+    expect(modelBlock('Task')).toMatch(/\breviewStageConfig\s+ReviewStage\[\]\s+@default\(\[RECHECK, FINAL\]\)/);
   });
 
   it('keeps dataset identity and submission schema snapshots', () => {
