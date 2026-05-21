@@ -2570,6 +2570,8 @@ p {
 
 .human-review-filter select,
 .review-decision-panel textarea,
+.final-decision-panel textarea,
+.round-selector-controls select,
 .batch-review-toolbar textarea,
 .batch-review-toolbar input {
   width: 100%;
@@ -2619,6 +2621,10 @@ p {
 
 .human-review-list button:hover:not(:disabled) {
   background: #f7f2ec;
+}
+
+.human-review-list article > button:only-child {
+  grid-column: 1 / -1;
 }
 
 .human-review-list strong,
@@ -2710,6 +2716,94 @@ p {
   font-size: 12px;
   line-height: 1.55;
   white-space: pre-wrap;
+}
+
+.round-selector-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.round-selector-controls label,
+.final-decision-panel label {
+  display: grid;
+  gap: 6px;
+  color: #17211b;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.round-diff-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.round-diff-list li {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d3d9d3;
+  border-left: 4px solid #2e6650;
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.round-diff-list li[data-change-type='added'] {
+  border-left-color: #2e6650;
+}
+
+.round-diff-list li[data-change-type='removed'] {
+  border-left-color: #a8432f;
+}
+
+.round-diff-list li[data-change-type='changed'] {
+  border-left-color: #b5812d;
+}
+
+.round-diff-list header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.round-diff-list header strong {
+  overflow-wrap: anywhere;
+}
+
+.round-diff-list header span {
+  border: 1px solid #d3d9d3;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #6f4a43;
+  background: #fbfcfa;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.round-diff-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.round-diff-values small {
+  display: block;
+  margin-bottom: 6px;
+  color: #667067;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.round-diff-list p,
+.round-diff-empty {
+  margin: 0;
+  color: #667067;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .review-ai-comment {
@@ -2951,7 +3045,9 @@ p {
   }
 
   .human-review-filter,
-  .review-decision-panel__actions {
+  .review-decision-panel__actions,
+  .round-selector-controls,
+  .round-diff-values {
     grid-template-columns: 1fr;
   }
 }

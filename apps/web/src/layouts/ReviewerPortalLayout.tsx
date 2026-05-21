@@ -19,7 +19,8 @@ export const ReviewerPortalLayout = () => {
           </div>
         </div>
         <nav className="portal-nav" aria-label="Reviewer 端导航">
-          <NavLink to="/reviewer/reviews">验收台</NavLink>
+          <NavLink to="/reviewer/reviews">复审台</NavLink>
+          <NavLink to="/reviewer/final-reviews">终审台</NavLink>
         </nav>
       </aside>
       <main className="portal-main">

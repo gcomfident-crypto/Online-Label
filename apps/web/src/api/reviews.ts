@@ -85,6 +85,36 @@ export type ReviewDetailDto = {
   timeline: ReviewTimelineItemDto[];
 };
 
+export type SubmissionRoundDto = {
+  submissionId: string;
+  assignmentId: string;
+  status: string;
+  round: number;
+  answers: Record<string, unknown>;
+  schemaVersion: string;
+  submittedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SubmissionFieldDiffDto = {
+  fieldKey: string;
+  type: 'added' | 'removed' | 'changed';
+  before: unknown;
+  after: unknown;
+  addedItems?: unknown[];
+  removedItems?: unknown[];
+};
+
+export type SubmissionDiffDto = {
+  assignmentId: string;
+  fromRound: number;
+  toRound: number;
+  fromSubmissionId: string;
+  toSubmissionId: string;
+  changes: SubmissionFieldDiffDto[];
+};
+
 export type BatchReviewResultDto = {
   processedCount: number;
   submissions: ReviewDetailDto[];
@@ -124,6 +154,26 @@ export async function listReviewResults(input: { verdict?: string } = {}): Promi
   return requestReviewApi<ReviewQueueItemDto[]>(`/reviews/results${suffix}`, { method: 'GET' });
 }
 
+export async function listFinalPendingReviews(): Promise<ReviewQueueItemDto[]> {
+  return requestReviewApi<ReviewQueueItemDto[]>('/reviews/final-pending', { method: 'GET' });
+}
+
+export async function listReviewRounds(assignmentId: string): Promise<SubmissionRoundDto[]> {
+  return requestReviewApi<SubmissionRoundDto[]>(`/reviews/${assignmentId}/rounds`, { method: 'GET' });
+}
+
+export async function getReviewDiff(
+  assignmentId: string,
+  input: { fromRound: number; toRound: number },
+): Promise<SubmissionDiffDto> {
+  const searchParams = new URLSearchParams({
+    fromRound: input.fromRound.toString(),
+    toRound: input.toRound.toString(),
+  });
+
+  return requestReviewApi<SubmissionDiffDto>(`/reviews/${assignmentId}/diff?${searchParams.toString()}`, { method: 'GET' });
+}
+
 export async function getReview(submissionId: string): Promise<ReviewDetailDto> {
   return requestReviewApi<ReviewDetailDto>(`/reviews/${submissionId}`, { method: 'GET' });
 }
@@ -158,6 +208,20 @@ export async function reviseAndPassReview(
   input: { actorId?: string; comment?: string; revisedAnswers: Record<string, unknown> },
 ): Promise<ReviewDetailDto> {
   return requestReviewApi<ReviewDetailDto>(`/reviews/${submissionId}/revise-and-pass`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function finalPassReview(submissionId: string, input: { actorId?: string; comment?: string }): Promise<ReviewDetailDto> {
+  return requestReviewApi<ReviewDetailDto>(`/reviews/${submissionId}/final-pass`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function finalRejectReview(submissionId: string, input: { actorId?: string; reason: string }): Promise<ReviewDetailDto> {
+  return requestReviewApi<ReviewDetailDto>(`/reviews/${submissionId}/final-reject`, {
     method: 'POST',
     body: JSON.stringify(input),
   });

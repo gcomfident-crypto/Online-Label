@@ -20,6 +20,7 @@ import { TaskDetailPage } from './pages/owner/TaskDetailPage';
 import { OwnerTasksPage } from './pages/owner/OwnerTasksPage';
 import { TemplateDesignerPage } from './pages/owner/TemplateDesignerPage';
 import { ReviewDetailPage } from './pages/reviewer/ReviewDetailPage';
+import { FinalReviewPage } from './pages/reviewer/FinalReviewPage';
 import { ReviewListPage } from './pages/reviewer/ReviewListPage';
 
 export const AppRouter = () => {
@@ -86,6 +87,7 @@ export const AppRouter = () => {
         <Route index element={<Navigate to="/reviewer/reviews" replace />} />
         <Route path="reviews" element={<ReviewListPage />} />
         <Route path="reviews/:submissionId" element={<ReviewDetailPage />} />
+        <Route path="final-reviews" element={<FinalReviewPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

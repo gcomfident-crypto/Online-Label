@@ -19,6 +19,7 @@ import { AiReviewSummary } from '../../features/review/AiReviewSummary';
 import { AuditTimeline } from '../../features/review/AuditTimeline';
 import { BatchReviewToolbar } from '../../features/review/BatchReviewToolbar';
 import { ReviewDecisionPanel } from '../../features/review/ReviewDecisionPanel';
+import { RoundSelector } from '../../features/review/RoundSelector';
 
 const REVIEWER_ID = 'user_reviewer_wang_fang';
 
@@ -300,6 +301,7 @@ export const ReviewListPage = () => {
                 <JsonPanel title="题目原文" subtitle={detail.taskItem.externalId} value={detail.taskItem.rawData} />
                 <JsonPanel title="首次标注" subtitle={detail.submission.schemaVersion} value={detail.submission.answers} />
               </div>
+              <RoundSelector assignmentId={detail.submission.assignmentId} />
               <AiReviewSummary
                 record={detail.aiReview}
                 fallbackComment={selectedReview?.aiComment}

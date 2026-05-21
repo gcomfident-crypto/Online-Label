@@ -66,7 +66,8 @@ describe('Web 壳 smoke test', () => {
     });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ data: [] })));
     renderRoute('/reviewer/reviews');
-    expect(screen.getByRole('navigation', { name: 'Reviewer 端导航' })).toHaveTextContent('验收台');
+    expect(screen.getByRole('navigation', { name: 'Reviewer 端导航' })).toHaveTextContent('复审台');
+    expect(screen.getByRole('navigation', { name: 'Reviewer 端导航' })).toHaveTextContent('终审台');
     expect(screen.queryByRole('navigation', { name: 'AI Agent 端导航' })).not.toBeInTheDocument();
     expect(await screen.findByText('暂无待复审数据')).toBeInTheDocument();
   });
