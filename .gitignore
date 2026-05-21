@@ -6,6 +6,7 @@ dist/
 build/
 coverage/
 playwright-report/
+test-results/
 
 # 本地环境与密钥
 .env

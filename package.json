@@ -12,7 +12,8 @@
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "typecheck": "pnpm -r --if-present typecheck",
-    "test": "pnpm -r --if-present test"
+    "test": "pnpm -r --if-present test",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",

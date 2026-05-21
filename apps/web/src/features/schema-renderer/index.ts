@@ -1,6 +1,8 @@
 export { FieldRenderer } from './FieldRenderer';
 export { SchemaRenderer } from './SchemaRenderer';
 export {
+  allMaterialsRawData,
+  allMaterialsSchema,
   preferenceCompareRawData,
   preferenceCompareSchema,
   qaQualityRawDataSamples,

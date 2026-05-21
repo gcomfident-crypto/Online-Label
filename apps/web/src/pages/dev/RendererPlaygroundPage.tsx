@@ -3,6 +3,8 @@ import { useMemo, useState } from 'react';
 import type { LabelHubSchema } from '@labelhub/shared';
 import {
   SchemaRenderer,
+  allMaterialsRawData,
+  allMaterialsSchema,
   applySchemaLinkage,
   preferenceCompareRawData,
   preferenceCompareSchema,
@@ -23,10 +25,28 @@ type PlaygroundExample = {
 
 const EXAMPLES: readonly PlaygroundExample[] = [
   {
-    id: 'qa_quality',
-    label: '问答质量',
+    id: 'qa_quality_text',
+    label: '问答质量：文本',
     schema: qaQualitySchema,
     rawData: qaQualityRawDataSamples[0],
+  },
+  {
+    id: 'qa_quality_image',
+    label: '问答质量：图片',
+    schema: qaQualitySchema,
+    rawData: qaQualityRawDataSamples[1],
+  },
+  {
+    id: 'qa_quality_video',
+    label: '问答质量：视频',
+    schema: qaQualitySchema,
+    rawData: qaQualityRawDataSamples[2],
+  },
+  {
+    id: 'qa_quality_markdown',
+    label: '问答质量：Markdown',
+    schema: qaQualitySchema,
+    rawData: qaQualityRawDataSamples[3],
   },
   {
     id: 'preference_compare',
@@ -39,6 +59,12 @@ const EXAMPLES: readonly PlaygroundExample[] = [
     label: '商品标题清洗 v3',
     schema: titleCleanupSchema,
     rawData: titleCleanupRawData,
+  },
+  {
+    id: 'all_materials',
+    label: '全部物料',
+    schema: allMaterialsSchema,
+    rawData: allMaterialsRawData,
   },
 ] as const;
 
@@ -69,7 +95,7 @@ export const RendererPlaygroundPage = () => {
     <main className="playground-page">
       <header className="playground-header">
         <div>
-          <p className="eyebrow">Dev / Schema Renderer</p>
+          <p className="eyebrow">开发调试 / 动态表单</p>
           <h1>Renderer 调试台</h1>
           <p>切换官方 Schema 示例，检查展示项 ShowItem、字段联动和 LLM 触发组件。</p>
         </div>
@@ -118,7 +144,7 @@ export const RendererPlaygroundPage = () => {
 
         <aside className="playground-inspector" aria-label="调试输出">
           <section>
-            <h2>Answers JSON</h2>
+            <h2>答案 JSON</h2>
             <pre>{JSON.stringify(linkageResult.answers, null, 2)}</pre>
           </section>
           <section>

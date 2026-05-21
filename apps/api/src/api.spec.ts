@@ -202,6 +202,23 @@ describe('LabelHub API shell', () => {
     });
   });
 
+  it('非 generic_json 不使用 cleaned_title 文本 mock 分支', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/llm/assist/mock')
+      .send({
+        datasetKind: 'qa_quality',
+        rawData: {},
+        answers: {},
+        targetFieldKey: 'cleaned_title',
+      })
+      .expect(201);
+
+    expect(response.body.data.summary).toBe('建议补充关键依据，并复核准确性与完整性评分。');
+    expect(response.body.data.suggestion).toEqual(
+      expect.objectContaining({ issue_tags: ['missing_info'] }),
+    );
+  });
+
   it('LLM 辅助 mock 拒绝无效数据集类型', async () => {
     const response = await request(app.getHttpServer())
       .post('/llm/assist/mock')

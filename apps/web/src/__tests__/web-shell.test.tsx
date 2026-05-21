@@ -84,15 +84,38 @@ describe('Web 路由守卫', () => {
 
     expect(screen.getByRole('heading', { name: 'Renderer 调试台' })).toBeInTheDocument();
     expect(screen.getByText('请说明光合作用的主要过程。')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '答案 JSON' })).toBeInTheDocument();
+    expect(screen.getAllByText('一句话总评为必填项。').length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', { name: '偏好对比' }));
     expect(screen.getByTestId('preference-compare-panel-a')).toHaveTextContent(
       '回答 A 已准确回应用户问题，但缺少后续操作建议。',
     );
 
+    await user.click(screen.getByRole('button', { name: '问答质量：图片' }));
+    expect(screen.getByRole('img', { name: '题目媒体' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '问答质量：视频' }));
+    expect(document.querySelector('video')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '问答质量：Markdown' }));
+    expect(screen.getByText('售后规则')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '全部物料' }));
+    expect(screen.getByText('多 Tab 布局')).toBeInTheDocument();
+    expect(screen.getByText('图片上传示例')).toBeInTheDocument();
+
     await user.click(screen.getByRole('button', { name: '商品标题清洗 v3' }));
     expect(screen.getByText('原始商品标题')).toBeInTheDocument();
-    expect(screen.getByLabelText('清洗后标题')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('清洗后标题'), '降噪蓝牙耳机');
+    expect(screen.getByText(/"cleaned_title": "降噪蓝牙耳机"/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '复核' }));
+    expect(screen.getByLabelText('清洗后标题')).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: '偏好对比' }));
+    await user.click(screen.getByRole('button', { name: '商品标题清洗 v3' }));
+    expect(screen.getByLabelText('清洗后标题')).toHaveValue('降噪蓝牙耳机');
   });
 
   it('Labeler 访问 /owner/tasks 被拦截到无权限页', () => {

@@ -85,7 +85,7 @@ function createDatasetSuggestion(
     };
   }
 
-  if (targetFieldKey === 'cleaned_title') {
+  if (datasetKind === 'generic_json' && targetFieldKey === 'cleaned_title') {
     return {
       datasetKind,
       targetFieldKey,
