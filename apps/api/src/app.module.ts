@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { map, type Observable } from 'rxjs';
 
 import { AuthController } from './auth.controller.ts';
+import { AssignmentsModule } from './assignments/assignments.module.ts';
 import { AuditService } from './audit/audit.service.ts';
 import { DatasetsModule } from './datasets/datasets.module.ts';
 import { DebugController } from './debug/debug.controller.ts';
@@ -91,7 +92,7 @@ class ErrorEnvelopeFilter implements ExceptionFilter {
 }
 
 @Module({
-  imports: [TemplatesModule, TasksModule, DatasetsModule],
+  imports: [TemplatesModule, TasksModule, DatasetsModule, AssignmentsModule],
   controllers: [
     AuthController,
     HealthController,
