@@ -6,4 +6,7 @@ export default defineConfig({
   datasource: {
     url: process.env.DATABASE_URL ?? "postgresql://labelhub:labelhub_password@localhost:5432/labelhub?schema=public",
   },
+  migrations: {
+    seed: "tsx prisma/seed.ts",
+  },
 });

@@ -14,8 +14,13 @@ import { randomUUID } from 'node:crypto';
 import { map, type Observable } from 'rxjs';
 
 import { AuthController } from './auth.controller.ts';
+import { AuditService } from './audit/audit.service.ts';
+import { DebugController } from './debug/debug.controller.ts';
+import { DebugService } from './debug/debug.service.ts';
 import { HealthController } from './health.controller.ts';
 import { MeController } from './me.controller.ts';
+import { PrismaService } from './prisma/prisma.service.ts';
+import { StateMachineService } from './state-machine/state-machine.service.ts';
 
 type RequestWithId = {
   requestId?: string;
@@ -79,8 +84,12 @@ class ErrorEnvelopeFilter implements ExceptionFilter {
 }
 
 @Module({
-  controllers: [AuthController, HealthController, MeController],
+  controllers: [AuthController, HealthController, MeController, DebugController],
   providers: [
+    PrismaService,
+    AuditService,
+    StateMachineService,
+    DebugService,
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseEnvelopeInterceptor,
