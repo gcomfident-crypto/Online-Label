@@ -61,6 +61,14 @@ export {
 } from './sampleSchemas.ts';
 
 export {
+  buildTemplateCompatibilityReport,
+  validateTemplateSchema,
+  type TemplateCompatibilityReport,
+  type TemplateSchemaValidationError,
+  type TemplateSchemaValidationResult,
+} from './templateValidation.ts';
+
+export {
   getDatasetProfile,
   normalizeDatasetRecord,
   shouldSkipImportFile,
