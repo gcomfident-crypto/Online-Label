@@ -13,6 +13,7 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
+      "@labelhub/shared": ["packages/shared/src/index.ts"],
       "@labelhub/shared/*": ["packages/shared/src/*"]
     }
   }
