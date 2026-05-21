@@ -28,6 +28,7 @@ import { PrismaService } from './prisma/prisma.service.ts';
 import { SchemaController } from './schema/schema.controller.ts';
 import { SchemaService } from './schema/schema.service.ts';
 import { StateMachineService } from './state-machine/state-machine.service.ts';
+import { SubmissionsModule } from './submissions/submissions.module.ts';
 import { TemplatesModule } from './templates/templates.module.ts';
 import { TasksModule } from './tasks/tasks.module.ts';
 
@@ -93,7 +94,14 @@ class ErrorEnvelopeFilter implements ExceptionFilter {
 }
 
 @Module({
-  imports: [TemplatesModule, TasksModule, DatasetsModule, AssignmentsModule, DraftsModule],
+  imports: [
+    TemplatesModule,
+    TasksModule,
+    DatasetsModule,
+    AssignmentsModule,
+    DraftsModule,
+    SubmissionsModule,
+  ],
   controllers: [
     AuthController,
     HealthController,
