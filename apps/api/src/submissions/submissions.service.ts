@@ -3,6 +3,8 @@ import type { DatasetKind, LabelHubSchema } from '@labelhub/shared';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
 import { SchemaService } from '../schema/schema.service.ts';
+import { aiReviewIdempotencyKey, normalizeIdempotencyKey } from '../common/idempotency/idempotency-key.ts';
+import { runInTransaction } from '../common/transactions/run-in-transaction.ts';
 
 type AssignmentStatus =
   | 'ASSIGNED'
@@ -21,6 +23,7 @@ type SubmissionRecord = {
   round: number;
   answers: Record<string, unknown>;
   schemaVersion: string;
+  idempotencyKey: string | null;
   submittedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -56,6 +59,7 @@ export type SubmitInput = {
   assignmentId: string;
   actorId?: string;
   answers: Record<string, unknown>;
+  idempotencyKey?: string;
 };
 
 export type SubmissionDto = {
@@ -113,6 +117,7 @@ type SubmissionsPrismaClient = {
     update: (args: { where: { id: string }; data: { status: 'COMPLETED' } }) => Promise<unknown>;
   };
   submission: {
+    findFirst: (args: { where: { idempotencyKey: string } }) => Promise<SubmissionRecord | null>;
     create: (args: {
       data: {
         assignmentId: string;
@@ -120,6 +125,7 @@ type SubmissionsPrismaClient = {
         round: number;
         answers: Record<string, unknown>;
         schemaVersion: string;
+        idempotencyKey?: string;
       };
     }) => Promise<SubmissionRecord>;
   };
@@ -164,7 +170,18 @@ export class SubmissionsService {
       });
     }
 
-    return this.prisma.$transaction(async (client) => {
+    const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+
+    return runInTransaction(this.prisma, async (client) => {
+      if (idempotencyKey) {
+        const existingSubmission = await client.submission.findFirst({
+          where: { idempotencyKey },
+        });
+        if (existingSubmission) {
+          return toSubmissionDto(existingSubmission);
+        }
+      }
+
       const assignment = await this.findAssignmentOrThrow(client, input.assignmentId);
 
       if (assignment.status === 'CANCELLED') {
@@ -192,6 +209,7 @@ export class SubmissionsService {
           round,
           answers: validation.answers,
           schemaVersion: assignment.task.template.schemaVersion,
+          ...(idempotencyKey ? { idempotencyKey } : {}),
         },
       });
 
@@ -349,10 +367,6 @@ function matchesLabelerSubmissionQuery(
 
 function nextRound(submissions: SubmissionRecord[]): number {
   return Math.max(0, ...submissions.map((submission) => submission.round)) + 1;
-}
-
-function aiReviewIdempotencyKey(submissionId: string, round: number): string {
-  return `${submissionId}:${round}:ai-review`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

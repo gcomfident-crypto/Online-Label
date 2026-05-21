@@ -35,6 +35,7 @@ describe('SubmissionsController', () => {
       assignmentId: 'assignment_1',
       actorId: 'user_labeler_li_lei',
       answers: { quality: 'pass' },
+      idempotencyKey: undefined,
     });
     expect(service.listLabelerSubmissions).toHaveBeenCalledWith({
       labelerId: 'user_labeler_li_lei',
@@ -65,6 +66,7 @@ describe('SubmissionsController', () => {
       assignmentId: 'assignment_1',
       actorId: undefined,
       answers: {},
+      idempotencyKey: undefined,
     });
     expect(service.listLabelerSubmissions).toHaveBeenCalledWith({
       labelerId: 'user_labeler_li_lei',

@@ -144,6 +144,12 @@ export const WorkbenchPage = () => {
         assignmentId: workbench.assignment.id,
         actorId: LABELER_ID,
         answers: linkageResult.answers,
+        idempotencyKey: createClientIdempotencyKey(
+          'submit',
+          workbench.assignment.id,
+          workbench.submissionHistory.length + 1,
+          linkageResult.answers,
+        ),
       });
       setWorkbench((current) =>
         current
@@ -439,4 +445,22 @@ function isTypingTarget(target: EventTarget | null): boolean {
     target instanceof HTMLSelectElement ||
     (target instanceof HTMLElement && target.isContentEditable)
   );
+}
+
+function createClientIdempotencyKey(
+  prefix: string,
+  assignmentId: string,
+  round: number,
+  answers: Record<string, unknown>,
+): string {
+  return `${prefix}:${assignmentId}:${round}:${stableHash(JSON.stringify(answers))}`;
+}
+
+function stableHash(value: string): string {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+
+  return Math.abs(hash).toString(36);
 }

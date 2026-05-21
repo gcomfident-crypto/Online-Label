@@ -110,6 +110,12 @@ export const ExportCenterPage = () => {
         format,
         includeReviews,
         fieldMapping: fieldMapping.length > 0 ? fieldMapping : preview.fieldMapping,
+        idempotencyKey: createExportIdempotencyKey(
+          selectedTaskId,
+          format,
+          includeReviews,
+          fieldMapping.length > 0 ? fieldMapping : preview.fieldMapping,
+        ),
       });
       setStatusMessage('导出任务已创建。');
       setErrorMessage(null);
@@ -212,3 +218,21 @@ const SummaryMetric = ({ label, value }: { label: string; value: number }) => (
     <dd>{value.toLocaleString()}</dd>
   </div>
 );
+
+function createExportIdempotencyKey(
+  taskId: string,
+  format: ExportFormat,
+  includeReviews: boolean,
+  fieldMapping: ExportFieldMapping[],
+): string {
+  return `export:${taskId}:${format}:${includeReviews ? 'reviews' : 'rows'}:${stableHash(JSON.stringify(fieldMapping))}`;
+}
+
+function stableHash(value: string): string {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+
+  return Math.abs(hash).toString(36);
+}

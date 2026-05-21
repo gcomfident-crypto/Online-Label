@@ -3,6 +3,8 @@ import { EXPORT_FORMATS, type DatasetKind, type ExportFormat } from '@labelhub/s
 import { basename } from 'node:path';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
+import { normalizeIdempotencyKey } from '../common/idempotency/idempotency-key.ts';
+import { runInTransaction } from '../common/transactions/run-in-transaction.ts';
 import {
   ExportMappingService,
   type ExportFieldMapping,
@@ -17,6 +19,7 @@ type ExportJobRecord = {
   requestedById: string | null;
   status: ExportStatus;
   format: ExportFormat;
+  idempotencyKey: string | null;
   fieldMapping: unknown;
   includeReviews: boolean;
   filters: unknown;
@@ -72,6 +75,7 @@ export type CreateExportInput = {
   format: string;
   includeReviews: boolean;
   fieldMapping?: unknown;
+  idempotencyKey?: string;
 };
 
 export type ExportPreviewInput = {
@@ -103,11 +107,13 @@ type ExportsPrismaClient = {
     findUnique: (args: { where: { id: string }; include?: unknown }) => Promise<ExportTaskRecord | null>;
   };
   exportJob: {
+    findFirst: (args: { where: { idempotencyKey: string } }) => Promise<ExportJobRecord | null>;
     create: (args: { data: Record<string, unknown> }) => Promise<ExportJobRecord>;
     findMany: (args?: { where?: Record<string, unknown>; orderBy?: unknown }) => Promise<ExportJobRecord[]>;
     findUnique: (args: { where: { id: string } }) => Promise<ExportJobRecord | null>;
     update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<ExportJobRecord>;
   };
+  $transaction: <TResult>(callback: (client: ExportsPrismaClient) => Promise<TResult>) => Promise<TResult>;
 };
 
 const EXPORT_TASK_INCLUDE = {
@@ -136,25 +142,39 @@ export class ExportsService {
 
   async createExport(input: CreateExportInput): Promise<ExportJobDto> {
     const format = normalizeFormat(input.format);
-    const task = await this.findTaskOrThrow(input.taskId);
-    const fieldMapping = this.mappingService.normalizeMapping(input.fieldMapping, task.template.datasetKind);
-    const job = await this.prisma.exportJob.create({
-      data: {
-        taskId: task.id,
-        requestedById: input.requestedById,
-        status: 'QUEUED',
-        format,
-        fieldMapping,
-        includeReviews: input.includeReviews,
-        filters: null,
-        filePath: null,
-        resultUrl: null,
-        errorMessage: null,
-        finishedAt: null,
-      },
-    });
+    const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
 
-    return toExportJobDto(job);
+    return runInTransaction(this.prisma, async (client) => {
+      if (idempotencyKey) {
+        const existingJob = await client.exportJob.findFirst({
+          where: { idempotencyKey },
+        });
+        if (existingJob) {
+          return toExportJobDto(existingJob);
+        }
+      }
+
+      const task = await this.findTaskOrThrow(input.taskId, client);
+      const fieldMapping = this.mappingService.normalizeMapping(input.fieldMapping, task.template.datasetKind);
+      const job = await client.exportJob.create({
+        data: {
+          taskId: task.id,
+          requestedById: input.requestedById,
+          status: 'QUEUED',
+          format,
+          ...(idempotencyKey ? { idempotencyKey } : {}),
+          fieldMapping,
+          includeReviews: input.includeReviews,
+          filters: null,
+          filePath: null,
+          resultUrl: null,
+          errorMessage: null,
+          finishedAt: null,
+        },
+      });
+
+      return toExportJobDto(job);
+    });
   }
 
   async listExports(query: { taskId?: string } = {}): Promise<ExportJobDto[]> {
@@ -221,8 +241,11 @@ export class ExportsService {
     };
   }
 
-  private async findTaskOrThrow(taskId: string): Promise<ExportTaskRecord> {
-    const task = await this.prisma.task.findUnique({
+  private async findTaskOrThrow(
+    taskId: string,
+    client: Pick<ExportsPrismaClient, 'task'> = this.prisma,
+  ): Promise<ExportTaskRecord> {
+    const task = await client.task.findUnique({
       where: { id: taskId },
       include: EXPORT_TASK_INCLUDE,
     });

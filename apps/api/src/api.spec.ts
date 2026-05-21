@@ -73,6 +73,21 @@ describe('LabelHub API shell', () => {
     });
   });
 
+  it('非对象请求体返回稳定参数错误', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send(['OWNER'])
+      .expect(400);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'REQUEST_BODY_INVALID',
+        message: '请求体必须是 JSON 对象。',
+      },
+      requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
+    });
+  });
+
   it('does not expose English framework messages for unknown routes', async () => {
     const response = await request(app.getHttpServer()).get('/missing-route').expect(404);
 

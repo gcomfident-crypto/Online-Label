@@ -12,6 +12,7 @@ export type ExportJobDto = {
   requestedById: string | null;
   status: ExportStatus;
   format: ExportFormat;
+  idempotencyKey: string | null;
   fieldMapping: unknown;
   includeReviews: boolean;
   filters: unknown;
@@ -56,9 +57,11 @@ export async function createExport(input: {
   format: ExportFormat;
   includeReviews: boolean;
   fieldMapping: ExportFieldMapping[];
+  idempotencyKey?: string;
 }): Promise<ExportJobDto> {
   return requestExportApi<ExportJobDto>('/exports', {
     method: 'POST',
+    headers: input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey } : undefined,
     body: JSON.stringify(input),
   });
 }

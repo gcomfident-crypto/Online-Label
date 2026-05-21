@@ -10,6 +10,7 @@ type ExportJob = {
   requestedById: string | null;
   status: 'QUEUED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';
   format: 'json' | 'jsonl' | 'csv' | 'xlsx';
+  idempotencyKey: string | null;
   fieldMapping: unknown;
   includeReviews: boolean;
   filters: unknown;
@@ -42,6 +43,22 @@ describe('ExportsService', () => {
       }),
     );
     expect(db.exportJobs[0].fieldMapping).toEqual(new ExportMappingService().getPreset('qa_quality'));
+  });
+
+  it('重复创建相同幂等键时返回既有导出任务', async () => {
+    const { service, db } = createService();
+    db.exportJobs.push(createExportJob('export_idempotent', 'QUEUED', { idempotencyKey: 'export_idem_1' }));
+
+    const job = await service.createExport({
+      taskId: 'task_qa',
+      requestedById: 'user_owner_001',
+      format: 'json',
+      includeReviews: true,
+      idempotencyKey: 'export_idem_1',
+    });
+
+    expect(job.id).toBe('export_idempotent');
+    expect(db.exportJobs).toHaveLength(1);
   });
 
   it('预览只读取 FINAL_APPROVED 数据，不包含 FINAL_PENDING', async () => {
@@ -147,6 +164,8 @@ function createExportDb() {
         findUnique: async (args: { where: { id: string } }) => (args.where.id === task.id ? task : null),
       },
       exportJob: {
+        findFirst: async (args: { where: { idempotencyKey: string } }) =>
+          exportJobs.find((job) => job.idempotencyKey === args.where.idempotencyKey) ?? null,
         create: async (args: { data: Partial<ExportJob> }) => {
           const job = {
             id: `export_${exportJobs.length + 1}`,
@@ -154,6 +173,7 @@ function createExportDb() {
             requestedById: args.data.requestedById ?? null,
             status: args.data.status ?? 'QUEUED',
             format: args.data.format ?? 'json',
+            idempotencyKey: args.data.idempotencyKey ?? null,
             fieldMapping: args.data.fieldMapping ?? [],
             includeReviews: args.data.includeReviews ?? false,
             filters: args.data.filters ?? null,
@@ -180,6 +200,8 @@ function createExportDb() {
           return exportJobs[index];
         },
       },
+      $transaction: async <TResult>(callback: (client: ConstructorParameters<typeof ExportsService>[0]) => Promise<TResult>) =>
+        callback(db.client as ConstructorParameters<typeof ExportsService>[0]),
     },
   };
 
@@ -242,13 +264,18 @@ function createAssignment(id: string, externalId: string, status: string) {
   };
 }
 
-function createExportJob(id: string, status: ExportJob['status']): ExportJob {
+function createExportJob(
+  id: string,
+  status: ExportJob['status'],
+  overrides: Partial<ExportJob> = {},
+): ExportJob {
   return {
     id,
     taskId: 'task_qa',
     requestedById: 'user_owner_001',
     status,
     format: 'json',
+    idempotencyKey: null,
     fieldMapping: new ExportMappingService().getPreset('qa_quality'),
     includeReviews: true,
     filters: null,
@@ -258,5 +285,6 @@ function createExportJob(id: string, status: ExportJob['status']): ExportJob {
     finishedAt: status === 'FAILED' ? new Date('2026-05-21T10:10:00.000Z') : null,
     createdAt: new Date('2026-05-21T10:00:00.000Z'),
     updatedAt: new Date('2026-05-21T10:10:00.000Z'),
+    ...overrides,
   };
 }

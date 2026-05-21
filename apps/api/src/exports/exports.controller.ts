@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Inject, Param, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Param, Post, Query, Res } from '@nestjs/common';
 
+import { resolveIdempotencyKey } from '../common/idempotency/idempotency-key.ts';
 import {
   ExportsService,
   type CreateExportInput,
@@ -14,6 +15,7 @@ type CreateExportDto = {
   format?: unknown;
   includeReviews?: unknown;
   fieldMapping?: unknown;
+  idempotencyKey?: unknown;
 };
 
 type ExportDownloadResponse = {
@@ -31,8 +33,11 @@ export class ExportsController {
   ) {}
 
   @Post('exports')
-  create(@Body() body: CreateExportDto = {}): Promise<ExportJobDto> {
-    return this.exportsService.createExport(normalizeCreateBody(body));
+  create(
+    @Body() body: CreateExportDto = {},
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ): Promise<ExportJobDto> {
+    return this.exportsService.createExport(normalizeCreateBody(body, idempotencyKey));
   }
 
   @Get('exports')
@@ -68,13 +73,17 @@ export class ExportsController {
   }
 }
 
-function normalizeCreateBody(body: CreateExportDto): CreateExportInput {
+function normalizeCreateBody(body: CreateExportDto, headerIdempotencyKey?: string): CreateExportInput {
   return {
     taskId: stringValue(body.taskId) ?? '',
     requestedById: stringValue(body.requestedById),
     format: stringValue(body.format) ?? 'json',
     includeReviews: body.includeReviews === true,
     fieldMapping: body.fieldMapping,
+    idempotencyKey: resolveIdempotencyKey({
+      headerValue: headerIdempotencyKey,
+      bodyValue: body.idempotencyKey,
+    }),
   };
 }
 

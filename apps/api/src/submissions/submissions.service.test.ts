@@ -21,6 +21,7 @@ type SubmissionRecord = {
   round: number;
   answers: Record<string, unknown>;
   schemaVersion: string;
+  idempotencyKey: string | null;
   submittedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -62,6 +63,7 @@ type MockSubmissionsPrisma = {
     update: (args: { where: { id: string }; data: { status: 'COMPLETED' } }) => Promise<unknown>;
   };
   submission: {
+    findFirst: (args: { where: { idempotencyKey: string } }) => Promise<SubmissionRecord | null>;
     create: (args: { data: Partial<SubmissionRecord> }) => Promise<SubmissionRecord>;
   };
   auditLog: {
@@ -135,6 +137,30 @@ describe('SubmissionsService', () => {
       'submission_previous',
       'submission_2',
     ]);
+  });
+
+  it('重复提交相同幂等键时返回既有提交且不重复写入副作用', async () => {
+    const previousSubmission = createSubmission(new Date('2026-05-21T00:00:00.000Z'), {
+      id: 'submission_idempotent',
+      idempotencyKey: 'submit_idem_1',
+      round: 1,
+    });
+    const { service, submissions, auditLogs, aiReviewJobs, completedItems } = createService({
+      submissions: [previousSubmission],
+    });
+
+    const result = await service.submit({
+      assignmentId: 'assignment_1',
+      actorId: 'user_labeler_li_lei',
+      answers: { quality: 'pass', comment: '重复点击提交。' },
+      idempotencyKey: 'submit_idem_1',
+    });
+
+    expect(result.id).toBe('submission_idempotent');
+    expect(submissions).toHaveLength(1);
+    expect(auditLogs).toHaveLength(0);
+    expect(aiReviewJobs).toHaveLength(0);
+    expect(completedItems).toHaveLength(0);
   });
 
   it('后端 Schema 校验会阻止缺必填字段提交', async () => {
@@ -257,6 +283,8 @@ function createService(
       },
     },
     submission: {
+      findFirst: async ({ where }) =>
+        submissions.find((submission) => submission.idempotencyKey === where.idempotencyKey) ?? null,
       create: async ({ data }) => {
         const assignment = assignments.find((candidate) => candidate.id === data.assignmentId);
         if (!assignment) {
@@ -270,6 +298,7 @@ function createService(
           round: Number(data.round),
           answers: data.answers as Record<string, unknown>,
           schemaVersion: String(data.schemaVersion),
+          idempotencyKey: (data.idempotencyKey as string | null | undefined) ?? null,
         });
         submissions.push(submission);
         assignment.submissions.push(submission);
@@ -353,6 +382,7 @@ function createSubmission(
     round: input.round ?? 1,
     answers: input.answers ?? { quality: 'pass' },
     schemaVersion: input.schemaVersion ?? 'r1',
+    idempotencyKey: input.idempotencyKey ?? null,
     submittedAt: input.submittedAt ?? now,
     createdAt: input.createdAt ?? now,
     updatedAt: input.updatedAt ?? now,

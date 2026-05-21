@@ -58,9 +58,11 @@ export async function submitAssignment(input: {
   assignmentId: string;
   actorId?: string;
   answers: Record<string, unknown>;
+  idempotencyKey?: string;
 }): Promise<SubmissionDto> {
   return requestSubmissionApi<SubmissionDto>('/submissions', {
     method: 'POST',
+    headers: input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey } : undefined,
     body: JSON.stringify(input),
   });
 }

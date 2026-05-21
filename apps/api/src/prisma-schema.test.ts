@@ -153,6 +153,8 @@ describe('Prisma schema', () => {
     expect(modelBlock('ReviewRule')).toMatch(/\bprovider\s+String\s+@default\(\"mock\"\)/);
     expect(modelBlock('ReviewRule')).toMatch(/\bmodel\s+String\s+@default\(\"mock-stable-reviewer\"\)/);
     expect(modelBlock('ReviewRule')).toMatch(/\btemperature\s+Float\s+@default\(0\)/);
+    expect(modelBlock('Submission')).toMatch(/\bidempotencyKey\s+String\?/);
+    expect(modelBlock('Submission')).toMatch(/@@unique\(\[idempotencyKey\]\)/);
     expect(modelBlock('ReviewRecord')).toMatch(/\brawPrompt\s+String\?/);
     expect(modelBlock('ReviewRecord')).toMatch(/\brawOutput\s+String\?/);
     expect(modelBlock('ReviewRecord')).toMatch(/\bretryCount\s+Int\s+@default\(0\)/);
@@ -183,6 +185,8 @@ describe('Prisma schema', () => {
 
   it('keeps export parameter snapshots and generated file locations', () => {
     expect(modelBlock('ExportJob')).toMatch(/\bformat\s+ExportFormat\b/);
+    expect(modelBlock('ExportJob')).toMatch(/\bidempotencyKey\s+String\?/);
+    expect(modelBlock('ExportJob')).toMatch(/@@unique\(\[idempotencyKey\]\)/);
     expect(modelBlock('ExportJob')).toMatch(/\bfieldMapping\s+Json\b/);
     expect(modelBlock('ExportJob')).toMatch(/\bincludeReviews\s+Boolean\b/);
     expect(modelBlock('ExportJob')).toMatch(/\bfilePath\s+String\?/);

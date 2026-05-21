@@ -219,6 +219,31 @@ describe('ReviewsService', () => {
       expect.objectContaining({ action: 'HUMAN_REVIEW_BULK_REJECTED' }),
     );
   });
+
+  it('批量通过遇到部分失败时返回逐条结果', async () => {
+    const { service, db } = createService();
+    db.submissions[1].status = 'FINAL_PENDING';
+
+    const result = await service.batchPass({
+      actorId: 'reviewer_2',
+      submissionIds: ['submission_1', 'submission_2'],
+      comment: '批量同意。',
+    });
+
+    expect(result.processedCount).toBe(1);
+    expect(result.failedCount).toBe(1);
+    expect(result.results).toEqual([
+      expect.objectContaining({ submissionId: 'submission_1', status: 'SUCCEEDED' }),
+      expect.objectContaining({
+        submissionId: 'submission_2',
+        status: 'FAILED',
+        error: expect.objectContaining({
+          code: 'SUBMISSION_NOT_REVIEWABLE',
+          message: '只有待人工复审或复审中的提交可以执行人工复审。',
+        }),
+      }),
+    ]);
+  });
 });
 
 function createService() {

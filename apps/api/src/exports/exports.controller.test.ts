@@ -44,6 +44,7 @@ describe('ExportsController', () => {
       format: 'csv',
       includeReviews: true,
       fieldMapping: [{ source: 'rawData.prompt', target: 'prompt', enabled: true }],
+      idempotencyKey: undefined,
     });
     expect(service.listExports).toHaveBeenCalledWith({ taskId: 'task_qa' });
     expect(service.getExport).toHaveBeenCalledWith('export_1');

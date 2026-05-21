@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Inject, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Post, Query } from '@nestjs/common';
 import { DATASET_KINDS, type DatasetKind } from '@labelhub/shared';
 
+import { resolveIdempotencyKey } from '../common/idempotency/idempotency-key.ts';
 import {
   SubmissionsService,
   type LabelerStatsDto,
@@ -14,6 +15,7 @@ type SubmitBody = {
   assignmentId?: unknown;
   actorId?: unknown;
   answers?: unknown;
+  idempotencyKey?: unknown;
 };
 
 const DEFAULT_LABELER_ID = 'user_labeler_li_lei';
@@ -29,8 +31,11 @@ export class SubmissionsController {
   ) {}
 
   @Post('submissions')
-  submit(@Body() body: SubmitBody): Promise<SubmissionDto> {
-    return this.submissionsService.submit(normalizeSubmitBody(body));
+  submit(
+    @Body() body: SubmitBody,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ): Promise<SubmissionDto> {
+    return this.submissionsService.submit(normalizeSubmitBody(body, idempotencyKey));
   }
 
   @Get('labeler/submissions')
@@ -58,11 +63,15 @@ export class SubmissionsController {
   }
 }
 
-function normalizeSubmitBody(body: SubmitBody): SubmitInput {
+function normalizeSubmitBody(body: SubmitBody, headerIdempotencyKey?: string): SubmitInput {
   return {
     assignmentId: stringValue(body.assignmentId) ?? '',
     actorId: stringValue(body.actorId),
     answers: recordValue(body.answers),
+    idempotencyKey: resolveIdempotencyKey({
+      headerValue: headerIdempotencyKey,
+      bodyValue: body.idempotencyKey,
+    }),
   };
 }
 

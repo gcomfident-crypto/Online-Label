@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import type { DatasetKind } from '@labelhub/shared';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
+import { runInTransaction } from '../common/transactions/run-in-transaction.ts';
 
 export type AssignmentStatus =
   | 'ASSIGNED'
@@ -203,7 +204,7 @@ export class AssignmentsService {
       });
     }
 
-    return this.prisma.$transaction(async (client) => {
+    return runInTransaction(this.prisma, async (client) => {
       const task = await client.task.findUnique({
         where: { id: input.taskId },
         select: {

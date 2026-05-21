@@ -239,6 +239,7 @@ model Submission {
   round         Int
   answers       Json
   schemaVersion String
+  idempotencyKey String?
   submittedAt   DateTime         @default(now())
   reviewRecords ReviewRecord[]
   aiReviewJobs  AiReviewJob[]
@@ -247,6 +248,7 @@ model Submission {
   updatedAt     DateTime         @updatedAt
 
   @@unique([assignmentId, round])
+  @@unique([idempotencyKey])
   @@index([assignmentId])
   @@index([status])
   @@map("submissions")
@@ -371,6 +373,7 @@ model ExportJob {
   requestedBy    User?        @relation("ExportJobRequester", fields: [requestedById], references: [id], onDelete: SetNull)
   status         ExportStatus @default(QUEUED)
   format         ExportFormat
+  idempotencyKey String?
   fieldMapping   Json
   includeReviews Boolean      @default(false)
   filters        Json?
@@ -381,6 +384,7 @@ model ExportJob {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  @@unique([idempotencyKey])
   @@index([taskId])
   @@index([requestedById])
   @@index([status])

@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import type { DatasetKind } from '@labelhub/shared';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
+import { runInTransaction } from '../common/transactions/run-in-transaction.ts';
 import type { ReviewDetailDto, ReviewQueueItemDto, ReviewRecordDto, ReviewTimelineItemDto } from './reviews.service.ts';
 
 type ReviewStage = 'AI_PRECHECK' | 'RECHECK' | 'FINAL';
@@ -153,7 +154,7 @@ export class FinalReviewService {
   }
 
   async finalPass(submissionId: string, input: FinalReviewActionInput = {}): Promise<ReviewDetailDto> {
-    return this.prisma.$transaction(async (client) => {
+    return runInTransaction(this.prisma, async (client) => {
       const submission = await this.findFinalReviewableSubmission(client, submissionId);
       await createFinalReviewRecord(client, submission, {
         actorId: input.actorId,
@@ -185,7 +186,7 @@ export class FinalReviewService {
       });
     }
 
-    return this.prisma.$transaction(async (client) => {
+    return runInTransaction(this.prisma, async (client) => {
       const submission = await this.findFinalReviewableSubmission(client, submissionId);
       await createFinalReviewRecord(client, submission, {
         actorId: input.actorId,

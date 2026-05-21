@@ -1,7 +1,9 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { DatasetKind } from '@labelhub/shared';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
+import { resolveErrorEnvelope } from '../common/filters/http-error-envelope.filter.ts';
+import { runInTransaction } from '../common/transactions/run-in-transaction.ts';
 
 type ReviewStage = 'AI_PRECHECK' | 'RECHECK' | 'FINAL';
 type ReviewerType = 'AI' | 'HUMAN';
@@ -187,9 +189,26 @@ export type AssignReviewsInput = {
   submissionIds: string[];
 };
 
+export type BatchReviewItemResultDto =
+  | {
+      submissionId: string;
+      status: 'SUCCEEDED';
+      detail: ReviewDetailDto;
+    }
+  | {
+      submissionId: string;
+      status: 'FAILED';
+      error: {
+        code: string;
+        message: string;
+      };
+    };
+
 export type BatchReviewResultDto = {
   processedCount: number;
+  failedCount: number;
   submissions: ReviewDetailDto[];
+  results: BatchReviewItemResultDto[];
 };
 
 type ReviewsPrismaClient = {
@@ -291,7 +310,7 @@ export class ReviewsService {
   }
 
   async startReview(submissionId: string, input: { actorId?: string } = {}): Promise<ReviewDetailDto> {
-    return this.prisma.$transaction(async (client) => {
+    return runInTransaction(this.prisma, async (client) => {
       const submission = await this.findReviewableSubmission(client, submissionId);
       if (submission.status === 'RECHECK_REVIEWING') {
         return toReviewDetailDto(submission);
@@ -317,7 +336,7 @@ export class ReviewsService {
   }
 
   async passReview(submissionId: string, input: ReviewActionInput = {}): Promise<ReviewDetailDto> {
-    return this.prisma.$transaction(async (client) => {
+    return runInTransaction(this.prisma, async (client) => {
       const submission = await this.ensureReviewing(client, submissionId, input.actorId);
       await createHumanReviewRecord(client, submission, {
         actorId: input.actorId,
@@ -353,7 +372,7 @@ export class ReviewsService {
       });
     }
 
-    return this.prisma.$transaction(async (client) => {
+    return runInTransaction(this.prisma, async (client) => {
       const submission = await this.ensureReviewing(client, submissionId, input.actorId);
       await createHumanReviewRecord(client, submission, {
         actorId: input.actorId,
@@ -388,7 +407,7 @@ export class ReviewsService {
       });
     }
 
-    return this.prisma.$transaction(async (client) => {
+    return runInTransaction(this.prisma, async (client) => {
       const submission = await this.ensureReviewing(client, submissionId, input.actorId);
       await createHumanReviewRecord(client, submission, {
         actorId: input.actorId,
@@ -425,13 +444,21 @@ export class ReviewsService {
 
   async batchPass(input: BatchReviewInput): Promise<BatchReviewResultDto> {
     const submissionIds = normalizeSubmissionIds(input.submissionIds);
-    const submissions: ReviewDetailDto[] = [];
-    for (const submissionId of submissionIds) {
-      submissions.push(await this.passReview(submissionId, { actorId: input.actorId, comment: input.comment }));
+    const result = await executeBatchReviewAction(submissionIds, (submissionId) =>
+      this.passReview(submissionId, { actorId: input.actorId, comment: input.comment }),
+    );
+    if (result.processedCount > 0) {
+      await writeBatchAudit(
+        this.prisma,
+        result.submissions.map((submission) => submission.submission.id),
+        input.actorId,
+        'FINAL_PENDING',
+        'HUMAN_REVIEW_BULK_APPROVED',
+        input.comment,
+      );
     }
-    await writeBatchAudit(this.prisma, submissionIds, input.actorId, 'FINAL_PENDING', 'HUMAN_REVIEW_BULK_APPROVED', input.comment);
 
-    return { processedCount: submissions.length, submissions };
+    return result;
   }
 
   async batchReject(input: BatchReviewInput): Promise<BatchReviewResultDto> {
@@ -444,13 +471,21 @@ export class ReviewsService {
     }
 
     const submissionIds = normalizeSubmissionIds(input.submissionIds);
-    const submissions: ReviewDetailDto[] = [];
-    for (const submissionId of submissionIds) {
-      submissions.push(await this.rejectReview(submissionId, { actorId: input.actorId, reason }));
+    const result = await executeBatchReviewAction(submissionIds, (submissionId) =>
+      this.rejectReview(submissionId, { actorId: input.actorId, reason }),
+    );
+    if (result.processedCount > 0) {
+      await writeBatchAudit(
+        this.prisma,
+        result.submissions.map((submission) => submission.submission.id),
+        input.actorId,
+        'NEEDS_REVISION',
+        'HUMAN_REVIEW_BULK_REJECTED',
+        reason,
+      );
     }
-    await writeBatchAudit(this.prisma, submissionIds, input.actorId, 'NEEDS_REVISION', 'HUMAN_REVIEW_BULK_REJECTED', reason);
 
-    return { processedCount: submissions.length, submissions };
+    return result;
   }
 
   async assignReviews(input: AssignReviewsInput): Promise<BatchReviewResultDto> {
@@ -462,17 +497,25 @@ export class ReviewsService {
     }
 
     const submissionIds = normalizeSubmissionIds(input.submissionIds);
-    const submissions: ReviewDetailDto[] = [];
-    for (const submissionId of submissionIds) {
-      submissions.push(await this.assignOneReview(submissionId, input.reviewerId, input.actorId));
+    const result = await executeBatchReviewAction(submissionIds, (submissionId) =>
+      this.assignOneReview(submissionId, input.reviewerId, input.actorId),
+    );
+    if (result.processedCount > 0) {
+      await writeBatchAudit(
+        this.prisma,
+        result.submissions.map((submission) => submission.submission.id),
+        input.actorId,
+        'HUMAN_PENDING',
+        'HUMAN_REVIEW_ASSIGNED',
+        `指派给 ${input.reviewerId}`,
+      );
     }
-    await writeBatchAudit(this.prisma, submissionIds, input.actorId, 'HUMAN_PENDING', 'HUMAN_REVIEW_ASSIGNED', `指派给 ${input.reviewerId}`);
 
-    return { processedCount: submissions.length, submissions };
+    return result;
   }
 
   private async assignOneReview(submissionId: string, reviewerId: string, actorId?: string): Promise<ReviewDetailDto> {
-    return this.prisma.$transaction(async (client) => {
+    return runInTransaction(this.prisma, async (client) => {
       const submission = await this.findReviewableSubmission(client, submissionId);
       await createHumanReviewRecord(client, submission, {
         actorId,
@@ -553,6 +596,46 @@ export class ReviewsService {
 
     return submission;
   }
+}
+
+async function executeBatchReviewAction(
+  submissionIds: string[],
+  action: (submissionId: string) => Promise<ReviewDetailDto>,
+): Promise<BatchReviewResultDto> {
+  const submissions: ReviewDetailDto[] = [];
+  const results: BatchReviewItemResultDto[] = [];
+
+  for (const submissionId of submissionIds) {
+    try {
+      const detail = await action(submissionId);
+      submissions.push(detail);
+      results.push({ submissionId, status: 'SUCCEEDED', detail });
+    } catch (error) {
+      results.push({
+        submissionId,
+        status: 'FAILED',
+        error: toBatchReviewError(error),
+      });
+    }
+  }
+
+  return {
+    processedCount: submissions.length,
+    failedCount: results.length - submissions.length,
+    submissions,
+    results,
+  };
+}
+
+function toBatchReviewError(error: unknown): { code: string; message: string } {
+  if (error instanceof HttpException) {
+    return resolveErrorEnvelope(error.getResponse(), error.getStatus());
+  }
+
+  return {
+    code: 'BATCH_REVIEW_ITEM_FAILED',
+    message: '单条审核处理失败，请稍后重试。',
+  };
 }
 
 async function createHumanReviewRecord(
