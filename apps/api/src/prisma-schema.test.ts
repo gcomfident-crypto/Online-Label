@@ -73,6 +73,10 @@ describe('Prisma schema', () => {
     expect(modelBlock('AuditLog')).toMatch(/\bmetadata\s+Json\?/);
   });
 
+  it('keeps one coverable draft per assignment', () => {
+    expect(modelBlock('Draft')).toMatch(/@@unique\(\[assignmentId\]\)/);
+  });
+
   it('keeps immutable template version metadata', () => {
     expect(enumValues('TemplateStatus')).toEqual(['DRAFT', 'PUBLISHED', 'ARCHIVED']);
     expect(modelBlock('TaskTemplate')).toMatch(/\bstatus\s+TemplateStatus\s+@default\(DRAFT\)/);

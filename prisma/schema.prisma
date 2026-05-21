@@ -212,7 +212,7 @@ model Draft {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  @@index([assignmentId])
+  @@unique([assignmentId])
   @@map("drafts")
 }
 
