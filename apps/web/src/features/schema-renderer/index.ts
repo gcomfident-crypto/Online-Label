@@ -1,5 +1,11 @@
 export { FieldRenderer } from './FieldRenderer';
 export { SchemaRenderer } from './SchemaRenderer';
+export {
+  preferenceCompareRawData,
+  preferenceCompareSchema,
+  qaQualityRawDataSamples,
+  qaQualitySchema,
+} from './examples';
 export { applySchemaLinkage } from './linkage';
 export { validateSchemaAnswers } from './validation';
 export type {

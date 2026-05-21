@@ -78,6 +78,10 @@ export type FieldOption = {
 export type SchemaField = {
   key: string;
   fieldKey?: string;
+  sourceKey?: string;
+  sourceKeys?: readonly string[];
+  targetFieldKey?: string;
+  promptTemplate?: string;
   type: FieldType;
   label: string;
   description?: string;

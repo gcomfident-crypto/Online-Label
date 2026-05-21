@@ -1,0 +1,147 @@
+import { createLabelHubSchema } from '@labelhub/shared';
+
+export const qaQualitySchema = createLabelHubSchema({
+  schemaVersion: '1.0.0',
+  datasetKind: 'qa_quality',
+  fields: [
+    {
+      key: 'qa_material',
+      type: 'show_item',
+      label: '题目原始数据',
+      sourceKeys: [
+        'prompt',
+        'model_answer',
+        'reference',
+        'media_type',
+        'media_url',
+        'content_markdown',
+      ],
+    },
+    {
+      key: 'relevance_score_field',
+      fieldKey: 'relevance_score',
+      type: 'radio',
+      label: '相关性评分',
+      validation: { required: true },
+      options: [
+        { label: '1 分', value: '1' },
+        { label: '2 分', value: '2' },
+        { label: '3 分', value: '3' },
+        { label: '4 分', value: '4' },
+        { label: '5 分', value: '5' },
+      ],
+    },
+    {
+      key: 'accuracy_score_field',
+      fieldKey: 'accuracy_score',
+      type: 'radio',
+      label: '准确性评分',
+      validation: { required: true },
+      options: [
+        { label: '1 分', value: '1' },
+        { label: '2 分', value: '2' },
+        { label: '3 分', value: '3' },
+        { label: '4 分', value: '4' },
+        { label: '5 分', value: '5' },
+      ],
+    },
+    {
+      key: 'format_score_field',
+      fieldKey: 'format_score',
+      type: 'radio',
+      label: '格式合规评分',
+      validation: { required: true },
+      options: [
+        { label: '1 分', value: '1' },
+        { label: '2 分', value: '2' },
+        { label: '3 分', value: '3' },
+        { label: '4 分', value: '4' },
+        { label: '5 分', value: '5' },
+      ],
+    },
+    {
+      key: 'safety_score_field',
+      fieldKey: 'safety_score',
+      type: 'radio',
+      label: '安全性评分',
+      validation: { required: true },
+      options: [
+        { label: '1 分', value: '1' },
+        { label: '2 分', value: '2' },
+        { label: '3 分', value: '3' },
+        { label: '4 分', value: '4' },
+        { label: '5 分', value: '5' },
+      ],
+    },
+    {
+      key: 'issue_tags_field',
+      fieldKey: 'issue_tags',
+      type: 'tag_select',
+      label: '问题类型标签',
+      options: [
+        { label: '事实错误', value: 'fact_error' },
+        { label: '答非所问', value: 'irrelevant' },
+        { label: '格式问题', value: 'format_issue' },
+        { label: '安全违规', value: 'safety_risk' },
+        { label: '信息缺失', value: 'missing_info' },
+      ],
+    },
+    {
+      key: 'summary_field',
+      fieldKey: 'summary',
+      type: 'text',
+      label: '一句话总评',
+      validation: { required: true, maxLength: 60 },
+    },
+    {
+      key: 'comment_field',
+      fieldKey: 'comment',
+      type: 'textarea',
+      label: '详细评语 / 打回理由',
+      validation: { required: true },
+    },
+    {
+      key: 'structured_note_field',
+      fieldKey: 'structured_note',
+      type: 'json_editor',
+      label: '修正后的标准答案 / 评分明细',
+    },
+    {
+      key: 'qa_llm_assist',
+      type: 'llm_assist',
+      label: 'AI 预评分参考',
+      targetFieldKey: 'structured_note',
+      promptTemplate: '请根据题目、模型回答、参考答案和标注员评分给出结构化预审建议。',
+    },
+  ],
+} as const);
+
+export const qaQualityRawDataSamples = [
+  {
+    prompt: '请说明光合作用的主要过程。',
+    model_answer: '光合作用会吸收二氧化碳并释放氧气。',
+    reference: '应包含光能转化、二氧化碳和水生成有机物、释放氧气。',
+    media_type: 'text',
+  },
+  {
+    prompt: '请根据图片判断设备是否存在明显损坏。',
+    model_answer: '设备外壳有裂纹，建议维修。',
+    reference: '需要指出外壳裂纹并建议暂停使用。',
+    media_type: 'image',
+    media_url: 'https://example.test/qa-quality/device.png',
+  },
+  {
+    prompt: '请根据视频总结客服是否完整说明退款步骤。',
+    model_answer: '客服说明了申请入口，但未说明审核时效。',
+    reference: '应包含申请入口、材料要求、审核时效和到账方式。',
+    media_type: 'video',
+    media_url: 'https://example.test/qa-quality/refund.mp4',
+  },
+  {
+    prompt: '请阅读 Markdown 材料后判断回答是否完整。',
+    model_answer: '回答覆盖了基础信息。',
+    reference: '需要覆盖条款、例外情况和操作路径。',
+    media_type: 'markdown',
+    content_markdown: '# 售后规则\n\n- 七天内可申请退货\n- 特价商品需人工审核',
+  },
+] as const;

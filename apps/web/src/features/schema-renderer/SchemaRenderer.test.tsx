@@ -6,6 +6,12 @@ import { describe, expect, it, vi } from 'vitest';
 import type { LabelHubSchema } from '@labelhub/shared';
 
 import { SchemaRenderer } from './SchemaRenderer';
+import {
+  preferenceCompareRawData,
+  preferenceCompareSchema,
+  qaQualityRawDataSamples,
+  qaQualitySchema,
+} from './examples';
 import { applySchemaLinkage } from './linkage';
 import { validateSchemaAnswers } from './validation';
 
@@ -20,7 +26,7 @@ describe('SchemaRenderer', () => {
     render(
       <SchemaRenderer
         schema={baseSchema([
-          { key: 'prompt', type: 'show_item', label: '题目' },
+          { key: 'material', type: 'show_item', label: '题目', sourceKey: 'prompt' },
         ])}
         rawData={{ prompt: '请总结这段内容' }}
         value={{}}
@@ -32,6 +38,153 @@ describe('SchemaRenderer', () => {
     expect(screen.getByText('展示项 ShowItem')).toBeInTheDocument();
     expect(screen.getByText('题目')).toBeInTheDocument();
     expect(screen.getByText('请总结这段内容')).toBeInTheDocument();
+  });
+
+  it('qa_quality 官方示例展示 prompt、model_answer 和 reference', () => {
+    render(
+      <SchemaRenderer
+        schema={qaQualitySchema}
+        rawData={qaQualityRawDataSamples[0]}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('展示项 ShowItem')).toBeInTheDocument();
+    expect(screen.getByText('用户问题')).toBeInTheDocument();
+    expect(screen.getByText('请说明光合作用的主要过程。')).toBeInTheDocument();
+    expect(screen.getByText('模型回答')).toBeInTheDocument();
+    expect(screen.getByText('光合作用会吸收二氧化碳并释放氧气。')).toBeInTheDocument();
+    expect(screen.getByText('参考答案')).toBeInTheDocument();
+    expect(screen.getByText('应包含光能转化、二氧化碳和水生成有机物、释放氧气。')).toBeInTheDocument();
+  });
+
+  it('show_item 按 media_type 渲染 text、image、video 和 markdown', () => {
+    const schema = baseSchema([
+      {
+        key: 'material',
+        type: 'show_item',
+        label: '题目物料',
+        sourceKeys: ['prompt', 'media_type', 'media_url', 'content_markdown'],
+      },
+    ]);
+
+    const { rerender, container } = render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{ prompt: '纯文本题目', media_type: 'text' }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('纯文本题目')).toBeInTheDocument();
+
+    rerender(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{
+          prompt: '图片题目',
+          media_type: 'image',
+          media_url: 'https://example.test/material.png',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('img', { name: '题目媒体' })).toHaveAttribute(
+      'src',
+      'https://example.test/material.png',
+    );
+
+    rerender(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{
+          prompt: '视频题目',
+          media_type: 'video',
+          media_url: 'https://example.test/material.mp4',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const video = container.querySelector('video');
+    expect(video).toBeInTheDocument();
+    expect(video).toHaveAttribute('controls');
+    expect(video).toHaveAttribute('src', 'https://example.test/material.mp4');
+
+    rerender(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{
+          prompt: 'Markdown 题目',
+          media_type: 'markdown',
+          content_markdown: '# 标题\n\n- 要点一\n- 要点二',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('标题')).toBeInTheDocument();
+    expect(screen.getByText('要点一')).toBeInTheDocument();
+    expect(screen.getByText('要点二')).toBeInTheDocument();
+  });
+
+  it('preference_compare 官方示例并排展示 response_a 与 response_b 并显示 prompt', () => {
+    render(
+      <SchemaRenderer
+        schema={preferenceCompareSchema}
+        rawData={preferenceCompareRawData}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('请比较两个回答哪一个更适合作为客服回复。')).toBeInTheDocument();
+    expect(screen.getByTestId('preference-compare-panel-a')).toHaveTextContent(
+      '回答 A 已准确回应用户问题，但缺少后续操作建议。',
+    );
+    expect(screen.getByTestId('preference-compare-panel-b')).toHaveTextContent(
+      '回答 B 先说明结论，再补充操作路径和注意事项。',
+    );
+  });
+
+  it('官方示例 schema 使用 fieldKey 写入 answers', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <SchemaRenderer
+          schema={qaQualitySchema}
+          rawData={qaQualityRawDataSamples[0]}
+          value={answers}
+          mode="answer"
+          onChange={(next) => {
+            setAnswers(next);
+            onChange(next);
+          }}
+        />
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    await user.type(screen.getByLabelText('一句话总评'), '回答基本可用');
+
+    expect(onChange).toHaveBeenLastCalledWith({ summary: '回答基本可用' });
   });
 
   it('文本字段输入后用 field.key 写入 answers', async () => {
