@@ -10,6 +10,7 @@ import { ReviewerPortalLayout } from './layouts/ReviewerPortalLayout';
 import { ForbiddenPage } from './pages/ForbiddenPage';
 import { LoginPage } from './pages/LoginPage';
 import { AgentAiReviewPage } from './pages/agent/AgentAiReviewPage';
+import { RendererPlaygroundPage } from './pages/dev/RendererPlaygroundPage';
 import { LabelerMarketPage } from './pages/labeler/LabelerMarketPage';
 import { OwnerTasksPage } from './pages/owner/OwnerTasksPage';
 import { OwnerTemplatesPage } from './pages/owner/OwnerTemplatesPage';
@@ -20,6 +21,7 @@ export const AppRouter = () => {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
+      <Route path="/dev/renderer" element={<RendererPlaygroundPage />} />
       <Route
         path="/owner"
         element={

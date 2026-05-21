@@ -1,7 +1,15 @@
 import type { EditableFieldProps } from './common';
-import { FieldDescription, getFieldValue, getStringValue, isDisabledMode } from './common';
+import {
+  FieldCounter,
+  FieldDescription,
+  getFieldValue,
+  getStringValue,
+  isDisabledMode,
+} from './common';
 
 export const TextField = ({ field, value, mode, disabled, onFieldChange }: EditableFieldProps) => {
+  const stringValue = getStringValue(getFieldValue(field, value));
+
   return (
     <label className="schema-field" data-field-type={field.type}>
       <span>{field.label}</span>
@@ -10,9 +18,10 @@ export const TextField = ({ field, value, mode, disabled, onFieldChange }: Edita
         aria-label={field.label}
         disabled={isDisabledMode(mode, disabled)}
         placeholder={field.placeholder}
-        value={getStringValue(getFieldValue(field, value))}
+        value={stringValue}
         onChange={(event) => onFieldChange(field, event.target.value)}
       />
+      <FieldCounter maxLength={field.validation?.maxLength} value={stringValue} />
     </label>
   );
 };

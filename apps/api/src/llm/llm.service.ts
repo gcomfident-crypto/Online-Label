@@ -85,6 +85,15 @@ function createDatasetSuggestion(
     };
   }
 
+  if (targetFieldKey === 'cleaned_title') {
+    return {
+      datasetKind,
+      targetFieldKey,
+      summary: '已生成清洗标题。',
+      suggestion: '轻量降噪蓝牙耳机 Pro Max 黑色',
+    };
+  }
+
   return {
     datasetKind,
     targetFieldKey,

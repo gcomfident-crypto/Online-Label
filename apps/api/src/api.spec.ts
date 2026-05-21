@@ -181,6 +181,27 @@ describe('LabelHub API shell', () => {
     });
   });
 
+  it('按 generic_json 的 cleaned_title 返回文本型 mock 建议', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/llm/assist/mock')
+      .send({
+        datasetKind: 'generic_json',
+        rawData: {
+          raw_title: '【官方旗舰】轻量降噪蓝牙耳机 Pro Max - 黑色 现货',
+        },
+        answers: {},
+        targetFieldKey: 'cleaned_title',
+      })
+      .expect(201);
+
+    expect(response.body.data).toEqual({
+      datasetKind: 'generic_json',
+      targetFieldKey: 'cleaned_title',
+      summary: '已生成清洗标题。',
+      suggestion: '轻量降噪蓝牙耳机 Pro Max 黑色',
+    });
+  });
+
   it('LLM 辅助 mock 拒绝无效数据集类型', async () => {
     const response = await request(app.getHttpServer())
       .post('/llm/assist/mock')
@@ -191,6 +212,21 @@ describe('LabelHub API shell', () => {
       error: {
         code: 'INVALID_LLM_ASSIST_REQUEST',
         message: 'LLM 辅助请求缺少有效的数据集类型。',
+      },
+      requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
+    });
+  });
+
+  it('LLM 辅助 mock 拒绝缺少目标字段的请求', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/llm/assist/mock')
+      .send({ datasetKind: 'qa_quality' })
+      .expect(400);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_LLM_ASSIST_REQUEST',
+        message: 'LLM 辅助请求缺少目标字段。',
       },
       requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
     });

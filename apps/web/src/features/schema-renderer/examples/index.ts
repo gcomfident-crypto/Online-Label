@@ -6,3 +6,7 @@ export {
   preferenceCompareRawData,
   preferenceCompareSchema,
 } from './preferenceCompareSchema';
+export {
+  titleCleanupRawData,
+  titleCleanupSchema,
+} from './titleCleanupSchema';

@@ -11,6 +11,8 @@ import {
   preferenceCompareSchema,
   qaQualityRawDataSamples,
   qaQualitySchema,
+  titleCleanupRawData,
+  titleCleanupSchema,
 } from './examples';
 import { applySchemaLinkage } from './linkage';
 import { validateSchemaAnswers } from './validation';
@@ -608,6 +610,8 @@ describe('SchemaRenderer', () => {
     expect(
       await screen.findByText('建议补充关键依据，并复核准确性与完整性评分。'),
     ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '重新生成' }));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     await user.click(screen.getByRole('button', { name: '采纳' }));
 
     expect(onChange).toHaveBeenLastCalledWith({
@@ -656,6 +660,67 @@ describe('SchemaRenderer', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'LLM 辅助暂时不可用，请稍后重试。',
     );
+  });
+
+  it('商品标题清洗 v3 示例触发长度计数、类目联动、标签必填和 LLM 采纳', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          datasetKind: 'generic_json',
+          targetFieldKey: 'cleaned_title',
+          summary: '已生成清洗标题。',
+          suggestion: '轻量降噪蓝牙耳机 Pro Max 黑色',
+        },
+      }),
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <SchemaRenderer
+          schema={titleCleanupSchema}
+          rawData={titleCleanupRawData}
+          value={answers}
+          mode="answer"
+          onChange={(next) => {
+            setAnswers(next);
+            onChange(next);
+          }}
+        />
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    expect(screen.getByText('商品标题清洗 v3')).toBeInTheDocument();
+    expect(screen.getByText('0 / 35')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('清洗后标题'), '超长清洗标题'.repeat(8));
+    expect(screen.getByText('48 / 35')).toBeInTheDocument();
+    expect(screen.getByText('清洗后标题不能超过 35 个字符。')).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('主类目：数码配件'));
+    expect(screen.getByText('卖点关键词为必填项。')).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('卖点关键词：降噪'));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        category: 'electronics',
+        keywords: ['noise_reduction'],
+      }),
+    );
+
+    await user.click(screen.getByRole('button', { name: '生成建议' }));
+    expect(await screen.findByText('已生成清洗标题。')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '采纳' }));
+
+    expect(screen.getByLabelText('清洗后标题')).toHaveValue('轻量降噪蓝牙耳机 Pro Max 黑色');
   });
 
   it('rich_text 输入后写入字符串', async () => {

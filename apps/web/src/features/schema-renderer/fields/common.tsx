@@ -90,6 +90,30 @@ export const FieldDescription = ({ field }: { field: SchemaField }) => {
   return field.description ? <small>{field.description}</small> : null;
 };
 
+export const FieldCounter = ({
+  maxLength,
+  value,
+}: {
+  maxLength?: number;
+  value: string;
+}) => {
+  if (maxLength === undefined) {
+    return null;
+  }
+
+  const overLimit = value.length > maxLength;
+
+  return (
+    <small
+      className={
+        overLimit ? 'schema-field__counter schema-field__counter--over' : 'schema-field__counter'
+      }
+    >
+      {value.length} / {maxLength}
+    </small>
+  );
+};
+
 export const UploadedFilePreview = ({ file }: { file: UploadedFileValue }) => {
   return (
     <div className="schema-field__file-preview">

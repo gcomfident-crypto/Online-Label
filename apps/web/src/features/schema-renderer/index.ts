@@ -5,6 +5,8 @@ export {
   preferenceCompareSchema,
   qaQualityRawDataSamples,
   qaQualitySchema,
+  titleCleanupRawData,
+  titleCleanupSchema,
 } from './examples';
 export { applySchemaLinkage } from './linkage';
 export { validateSchemaAnswers } from './validation';

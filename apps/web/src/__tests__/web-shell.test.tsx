@@ -77,6 +77,24 @@ describe('Web 路由守卫', () => {
     expect(screen.getByRole('button', { name: /Owner 演示账号/ })).toBeInTheDocument();
   });
 
+  it('开发 Renderer 调试台可直接访问并切换示例', async () => {
+    const user = userEvent.setup();
+
+    renderRoute('/dev/renderer');
+
+    expect(screen.getByRole('heading', { name: 'Renderer 调试台' })).toBeInTheDocument();
+    expect(screen.getByText('请说明光合作用的主要过程。')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '偏好对比' }));
+    expect(screen.getByTestId('preference-compare-panel-a')).toHaveTextContent(
+      '回答 A 已准确回应用户问题，但缺少后续操作建议。',
+    );
+
+    await user.click(screen.getByRole('button', { name: '商品标题清洗 v3' }));
+    expect(screen.getByText('原始商品标题')).toBeInTheDocument();
+    expect(screen.getByLabelText('清洗后标题')).toBeInTheDocument();
+  });
+
   it('Labeler 访问 /owner/tasks 被拦截到无权限页', () => {
     act(() => {
       sessionStore.loginAs(USER_ROLE.LABELER);
