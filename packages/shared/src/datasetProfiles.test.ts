@@ -61,6 +61,15 @@ describe('DatasetProfile 数据集协议', () => {
         response_b: '回答 B',
       }),
     ).toEqual({ ok: false, missingFields: ['response_a'] });
+
+    expect(
+      validateDatasetRecord('qa_quality', {
+        id: 'q2',
+        prompt: '解释蒸腾作用',
+        model_answer: '植物通过叶片散失水分。',
+        expected_dimensions: ['   '],
+      }),
+    ).toEqual({ ok: false, missingFields: ['expected_dimensions'] });
   });
 
   it('归一化 Excel 字符串数组字段和中文布尔值', () => {
@@ -81,7 +90,7 @@ describe('DatasetProfile 数据集协议', () => {
       response_a: '回答 A',
       response_b: '回答 B',
       dimensions: '安全性 | 帮助性',
-      safety_flag: '否',
+      safety_flag: ' 否 ',
     });
 
     expect(preferenceRecord.dimensions).toEqual(['安全性', '帮助性']);
@@ -103,9 +112,20 @@ describe('DatasetProfile 数据集协议', () => {
 
   it('跳过压缩包和 Excel 临时文件', () => {
     expect(shouldSkipImportFile('__MACOSX/qa_quality.json')).toBe(true);
+    expect(shouldSkipImportFile('archive/__MACOSX/qa_quality.json')).toBe(true);
+    expect(shouldSkipImportFile('archive\\__MACOSX\\qa_quality.json')).toBe(true);
     expect(shouldSkipImportFile('.DS_Store')).toBe(true);
     expect(shouldSkipImportFile('._qa_quality.json')).toBe(true);
     expect(shouldSkipImportFile('.~qa_quality.xlsx')).toBe(true);
+    expect(shouldSkipImportFile('normal.~qa_quality.xlsx')).toBe(false);
+    expect(shouldSkipImportFile('foo/.__MACOSX/qa_quality.json')).toBe(false);
     expect(shouldSkipImportFile('qa_quality.json')).toBe(false);
+  });
+
+  it('返回的 profile 不会污染内部元数据', () => {
+    const profile = getDatasetProfile('qa_quality');
+    (profile.requiredFields as string[]).push('polluted_field');
+
+    expect(getDatasetProfile('qa_quality').requiredFields).not.toContain('polluted_field');
   });
 });

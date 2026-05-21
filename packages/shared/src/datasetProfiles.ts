@@ -49,7 +49,7 @@ const DATASET_PROFILES = {
 } as const satisfies Record<DatasetKind, DatasetProfile>;
 
 export const getDatasetProfile = (kind: DatasetKind): DatasetProfile => {
-  return DATASET_PROFILES[kind];
+  return cloneDatasetProfile(DATASET_PROFILES[kind]);
 };
 
 const resolveDatasetProfile = (
@@ -70,7 +70,7 @@ const isBlankRequiredValue = (value: unknown): boolean => {
   }
 
   if (Array.isArray(value)) {
-    return value.length === 0;
+    return value.length === 0 || value.every(isBlankRequiredValue);
   }
 
   return false;
@@ -111,12 +111,16 @@ const normalizeBooleanField = (value: unknown): unknown => {
     return value;
   }
 
-  if (value === '是') {
-    return true;
-  }
+  if (typeof value === 'string') {
+    const normalizedValue = value.trim();
 
-  if (value === '否') {
-    return false;
+    if (normalizedValue === '是') {
+      return true;
+    }
+
+    if (normalizedValue === '否') {
+      return false;
+    }
   }
 
   return value;
@@ -156,3 +160,14 @@ export const shouldSkipImportFile = (path: string): boolean => {
     (fileName.startsWith('.~') && fileName.endsWith('.xlsx'))
   );
 };
+
+function cloneDatasetProfile(profile: DatasetProfile): DatasetProfile {
+  return {
+    ...profile,
+    supportedFormats: [...profile.supportedFormats],
+    requiredFields: [...profile.requiredFields],
+    arrayFields: profile.arrayFields ? [...profile.arrayFields] : undefined,
+    booleanFields: profile.booleanFields ? [...profile.booleanFields] : undefined,
+    mediaFields: profile.mediaFields ? [...profile.mediaFields] : undefined,
+  };
+}
