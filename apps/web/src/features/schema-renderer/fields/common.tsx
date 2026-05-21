@@ -46,4 +46,3 @@ export const optionLabel = (field: SchemaField, option: FieldOption): string => 
 export const FieldDescription = ({ field }: { field: SchemaField }) => {
   return field.description ? <small>{field.description}</small> : null;
 };
-

@@ -67,4 +67,3 @@ export const MultiChoiceField = ({ field, value, mode, onFieldChange }: Editable
     </fieldset>
   );
 };
-

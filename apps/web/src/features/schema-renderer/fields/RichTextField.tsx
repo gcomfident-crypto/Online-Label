@@ -17,4 +17,3 @@ export const RichTextField = ({ field, value, mode, onFieldChange }: EditableFie
     </label>
   );
 };
-

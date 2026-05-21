@@ -8,4 +8,3 @@ export const UnsupportedField = ({ field }: BaseFieldProps) => {
     </section>
   );
 };
-

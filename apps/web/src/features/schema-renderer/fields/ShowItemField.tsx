@@ -11,4 +11,3 @@ export const ShowItemField = ({ field, rawData }: BaseFieldProps) => {
     </section>
   );
 };
-

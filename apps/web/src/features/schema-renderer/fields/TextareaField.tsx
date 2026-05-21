@@ -16,4 +16,3 @@ export const TextareaField = ({ field, value, mode, onFieldChange }: EditableFie
     </label>
   );
 };
-

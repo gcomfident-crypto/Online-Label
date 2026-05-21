@@ -29,4 +29,3 @@ export const FileUploadField = ({ field, mode, onFieldChange }: EditableFieldPro
     </label>
   );
 };
-

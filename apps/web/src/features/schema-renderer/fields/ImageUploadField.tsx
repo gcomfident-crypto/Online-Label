@@ -30,4 +30,3 @@ export const ImageUploadField = ({ field, mode, onFieldChange }: EditableFieldPr
     </label>
   );
 };
-

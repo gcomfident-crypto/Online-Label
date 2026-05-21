@@ -16,4 +16,3 @@ export const TextField = ({ field, value, mode, onFieldChange }: EditableFieldPr
     </label>
   );
 };
-
