@@ -411,6 +411,50 @@ describe('SchemaRenderer', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('json_editor 外部 value 清空时同步清空草稿并清理错误提示', async () => {
+    const user = userEvent.setup();
+    const schema = baseSchema([{ key: 'payload', type: 'json_editor', label: 'JSON' }]);
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <>
+          <button type="button" onClick={() => setAnswers({ payload: { ok: true } })}>
+            加载 JSON
+          </button>
+          <button type="button" onClick={() => setAnswers({})}>
+            清空 JSON
+          </button>
+          <SchemaRenderer
+            schema={schema}
+            rawData={{}}
+            value={answers}
+            mode="answer"
+            onChange={setAnswers}
+          />
+        </>
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    await user.click(screen.getByRole('button', { name: '加载 JSON' }));
+
+    const input = screen.getByLabelText('JSON');
+
+    expect(input).toHaveValue('{\n  "ok": true\n}');
+
+    await user.type(input, 'x');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('JSON 格式不合法。');
+
+    await user.click(screen.getByRole('button', { name: '清空 JSON' }));
+
+    expect(input).toHaveValue('');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('同页多个 Renderer 的 radio name 按实例隔离', () => {
     const schema = baseSchema([
       {

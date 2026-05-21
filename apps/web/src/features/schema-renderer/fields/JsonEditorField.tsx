@@ -48,6 +48,9 @@ export const JsonEditorField = ({ field, value, mode, onFieldChange }: EditableF
       return;
     }
 
+    lastEmittedValueRef.current = fieldValue;
+    setError(null);
+
     const nextDraftValue = getJsonEditorValue(fieldValue);
 
     if (lastDraftRef.current !== nextDraftValue) {
