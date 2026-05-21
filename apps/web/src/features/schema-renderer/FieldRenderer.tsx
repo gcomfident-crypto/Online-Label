@@ -5,6 +5,7 @@ import { FileUploadField } from './fields/FileUploadField';
 import { GroupField } from './fields/GroupField';
 import { ImageUploadField } from './fields/ImageUploadField';
 import { JsonEditorField } from './fields/JsonEditorField';
+import { LlmAssistField } from './fields/LlmAssistField';
 import { RichTextField } from './fields/RichTextField';
 import { ShowItemField } from './fields/ShowItemField';
 import { TabsField } from './fields/TabsField';
@@ -64,6 +65,8 @@ export const FieldRenderer = (props: FieldRendererProps) => {
       fieldElement = <TabsField {...fieldProps} />;
       break;
     case 'llm_assist':
+      fieldElement = <LlmAssistField {...fieldProps} />;
+      break;
     default:
       fieldElement = <UnsupportedField {...fieldProps} />;
       break;

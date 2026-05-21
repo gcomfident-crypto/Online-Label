@@ -15,6 +15,7 @@ export type FieldNextValue = unknown | FieldValueUpdater;
 
 export type FieldRendererProps = {
   field: SchemaField;
+  datasetKind: LabelHubSchema['datasetKind'];
   rendererScope: string;
   fieldPath: string;
   rawData: Record<string, unknown>;

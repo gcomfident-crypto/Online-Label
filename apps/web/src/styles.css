@@ -26,6 +26,27 @@ a {
   font: inherit;
 }
 
+button {
+  border: 1px solid #c9c3b7;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #17211b;
+  background: #fffaf1;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+button:hover:not(:disabled) {
+  border-color: #194c3f;
+  background: #f8efe0;
+}
+
+button:disabled {
+  color: #777a73;
+  cursor: not-allowed;
+  background: #ebe7de;
+}
+
 .login-page,
 .system-page {
   min-height: 100vh;
@@ -471,6 +492,25 @@ p {
   color: #6d4e1f;
   font-size: 12px;
   font-weight: 800;
+}
+
+.schema-field__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.schema-field__assist-result {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d8d5ce;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f7f4ed;
+}
+
+.schema-field__error-text {
+  color: #8f3528;
 }
 
 .schema-field--group,

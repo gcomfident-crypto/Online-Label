@@ -18,6 +18,8 @@ import { AuditService } from './audit/audit.service.ts';
 import { DebugController } from './debug/debug.controller.ts';
 import { DebugService } from './debug/debug.service.ts';
 import { HealthController } from './health.controller.ts';
+import { LlmController } from './llm/llm.controller.ts';
+import { LlmService } from './llm/llm.service.ts';
 import { MeController } from './me.controller.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
 import { StateMachineService } from './state-machine/state-machine.service.ts';
@@ -84,12 +86,13 @@ class ErrorEnvelopeFilter implements ExceptionFilter {
 }
 
 @Module({
-  controllers: [AuthController, HealthController, MeController, DebugController],
+  controllers: [AuthController, HealthController, MeController, DebugController, LlmController],
   providers: [
     PrismaService,
     AuditService,
     StateMachineService,
     DebugService,
+    LlmService,
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseEnvelopeInterceptor,

@@ -2,6 +2,7 @@ import { FieldRenderer } from '../FieldRenderer';
 import type { BaseFieldProps } from './common';
 
 export const TabsField = ({
+  datasetKind,
   field,
   rendererScope,
   fieldPath,
@@ -24,6 +25,7 @@ export const TabsField = ({
             <FieldRenderer
               key={child.key}
               field={child}
+              datasetKind={datasetKind}
               rendererScope={rendererScope}
               fieldPath={`${fieldPath}.${tab.key}.${child.key}`}
               rawData={rawData}

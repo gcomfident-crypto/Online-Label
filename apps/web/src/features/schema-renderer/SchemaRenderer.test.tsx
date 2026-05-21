@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StrictMode, useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { LabelHubSchema } from '@labelhub/shared';
 
@@ -22,6 +22,10 @@ const baseSchema = (fields: LabelHubSchema['fields']): LabelHubSchema => ({
 });
 
 describe('SchemaRenderer', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('渲染 show_item 时展示 rawData 内容和展示项 ShowItem 标识', () => {
     render(
       <SchemaRenderer
@@ -527,11 +531,118 @@ describe('SchemaRenderer', () => {
     expect(screen.getByLabelText('说明')).toBeInTheDocument();
   });
 
-  it('未实现字段类型显示中文后续接入占位且不崩溃', () => {
+  it('LLM 触发组件可生成并采纳 mock 建议到目标字段', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          datasetKind: 'qa_quality',
+          targetFieldKey: 'structured_note',
+          summary: '建议补充关键依据，并复核准确性与完整性评分。',
+          suggestion: {
+            comment: '模型回答覆盖核心方向，但建议补充关键限定。',
+            issue_tags: ['missing_info'],
+          },
+        },
+      }),
+    });
+    const schema: LabelHubSchema = {
+      ...baseSchema([
+        {
+          key: 'structured_note_field',
+          fieldKey: 'structured_note',
+          type: 'json_editor',
+          label: '结构化记录',
+        },
+        {
+          key: 'assist',
+          type: 'llm_assist',
+          label: 'AI 辅助',
+          targetFieldKey: 'structured_note',
+          promptTemplate: '请给出结构化建议。',
+        },
+      ]),
+      datasetKind: 'qa_quality',
+    };
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <SchemaRenderer
+          schema={schema}
+          rawData={{ prompt: '请说明光合作用的主要过程。' }}
+          value={answers}
+          mode="answer"
+          onChange={(next) => {
+            setAnswers(next);
+            onChange(next);
+          }}
+        />
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    expect(screen.getByText('LLM 触发组件')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '生成建议' }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/llm/assist/mock',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          datasetKind: 'qa_quality',
+          rawData: { prompt: '请说明光合作用的主要过程。' },
+          answers: {},
+          targetFieldKey: 'structured_note',
+          promptTemplate: '请给出结构化建议。',
+        }),
+      }),
+    );
+    expect(
+      await screen.findByText('建议补充关键依据，并复核准确性与完整性评分。'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '采纳' }));
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      structured_note: {
+        comment: '模型回答覆盖核心方向，但建议补充关键限定。',
+        issue_tags: ['missing_info'],
+      },
+    });
+    expect((screen.getByLabelText('结构化记录') as HTMLTextAreaElement).value).toContain(
+      'missing_info',
+    );
+  });
+
+  it('LLM 触发组件在 mock 请求失败时显示中文错误', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        error: {
+          message: 'LLM 辅助暂时不可用，请稍后重试。',
+        },
+      }),
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
     render(
       <SchemaRenderer
         schema={baseSchema([
-          { key: 'assist', type: 'llm_assist', label: 'AI 辅助' },
+          {
+            key: 'assist',
+            type: 'llm_assist',
+            label: 'AI 辅助',
+            targetFieldKey: 'structured_note',
+          },
         ])}
         rawData={{}}
         value={{}}
@@ -540,8 +651,11 @@ describe('SchemaRenderer', () => {
       />,
     );
 
-    expect(screen.getByText('AI 辅助')).toBeInTheDocument();
-    expect(screen.getByText('llm_assist 物料将在后续接入')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '生成建议' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'LLM 辅助暂时不可用，请稍后重试。',
+    );
   });
 
   it('rich_text 输入后写入字符串', async () => {

@@ -115,6 +115,86 @@ describe('LabelHub API shell', () => {
       requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
     });
   });
+
+  it('按 qa_quality 返回稳定的 LLM 辅助 mock 建议', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/llm/assist/mock')
+      .send({
+        datasetKind: 'qa_quality',
+        rawData: {
+          prompt: '请说明光合作用的主要过程。',
+          model_answer: '光合作用会吸收二氧化碳并释放氧气。',
+          reference: '应包含光能转化、二氧化碳和水生成有机物、释放氧气。',
+        },
+        answers: {
+          relevance_score: '5',
+          accuracy_score: '4',
+        },
+        targetFieldKey: 'structured_note',
+      })
+      .expect(201);
+
+    expect(response.body).toEqual({
+      data: {
+        datasetKind: 'qa_quality',
+        targetFieldKey: 'structured_note',
+        summary: '建议补充关键依据，并复核准确性与完整性评分。',
+        suggestion: {
+          relevance_score_reference: 5,
+          accuracy_score_reference: 4,
+          format_score_reference: 4,
+          safety_score_reference: 5,
+          issue_tags: ['missing_info'],
+          comment: '模型回答覆盖核心方向，但建议对照参考答案补充关键限定。',
+        },
+      },
+      requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
+    });
+  });
+
+  it('按 preference_compare 返回稳定的 LLM 辅助 mock 建议', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/llm/assist/mock')
+      .send({
+        datasetKind: 'preference_compare',
+        rawData: {
+          prompt: '请比较两个回答哪一个更适合作为客服回复。',
+          response_a: '回答 A 已准确回应用户问题，但缺少后续操作建议。',
+          response_b: '回答 B 先说明结论，再补充操作路径和注意事项。',
+        },
+        answers: {},
+        targetFieldKey: 'structured_annotation',
+      })
+      .expect(201);
+
+    expect(response.body.data).toEqual({
+      datasetKind: 'preference_compare',
+      targetFieldKey: 'structured_annotation',
+      summary: '建议优先选择回答 B，并检查是否存在安全风险。',
+      suggestion: {
+        preferred: 'B',
+        margin: 'clear',
+        safety_flag: 'safe',
+        dimensions: ['helpfulness', 'completeness', 'style'],
+        rationale: '回答 B 结构更完整，包含结论、操作路径和注意事项。',
+      },
+    });
+  });
+
+  it('LLM 辅助 mock 拒绝无效数据集类型', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/llm/assist/mock')
+      .send({ datasetKind: 'unknown', targetFieldKey: 'note' })
+      .expect(400);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_LLM_ASSIST_REQUEST',
+        message: 'LLM 辅助请求缺少有效的数据集类型。',
+      },
+      requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
+    });
+  });
 });
 
 describe('API 启动配置', () => {

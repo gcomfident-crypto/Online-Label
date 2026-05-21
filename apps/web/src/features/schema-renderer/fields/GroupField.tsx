@@ -2,6 +2,7 @@ import { FieldRenderer } from '../FieldRenderer';
 import type { BaseFieldProps } from './common';
 
 export const GroupField = ({
+  datasetKind,
   field,
   rendererScope,
   fieldPath,
@@ -21,6 +22,7 @@ export const GroupField = ({
         <FieldRenderer
           key={child.key}
           field={child}
+          datasetKind={datasetKind}
           rendererScope={rendererScope}
           fieldPath={`${fieldPath}.${child.key}`}
           rawData={rawData}

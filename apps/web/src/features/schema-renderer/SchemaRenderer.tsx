@@ -117,6 +117,7 @@ export const SchemaRenderer = ({
         <FieldRenderer
           key={field.key}
           field={field}
+          datasetKind={schema.datasetKind}
           rendererScope={rendererScope}
           fieldPath={field.key}
           rawData={rawData}
