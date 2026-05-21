@@ -455,6 +455,44 @@ describe('SchemaRenderer', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('json_editor 外部 value 等值重置时也会清空非法草稿', async () => {
+    const user = userEvent.setup();
+    const schema = baseSchema([{ key: 'payload', type: 'json_editor', label: 'JSON' }]);
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <>
+          <button type="button" onClick={() => setAnswers({})}>
+            切换空记录
+          </button>
+          <SchemaRenderer
+            schema={schema}
+            rawData={{}}
+            value={answers}
+            mode="answer"
+            onChange={setAnswers}
+          />
+        </>
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    const input = screen.getByLabelText('JSON');
+
+    await user.type(input, 'x');
+
+    expect(input).toHaveValue('x');
+    expect(screen.getByRole('alert')).toHaveTextContent('JSON 格式不合法。');
+
+    await user.click(screen.getByRole('button', { name: '切换空记录' }));
+
+    expect(input).toHaveValue('');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('同页多个 Renderer 的 radio name 按实例隔离', () => {
     const schema = baseSchema([
       {

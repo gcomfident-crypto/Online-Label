@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { EditableFieldProps } from './common';
 import { FieldDescription, getFieldValue, isDisabledMode } from './common';
 
+const NO_PENDING_EMITTED_VALUE = Symbol('NO_PENDING_EMITTED_VALUE');
+
 const getJsonEditorValue = (value: unknown): string => {
   if (value === undefined || value === null) {
     return '';
@@ -41,14 +43,17 @@ export const JsonEditorField = ({ field, value, mode, onFieldChange }: EditableF
   const [draftValue, setDraftValue] = useState(() => getJsonEditorValue(fieldValue));
   const [error, setError] = useState<string | null>(null);
   const lastDraftRef = useRef(draftValue);
-  const lastEmittedValueRef = useRef<unknown>(fieldValue);
+  const pendingEmittedValueRef = useRef<unknown | typeof NO_PENDING_EMITTED_VALUE>(
+    NO_PENDING_EMITTED_VALUE,
+  );
 
   useEffect(() => {
-    if (Object.is(fieldValue, lastEmittedValueRef.current)) {
+    if (Object.is(fieldValue, pendingEmittedValueRef.current)) {
+      pendingEmittedValueRef.current = NO_PENDING_EMITTED_VALUE;
       return;
     }
 
-    lastEmittedValueRef.current = fieldValue;
+    pendingEmittedValueRef.current = NO_PENDING_EMITTED_VALUE;
     setError(null);
 
     const nextDraftValue = getJsonEditorValue(fieldValue);
@@ -57,7 +62,7 @@ export const JsonEditorField = ({ field, value, mode, onFieldChange }: EditableF
       setDraftValue(nextDraftValue);
       lastDraftRef.current = nextDraftValue;
     }
-  }, [fieldValue]);
+  }, [fieldValue, value]);
 
   return (
     <label className="schema-field" data-field-type={field.type}>
@@ -81,7 +86,7 @@ export const JsonEditorField = ({ field, value, mode, onFieldChange }: EditableF
           }
 
           setError(null);
-          lastEmittedValueRef.current = parsedValue.value;
+          pendingEmittedValueRef.current = parsedValue.value;
           onFieldChange(field, parsedValue.value);
         }}
       />
