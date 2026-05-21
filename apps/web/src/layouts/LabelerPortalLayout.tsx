@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import { ROLE_HOME_METADATA } from '@labelhub/shared';
+import { DemoDataBanner } from '../components/DemoDataBanner';
 import { sessionStore, useSession } from '../stores/sessionStore';
 
 export const LabelerPortalLayout = () => {
@@ -38,6 +39,7 @@ export const LabelerPortalLayout = () => {
             退出登录
           </button>
         </header>
+        <DemoDataBanner />
         <Outlet />
       </main>
     </div>
