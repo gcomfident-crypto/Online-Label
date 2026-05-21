@@ -227,9 +227,11 @@ const resolveMediaRender = (
 };
 
 const CompareLayout = ({
+  mediaRender,
   sourceKeys,
   rawData,
 }: {
+  mediaRender: MediaRenderResult;
   sourceKeys: readonly string[];
   rawData: Record<string, unknown>;
 }) => {
@@ -247,6 +249,7 @@ const CompareLayout = ({
           <pre>{stringifyDisplayValue(prompt)}</pre>
         </div>
       ) : null}
+      {mediaRender.element}
       <div className="schema-field__compare-grid">
         <article className="schema-field__compare-panel" data-testid="preference-compare-panel-a">
           <h4>回答 A</h4>
@@ -262,6 +265,7 @@ const CompareLayout = ({
       {sourceKeys
         .filter(
           (sourceKey) =>
+            !mediaRender.consumedKeys.has(sourceKey) &&
             !['prompt', 'response_a', 'response_b', 'model_a', 'model_b'].includes(sourceKey),
         )
         .map((sourceKey) => (
@@ -284,7 +288,7 @@ export const ShowItemField = ({ field, rawData }: BaseFieldProps) => {
       <h3>{field.label}</h3>
       {field.description ? <p>{field.description}</p> : null}
       {isPreferenceCompare ? (
-        <CompareLayout sourceKeys={sourceKeys} rawData={rawData} />
+        <CompareLayout mediaRender={mediaRender} sourceKeys={sourceKeys} rawData={rawData} />
       ) : (
         <>
           {sourceKeys

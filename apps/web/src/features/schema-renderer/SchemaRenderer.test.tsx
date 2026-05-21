@@ -239,6 +239,36 @@ describe('SchemaRenderer', () => {
     expect(screen.getByText('<script>alert(1)</script>')).toBeInTheDocument();
   });
 
+  it('show_item markdown 不渲染不安全资源链接', () => {
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'material',
+            type: 'show_item',
+            label: 'Markdown 物料',
+            sourceKeys: ['media_type', 'content_markdown'],
+          },
+        ])}
+        rawData={{
+          media_type: 'markdown',
+          content_markdown:
+            '[危险链接](javascript:alert%281%29)\n\n![危险图片](data:text/html,%3Csvg%3E%3C%2Fsvg%3E)',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole('link', { name: '危险链接' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: '危险图片' })).not.toBeInTheDocument();
+    expect(screen.getByText('[危险链接](javascript:alert%281%29)')).toBeInTheDocument();
+    expect(
+      screen.getByText('![危险图片](data:text/html,%3Csvg%3E%3C%2Fsvg%3E)'),
+    ).toBeInTheDocument();
+  });
+
   it('官方媒体示例使用稳定可加载资源地址', () => {
     const imageSample = qaQualityRawDataSamples.find((sample) => sample.media_type === 'image');
     const videoSample = qaQualityRawDataSamples.find((sample) => sample.media_type === 'video');
@@ -267,6 +297,40 @@ describe('SchemaRenderer', () => {
     expect(screen.getByTestId('preference-compare-panel-b')).toHaveTextContent(
       '回答 B 先说明结论，再补充操作路径和注意事项。',
     );
+  });
+
+  it('preference_compare 展示项复用媒体控制字段消费逻辑', () => {
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'material',
+            type: 'show_item',
+            label: '偏好对比物料',
+            sourceKeys: ['prompt', 'media_type', 'media_url', 'response_a', 'response_b'],
+          },
+        ])}
+        rawData={{
+          prompt: '请结合图片比较两个回答。',
+          media_type: 'image',
+          media_url: 'https://example.test/compare.png',
+          response_a: '回答 A',
+          response_b: '回答 B',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText('媒体类型')).not.toBeInTheDocument();
+    expect(screen.queryByText('媒体链接')).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '题目媒体' })).toHaveAttribute(
+      'src',
+      'https://example.test/compare.png',
+    );
+    expect(screen.getByTestId('preference-compare-panel-a')).toHaveTextContent('回答 A');
+    expect(screen.getByTestId('preference-compare-panel-b')).toHaveTextContent('回答 B');
   });
 
   it('官方示例 schema 使用 fieldKey 写入 answers', async () => {
