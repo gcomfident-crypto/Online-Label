@@ -279,17 +279,20 @@ function createPreferenceCompareSchema(): LabelHubSchema {
 function createQaQualityItems(): SeedTaskItem[] {
   return Array.from({ length: 30 }, (_, index) => {
     const itemNumber = index + 1;
+    const externalId = `qa_quality_${String(itemNumber).padStart(2, '0')}`;
 
     return {
       taskId: SEED_TASK_IDS[0],
-      externalId: `qa_quality_${String(itemNumber).padStart(2, '0')}`,
+      externalId,
       datasetKind: 'qa_quality',
       sortOrder: itemNumber,
       rawData: toPrismaJson({
-        question: `用户问题 ${itemNumber}：如何判断回答是否解决了核心诉求？`,
-        answer: `示例回答 ${itemNumber}：先确认问题目标，再检查事实依据、步骤完整性和表达清晰度。`,
+        id: externalId,
+        prompt: `用户问题 ${itemNumber}：如何判断回答是否解决了核心诉求？`,
+        model_answer: `示例回答 ${itemNumber}：先确认问题目标，再检查事实依据、步骤完整性和表达清晰度。`,
+        expected_dimensions: ['事实准确', '信息完整', '表达清晰', '无安全风险'],
         reference: `参考要点 ${itemNumber}：覆盖事实性、完整性、清晰度和安全边界。`,
-        rubric: ['事实准确', '信息完整', '表达清晰', '无安全风险'],
+        tags: ['问答质量', '演示数据'],
       }),
     };
   });
@@ -298,17 +301,20 @@ function createQaQualityItems(): SeedTaskItem[] {
 function createPreferenceCompareItems(): SeedTaskItem[] {
   return Array.from({ length: 12 }, (_, index) => {
     const itemNumber = index + 1;
+    const externalId = `preference_compare_${String(itemNumber).padStart(2, '0')}`;
 
     return {
       taskId: SEED_TASK_IDS[1],
-      externalId: `preference_compare_${String(itemNumber).padStart(2, '0')}`,
+      externalId,
       datasetKind: 'preference_compare',
       sortOrder: itemNumber,
       rawData: toPrismaJson({
+        id: externalId,
         prompt: `对比题 ${itemNumber}：请给新用户解释 LabelHub 的任务草稿状态。`,
-        responseA: `回答 A-${itemNumber}：草稿状态表示任务仍可编辑，尚未正式发布给标注员。`,
-        responseB: `回答 B-${itemNumber}：草稿通常代表任务未发布，可以继续调整模板、题目和说明。`,
-        criteria: ['准确性', '完整性', '可读性', '安全性'],
+        response_a: `回答 A-${itemNumber}：草稿状态表示任务仍可编辑，尚未正式发布给标注员。`,
+        response_b: `回答 B-${itemNumber}：草稿通常代表任务未发布，可以继续调整模板、题目和说明。`,
+        dimensions: ['准确性', '完整性', '可读性', '安全性'],
+        safety_flag: false,
       }),
     };
   });

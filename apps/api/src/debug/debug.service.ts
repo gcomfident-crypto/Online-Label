@@ -4,7 +4,7 @@ import {
   SEED_TASK_IDS,
   SEED_TEMPLATE_IDS,
   SEED_USER_IDS,
-} from '../../../../prisma/seed.ts';
+} from './seed-ids.ts';
 import { PrismaService } from '../prisma/prisma.service.ts';
 
 export type SeedStatus = {

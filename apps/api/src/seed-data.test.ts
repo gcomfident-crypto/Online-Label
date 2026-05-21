@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { validateDatasetRecord } from '@labelhub/shared';
 import { buildSeedData } from '../../../prisma/seed.ts';
 
 describe('buildSeedData', () => {
@@ -44,6 +45,15 @@ describe('buildSeedData', () => {
     expect(
       first.taskItems.filter((item) => item.datasetKind === 'preference_compare'),
     ).toHaveLength(12);
+    for (const item of first.taskItems) {
+      const rawData = item.rawData as Record<string, unknown>;
+
+      expect(rawData.id).toBe(item.externalId);
+      expect(validateDatasetRecord(item.datasetKind, rawData)).toEqual({
+        ok: true,
+        missingFields: [],
+      });
+    }
     expect(second).toEqual(first);
   });
 });
