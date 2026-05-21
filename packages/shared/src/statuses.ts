@@ -3,7 +3,7 @@ export type ReviewStage = (typeof REVIEW_STAGES)[number];
 
 export const TASK_STATUS = {
   DRAFT: 'DRAFT',
-  PUBLISHING: 'PUBLISHING',
+  PUBLISHED: 'PUBLISHED',
   PAUSED: 'PAUSED',
   ENDED: 'ENDED',
 } as const;
@@ -12,7 +12,7 @@ export type TaskStatus = (typeof TASK_STATUS)[keyof typeof TASK_STATUS];
 
 export const TASK_STATUS_LABELS = {
   DRAFT: '草稿',
-  PUBLISHING: '发布中',
+  PUBLISHED: '发布中',
   PAUSED: '已暂停',
   ENDED: '已结束',
 } as const satisfies Record<TaskStatus, string>;
@@ -64,7 +64,7 @@ export const HUMAN_REVIEW_STATUS_LABELS = {
 
 export const FINAL_REVIEW_STATUS = {
   PENDING: 'PENDING',
-  PASSED: 'PASSED',
+  FINAL_APPROVED: 'FINAL_APPROVED',
   RETURNED: 'RETURNED',
 } as const;
 
@@ -73,7 +73,7 @@ export type FinalReviewStatus =
 
 export const FINAL_REVIEW_STATUS_LABELS = {
   PENDING: '待终审',
-  PASSED: '终审通过',
+  FINAL_APPROVED: '终审通过',
   RETURNED: '已打回',
 } as const satisfies Record<FinalReviewStatus, string>;
 
