@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "tsx watch src/main.ts",
     "dev:api": "tsx watch src/main.ts",
     "typecheck": "tsc --project tsconfig.json",
     "test": "vitest run"
