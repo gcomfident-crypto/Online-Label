@@ -18,6 +18,18 @@ describe('LabelHub Worker 壳', () => {
     });
   });
 
+  it('支持通过环境变量覆盖 Worker 配置', () => {
+    expect(
+      createWorkerConfig({
+        REDIS_URL: 'redis://example:6379',
+        BULLMQ_QUEUE_PREFIX: 'custom',
+      }),
+    ).toEqual({
+      redisUrl: 'redis://example:6379',
+      queuePrefix: 'custom',
+    });
+  });
+
   it('启动时打印就绪日志', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 

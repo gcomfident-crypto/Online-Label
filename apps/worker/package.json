@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "tsx src/main.ts",
     "dev:worker": "tsx src/main.ts",
     "typecheck": "tsc --project tsconfig.json",
     "test": "vitest run"
