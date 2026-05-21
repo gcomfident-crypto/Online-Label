@@ -186,6 +186,7 @@ describe('Prisma schema', () => {
     expect(modelBlock('ExportJob')).toMatch(/\bfieldMapping\s+Json\b/);
     expect(modelBlock('ExportJob')).toMatch(/\bincludeReviews\s+Boolean\b/);
     expect(modelBlock('ExportJob')).toMatch(/\bfilePath\s+String\?/);
+    expect(modelBlock('ExportJob')).toMatch(/\bfinishedAt\s+DateTime\?/);
   });
 
   it('defines enums aligned exactly with shared status and dataset protocols', () => {

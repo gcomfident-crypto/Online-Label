@@ -377,6 +377,7 @@ model ExportJob {
   filePath       String?
   resultUrl      String?
   errorMessage   String?
+  finishedAt     DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

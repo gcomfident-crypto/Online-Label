@@ -21,6 +21,7 @@ import { DatasetsModule } from './datasets/datasets.module.ts';
 import { DebugController } from './debug/debug.controller.ts';
 import { DebugService } from './debug/debug.service.ts';
 import { DraftsModule } from './drafts/drafts.module.ts';
+import { ExportsModule } from './exports/exports.module.ts';
 import { HealthController } from './health.controller.ts';
 import { LlmController } from './llm/llm.controller.ts';
 import { LlmService } from './llm/llm.service.ts';
@@ -107,6 +108,7 @@ class ErrorEnvelopeFilter implements ExceptionFilter {
     ReviewRulesModule,
     AiReviewModule,
     ReviewsModule,
+    ExportsModule,
   ],
   controllers: [
     AuthController,
