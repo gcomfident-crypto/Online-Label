@@ -1,4 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  getRendererSampleSchemas,
+  type RendererSampleSchemaResponse,
+} from '@labelhub/shared';
 
 import {
   SEED_TASK_IDS,
@@ -138,5 +142,9 @@ export class DebugService {
       orderBy: { createdAt: 'asc' },
       select: { id: true, name: true, role: true },
     });
+  }
+
+  getSampleSchema(): RendererSampleSchemaResponse {
+    return getRendererSampleSchemas();
   }
 }

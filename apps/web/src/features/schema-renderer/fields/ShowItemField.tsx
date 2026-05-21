@@ -195,7 +195,12 @@ const resolveMediaRender = (
   const mediaUrl = getRawString(rawData, 'media_url');
   const contentMarkdown = getRawString(rawData, 'content_markdown');
 
-  if (mediaType === 'image' && sourceKeys.includes('media_url') && mediaUrl) {
+  if (
+    mediaType === 'image' &&
+    sourceKeys.includes('media_url') &&
+    mediaUrl &&
+    isSafeResourceUrl(mediaUrl, 'image')
+  ) {
     consumedKeys.add('media_url');
 
     return {
@@ -204,7 +209,12 @@ const resolveMediaRender = (
     };
   }
 
-  if (mediaType === 'video' && sourceKeys.includes('media_url') && mediaUrl) {
+  if (
+    mediaType === 'video' &&
+    sourceKeys.includes('media_url') &&
+    mediaUrl &&
+    isSafeResourceUrl(mediaUrl, 'link')
+  ) {
     consumedKeys.add('media_url');
 
     return {

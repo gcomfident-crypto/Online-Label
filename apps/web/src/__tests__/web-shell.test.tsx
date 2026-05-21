@@ -103,6 +103,7 @@ describe('Web 路由守卫', () => {
 
     await user.click(screen.getByRole('button', { name: '全部物料' }));
     expect(screen.getByText('多 Tab 布局')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: '上传字段' }));
     expect(screen.getByText('图片上传示例')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '商品标题清洗 v3' }));

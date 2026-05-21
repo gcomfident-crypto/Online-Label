@@ -77,6 +77,10 @@ export const SchemaRenderer = ({
   }, [linkageResult.answers]);
 
   useEffect(() => {
+    if (mode === 'review') {
+      return;
+    }
+
     if (areAnswersEqual(value, linkageResult.answers)) {
       if (
         lastAutoEmittedAnswersRef.current &&
@@ -96,7 +100,7 @@ export const SchemaRenderer = ({
 
     lastAutoEmittedAnswersRef.current = linkageResult.answers;
     onChange(linkageResult.answers);
-  }, [linkageResult.answers, onChange, value]);
+  }, [linkageResult.answers, mode, onChange, value]);
 
   const handleFieldChange = (field: SchemaField, nextValue: FieldNextValue) => {
     const currentAnswers = latestValueRef.current;

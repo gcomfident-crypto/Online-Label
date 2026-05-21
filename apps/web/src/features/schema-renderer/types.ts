@@ -1,5 +1,7 @@
 import type { LabelHubSchema, SchemaField } from '@labelhub/shared';
 
+export { getSchemaFieldKey } from '@labelhub/shared';
+
 export type SchemaRendererMode = 'preview' | 'answer' | 'review';
 
 export type SchemaRendererProps = {
@@ -26,8 +28,4 @@ export type FieldRendererProps = {
   validationMessagesByField: ReadonlyMap<string, readonly string[]>;
   onFieldChange: (field: SchemaField, nextValue: FieldNextValue) => void;
   disabled?: boolean;
-};
-
-export const getSchemaFieldKey = (field: SchemaField): string => {
-  return field.fieldKey ?? field.key;
 };

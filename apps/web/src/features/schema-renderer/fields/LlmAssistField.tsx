@@ -142,10 +142,13 @@ function resolveAssistResult(
     throw new Error('LLM 辅助返回格式不正确。');
   }
 
+  if (typeof data.targetFieldKey === 'string' && data.targetFieldKey !== targetFieldKey) {
+    throw new Error('LLM 辅助返回目标字段不一致。');
+  }
+
   return {
     datasetKind: typeof data.datasetKind === 'string' ? data.datasetKind : datasetKind,
-    targetFieldKey:
-      typeof data.targetFieldKey === 'string' ? data.targetFieldKey : targetFieldKey,
+    targetFieldKey,
     summary: data.summary,
     suggestion: data.suggestion,
   };

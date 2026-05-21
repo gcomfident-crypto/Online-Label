@@ -248,6 +248,60 @@ describe('LabelHub API shell', () => {
       requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
     });
   });
+
+  it('通过 /schema/validate 复用 Schema 联动和校验运行时', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/schema/validate')
+      .send({
+        schema: {
+          schemaVersion: '1.0.0',
+          datasetKind: 'generic_json',
+          fields: [
+            { key: 'status', type: 'text', label: '状态' },
+            {
+              key: 'score',
+              type: 'text',
+              label: '分数',
+              validation: { pattern: '^\\d$' },
+            },
+          ],
+          linkageRules: [
+            {
+              when: { fieldKey: 'status', operator: 'equals', value: 'approved' },
+              action: 'setValue',
+              targetFieldKey: 'score',
+              value: 'bad',
+            },
+          ],
+        },
+        answers: { status: 'approved' },
+      })
+      .expect(201);
+
+    expect(response.body).toEqual({
+      data: {
+        valid: false,
+        answers: { status: 'approved', score: 'bad' },
+        errors: [{ fieldKey: 'score', message: '分数格式不符合要求。' }],
+      },
+      requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
+    });
+  });
+
+  it('Schema 校验接口拒绝无效请求体', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/schema/validate')
+      .send({ schema: null, answers: [] })
+      .expect(400);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_SCHEMA_VALIDATE_REQUEST',
+        message: 'Schema 校验请求缺少有效 schema 或 answers。',
+      },
+      requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
+    });
+  });
 });
 
 describe('API 启动配置', () => {

@@ -43,6 +43,24 @@ export {
 } from './schema.ts';
 
 export {
+  applySchemaLinkage,
+  getSchemaFieldKey,
+  isSafeUploadedFileUrl,
+  validateSchemaAnswers,
+  type SchemaLinkageResult,
+  type SchemaValidationContext,
+  type SchemaValidationError,
+} from './schemaRuntime.ts';
+
+export {
+  getRendererSampleSchemas,
+  preferenceCompareSampleSchema,
+  qaQualitySampleSchema,
+  titleCleanupSampleSchema,
+  type RendererSampleSchemaResponse,
+} from './sampleSchemas.ts';
+
+export {
   getDatasetProfile,
   normalizeDatasetRecord,
   shouldSkipImportFile,

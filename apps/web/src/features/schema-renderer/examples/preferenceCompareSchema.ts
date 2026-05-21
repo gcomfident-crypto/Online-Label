@@ -93,6 +93,12 @@ export const preferenceCompareSchema = createLabelHubSchema({
       label: '证据附件',
     },
     {
+      key: 'evidence_image_field',
+      fieldKey: 'evidence_image',
+      type: 'image_upload',
+      label: '证据截图',
+    },
+    {
       key: 'preference_llm_assist',
       type: 'llm_assist',
       label: 'AI 偏好预判',

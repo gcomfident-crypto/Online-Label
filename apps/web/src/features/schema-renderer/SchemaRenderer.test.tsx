@@ -212,6 +212,55 @@ describe('SchemaRenderer', () => {
     expect(screen.getByText('https://example.test/audio.mp3')).toBeInTheDocument();
   });
 
+  it('show_item 不消费不安全的图片和视频媒体链接', () => {
+    const schema = baseSchema([
+      {
+        key: 'material',
+        type: 'show_item',
+        label: '题目物料',
+        sourceKeys: ['prompt', 'media_type', 'media_url'],
+      },
+    ]);
+
+    const { container, rerender } = render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{
+          prompt: '危险图片',
+          media_type: 'image',
+          media_url: 'javascript:alert(1)',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole('img', { name: '题目媒体' })).not.toBeInTheDocument();
+    expect(screen.getByText('媒体链接')).toBeInTheDocument();
+    expect(screen.getByText('javascript:alert(1)')).toBeInTheDocument();
+
+    rerender(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{
+          prompt: '危险视频',
+          media_type: 'video',
+          media_url: 'data:text/html,%3Cscript%3Ealert(1)%3C/script%3E',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector('video')).not.toBeInTheDocument();
+    expect(screen.getByText('媒体链接')).toBeInTheDocument();
+    expect(
+      screen.getByText('data:text/html,%3Cscript%3Ealert(1)%3C/script%3E'),
+    ).toBeInTheDocument();
+  });
+
   it('show_item markdown 渲染图片、链接并保持文本安全', () => {
     render(
       <SchemaRenderer
@@ -496,7 +545,9 @@ describe('SchemaRenderer', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('group 和 tabs 能递归渲染内部字段', () => {
+  it('group 递归渲染内部字段，tabs 仅渲染当前激活分组', async () => {
+    const user = userEvent.setup();
+
     render(
       <SchemaRenderer
         schema={baseSchema([
@@ -516,6 +567,11 @@ describe('SchemaRenderer', () => {
                 label: '第一组',
                 fields: [{ key: 'note', type: 'textarea', label: '说明' }],
               },
+              {
+                key: 'second',
+                label: '第二组',
+                fields: [{ key: 'decision', type: 'textarea', label: '结论' }],
+              },
             ],
           },
         ])}
@@ -529,8 +585,29 @@ describe('SchemaRenderer', () => {
     expect(screen.getByText('基础信息')).toBeInTheDocument();
     expect(screen.getByLabelText('摘要')).toBeInTheDocument();
     expect(screen.getByText('审核分组')).toBeInTheDocument();
-    expect(screen.getByText('第一组')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '第一组' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('tab', { name: '第二组' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
     expect(screen.getByLabelText('说明')).toBeInTheDocument();
+    expect(screen.queryByLabelText('结论')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: '第二组' }));
+
+    expect(screen.getByRole('tab', { name: '第一组' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
+    expect(screen.getByRole('tab', { name: '第二组' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.queryByLabelText('说明')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('结论')).toBeInTheDocument();
   });
 
   it('LLM 触发组件可生成并采纳 mock 建议到目标字段', async () => {
@@ -660,6 +737,49 @@ describe('SchemaRenderer', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'LLM 辅助暂时不可用，请稍后重试。',
     );
+  });
+
+  it('LLM 触发组件拒绝采纳目标字段不一致的结果', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          datasetKind: 'qa_quality',
+          targetFieldKey: 'other_note',
+          summary: '建议补充关键依据。',
+          suggestion: { comment: '不应写入当前字段' },
+        },
+      }),
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'assist',
+            type: 'llm_assist',
+            label: 'AI 辅助',
+            targetFieldKey: 'structured_note',
+          },
+        ])}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        onChange={onChange}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '生成建议' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'LLM 辅助返回目标字段不一致。',
+    );
+    expect(screen.queryByRole('button', { name: '重新生成' })).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('商品标题清洗 v3 示例触发长度计数、类目联动、标签必填和 LLM 采纳', async () => {
@@ -832,7 +952,7 @@ describe('SchemaRenderer', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('review 模式展示已保存的文件和图片元数据', () => {
+  it('review 模式展示已保存的文件和图片元数据但不把本地 mock 链接渲染为可点击链接', () => {
     render(
       <SchemaRenderer
         schema={baseSchema([
@@ -861,10 +981,36 @@ describe('SchemaRenderer', () => {
 
     expect(screen.getByText('report.txt')).toBeInTheDocument();
     expect(screen.getByText('text/plain · 2.0 KB')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'mock://local/report.txt' })).toBeInTheDocument();
+    expect(screen.getByText('mock://local/report.txt')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'mock://local/report.txt' })).not.toBeInTheDocument();
     expect(screen.getByText('photo.png')).toBeInTheDocument();
     expect(screen.getByText('image/png · 512 B')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'mock://local/photo.png' })).toBeInTheDocument();
+    expect(screen.getByText('mock://local/photo.png')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'mock://local/photo.png' })).not.toBeInTheDocument();
+  });
+
+  it('review 模式展示安全的已保存文件链接', () => {
+    render(
+      <SchemaRenderer
+        schema={baseSchema([{ key: 'attachment', type: 'file_upload', label: '附件' }])}
+        rawData={{}}
+        value={{
+          attachment: {
+            name: 'report.txt',
+            url: 'https://example.test/report.txt',
+            mimeType: 'text/plain',
+            size: 2048,
+          },
+        }}
+        mode="review"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'https://example.test/report.txt' })).toHaveAttribute(
+      'href',
+      'https://example.test/report.txt',
+    );
   });
 
   it('json_editor 输入合法 JSON 后写入解析对象', async () => {
@@ -1200,12 +1346,39 @@ describe('SchemaRenderer', () => {
 
     expect(
       validateSchemaAnswers(schema, {
-        attachment: { name: 'a.txt', url: 'mock://a.txt', mimeType: 'text/plain' },
-        photo: { name: 'p.txt', url: 'mock://p.txt', mimeType: 'text/plain', size: 1 },
+        attachment: { name: 'a.txt', url: 'mock://local/a.txt', mimeType: 'text/plain' },
+        photo: { name: 'p.txt', url: 'mock://local/p.txt', mimeType: 'text/plain', size: 1 },
       }),
     ).toEqual([
       { fieldKey: 'attachment', message: '附件需要上传有效文件。' },
       { fieldKey: 'photo', message: '图片必须上传图片文件。' },
+    ]);
+  });
+
+  it('file_upload 和 image_upload 拒绝不安全文件链接', () => {
+    const schema = baseSchema([
+      { key: 'attachment', type: 'file_upload', label: '附件' },
+      { key: 'photo', type: 'image_upload', label: '图片' },
+    ]);
+
+    expect(
+      validateSchemaAnswers(schema, {
+        attachment: {
+          name: 'a.txt',
+          url: 'javascript:alert(1)',
+          mimeType: 'text/plain',
+          size: 1,
+        },
+        photo: {
+          name: 'p.png',
+          url: 'data:text/html,%3Cscript%3Ealert(1)%3C/script%3E',
+          mimeType: 'image/png',
+          size: 1,
+        },
+      }),
+    ).toEqual([
+      { fieldKey: 'attachment', message: '附件需要上传有效文件。' },
+      { fieldKey: 'photo', message: '图片需要上传有效文件。' },
     ]);
   });
 
@@ -1266,6 +1439,7 @@ describe('SchemaRenderer', () => {
 
     expect(approvedResult.visibleFieldKeys.has('detail')).toBe(true);
     expect(approvedResult.answers).toMatchObject({ status: 'approved', score: '5' });
+    expect(approvedResult.disabledFieldKeys.has('score')).toBe(false);
 
     const rejectedResult = applySchemaLinkage(schema, { status: 'rejected' });
 
@@ -1412,6 +1586,31 @@ describe('SchemaRenderer', () => {
     });
   });
 
+  it('setValue 目标字段仍会参与校验', () => {
+    const schema = {
+      ...baseSchema([
+        { key: 'status', type: 'text', label: '状态' },
+        { key: 'score', type: 'text', label: '分数', validation: { pattern: '^\\d$' } },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'approved' },
+          action: 'setValue',
+          targetFieldKey: 'score',
+          value: 'bad',
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    const result = applySchemaLinkage(schema, { status: 'approved' });
+
+    expect(result.answers.score).toBe('bad');
+    expect(result.disabledFieldKeys.has('score')).toBe(false);
+    expect(validateSchemaAnswers(schema, result.answers, result)).toEqual([
+      { fieldKey: 'score', message: '分数格式不符合要求。' },
+    ]);
+  });
+
   it('禁用字段默认不触发校验错误', () => {
     const schema = {
       ...baseSchema([
@@ -1464,6 +1663,37 @@ describe('SchemaRenderer', () => {
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenLastCalledWith({ status: 'approved', score: '5' });
+  });
+
+  it('review 模式不会因为 setValue 联动自动写回 answers', () => {
+    const onChange = vi.fn();
+    const schema = {
+      ...baseSchema([
+        { key: 'status', type: 'text', label: '状态' },
+        { key: 'score', type: 'text', label: '分数' },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'approved' },
+          action: 'setValue',
+          targetFieldKey: 'score',
+          value: '5',
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{}}
+        value={{ status: 'approved' }}
+        mode="review"
+        onChange={onChange}
+      />,
+    );
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('分数')).toHaveValue('5');
   });
 
   it('Renderer 根据联动隐藏字段、禁用字段、动态必填并写入 setValue', async () => {
@@ -1537,7 +1767,7 @@ describe('SchemaRenderer', () => {
     expect(await screen.findByLabelText('详情')).toBeInTheDocument();
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenLastCalledWith({ status: 'approved', score: '5' });
-    expect(screen.getByLabelText('分数')).toBeDisabled();
+    expect(screen.getByLabelText('分数')).not.toBeDisabled();
 
     await user.click(screen.getByLabelText('状态：拒绝'));
 
@@ -1602,6 +1832,25 @@ describe('SchemaRenderer', () => {
 
     expect(validateSchemaAnswers(schema, { email: 'bad-email' })).toEqual([
       { fieldKey: 'email', message: '邮箱格式不正确。' },
+    ]);
+  });
+
+  it('字段校验 message 覆盖默认中文错误', () => {
+    const schema = baseSchema([
+      {
+        key: 'code',
+        type: 'text',
+        label: '编码',
+        validation: { required: true, minLength: 3, pattern: '^[A-Z]+$', message: '编码不合规。' },
+      },
+    ]);
+
+    expect(validateSchemaAnswers(schema, {})).toEqual([
+      { fieldKey: 'code', message: '编码不合规。' },
+    ]);
+    expect(validateSchemaAnswers(schema, { code: 'ab' })).toEqual([
+      { fieldKey: 'code', message: '编码不合规。' },
+      { fieldKey: 'code', message: '编码不合规。' },
     ]);
   });
 });

@@ -526,6 +526,27 @@ p {
   gap: 12px;
 }
 
+.schema-field__tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.schema-field__tab-button {
+  border: 1px solid #d8d5ce;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #f7f4ed;
+  color: #272018;
+  font-weight: 800;
+}
+
+.schema-field__tab-button.is-active {
+  border-color: #9d513f;
+  background: #fffdf8;
+  color: #7a2e23;
+}
+
 .playground-page {
   min-height: 100vh;
   background: #f6f4ef;

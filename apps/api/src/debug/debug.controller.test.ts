@@ -1,7 +1,28 @@
 import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
+import type { RendererSampleSchemaResponse } from '@labelhub/shared';
 
 import { DebugController } from './debug.controller.ts';
+
+const sampleSchemaResponse: RendererSampleSchemaResponse = {
+  schemas: {
+    qa_quality: {
+      schemaVersion: '1.0.0',
+      datasetKind: 'qa_quality',
+      fields: [],
+    },
+    preference_compare: {
+      schemaVersion: '1.0.0',
+      datasetKind: 'preference_compare',
+      fields: [],
+    },
+    title_cleanup: {
+      schemaVersion: '1.0.0',
+      datasetKind: 'generic_json',
+      fields: [],
+    },
+  },
+};
 
 describe('DebugController', () => {
   it('returns seed count structure in development', async () => {
@@ -18,6 +39,7 @@ describe('DebugController', () => {
         }),
         listTasks: async () => [],
         listUsers: async () => [],
+        getSampleSchema: () => sampleSchemaResponse,
       },
       { NODE_ENV: 'development' },
     );
@@ -31,6 +53,28 @@ describe('DebugController', () => {
         preference_compare: 12,
       },
     });
+  });
+
+  it('development 环境返回 Renderer 调试示例 Schema', () => {
+    const controller = new DebugController(
+      {
+        getSeedStatus: async () => ({
+          users: 4,
+          templates: 2,
+          tasks: 2,
+          taskItems: {
+            qa_quality: 30,
+            preference_compare: 12,
+          },
+        }),
+        listTasks: async () => [],
+        listUsers: async () => [],
+        getSampleSchema: () => sampleSchemaResponse,
+      },
+      { NODE_ENV: 'development' },
+    );
+
+    expect(controller.getSampleSchema()).toEqual(sampleSchemaResponse);
   });
 
   it('hides debug routes in test', async () => {
@@ -69,6 +113,7 @@ function createHiddenDebugController(env: { NODE_ENV?: string }): DebugControlle
       }),
       listTasks: async () => [],
       listUsers: async () => [],
+      getSampleSchema: () => sampleSchemaResponse,
     },
     env,
   );

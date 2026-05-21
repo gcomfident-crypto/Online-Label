@@ -22,6 +22,8 @@ import { LlmController } from './llm/llm.controller.ts';
 import { LlmService } from './llm/llm.service.ts';
 import { MeController } from './me.controller.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
+import { SchemaController } from './schema/schema.controller.ts';
+import { SchemaService } from './schema/schema.service.ts';
 import { StateMachineService } from './state-machine/state-machine.service.ts';
 
 type RequestWithId = {
@@ -86,13 +88,21 @@ class ErrorEnvelopeFilter implements ExceptionFilter {
 }
 
 @Module({
-  controllers: [AuthController, HealthController, MeController, DebugController, LlmController],
+  controllers: [
+    AuthController,
+    HealthController,
+    MeController,
+    DebugController,
+    LlmController,
+    SchemaController,
+  ],
   providers: [
     PrismaService,
     AuditService,
     StateMachineService,
     DebugService,
     LlmService,
+    SchemaService,
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseEnvelopeInterceptor,

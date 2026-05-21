@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import type { RendererSampleSchemaResponse } from '@labelhub/shared';
 
 import {
   DebugService,
@@ -23,6 +24,7 @@ type DebugServiceLike = {
   getSeedStatus: () => Promise<SeedStatus>;
   listTasks: () => Promise<DebugTask[]>;
   listUsers: () => Promise<DebugUser[]>;
+  getSampleSchema: () => RendererSampleSchemaResponse;
 };
 
 @Controller('debug')
@@ -51,6 +53,12 @@ export class DebugController {
   async listUsers(): Promise<DebugUser[]> {
     this.assertDebugEnabled();
     return this.debugService.listUsers();
+  }
+
+  @Get('sample-schema')
+  getSampleSchema(): RendererSampleSchemaResponse {
+    this.assertDebugEnabled();
+    return this.debugService.getSampleSchema();
   }
 
   private assertDebugEnabled(): void {

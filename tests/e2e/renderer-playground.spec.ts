@@ -23,6 +23,7 @@ test('Renderer 调试台覆盖示例切换、模式切换和 LLM 采纳', async 
 
   await page.getByRole('button', { name: '全部物料' }).click();
   await expect(page.getByText('多 Tab 布局')).toBeVisible();
+  await page.getByRole('tab', { name: '上传字段' }).click();
   await expect(page.getByText('图片上传示例')).toBeVisible();
 
   await page.getByRole('button', { name: '商品标题清洗 v3' }).click();

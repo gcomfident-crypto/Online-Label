@@ -82,6 +82,20 @@ export const stringifyDisplayValue = (value: unknown): string => {
   return JSON.stringify(value);
 };
 
+const isNavigableResourceUrl = (value: string): boolean => {
+  if (value.startsWith('/')) {
+    return true;
+  }
+
+  try {
+    const url = new URL(value);
+
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 export const optionLabel = (field: SchemaField, option: FieldOption): string => {
   return `${field.label}：${option.label}`;
 };
@@ -115,13 +129,15 @@ export const FieldCounter = ({
 };
 
 export const UploadedFilePreview = ({ file }: { file: UploadedFileValue }) => {
+  const canNavigate = isNavigableResourceUrl(file.url);
+
   return (
     <div className="schema-field__file-preview">
       <span>{file.name}</span>
       <small>
         {file.mimeType} · {formatFileSize(file.size)}
       </small>
-      <a href={file.url}>{file.url}</a>
+      {canNavigate ? <a href={file.url}>{file.url}</a> : <small>{file.url}</small>}
     </div>
   );
 };
