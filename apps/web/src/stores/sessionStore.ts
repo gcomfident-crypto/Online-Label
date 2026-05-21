@@ -65,19 +65,21 @@ const readStoredSession = (): SessionState | null => {
 
   try {
     const parsed = JSON.parse(rawSession) as Partial<SessionState>;
-    if (!parsed.token || !parsed.user || !isUserRole(parsed.user.role)) {
+    if (!isStoredSession(parsed)) {
+      storage.removeItem(STORAGE_KEY);
       return null;
     }
 
     return {
       token: parsed.token,
       user: {
-        id: parsed.user.id ?? `demo-${parsed.user.role.toLowerCase()}`,
-        name: parsed.user.name ?? DEMO_USERS[parsed.user.role].name,
+        id: parsed.user.id,
+        name: parsed.user.name,
         role: parsed.user.role,
       },
     };
   } catch {
+    storage.removeItem(STORAGE_KEY);
     return null;
   }
 };
@@ -127,5 +129,14 @@ export const useSession = () => {
     sessionStore.subscribe,
     sessionStore.getSnapshot,
     sessionStore.getSnapshot,
+  );
+};
+
+const isStoredSession = (value: Partial<SessionState>): value is SessionState => {
+  return (
+    typeof value.token === 'string' &&
+    typeof value.user?.id === 'string' &&
+    typeof value.user?.name === 'string' &&
+    isUserRole(value.user?.role)
   );
 };

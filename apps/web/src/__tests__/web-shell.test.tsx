@@ -1,9 +1,9 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { USER_ROLE } from '@labelhub/shared';
+import { ROLE_HOME_METADATA, USER_ROLE, USER_ROLES } from '@labelhub/shared';
 import { AppRouter } from '../router';
 import { sessionStore } from '../stores/sessionStore';
 
@@ -86,13 +86,34 @@ describe('Web 路由守卫', () => {
     expect(screen.getByText('当前账号不能访问该端工作区。')).toBeInTheDocument();
   });
 
-  it('登录后按角色默认首页跳转', async () => {
+  it.each(USER_ROLES)('登录 %s 后按角色默认首页跳转', async (role) => {
     const user = userEvent.setup();
     renderRoute('/login');
 
-    await user.click(screen.getByRole('button', { name: /Reviewer 演示账号/ }));
+    await user.click(
+      screen.getByRole('button', {
+        name: new RegExp(`${ROLE_HOME_METADATA[role].displayName.replace(' 端', '')} 演示账号`),
+      }),
+    );
 
-    expect(screen.getByRole('navigation', { name: 'Reviewer 端导航' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '验收台' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('navigation', { name: `${ROLE_HOME_METADATA[role].displayName}导航` }),
+    ).toBeInTheDocument();
+  });
+
+  it('忽略并清理结构异常的本地会话', async () => {
+    vi.resetModules();
+    window.localStorage.setItem(
+      'labelhub.session.v1',
+      JSON.stringify({
+        token: { value: 'bad-token' },
+        user: { id: 7, name: false, role: 'OWNER' },
+      }),
+    );
+
+    const { sessionStore: freshSessionStore } = await import('../stores/sessionStore');
+
+    expect(freshSessionStore.getSnapshot()).toBeNull();
+    expect(window.localStorage.getItem('labelhub.session.v1')).toBeNull();
   });
 });
