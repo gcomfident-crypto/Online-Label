@@ -119,6 +119,9 @@ type SubmissionsPrismaClient = {
   auditLog: {
     create: (args: { data: Record<string, unknown> }) => Promise<Record<string, unknown>>;
   };
+  aiReviewJob: {
+    create: (args: { data: Record<string, unknown> }) => Promise<Record<string, unknown>>;
+  };
   $transaction: <TResult>(callback: (client: SubmissionsPrismaClient) => Promise<TResult>) => Promise<TResult>;
 };
 
@@ -204,6 +207,27 @@ export class SubmissionsService {
             assignmentId: assignment.id,
             round,
           },
+        },
+      });
+      await client.aiReviewJob.create({
+        data: {
+          submissionId: submission.id,
+          taskId: assignment.taskId,
+          round,
+          idempotencyKey: aiReviewIdempotencyKey(submission.id, round),
+          status: 'QUEUED',
+          attempts: 0,
+          maxAttempts: 3,
+          structuredOutputMode: 'function_calling',
+          provider: 'mock',
+          model: 'mock-stable-reviewer',
+          logs: [
+            {
+              level: 'queue',
+              message: '提交已进入 AI 自动预审队列。',
+              at: submission.createdAt.toISOString(),
+            },
+          ],
         },
       });
 
@@ -318,6 +342,10 @@ function matchesLabelerSubmissionQuery(
 
 function nextRound(submissions: SubmissionRecord[]): number {
   return Math.max(0, ...submissions.map((submission) => submission.round)) + 1;
+}
+
+function aiReviewIdempotencyKey(submissionId: string, round: number): string {
+  return `${submissionId}:${round}:ai-review`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

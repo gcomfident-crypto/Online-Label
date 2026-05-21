@@ -60,12 +60,15 @@ type MockSubmissionsPrisma = {
   auditLog: {
     create: (args: { data: Record<string, unknown> }) => Promise<Record<string, unknown>>;
   };
+  aiReviewJob: {
+    create: (args: { data: Record<string, unknown> }) => Promise<Record<string, unknown>>;
+  };
   $transaction: <TResult>(callback: (client: MockSubmissionsPrisma) => Promise<TResult>) => Promise<TResult>;
 };
 
 describe('SubmissionsService', () => {
   it('提交合法答案时创建 AI_QUEUED 快照、round=1 并写入审计日志', async () => {
-    const { service, submissions, assignments, auditLogs, completedItems } = createService();
+    const { service, submissions, assignments, auditLogs, completedItems, aiReviewJobs } = createService();
 
     const result = await service.submit({
       assignmentId: 'assignment_1',
@@ -94,6 +97,15 @@ describe('SubmissionsService', () => {
         metadata: { action: 'SUBMISSION_CREATED', assignmentId: 'assignment_1', round: 1 },
       }),
     );
+    expect(aiReviewJobs).toEqual([
+      expect.objectContaining({
+        submissionId: 'submission_1',
+        taskId: 'task_qa',
+        round: 1,
+        idempotencyKey: 'submission_1:1:ai-review',
+        status: 'QUEUED',
+      }),
+    ]);
   });
 
   it('打回后二次提交创建 round=2，不覆盖已有提交', async () => {
@@ -215,6 +227,7 @@ function createService(
   const submissions = assignments.flatMap((assignment) => assignment.submissions);
   const completedItems: string[] = [];
   const auditLogs: Array<Record<string, unknown>> = [];
+  const aiReviewJobs: Array<Record<string, unknown>> = [];
 
   const prisma: MockSubmissionsPrisma = {
     assignment: {
@@ -262,6 +275,12 @@ function createService(
         return data;
       },
     },
+    aiReviewJob: {
+      create: async ({ data }) => {
+        aiReviewJobs.push(data);
+        return data;
+      },
+    },
     $transaction: async <TResult>(callback: (client: MockSubmissionsPrisma) => Promise<TResult>) =>
       callback(prisma),
   };
@@ -269,6 +288,7 @@ function createService(
   return {
     assignments,
     auditLogs,
+    aiReviewJobs,
     completedItems,
     service: new SubmissionsService(prisma, new SchemaService()),
     submissions,
