@@ -114,6 +114,13 @@ describe('TasksService', () => {
       'PUBLISHED',
       'ENDED',
     ]);
+    expect(auditLogs.map((auditLog) => auditLog.metadata)).toEqual([
+      { action: 'TASK_CREATED' },
+      { action: 'TASK_PUBLISHED' },
+      { action: 'TASK_PAUSED' },
+      { action: 'TASK_RESUMED' },
+      { action: 'TASK_ENDED' },
+    ]);
   });
 
   it('已结束任务不能恢复发布', async () => {

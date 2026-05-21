@@ -208,7 +208,7 @@ export class TasksService {
           toStatus: input.status,
           actorId: input.actorId,
           reason: input.reason,
-          metadata: { action: actionForStatus(input.status) },
+          metadata: { action: actionForTransition(current.status, input.status) },
         },
       });
 
@@ -294,7 +294,11 @@ const assertPublishChecklist = (task: TaskRecord, input: UpdateTaskStatusInput) 
   }
 };
 
-const actionForStatus = (status: TaskStatus): string => {
+const actionForTransition = (from: TaskStatus, to: TaskStatus): string => {
+  if (from === 'PAUSED' && to === 'PUBLISHED') {
+    return 'TASK_RESUMED';
+  }
+
   const actions: Record<TaskStatus, string> = {
     DRAFT: 'TASK_UPDATED',
     PUBLISHED: 'TASK_PUBLISHED',
@@ -302,7 +306,7 @@ const actionForStatus = (status: TaskStatus): string => {
     ENDED: 'TASK_ENDED',
   };
 
-  return actions[status];
+  return actions[to];
 };
 
 const toTaskDto = (task: TaskRecord): TaskDto => ({
