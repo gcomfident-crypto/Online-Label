@@ -1,0 +1,21 @@
+{
+  "name": "labelhub",
+  "version": "0.0.0",
+  "private": true,
+  "description": "LabelHub 全栈标注平台工作区",
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel --if-present dev",
+    "dev:web": "pnpm -r --parallel --if-present dev:web",
+    "dev:api": "pnpm -r --parallel --if-present dev:api",
+    "dev:worker": "pnpm -r --parallel --if-present dev:worker",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^22.15.21",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
+}
