@@ -17,6 +17,7 @@ const renderRoute = (initialPath: string) => {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   act(() => {
     sessionStore.clear();
   });
@@ -33,7 +34,7 @@ describe('Web 壳 smoke test', () => {
     expect(screen.getByRole('button', { name: /Reviewer 演示账号/ })).toBeInTheDocument();
   });
 
-  it('四端 Portal Layout 各自渲染对应导航', () => {
+  it('四端 Portal Layout 各自渲染对应导航', async () => {
     act(() => {
       sessionStore.loginAs(USER_ROLE.OWNER);
     });
@@ -63,9 +64,11 @@ describe('Web 壳 smoke test', () => {
     act(() => {
       sessionStore.loginAs(USER_ROLE.REVIEWER);
     });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ data: [] })));
     renderRoute('/reviewer/reviews');
     expect(screen.getByRole('navigation', { name: 'Reviewer 端导航' })).toHaveTextContent('验收台');
     expect(screen.queryByRole('navigation', { name: 'AI Agent 端导航' })).not.toBeInTheDocument();
+    expect(await screen.findByText('暂无待复审数据')).toBeInTheDocument();
   });
 });
 
@@ -180,3 +183,9 @@ describe('Web 路由守卫', () => {
     expect(window.localStorage.getItem('labelhub.session.v1')).not.toBeNull();
   });
 });
+
+const jsonResponse = (body: unknown): Response =>
+  ({
+    ok: true,
+    json: async () => body,
+  }) as Response;

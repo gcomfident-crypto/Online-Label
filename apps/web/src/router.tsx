@@ -19,7 +19,8 @@ import { DatasetImportPage } from './pages/owner/DatasetImportPage';
 import { TaskDetailPage } from './pages/owner/TaskDetailPage';
 import { OwnerTasksPage } from './pages/owner/OwnerTasksPage';
 import { TemplateDesignerPage } from './pages/owner/TemplateDesignerPage';
-import { ReviewerReviewsPage } from './pages/reviewer/ReviewerReviewsPage';
+import { ReviewDetailPage } from './pages/reviewer/ReviewDetailPage';
+import { ReviewListPage } from './pages/reviewer/ReviewListPage';
 
 export const AppRouter = () => {
   return (
@@ -83,7 +84,8 @@ export const AppRouter = () => {
         }
       >
         <Route index element={<Navigate to="/reviewer/reviews" replace />} />
-        <Route path="reviews" element={<ReviewerReviewsPage />} />
+        <Route path="reviews" element={<ReviewListPage />} />
+        <Route path="reviews/:submissionId" element={<ReviewDetailPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
