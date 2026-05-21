@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildTemplateCompatibilityReport,
+  preferenceCompareSampleSchema,
   qaQualitySampleSchema,
+  titleCleanupSampleSchema,
   validateTemplateSchema,
   type LabelHubSchema,
 } from './index.ts';
@@ -96,11 +98,55 @@ describe('template validation', () => {
     });
   });
 
-  it('官方 qa_quality 示例可以通过发布前校验', () => {
+  it('校验上传字段约束', () => {
+    expect(
+      validateTemplateSchema(
+        baseSchema([
+          { key: 'evidence', fieldKey: 'evidence', type: 'file_upload', label: '证据附件' },
+          {
+            key: 'screenshot',
+            fieldKey: 'screenshot',
+            type: 'image_upload',
+            label: '截图',
+            fileConstraints: {
+              maxFiles: 1,
+              maxSizeMb: 5,
+              acceptedMimeTypes: ['application/pdf'],
+            },
+          },
+        ]),
+      ),
+    ).toEqual({
+      valid: false,
+      errors: [
+        {
+          code: 'TEMPLATE_FILE_CONSTRAINT_REQUIRED',
+          fieldKey: 'evidence',
+          message: '证据附件需要配置文件数量、大小上限和允许类型。',
+        },
+        {
+          code: 'TEMPLATE_IMAGE_MIME_REQUIRED',
+          fieldKey: 'screenshot',
+          message: '截图的允许类型必须是 image/* 或具体图片 MIME。',
+        },
+      ],
+    });
+  });
+
+  it('官方样例可以通过发布前校验且商品标题清洗包含关键词字段', () => {
     expect(validateTemplateSchema(qaQualitySampleSchema)).toEqual({
       valid: true,
       errors: [],
     });
+    expect(validateTemplateSchema(preferenceCompareSampleSchema)).toEqual({
+      valid: true,
+      errors: [],
+    });
+    expect(
+      titleCleanupSampleSchema.fields[0]?.fields?.some(
+        (field) => 'fieldKey' in field && field.fieldKey === 'keywords',
+      ),
+    ).toBe(true);
   });
 
   it('生成模板版本兼容报告', () => {

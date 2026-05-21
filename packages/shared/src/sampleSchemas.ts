@@ -110,12 +110,22 @@ export const preferenceCompareSampleSchema = createLabelHubSchema({
       fieldKey: 'evidence_file',
       type: 'file_upload',
       label: '证据附件',
+      fileConstraints: {
+        maxFiles: 3,
+        maxSizeMb: 20,
+        acceptedMimeTypes: ['application/pdf', 'text/plain', 'image/*'],
+      },
     },
     {
       key: 'evidence_image_field',
       fieldKey: 'evidence_image',
       type: 'image_upload',
       label: '证据截图',
+      fileConstraints: {
+        maxFiles: 3,
+        maxSizeMb: 10,
+        acceptedMimeTypes: ['image/*'],
+      },
     },
     {
       key: 'structured_annotation_field',
@@ -166,6 +176,18 @@ export const titleCleanupSampleSchema = createLabelHubSchema({
             { label: '数码配件', value: 'electronics' },
             { label: '服饰鞋包', value: 'fashion' },
             { label: '家居日用', value: 'home' },
+          ],
+        },
+        {
+          key: 'keywords_field',
+          fieldKey: 'keywords',
+          type: 'tag_select',
+          label: '卖点关键词',
+          options: [
+            { label: '纯棉', value: 'cotton' },
+            { label: '宽松', value: 'loose' },
+            { label: '情侣款', value: 'couple' },
+            { label: '春秋季', value: 'spring_autumn' },
           ],
         },
         {

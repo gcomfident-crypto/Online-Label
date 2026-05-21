@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import type { SchemaField } from '@labelhub/shared';
 import { describe, expect, it } from 'vitest';
 
 import { TemplatesService } from './templates.service.ts';
@@ -32,7 +33,29 @@ describe('TemplatesService', () => {
     expect(result.status).toBe('DRAFT');
     expect(result.schema.datasetKind).toBe('qa_quality');
     expect(result.schema.fields.some((field) => field.type === 'show_item')).toBe(true);
+    expect(flattenFieldKeys(result.schema.fields)).toContain('relevance_score');
+    expect(result.schema.fields[0]?.sourceKeys).toEqual(
+      expect.arrayContaining(['prompt', 'model_answer', 'media_url']),
+    );
     expect(records).toHaveLength(1);
+  });
+
+  it('从官方 preference_compare profile 创建 A/B 偏好模板草稿', async () => {
+    const { service } = createService();
+
+    const result = await service.createFromProfile({
+      profile: 'preference_compare',
+      actorId: 'user_owner_001',
+    });
+
+    expect(result.name).toBe('偏好对比官方模板');
+    expect(result.schema.datasetKind).toBe('preference_compare');
+    expect(result.schema.fields[0]?.sourceKeys).toEqual(
+      expect.arrayContaining(['prompt', 'response_a', 'response_b']),
+    );
+    expect(flattenFieldKeys(result.schema.fields)).toEqual(
+      expect.arrayContaining(['preferred', 'dimensions', 'evidence_file', 'evidence_image']),
+    );
   });
 
   it('保存前拒绝重复字段名', async () => {
@@ -54,7 +77,11 @@ describe('TemplatesService', () => {
           ],
         },
       }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toMatchObject({
+      response: {
+        code: 'INVALID_TEMPLATE_SCHEMA',
+      },
+    });
   });
 
   it('发布草稿生成不可变版本和兼容报告', async () => {
@@ -126,4 +153,12 @@ function createService() {
     records,
     service: new TemplatesService(prisma),
   };
+}
+
+function flattenFieldKeys(fields: readonly SchemaField[]): string[] {
+  return fields.flatMap((field) => [
+    field.fieldKey ?? field.key,
+    ...(field.fields ? flattenFieldKeys(field.fields) : []),
+    ...(field.tabs?.flatMap((tab) => flattenFieldKeys(tab.fields)) ?? []),
+  ]);
 }

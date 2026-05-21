@@ -16,6 +16,8 @@ export type TemplateSchemaValidationError = {
     | 'TEMPLATE_GROUP_CHILDREN_REQUIRED'
     | 'TEMPLATE_TABS_REQUIRED'
     | 'TEMPLATE_TAB_CHILDREN_REQUIRED'
+    | 'TEMPLATE_FILE_CONSTRAINT_REQUIRED'
+    | 'TEMPLATE_IMAGE_MIME_REQUIRED'
     | 'TEMPLATE_LLM_TARGET_MISSING'
     | 'TEMPLATE_LINKAGE_SOURCE_MISSING'
     | 'TEMPLATE_LINKAGE_TARGET_MISSING'
@@ -115,6 +117,10 @@ export const validateTemplateSchema = (
       }
     }
 
+    if (field.type === 'file_upload' || field.type === 'image_upload') {
+      validateFileConstraints(field, fieldKey, errors);
+    }
+
     if (field.type === 'llm_assist' && (!field.targetFieldKey || !fieldKeySet.has(field.targetFieldKey))) {
       errors.push({
         code: 'TEMPLATE_LLM_TARGET_MISSING',
@@ -205,6 +211,42 @@ const validateLinkageRule = (
       code: 'TEMPLATE_LINKAGE_TARGET_MISSING',
       fieldKey: targetFieldKey,
       message: `联动目标字段 ${targetFieldKey} 不存在。`,
+    });
+  }
+};
+
+const validateFileConstraints = (
+  field: SchemaField,
+  fieldKey: string,
+  errors: TemplateSchemaValidationError[],
+) => {
+  const constraints = field.fileConstraints;
+  const acceptedMimeTypes = constraints?.acceptedMimeTypes ?? [];
+
+  if (
+    !constraints ||
+    !Number.isFinite(constraints.maxFiles) ||
+    Number(constraints.maxFiles) < 1 ||
+    !Number.isFinite(constraints.maxSizeMb) ||
+    Number(constraints.maxSizeMb) <= 0 ||
+    acceptedMimeTypes.length === 0
+  ) {
+    errors.push({
+      code: 'TEMPLATE_FILE_CONSTRAINT_REQUIRED',
+      fieldKey,
+      message: `${field.label}需要配置文件数量、大小上限和允许类型。`,
+    });
+    return;
+  }
+
+  if (
+    field.type === 'image_upload' &&
+    !acceptedMimeTypes.every((mimeType) => mimeType === 'image/*' || mimeType.startsWith('image/'))
+  ) {
+    errors.push({
+      code: 'TEMPLATE_IMAGE_MIME_REQUIRED',
+      fieldKey,
+      message: `${field.label}的允许类型必须是 image/* 或具体图片 MIME。`,
     });
   }
 };

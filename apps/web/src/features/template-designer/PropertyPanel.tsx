@@ -72,6 +72,15 @@ const BasicProperties = ({
   optionsDraft: string;
   onUpdateField: (patch: Partial<SchemaField>) => void;
 }) => {
+  const updateFileConstraints = (patch: NonNullable<SchemaField['fileConstraints']>) => {
+    onUpdateField({
+      fileConstraints: {
+        ...(field.fileConstraints ?? {}),
+        ...patch,
+      },
+    });
+  };
+
   return (
     <div className="designer-form-grid">
       <label>
@@ -122,6 +131,40 @@ const BasicProperties = ({
           onChange={(event) => onUpdateField({ options: parseOptions(event.target.value) })}
         />
       </label>
+      {field.type === 'file_upload' || field.type === 'image_upload' ? (
+        <>
+          <label>
+            文件数量
+            <input
+              aria-label="文件数量"
+              min="1"
+              type="number"
+              value={field.fileConstraints?.maxFiles ?? ''}
+              onChange={(event) => updateFileConstraints({ maxFiles: numericValue(event.target.value) })}
+            />
+          </label>
+          <label>
+            大小上限 MB
+            <input
+              aria-label="大小上限 MB"
+              min="1"
+              type="number"
+              value={field.fileConstraints?.maxSizeMb ?? ''}
+              onChange={(event) => updateFileConstraints({ maxSizeMb: numericValue(event.target.value) })}
+            />
+          </label>
+          <label>
+            允许类型
+            <textarea
+              aria-label="允许类型"
+              value={formatMimeTypes(field)}
+              onChange={(event) =>
+                updateFileConstraints({ acceptedMimeTypes: parseMimeTypes(event.target.value) })
+              }
+            />
+          </label>
+        </>
+      ) : null}
     </div>
   );
 };
@@ -229,6 +272,17 @@ const numericValue = (value: string): number | undefined => {
 
 const formatOptions = (field: SchemaField | null): string => {
   return (field?.options ?? []).map((option) => `${option.label}=${option.value}`).join('\n');
+};
+
+const formatMimeTypes = (field: SchemaField): string => {
+  return (field.fileConstraints?.acceptedMimeTypes ?? []).join('\n');
+};
+
+const parseMimeTypes = (value: string): string[] => {
+  return value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 };
 
 const parseOptions = (value: string): SchemaField['options'] => {

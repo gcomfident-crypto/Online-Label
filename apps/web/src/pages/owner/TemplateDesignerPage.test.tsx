@@ -62,4 +62,26 @@ describe('TemplateDesignerPage', () => {
     await user.click(screen.getByRole('button', { name: '重做' }));
     expect(screen.getByRole('button', { name: '选择 单行输入' })).toBeInTheDocument();
   });
+
+  it('能配置上传字段的数量、大小和允许类型', async () => {
+    const user = userEvent.setup();
+
+    render(<TemplateDesignerPage />);
+
+    await user.click(screen.getByRole('button', { name: '添加图片上传' }));
+
+    await user.clear(screen.getByLabelText('文件数量'));
+    await user.type(screen.getByLabelText('文件数量'), '2');
+    await user.clear(screen.getByLabelText('大小上限 MB'));
+    await user.type(screen.getByLabelText('大小上限 MB'), '8');
+    fireEvent.change(screen.getByLabelText('允许类型'), {
+      target: { value: 'image/png\nimage/jpeg' },
+    });
+
+    const schemaJson = screen.getByRole('region', { name: 'Schema JSON' });
+    expect(schemaJson).toHaveTextContent('"maxFiles": 2');
+    expect(schemaJson).toHaveTextContent('"maxSizeMb": 8');
+    expect(schemaJson).toHaveTextContent('"image/png"');
+    expect(schemaJson).toHaveTextContent('"image/jpeg"');
+  });
 });

@@ -301,6 +301,28 @@ const createDefaultField = (type: FieldType, schema: LabelHubSchema): SchemaFiel
     return { ...base, targetFieldKey: firstEditableAnswerKey(schema.fields) ?? undefined };
   }
 
+  if (type === 'file_upload') {
+    return {
+      ...base,
+      fileConstraints: {
+        maxFiles: 1,
+        maxSizeMb: 20,
+        acceptedMimeTypes: ['application/pdf', 'text/plain', 'image/*'],
+      },
+    };
+  }
+
+  if (type === 'image_upload') {
+    return {
+      ...base,
+      fileConstraints: {
+        maxFiles: 1,
+        maxSizeMb: 10,
+        acceptedMimeTypes: ['image/*'],
+      },
+    };
+  }
+
   return base;
 };
 

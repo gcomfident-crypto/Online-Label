@@ -44,6 +44,22 @@ describe('useTemplateDesignerStore', () => {
     ]);
   });
 
+  it('新增上传物料时带有发布所需的文件限制', () => {
+    const store = useTemplateDesignerStore.getState();
+
+    store.resetDesigner();
+    store.addField('image_upload');
+
+    expect(useTemplateDesignerStore.getState().schema.fields[0]).toMatchObject({
+      type: 'image_upload',
+      fileConstraints: {
+        maxFiles: 1,
+        maxSizeMb: 10,
+        acceptedMimeTypes: ['image/*'],
+      },
+    });
+  });
+
   it('载入商品标题清洗蓝本并更新 nested 字段校验', () => {
     const store = useTemplateDesignerStore.getState();
 

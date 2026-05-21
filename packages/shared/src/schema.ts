@@ -75,6 +75,12 @@ export type FieldOption = {
   value: string;
 };
 
+export type FileConstraints = {
+  maxFiles?: number;
+  maxSizeMb?: number;
+  acceptedMimeTypes?: readonly string[];
+};
+
 export type SchemaField = {
   key: string;
   fieldKey?: string;
@@ -87,6 +93,7 @@ export type SchemaField = {
   description?: string;
   placeholder?: string;
   options?: readonly FieldOption[];
+  fileConstraints?: FileConstraints;
   required?: boolean;
   validation?: FieldValidation;
   validateWhenHidden?: boolean;
