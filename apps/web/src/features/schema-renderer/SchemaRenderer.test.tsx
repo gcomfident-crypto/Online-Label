@@ -689,7 +689,7 @@ describe('SchemaRenderer', () => {
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '重新生成' }));
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    await user.click(screen.getByRole('button', { name: '采纳' }));
+    await user.click(screen.getByRole('button', { name: '采纳为答案' }));
 
     expect(onChange).toHaveBeenLastCalledWith({
       structured_note: {
@@ -838,7 +838,7 @@ describe('SchemaRenderer', () => {
 
     await user.click(screen.getByRole('button', { name: '生成建议' }));
     expect(await screen.findByText('已生成清洗标题。')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '采纳' }));
+    await user.click(screen.getByRole('button', { name: '采纳为答案' }));
 
     expect(screen.getByLabelText('清洗后标题')).toHaveValue('轻量降噪蓝牙耳机 Pro Max 黑色');
   });

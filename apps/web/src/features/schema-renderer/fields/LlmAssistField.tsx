@@ -101,7 +101,7 @@ export const LlmAssistField = ({
           type="button"
           onClick={adoptSuggestion}
         >
-          采纳
+          采纳为答案
         </button>
       </div>
       {errorMessage ? (

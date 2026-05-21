@@ -1774,6 +1774,318 @@ p {
   background: #2f7f5f;
 }
 
+.labeler-workbench-page,
+.my-data-page {
+  min-height: calc(100vh - 76px);
+  padding: 24px 32px 96px;
+  background: #f3f6f8;
+}
+
+.workbench-topline,
+.my-data-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #d5dde3;
+}
+
+.workbench-topline h1,
+.my-data-header h1 {
+  margin-bottom: 8px;
+  font-size: 30px;
+}
+
+.autosave-indicator {
+  align-self: flex-start;
+  border: 1px solid #b9d4c7;
+  border-radius: 999px;
+  padding: 7px 12px;
+  color: #245b43;
+  background: #e8f4ec;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.workbench-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(420px, 1fr) 280px;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.question-navigator,
+.workbench-main-panel,
+.labeler-insight-panel,
+.my-data-table-scroll {
+  border: 1px solid #d5dde3;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.question-navigator,
+.labeler-insight-panel {
+  align-self: start;
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+.question-navigator h2,
+.question-navigator p,
+.labeler-insight-panel h2,
+.labeler-insight-panel p {
+  margin: 0;
+}
+
+.question-navigator__list {
+  display: grid;
+  gap: 8px;
+}
+
+.question-navigator__list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+}
+
+.question-navigator__list button.is-active {
+  border-color: #194c3f;
+  color: #fffdf8;
+  background: #194c3f;
+}
+
+.question-navigator__list small {
+  font-size: 11px;
+}
+
+.question-navigator__actions,
+.workbench-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workbench-main-panel {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 16px;
+}
+
+.reject-notice,
+.submission-validation-summary {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #e0b163;
+  border-radius: 8px;
+  padding: 12px;
+  color: #7a3d08;
+  background: #fff4dd;
+}
+
+.submission-validation-summary ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.workbench-raw-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d5dde3;
+  border-radius: 8px;
+  padding: 14px;
+  background: #f8fafc;
+}
+
+.workbench-raw-panel h2 {
+  margin: 0;
+}
+
+.workbench-raw-panel dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.workbench-raw-panel dt {
+  color: #587064;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.workbench-raw-panel dd {
+  margin: 4px 0 0;
+  color: #17211b;
+}
+
+.preference-compare-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.preference-compare-layout article {
+  border: 1px solid #d5dde3;
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.preference-compare-layout span {
+  color: #587064;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.workbench-media {
+  max-width: 100%;
+  border: 1px solid #d5dde3;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.workbench-markdown {
+  overflow: auto;
+  margin: 0;
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+  white-space: pre-wrap;
+}
+
+.contribution-grid,
+.my-data-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.contribution-grid div,
+.my-data-summary article {
+  display: grid;
+  gap: 5px;
+  border: 1px solid #d5dde3;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.contribution-grid span,
+.my-data-summary span {
+  color: #587064;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.contribution-grid strong,
+.my-data-summary strong {
+  color: #17211b;
+  font-size: 22px;
+}
+
+.submission-history-list,
+.shortcut-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.submission-history-list strong,
+.submission-history-list span {
+  display: block;
+}
+
+.submission-history-list span,
+.shortcut-list {
+  color: #66737b;
+  font-size: 12px;
+}
+
+.workbench-footer-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  align-items: center;
+  justify-content: flex-end;
+  margin: 18px -32px -96px;
+  border-top: 1px solid #d5dde3;
+  padding: 12px 32px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.workbench-footer-actions span {
+  margin-right: auto;
+  color: #66737b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.my-data-summary {
+  min-width: min(520px, 100%);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.my-data-filter {
+  display: grid;
+  grid-template-columns: 180px 180px minmax(220px, 1fr) auto;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.my-data-filter input,
+.my-data-filter select {
+  width: 100%;
+  border: 1px solid #b7c4cc;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #17211b;
+  background: #ffffff;
+  font: inherit;
+}
+
+.my-data-table-scroll {
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+.my-data-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.my-data-table th,
+.my-data-table td {
+  border-bottom: 1px solid #dde5e9;
+  padding: 12px 14px;
+  vertical-align: top;
+}
+
+.my-data-table th {
+  color: #52626b;
+  background: #f7fafb;
+  font-size: 12px;
+}
+
+.my-data-table strong,
+.my-data-table small {
+  display: block;
+}
+
+.my-data-table small {
+  margin-top: 4px;
+  color: #6b757a;
+  font-size: 12px;
+}
+
 @media (max-width: 760px) {
   .login-panel,
   .portal-shell,
@@ -1790,7 +2102,12 @@ p {
   .task-market-header dl,
   .task-market-filter,
   .task-market-grid,
-  .task-market-card__meta {
+  .task-market-card__meta,
+  .workbench-layout,
+  .preference-compare-layout,
+  .contribution-grid,
+  .my-data-summary,
+  .my-data-filter {
     grid-template-columns: 1fr;
   }
 
@@ -1799,7 +2116,9 @@ p {
   .task-detail-header,
   .dataset-import-header,
   .task-market-header,
-  .task-market-card__header {
+  .task-market-card__header,
+  .workbench-topline,
+  .my-data-header {
     align-items: stretch;
     flex-direction: column;
   }
@@ -1815,7 +2134,9 @@ p {
   .task-management-page,
   .task-detail-page,
   .dataset-import-page,
-  .task-market-page {
+  .task-market-page,
+  .labeler-workbench-page,
+  .my-data-page {
     padding: 24px;
   }
 
@@ -1843,6 +2164,11 @@ p {
 
   .task-publish-drawer {
     width: 100vw;
+  }
+
+  .workbench-footer-actions {
+    margin: 18px -24px -24px;
+    padding: 12px 24px;
   }
 }
 

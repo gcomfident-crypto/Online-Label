@@ -20,6 +20,7 @@ export const LabelerPortalLayout = () => {
         </div>
         <nav className="portal-nav" aria-label="Labeler 端导航">
           <NavLink to="/labeler/market">任务广场</NavLink>
+          <NavLink to="/labeler/my-data">我的数据</NavLink>
         </nav>
       </aside>
       <main className="portal-main">

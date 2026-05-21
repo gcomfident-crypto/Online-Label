@@ -12,6 +12,8 @@ import { LoginPage } from './pages/LoginPage';
 import { AgentAiReviewPage } from './pages/agent/AgentAiReviewPage';
 import { RendererPlaygroundPage } from './pages/dev/RendererPlaygroundPage';
 import { LabelerMarketPage } from './pages/labeler/LabelerMarketPage';
+import { MyDataPage } from './pages/labeler/MyDataPage';
+import { WorkbenchPage } from './pages/labeler/WorkbenchPage';
 import { DatasetImportPage } from './pages/owner/DatasetImportPage';
 import { TaskDetailPage } from './pages/owner/TaskDetailPage';
 import { OwnerTasksPage } from './pages/owner/OwnerTasksPage';
@@ -52,6 +54,8 @@ export const AppRouter = () => {
       >
         <Route index element={<Navigate to="/labeler/market" replace />} />
         <Route path="market" element={<LabelerMarketPage />} />
+        <Route path="tasks/:taskId/items/:itemId" element={<WorkbenchPage />} />
+        <Route path="my-data" element={<MyDataPage />} />
       </Route>
       <Route
         path="/agent"

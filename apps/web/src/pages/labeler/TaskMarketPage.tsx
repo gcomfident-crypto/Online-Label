@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import {
   claimAssignment,
@@ -37,6 +38,7 @@ export const TaskMarketPage = () => {
   const [claimStatus, setClaimStatus] = useState<MarketClaimStatus | 'ALL'>('ALL');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastWorkbenchLink, setLastWorkbenchLink] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
 
@@ -83,6 +85,9 @@ export const TaskMarketPage = () => {
         labelerId: LABELER_ID,
       });
       setStatusMessage(`已领取题目 ${assignment.taskItem.externalId}。`);
+      setLastWorkbenchLink(
+        `/labeler/tasks/${assignment.taskId}/items/${assignment.taskItemId}?assignmentId=${assignment.assignmentId}`,
+      );
       setErrorMessage(null);
       await loadTasks();
     } catch (error) {
@@ -119,6 +124,11 @@ export const TaskMarketPage = () => {
       {statusMessage || errorMessage ? (
         <div className="task-status-message" aria-live="polite">
           {statusMessage ? <span>{statusMessage}</span> : null}
+          {lastWorkbenchLink ? (
+            <Link className="primary-link" to={lastWorkbenchLink}>
+              进入标注台
+            </Link>
+          ) : null}
           {errorMessage ? <span role="alert">{errorMessage}</span> : null}
         </div>
       ) : null}

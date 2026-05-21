@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TaskMarketPage } from './TaskMarketPage';
@@ -60,7 +61,7 @@ describe('TaskMarketPage', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<TaskMarketPage />);
+    renderTaskMarketPage();
 
     expect(await screen.findByRole('heading', { name: '任务广场' })).toBeInTheDocument();
     const card = screen.getByText('问答质量标注').closest('.task-market-card');
@@ -71,6 +72,10 @@ describe('TaskMarketPage', () => {
     await user.click(within(card as HTMLElement).getByRole('button', { name: '领取题目' }));
 
     expect(await screen.findByText('已领取题目 qa_1。')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '进入标注台' })).toHaveAttribute(
+      'href',
+      '/labeler/tasks/task_qa/items/item_qa_1?assignmentId=assignment_1',
+    );
     expect(fetchMock).toHaveBeenCalledWith(
       '/assignments/claim',
       expect.objectContaining({
@@ -88,7 +93,7 @@ describe('TaskMarketPage', () => {
       .mockResolvedValueOnce(jsonResponse({ data: [] }));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<TaskMarketPage />);
+    renderTaskMarketPage();
 
     await screen.findByText('问答质量标注');
     await user.type(screen.getByLabelText('搜索任务'), '问答');
@@ -101,6 +106,14 @@ describe('TaskMarketPage', () => {
     );
   });
 });
+
+const renderTaskMarketPage = () => {
+  render(
+    <MemoryRouter>
+      <TaskMarketPage />
+    </MemoryRouter>,
+  );
+};
 
 const jsonResponse = (body: unknown): Response =>
   ({
