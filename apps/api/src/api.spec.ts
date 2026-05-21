@@ -72,6 +72,18 @@ describe('LabelHub API shell', () => {
     });
   });
 
+  it('does not expose English framework messages for unknown routes', async () => {
+    const response = await request(app.getHttpServer()).get('/missing-route').expect(404);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'NOT_FOUND',
+        message: '请求的接口不存在。',
+      },
+      requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
+    });
+  });
+
   it('requires a mock bearer token for /me', async () => {
     const response = await request(app.getHttpServer()).get('/me').expect(401);
 

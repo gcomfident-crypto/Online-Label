@@ -26,6 +26,11 @@ type ErrorResponseBody = {
   message?: string;
 };
 
+type ErrorEnvelope = {
+  code: string;
+  message: string;
+};
+
 @Injectable()
 class ResponseEnvelopeInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -53,13 +58,11 @@ class ErrorEnvelopeFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       const exceptionResponse = exception.getResponse();
-      const body = isErrorResponseBody(exceptionResponse) ? exceptionResponse : {};
+      const statusCode = exception.getStatus();
+      const envelope = resolveErrorEnvelope(exceptionResponse, statusCode);
 
-      response.status(exception.getStatus()).json({
-        error: {
-          code: body.code ?? 'REQUEST_ERROR',
-          message: body.message ?? '请求处理失败，请稍后重试。',
-        },
+      response.status(statusCode).json({
+        error: envelope,
         requestId,
       });
       return;
@@ -96,4 +99,39 @@ function createRequestId(): string {
 
 function isErrorResponseBody(value: unknown): value is ErrorResponseBody {
   return typeof value === 'object' && value !== null;
+}
+
+function resolveErrorEnvelope(exceptionResponse: unknown, statusCode: number): ErrorEnvelope {
+  if (isErrorResponseBody(exceptionResponse) && exceptionResponse.code && exceptionResponse.message) {
+    return {
+      code: exceptionResponse.code,
+      message: exceptionResponse.message,
+    };
+  }
+
+  if (statusCode === 404) {
+    return {
+      code: 'NOT_FOUND',
+      message: '请求的接口不存在。',
+    };
+  }
+
+  if (statusCode === 401) {
+    return {
+      code: 'UNAUTHENTICATED',
+      message: '请先登录后再继续操作。',
+    };
+  }
+
+  if (statusCode >= 400 && statusCode < 500) {
+    return {
+      code: 'REQUEST_ERROR',
+      message: '请求参数不正确，请检查后重试。',
+    };
+  }
+
+  return {
+    code: 'INTERNAL_ERROR',
+    message: '服务暂时不可用，请稍后重试。',
+  };
 }
