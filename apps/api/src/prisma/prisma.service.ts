@@ -20,6 +20,16 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
   }
 }
 
-function resolveDatabaseUrl(): string {
-  return process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
+export function resolveDatabaseUrl(
+  env: { DATABASE_URL?: string; NODE_ENV?: string } = process.env,
+): string {
+  if (env.DATABASE_URL) {
+    return env.DATABASE_URL;
+  }
+
+  if (env.NODE_ENV === 'production') {
+    throw new Error('生产环境缺少 DATABASE_URL，无法连接数据库。');
+  }
+
+  return DEFAULT_DATABASE_URL;
 }
