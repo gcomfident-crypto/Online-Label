@@ -82,6 +82,24 @@ describe('Prisma schema', () => {
     expect(modelBlock('TaskTemplate')).toMatch(/@@index\(\[status\]\)/);
   });
 
+  it('keeps task publishing metadata for owner workflow', () => {
+    expect(enumValues('DistributionStrategy')).toEqual([
+      'FIRST_COME_FIRST_SERVE',
+      'ASSIGNMENT',
+      'QUOTA_RACE',
+    ]);
+    expect(modelBlock('Task')).toMatch(/\brichTextInstruction\s+String\?/);
+    expect(modelBlock('Task')).toMatch(/\btags\s+String\[\]\s+@default\(\[\]\)/);
+    expect(modelBlock('Task')).toMatch(/\brewardRule\s+String\?/);
+    expect(modelBlock('Task')).toMatch(/\bquota\s+Int\?/);
+    expect(modelBlock('Task')).toMatch(/\bdeadline\s+DateTime\?/);
+    expect(modelBlock('Task')).toMatch(
+      /\bdistributionStrategy\s+DistributionStrategy\s+@default\(FIRST_COME_FIRST_SERVE\)/,
+    );
+    expect(modelBlock('Task')).toMatch(/\baiPreReviewEnabled\s+Boolean\s+@default\(false\)/);
+    expect(modelBlock('Task')).toMatch(/\baiRuleName\s+String\?/);
+  });
+
   it('keeps dataset identity and submission schema snapshots', () => {
     expect(modelBlock('TaskItem')).toMatch(/\bexternalId\s+String\b/);
     expect(modelBlock('TaskItem')).toMatch(/\bdatasetKind\s+DatasetKind\b/);

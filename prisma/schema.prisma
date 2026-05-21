@@ -26,6 +26,12 @@ enum TemplateStatus {
   ARCHIVED
 }
 
+enum DistributionStrategy {
+  FIRST_COME_FIRST_SERVE
+  ASSIGNMENT
+  QUOTA_RACE
+}
+
 enum AssignmentStatus {
   ASSIGNED
   IN_PROGRESS
@@ -121,21 +127,29 @@ model TaskTemplate {
 }
 
 model Task {
-  id          String       @id @default(cuid())
-  title       String
-  description String?
-  status      TaskStatus   @default(DRAFT)
-  templateId  String
-  template    TaskTemplate @relation(fields: [templateId], references: [id])
-  createdById String?
-  createdBy   User?        @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  items       TaskItem[]
-  assignments Assignment[]
-  reviewRules ReviewRule[]
-  auditLogs   AuditLog[]
-  exportJobs  ExportJob[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id                   String               @id @default(cuid())
+  title                String
+  description          String?
+  richTextInstruction  String?
+  tags                 String[]             @default([])
+  rewardRule           String?
+  quota                Int?
+  deadline             DateTime?
+  distributionStrategy DistributionStrategy @default(FIRST_COME_FIRST_SERVE)
+  aiPreReviewEnabled   Boolean              @default(false)
+  aiRuleName           String?
+  status               TaskStatus           @default(DRAFT)
+  templateId           String
+  template             TaskTemplate         @relation(fields: [templateId], references: [id])
+  createdById          String?
+  createdBy            User?                @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  items                TaskItem[]
+  assignments          Assignment[]
+  reviewRules          ReviewRule[]
+  auditLogs            AuditLog[]
+  exportJobs           ExportJob[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 
   @@index([status])
   @@index([templateId])

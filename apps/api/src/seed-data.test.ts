@@ -35,10 +35,21 @@ describe('buildSeedData', () => {
     );
 
     expect(first.templates).toHaveLength(2);
+    expect(first.templates.every((template) => template.status === 'PUBLISHED')).toBe(true);
+    expect(first.templates.every((template) => template.version === 1)).toBe(true);
     expect(first.tasks.map((task) => task.id)).toEqual([
       'task_qa_quality_demo',
       'task_preference_compare_demo',
     ]);
+    expect(first.tasks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          quota: 30,
+          distributionStrategy: 'FIRST_COME_FIRST_SERVE',
+          rewardRule: '0.30 元 / 条',
+        }),
+      ]),
+    );
     expect(
       first.taskItems.filter((item) => item.datasetKind === 'qa_quality'),
     ).toHaveLength(30);

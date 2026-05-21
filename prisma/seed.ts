@@ -23,6 +23,9 @@ type SeedTemplate = {
   datasetKind: DatasetKind;
   schemaVersion: string;
   schema: Prisma.InputJsonValue;
+  status: 'PUBLISHED';
+  version: number;
+  publishedAt: Date;
   createdById: string;
 };
 
@@ -30,6 +33,14 @@ type SeedTask = {
   id: string;
   title: string;
   description: string;
+  richTextInstruction: string;
+  tags: string[];
+  rewardRule: string;
+  quota: number;
+  deadline: Date;
+  distributionStrategy: 'FIRST_COME_FIRST_SERVE';
+  aiPreReviewEnabled: boolean;
+  aiRuleName: string | null;
   status: 'DRAFT';
   templateId: string;
   createdById: string;
@@ -68,6 +79,7 @@ export const SEED_TASK_IDS = [
 ] as const;
 
 const SCHEMA_VERSION = '2026-05-21.1';
+const SEED_PUBLISHED_AT = new Date('2026-05-21T00:00:00.000Z');
 const DEFAULT_DATABASE_URL =
   'postgresql://labelhub:labelhub_password@localhost:5432/labelhub?schema=public';
 
@@ -87,6 +99,9 @@ export function buildSeedData(): SeedData {
       datasetKind: 'qa_quality',
       schemaVersion: SCHEMA_VERSION,
       schema: toPrismaJson(createQaQualitySchema()),
+      status: 'PUBLISHED',
+      version: 1,
+      publishedAt: SEED_PUBLISHED_AT,
       createdById: SEED_USER_IDS[0],
     },
     {
@@ -96,6 +111,9 @@ export function buildSeedData(): SeedData {
       datasetKind: 'preference_compare',
       schemaVersion: SCHEMA_VERSION,
       schema: toPrismaJson(createPreferenceCompareSchema()),
+      status: 'PUBLISHED',
+      version: 1,
+      publishedAt: SEED_PUBLISHED_AT,
       createdById: SEED_USER_IDS[0],
     },
   ];
@@ -105,6 +123,14 @@ export function buildSeedData(): SeedData {
       id: SEED_TASK_IDS[0],
       title: '问答质量标注任务草稿',
       description: '演示用 qa_quality 问答质量标注任务，包含 30 条题目。',
+      richTextInstruction: '请根据参考答案和媒体材料评估回答质量，必要时填写修订建议。',
+      tags: ['问答质量', '官方数据', 'AI 预审'],
+      rewardRule: '0.30 元 / 条',
+      quota: 30,
+      deadline: new Date('2026-06-01T15:59:00.000Z'),
+      distributionStrategy: 'FIRST_COME_FIRST_SERVE',
+      aiPreReviewEnabled: true,
+      aiRuleName: '问答质量 v1',
       status: 'DRAFT',
       templateId: SEED_TEMPLATE_IDS[0],
       createdById: SEED_USER_IDS[0],
@@ -113,6 +139,14 @@ export function buildSeedData(): SeedData {
       id: SEED_TASK_IDS[1],
       title: '偏好对比标注任务草稿',
       description: '演示用 preference_compare 偏好对比任务，包含 12 条题目。',
+      richTextInstruction: '请比较 A/B 回答的有用性、准确性和安全性，给出偏好结论。',
+      tags: ['偏好对比', 'A/B', '官方数据'],
+      rewardRule: '0.45 元 / 条',
+      quota: 12,
+      deadline: new Date('2026-06-05T15:59:00.000Z'),
+      distributionStrategy: 'FIRST_COME_FIRST_SERVE',
+      aiPreReviewEnabled: true,
+      aiRuleName: '偏好安全 v1',
       status: 'DRAFT',
       templateId: SEED_TEMPLATE_IDS[1],
       createdById: SEED_USER_IDS[0],
@@ -150,6 +184,9 @@ export async function seed(prisma = createPrismaClient()): Promise<void> {
         datasetKind: template.datasetKind,
         schemaVersion: template.schemaVersion,
         schema: template.schema,
+        status: template.status,
+        version: template.version,
+        publishedAt: template.publishedAt,
         createdById: template.createdById,
       },
       create: template,
@@ -162,6 +199,14 @@ export async function seed(prisma = createPrismaClient()): Promise<void> {
       update: {
         title: task.title,
         description: task.description,
+        richTextInstruction: task.richTextInstruction,
+        tags: task.tags,
+        rewardRule: task.rewardRule,
+        quota: task.quota,
+        deadline: task.deadline,
+        distributionStrategy: task.distributionStrategy,
+        aiPreReviewEnabled: task.aiPreReviewEnabled,
+        aiRuleName: task.aiRuleName,
         status: task.status,
         templateId: task.templateId,
         createdById: task.createdById,
