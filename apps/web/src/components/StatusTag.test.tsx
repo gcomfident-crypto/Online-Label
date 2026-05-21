@@ -32,6 +32,18 @@ describe('StatusTag', () => {
     expect(screen.getByText('已暂停')).toHaveAttribute('data-tone', 'warning');
     expect(screen.getByText('终审打回')).toHaveAttribute('data-tone', 'danger');
   });
+
+  it('为 AI 审核重试状态提供 warning tone', () => {
+    render(<StatusTag group="aiReview" status="FAILED_RETRYING" />);
+
+    expect(screen.getByText('AI 预审失败重试中')).toHaveAttribute('data-tone', 'warning');
+  });
+
+  it('为导出失败状态提供 danger tone', () => {
+    render(<StatusTag group="export" status="FAILED" />);
+
+    expect(screen.getByText('导出失败')).toHaveAttribute('data-tone', 'danger');
+  });
 });
 
 describe('DemoDataBanner', () => {

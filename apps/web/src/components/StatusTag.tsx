@@ -15,6 +15,13 @@ import {
 
 type StatusTone = 'neutral' | 'info' | 'approved' | 'danger' | 'warning';
 type StatusTagSize = 'sm' | 'md';
+type AnyStatus =
+  | TaskStatus
+  | SubmissionStatus
+  | AiReviewStatus
+  | HumanReviewStatus
+  | FinalReviewStatus
+  | ExportStatus;
 
 type StatusTagProps =
   | { group: 'task'; status: TaskStatus; size?: StatusTagSize }
@@ -33,7 +40,7 @@ const statusLabels = {
   export: EXPORT_STATUS_LABELS,
 } as const;
 
-const toneByStatus: Record<string, StatusTone> = {
+const toneByStatus = {
   DRAFT: 'neutral',
   HUMAN_PENDING: 'neutral',
   FINAL_PENDING: 'neutral',
@@ -62,11 +69,11 @@ const toneByStatus: Record<string, StatusTone> = {
   NEEDS_REVISION: 'danger',
   FAILED_FINAL: 'danger',
   FAILED: 'danger',
-};
+} satisfies Record<AnyStatus, StatusTone>;
 
 export const StatusTag = (props: StatusTagProps) => {
   const label = getStatusLabel(props);
-  const tone = toneByStatus[props.status] ?? 'neutral';
+  const tone = toneByStatus[props.status];
   const size = props.size ?? 'md';
 
   return (
