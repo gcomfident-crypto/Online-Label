@@ -8,5 +8,6 @@ describe('Vite 开发代理', () => {
     const configSource = readFileSync(configPath, 'utf8');
 
     expect(configSource).toContain("'/llm': 'http://localhost:3000'");
+    expect(configSource).toContain("'/templates': 'http://localhost:3000'");
   });
 });

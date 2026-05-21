@@ -1023,3 +1023,34 @@ p {
     align-items: stretch;
   }
 }
+
+@media (max-width: 1100px) {
+  .template-designer-topbar,
+  .designer-canvas__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .template-designer-topbar,
+  .designer-gallery,
+  .template-designer-layout,
+  .designer-status-strip {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .designer-gallery,
+  .template-designer-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .designer-json-panel,
+  .designer-preview {
+    margin-right: 16px;
+    margin-left: 16px;
+  }
+
+  .designer-canvas {
+    min-height: 360px;
+  }
+}
