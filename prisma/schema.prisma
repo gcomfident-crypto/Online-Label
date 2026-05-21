@@ -20,6 +20,12 @@ enum TaskStatus {
   ENDED
 }
 
+enum TemplateStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 enum AssignmentStatus {
   ASSIGNED
   IN_PROGRESS
@@ -92,19 +98,25 @@ model User {
 }
 
 model TaskTemplate {
-  id            String      @id @default(cuid())
-  name          String
-  description   String?
-  datasetKind   DatasetKind
-  schemaVersion String
-  schema        Json
-  createdById   String?
-  createdBy     User?       @relation("TaskTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  tasks         Task[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id               String         @id @default(cuid())
+  name             String
+  description      String?
+  datasetKind      DatasetKind
+  schemaVersion    String
+  schema           Json
+  status           TemplateStatus @default(DRAFT)
+  version          Int            @default(0)
+  parentTemplateId String?
+  publishedAt      DateTime?
+  createdById      String?
+  createdBy        User?          @relation("TaskTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  tasks            Task[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@index([datasetKind])
+  @@index([status])
+  @@index([parentTemplateId])
   @@map("task_templates")
 }
 

@@ -73,6 +73,15 @@ describe('Prisma schema', () => {
     expect(modelBlock('AuditLog')).toMatch(/\bmetadata\s+Json\?/);
   });
 
+  it('keeps immutable template version metadata', () => {
+    expect(enumValues('TemplateStatus')).toEqual(['DRAFT', 'PUBLISHED', 'ARCHIVED']);
+    expect(modelBlock('TaskTemplate')).toMatch(/\bstatus\s+TemplateStatus\s+@default\(DRAFT\)/);
+    expect(modelBlock('TaskTemplate')).toMatch(/\bversion\s+Int\s+@default\(0\)/);
+    expect(modelBlock('TaskTemplate')).toMatch(/\bpublishedAt\s+DateTime\?/);
+    expect(modelBlock('TaskTemplate')).toMatch(/\bparentTemplateId\s+String\?/);
+    expect(modelBlock('TaskTemplate')).toMatch(/@@index\(\[status\]\)/);
+  });
+
   it('keeps dataset identity and submission schema snapshots', () => {
     expect(modelBlock('TaskItem')).toMatch(/\bexternalId\s+String\b/);
     expect(modelBlock('TaskItem')).toMatch(/\bdatasetKind\s+DatasetKind\b/);

@@ -25,6 +25,7 @@ import { PrismaService } from './prisma/prisma.service.ts';
 import { SchemaController } from './schema/schema.controller.ts';
 import { SchemaService } from './schema/schema.service.ts';
 import { StateMachineService } from './state-machine/state-machine.service.ts';
+import { TemplatesModule } from './templates/templates.module.ts';
 
 type RequestWithId = {
   requestId?: string;
@@ -88,6 +89,7 @@ class ErrorEnvelopeFilter implements ExceptionFilter {
 }
 
 @Module({
+  imports: [TemplatesModule],
   controllers: [
     AuthController,
     HealthController,
