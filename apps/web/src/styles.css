@@ -338,6 +338,78 @@ p {
   font-weight: 900;
 }
 
+.schema-renderer {
+  display: grid;
+  gap: 14px;
+}
+
+.schema-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid #d8d5ce;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fffdf8;
+}
+
+.schema-field label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schema-field span,
+.schema-field legend,
+.schema-field h3,
+.schema-field h4 {
+  color: #17211b;
+  font-weight: 800;
+}
+
+.schema-field small,
+.schema-field__meta {
+  color: #687066;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.schema-field input:not([type="radio"]):not([type="checkbox"]),
+.schema-field textarea {
+  width: 100%;
+  border: 1px solid #c9c3b7;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #17211b;
+  background: #fffaf1;
+  font: inherit;
+}
+
+.schema-field textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.schema-field input:disabled,
+.schema-field textarea:disabled {
+  color: #777a73;
+  background: #ebe7de;
+}
+
+.schema-field pre {
+  overflow: auto;
+  margin: 0;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f1eee7;
+  white-space: pre-wrap;
+}
+
+.schema-field--group,
+.schema-field--tabs {
+  gap: 12px;
+}
+
 .system-panel {
   max-width: 520px;
   padding: 44px;

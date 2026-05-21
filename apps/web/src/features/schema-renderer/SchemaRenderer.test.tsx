@@ -214,4 +214,162 @@ describe('SchemaRenderer', () => {
     expect(screen.getByText('AI 辅助')).toBeInTheDocument();
     expect(screen.getByText('llm_assist 物料将在后续接入')).toBeInTheDocument();
   });
+
+  it('rich_text 输入后写入字符串', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const schema = baseSchema([{ key: 'content', type: 'rich_text', label: '正文' }]);
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <SchemaRenderer
+          schema={schema}
+          rawData={{}}
+          value={answers}
+          mode="answer"
+          onChange={(next) => {
+            setAnswers(next);
+            onChange(next);
+          }}
+        />
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    expect(screen.getByText('富文本')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('正文'), '<p>你好</p>');
+
+    expect(onChange).toHaveBeenLastCalledWith({ content: '<p>你好</p>' });
+  });
+
+  it('file_upload 选择文件后写入结构化对象', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const file = new File(['hello'], 'report.txt', { type: 'text/plain' });
+
+    render(
+      <SchemaRenderer
+        schema={baseSchema([{ key: 'attachment', type: 'file_upload', label: '附件' }])}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        onChange={onChange}
+      />,
+    );
+
+    await user.upload(screen.getByLabelText('附件'), file);
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      attachment: {
+        name: 'report.txt',
+        url: 'mock://local/report.txt',
+        mimeType: 'text/plain',
+        size: 5,
+      },
+    });
+  });
+
+  it('image_upload 限制图片选择并在选择后写入结构化对象', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const file = new File(['image'], 'photo.png', { type: 'image/png' });
+
+    render(
+      <SchemaRenderer
+        schema={baseSchema([{ key: 'photo', type: 'image_upload', label: '图片' }])}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        onChange={onChange}
+      />,
+    );
+
+    const input = screen.getByLabelText('图片');
+
+    expect(input).toHaveAttribute('accept', 'image/*');
+
+    await user.upload(input, file);
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      photo: {
+        name: 'photo.png',
+        url: 'mock://local/photo.png',
+        mimeType: 'image/png',
+        size: 5,
+      },
+    });
+  });
+
+  it('json_editor 输入合法 JSON 后写入解析对象', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const schema = baseSchema([{ key: 'payload', type: 'json_editor', label: 'JSON' }]);
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <SchemaRenderer
+          schema={schema}
+          rawData={{}}
+          value={answers}
+          mode="answer"
+          onChange={(next) => {
+            setAnswers(next);
+            onChange(next);
+          }}
+        />
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    const input = screen.getByLabelText('JSON');
+
+    await user.click(input);
+    await user.paste('{"ok":true}');
+
+    expect(onChange).toHaveBeenLastCalledWith({ payload: { ok: true } });
+  });
+
+  it('review 模式禁用新增的可编辑字段', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          { key: 'content', type: 'rich_text', label: '正文' },
+          { key: 'attachment', type: 'file_upload', label: '附件' },
+          { key: 'photo', type: 'image_upload', label: '图片' },
+          { key: 'payload', type: 'json_editor', label: 'JSON' },
+        ])}
+        rawData={{}}
+        value={{ content: '', attachment: null, photo: null, payload: {} }}
+        mode="review"
+        onChange={onChange}
+      />,
+    );
+
+    const richText = screen.getByLabelText('正文');
+    const fileUpload = screen.getByLabelText('附件');
+    const imageUpload = screen.getByLabelText('图片');
+    const jsonEditor = screen.getByLabelText('JSON');
+
+    expect(richText).toBeDisabled();
+    expect(fileUpload).toBeDisabled();
+    expect(imageUpload).toBeDisabled();
+    expect(jsonEditor).toBeDisabled();
+
+    await user.type(richText, '<p>不能输入</p>');
+    await user.upload(fileUpload, new File(['hello'], 'report.txt', { type: 'text/plain' }));
+    await user.upload(imageUpload, new File(['image'], 'photo.png', { type: 'image/png' }));
+    await user.type(jsonEditor, '{"ok":true}');
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

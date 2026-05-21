@@ -1,192 +1,43 @@
-import type { FieldOption, SchemaField } from '@labelhub/shared';
-
+import { MultiChoiceField, RadioField } from './fields/ChoiceField';
+import { FileUploadField } from './fields/FileUploadField';
+import { GroupField } from './fields/GroupField';
+import { ImageUploadField } from './fields/ImageUploadField';
+import { JsonEditorField } from './fields/JsonEditorField';
+import { RichTextField } from './fields/RichTextField';
+import { ShowItemField } from './fields/ShowItemField';
+import { TabsField } from './fields/TabsField';
+import { TextareaField } from './fields/TextareaField';
+import { TextField } from './fields/TextField';
+import { UnsupportedField } from './fields/UnsupportedField';
 import type { FieldRendererProps } from './types';
 
-const stringifyDisplayValue = (value: unknown): string => {
-  if (value === null || value === undefined || value === '') {
-    return '暂无内容';
+export const FieldRenderer = (props: FieldRendererProps) => {
+  switch (props.field.type) {
+    case 'show_item':
+      return <ShowItemField {...props} />;
+    case 'text':
+      return <TextField {...props} />;
+    case 'textarea':
+      return <TextareaField {...props} />;
+    case 'radio':
+      return <RadioField {...props} />;
+    case 'checkbox':
+    case 'tag_select':
+      return <MultiChoiceField {...props} />;
+    case 'rich_text':
+      return <RichTextField {...props} />;
+    case 'file_upload':
+      return <FileUploadField {...props} />;
+    case 'image_upload':
+      return <ImageUploadField {...props} />;
+    case 'json_editor':
+      return <JsonEditorField {...props} />;
+    case 'group':
+      return <GroupField {...props} />;
+    case 'tabs':
+      return <TabsField {...props} />;
+    case 'llm_assist':
+    default:
+      return <UnsupportedField {...props} />;
   }
-
-  if (typeof value === 'string') {
-    return value;
-  }
-
-  return JSON.stringify(value);
-};
-
-const getStringValue = (value: unknown): string => {
-  return typeof value === 'string' ? value : '';
-};
-
-const getStringArrayValue = (value: unknown): string[] => {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === 'string')
-    : [];
-};
-
-const optionLabel = (field: SchemaField, option: FieldOption): string => {
-  return `${field.label}：${option.label}`;
-};
-
-export const FieldRenderer = ({
-  field,
-  rawData,
-  value,
-  mode,
-  onFieldChange,
-}: FieldRendererProps) => {
-  const disabled = mode === 'review';
-  const fieldValue = value[field.key];
-
-  if (field.type === 'show_item') {
-    return (
-      <section className="schema-field schema-field--show-item" data-field-type={field.type}>
-        <div className="schema-field__meta">展示项 ShowItem</div>
-        <h3>{field.label}</h3>
-        {field.description ? <p>{field.description}</p> : null}
-        <pre>{stringifyDisplayValue(rawData[field.key])}</pre>
-      </section>
-    );
-  }
-
-  if (field.type === 'text') {
-    return (
-      <label className="schema-field" data-field-type={field.type}>
-        <span>{field.label}</span>
-        {field.description ? <small>{field.description}</small> : null}
-        <input
-          aria-label={field.label}
-          disabled={disabled}
-          placeholder={field.placeholder}
-          value={getStringValue(fieldValue)}
-          onChange={(event) => onFieldChange(field, event.target.value)}
-        />
-      </label>
-    );
-  }
-
-  if (field.type === 'textarea') {
-    return (
-      <label className="schema-field" data-field-type={field.type}>
-        <span>{field.label}</span>
-        {field.description ? <small>{field.description}</small> : null}
-        <textarea
-          aria-label={field.label}
-          disabled={disabled}
-          placeholder={field.placeholder}
-          value={getStringValue(fieldValue)}
-          onChange={(event) => onFieldChange(field, event.target.value)}
-        />
-      </label>
-    );
-  }
-
-  if (field.type === 'radio') {
-    return (
-      <fieldset className="schema-field" data-field-type={field.type}>
-        <legend>{field.label}</legend>
-        {field.description ? <small>{field.description}</small> : null}
-        {(field.options ?? []).map((option) => (
-          <label key={option.value}>
-            <input
-              aria-label={option.label}
-              checked={fieldValue === option.value}
-              disabled={disabled}
-              name={field.key}
-              type="radio"
-              value={option.value}
-              onChange={() => onFieldChange(field, option.value)}
-            />
-            <span>{optionLabel(field, option)}</span>
-          </label>
-        ))}
-      </fieldset>
-    );
-  }
-
-  if (field.type === 'checkbox' || field.type === 'tag_select') {
-    const selectedValues = getStringArrayValue(fieldValue);
-
-    return (
-      <fieldset className="schema-field" data-field-type={field.type}>
-        <legend>{field.label}</legend>
-        {field.description ? <small>{field.description}</small> : null}
-        {(field.options ?? []).map((option) => {
-          const checked = selectedValues.includes(option.value);
-
-          return (
-            <label key={option.value}>
-              <input
-                aria-label={option.label}
-                checked={checked}
-                disabled={disabled}
-                type="checkbox"
-                value={option.value}
-                onChange={() =>
-                  onFieldChange(field, (currentValue: unknown) => {
-                    const currentValues = getStringArrayValue(currentValue);
-
-                    return currentValues.includes(option.value)
-                      ? currentValues.filter((item) => item !== option.value)
-                      : [...currentValues, option.value];
-                  })
-                }
-              />
-              <span>{optionLabel(field, option)}</span>
-            </label>
-          );
-        })}
-      </fieldset>
-    );
-  }
-
-  if (field.type === 'group') {
-    return (
-      <fieldset className="schema-field schema-field--group" data-field-type={field.type}>
-        <legend>{field.label}</legend>
-        {field.description ? <p>{field.description}</p> : null}
-        {(field.fields ?? []).map((child) => (
-          <FieldRenderer
-            key={child.key}
-            field={child}
-            rawData={rawData}
-            value={value}
-            mode={mode}
-            onFieldChange={onFieldChange}
-          />
-        ))}
-      </fieldset>
-    );
-  }
-
-  if (field.type === 'tabs') {
-    return (
-      <section className="schema-field schema-field--tabs" data-field-type={field.type}>
-        <h3>{field.label}</h3>
-        {field.description ? <p>{field.description}</p> : null}
-        {(field.tabs ?? []).map((tab) => (
-          <section key={tab.key} className="schema-field__tab">
-            <h4>{tab.label}</h4>
-            {tab.fields.map((child) => (
-              <FieldRenderer
-                key={child.key}
-                field={child}
-                rawData={rawData}
-                value={value}
-                mode={mode}
-                onFieldChange={onFieldChange}
-              />
-            ))}
-          </section>
-        ))}
-      </section>
-    );
-  }
-
-  return (
-    <section className="schema-field schema-field--placeholder" data-field-type={field.type}>
-      <h3>{field.label}</h3>
-      <p>{field.type} 物料将在后续接入</p>
-    </section>
-  );
 };

@@ -1,0 +1,19 @@
+import type { EditableFieldProps } from './common';
+import { FieldDescription, getFieldValue, getStringValue, isDisabledMode } from './common';
+
+export const TextField = ({ field, value, mode, onFieldChange }: EditableFieldProps) => {
+  return (
+    <label className="schema-field" data-field-type={field.type}>
+      <span>{field.label}</span>
+      <FieldDescription field={field} />
+      <input
+        aria-label={field.label}
+        disabled={isDisabledMode(mode)}
+        placeholder={field.placeholder}
+        value={getStringValue(getFieldValue(field, value))}
+        onChange={(event) => onFieldChange(field, event.target.value)}
+      />
+    </label>
+  );
+};
+
