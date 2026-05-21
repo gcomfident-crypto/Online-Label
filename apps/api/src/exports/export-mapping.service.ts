@@ -88,11 +88,11 @@ function normalizeMappingItem(value: unknown): ExportFieldMapping | null {
   const item = value as Record<string, unknown>;
   const source = typeof item.source === 'string' ? item.source.trim() : '';
   const target = typeof item.target === 'string' ? item.target.trim() : '';
-  if (!source || !target || item.enabled === false) {
+  if (!source || !target) {
     return null;
   }
 
-  return { source, target, enabled: true };
+  return { source, target, enabled: item.enabled !== false };
 }
 
 function cloneMapping(mapping: ExportFieldMapping[]): ExportFieldMapping[] {

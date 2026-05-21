@@ -75,18 +75,35 @@ describe('ExportMappingService', () => {
     expect(service.buildRows([source], mapping, false)[0]).not.toHaveProperty('human_verdict');
   });
 
-  it('自定义字段映射会过滤空目标和禁用字段', () => {
+  it('自定义字段映射会过滤空目标并保留禁用字段快照', () => {
     const service = new ExportMappingService();
 
+    const mapping = service.normalizeMapping(
+      [
+        { source: 'rawData.prompt', target: 'prompt_text', enabled: true },
+        { source: 'answers.comment', target: '  ', enabled: true },
+        { source: 'answers.hidden', target: 'hidden', enabled: false },
+      ],
+      'qa_quality',
+    );
+
+    expect(mapping).toEqual([
+      { source: 'rawData.prompt', target: 'prompt_text', enabled: true },
+      { source: 'answers.hidden', target: 'hidden', enabled: false },
+    ]);
     expect(
-      service.normalizeMapping(
+      service.buildRows(
         [
-          { source: 'rawData.prompt', target: 'prompt_text', enabled: true },
-          { source: 'answers.comment', target: '  ', enabled: true },
-          { source: 'answers.hidden', target: 'hidden', enabled: false },
+          {
+            externalId: 'qa_001',
+            rawData: { prompt: '如何判断回答质量？' },
+            answers: { hidden: '不应导出' },
+            review: {},
+          },
         ],
-        'qa_quality',
+        mapping,
+        true,
       ),
-    ).toEqual([{ source: 'rawData.prompt', target: 'prompt_text', enabled: true }]);
+    ).toEqual([{ prompt_text: '如何判断回答质量？' }]);
   });
 });

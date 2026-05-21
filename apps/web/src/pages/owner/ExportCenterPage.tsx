@@ -6,6 +6,7 @@ import {
   getExportPreview,
   listExports,
   retryExport,
+  type ExportFieldMapping,
   type ExportJobDto,
   type ExportPreviewDto,
 } from '../../api/exports';
@@ -19,6 +20,7 @@ export const ExportCenterPage = () => {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [exports, setExports] = useState<ExportJobDto[]>([]);
   const [preview, setPreview] = useState<ExportPreviewDto | null>(null);
+  const [fieldMapping, setFieldMapping] = useState<ExportFieldMapping[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const [format, setFormat] = useState<ExportFormat>('json');
   const [includeReviews, setIncludeReviews] = useState(true);
@@ -51,8 +53,8 @@ export const ExportCenterPage = () => {
       return;
     }
 
-    void loadPreview(selectedTaskId, includeReviews);
-  }, [selectedTaskId, includeReviews]);
+    void loadPreview(selectedTaskId, includeReviews, fieldMapping);
+  }, [selectedTaskId, includeReviews, fieldMapping]);
 
   const loadInitialData = async () => {
     setIsLoading(true);
@@ -69,14 +71,19 @@ export const ExportCenterPage = () => {
     }
   };
 
-  const loadPreview = async (taskId: string, nextIncludeReviews: boolean) => {
+  const loadPreview = async (
+    taskId: string,
+    nextIncludeReviews: boolean,
+    nextFieldMapping: ExportFieldMapping[],
+  ) => {
     try {
-      setPreview(
-        await getExportPreview({
-          taskId,
-          includeReviews: nextIncludeReviews,
-        }),
-      );
+      const nextPreview = await getExportPreview({
+        taskId,
+        includeReviews: nextIncludeReviews,
+        fieldMapping: nextFieldMapping.length > 0 ? nextFieldMapping : undefined,
+      });
+      setPreview(nextPreview);
+      setFieldMapping((current) => (current.length > 0 ? current : nextPreview.fieldMapping));
       setErrorMessage(null);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '导出预览加载失败。');
@@ -100,7 +107,7 @@ export const ExportCenterPage = () => {
         requestedById: OWNER_ID,
         format,
         includeReviews,
-        fieldMapping: preview.fieldMapping,
+        fieldMapping: fieldMapping.length > 0 ? fieldMapping : preview.fieldMapping,
       });
       setStatusMessage('导出任务已创建。');
       setErrorMessage(null);
@@ -124,6 +131,12 @@ export const ExportCenterPage = () => {
     } finally {
       setIsBusy(false);
     }
+  };
+
+  const handleTaskChange = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    setFieldMapping([]);
+    setPreview(null);
   };
 
   return (
@@ -157,11 +170,13 @@ export const ExportCenterPage = () => {
           selectedTaskId={selectedTaskId}
           format={format}
           includeReviews={includeReviews}
+          fieldMapping={fieldMapping.length > 0 ? fieldMapping : preview?.fieldMapping ?? []}
           preview={preview}
           isBusy={isBusy}
-          onTaskChange={setSelectedTaskId}
+          onTaskChange={handleTaskChange}
           onFormatChange={setFormat}
           onIncludeReviewsChange={setIncludeReviews}
+          onFieldMappingChange={setFieldMapping}
           onCreate={() => void handleCreate()}
         />
         <aside className="export-center-side">

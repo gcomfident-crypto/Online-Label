@@ -8,11 +8,14 @@ describe('ExportsController', () => {
       createExport: vi.fn().mockResolvedValue({ id: 'export_1', status: 'QUEUED' }),
       listExports: vi.fn().mockResolvedValue([{ id: 'export_1' }]),
       getExport: vi.fn().mockResolvedValue({ id: 'export_1' }),
-      downloadExport: vi.fn().mockResolvedValue({ filePath: 'storage/exports/export_1.json' }),
+      downloadExport: vi.fn().mockResolvedValue({ filePath: 'storage/exports/export_1.json', fileName: 'export_1.json' }),
       retryExport: vi.fn().mockResolvedValue({ id: 'export_1', status: 'QUEUED' }),
       previewTaskExport: vi.fn().mockResolvedValue({ rows: [] }),
     };
     const controller = new ExportsController(service);
+    const response = {
+      download: vi.fn(),
+    };
 
     await expect(
       controller.create({
@@ -25,7 +28,7 @@ describe('ExportsController', () => {
     ).resolves.toEqual({ id: 'export_1', status: 'QUEUED' });
     await expect(controller.list(' task_qa ')).resolves.toEqual([{ id: 'export_1' }]);
     await expect(controller.get('export_1')).resolves.toEqual({ id: 'export_1' });
-    await expect(controller.download('export_1')).resolves.toEqual({ filePath: 'storage/exports/export_1.json' });
+    await expect(controller.download('export_1', response)).resolves.toBeUndefined();
     await expect(controller.retry('export_1')).resolves.toEqual({ id: 'export_1', status: 'QUEUED' });
     await expect(
       controller.preview(
@@ -45,6 +48,7 @@ describe('ExportsController', () => {
     expect(service.listExports).toHaveBeenCalledWith({ taskId: 'task_qa' });
     expect(service.getExport).toHaveBeenCalledWith('export_1');
     expect(service.downloadExport).toHaveBeenCalledWith('export_1');
+    expect(response.download).toHaveBeenCalledWith('storage/exports/export_1.json', 'export_1.json');
     expect(service.retryExport).toHaveBeenCalledWith('export_1');
     expect(service.previewTaskExport).toHaveBeenCalledWith('task_qa', {
       includeReviews: false,

@@ -1844,36 +1844,80 @@ p {
   padding-top: 16px;
 }
 
-.export-mapping-grid {
+.export-mapping-editor {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 8px;
 }
 
-.export-mapping-grid div {
+.export-mapping-editor > div {
   min-width: 0;
+  display: grid;
+  grid-template-columns: 96px minmax(180px, 1fr) minmax(160px, 240px);
+  gap: 10px;
+  align-items: center;
   border: 1px solid #dde5e9;
   border-radius: 8px;
   padding: 10px;
   background: #f7fafb;
 }
 
-.export-mapping-grid span,
-.export-mapping-grid strong {
+.export-mapping-editor > div.is-disabled {
+  color: #777a73;
+  background: #f2f4f5;
+}
+
+.export-mapping-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4f5c63;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.export-mapping-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.export-mapping-source,
+.export-mapping-target {
+  min-width: 0;
+}
+
+.export-mapping-source span,
+.export-mapping-source strong {
   display: block;
   overflow-wrap: anywhere;
 }
 
-.export-mapping-grid span {
+.export-mapping-source span,
+.export-mapping-target {
   color: #6b757a;
   font-size: 12px;
   font-weight: 800;
 }
 
-.export-mapping-grid strong {
+.export-mapping-source strong {
   margin-top: 4px;
   color: #17211b;
   font-size: 13px;
+}
+
+.export-mapping-target {
+  display: grid;
+  gap: 6px;
+}
+
+.export-mapping-target input {
+  width: 100%;
+  border: 1px solid #b7c4cc;
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: #17211b;
+  background: #ffffff;
+  font: inherit;
 }
 
 .export-preview-table,
@@ -3297,7 +3341,8 @@ p {
   .json-field-grid,
   .ai-rule-form-grid,
   .ai-rule-dimension-list article,
-  .export-form-grid {
+  .export-form-grid,
+  .export-mapping-editor > div {
     grid-template-columns: 1fr;
   }
 

@@ -1,9 +1,8 @@
-import { Body, Controller, Get, Inject, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Query, Res } from '@nestjs/common';
 
 import {
   ExportsService,
   type CreateExportInput,
-  type ExportDownloadDto,
   type ExportJobDto,
   type ExportPreviewDto,
   type ExportPreviewInput,
@@ -15,6 +14,10 @@ type CreateExportDto = {
   format?: unknown;
   includeReviews?: unknown;
   fieldMapping?: unknown;
+};
+
+type ExportDownloadResponse = {
+  download: (filePath: string, fileName: string) => void;
 };
 
 @Controller()
@@ -45,8 +48,9 @@ export class ExportsController {
   }
 
   @Get('exports/:id/download')
-  download(@Param('id') id: string): Promise<ExportDownloadDto> {
-    return this.exportsService.downloadExport(id);
+  async download(@Param('id') id: string, @Res() response: ExportDownloadResponse): Promise<void> {
+    const download = await this.exportsService.downloadExport(id);
+    response.download(download.filePath, download.fileName);
   }
 
   @Post('exports/:id/retry')

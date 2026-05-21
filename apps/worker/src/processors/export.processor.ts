@@ -97,7 +97,6 @@ export async function processExportJob(
     data: {
       status: 'PROCESSING',
       errorMessage: null,
-      startedAt: new Date(),
     },
   });
 

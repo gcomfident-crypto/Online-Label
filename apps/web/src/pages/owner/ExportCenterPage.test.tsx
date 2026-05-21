@@ -110,6 +110,10 @@ describe('ExportCenterPage', () => {
     expect(within(screen.getByRole('table', { name: '导出预览' })).getByText('ai_overall')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '下载' })).toHaveAttribute('href', '/exports/export_done/download');
 
+    const commentTargetInput = screen.getByLabelText('导出字段 comment');
+    await user.clear(commentTargetInput);
+    await user.type(commentTargetInput, 'review_comment');
+    await user.click(screen.getByLabelText('包含字段 prompt'));
     await user.click(screen.getByLabelText('包含审核记录'));
     expect(await screen.findByText('审核字段已隐藏')).toBeInTheDocument();
 
@@ -120,6 +124,20 @@ describe('ExportCenterPage', () => {
       expect.objectContaining({
         method: 'POST',
         body: expect.stringContaining('"format":"csv"'),
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/exports',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"target":"review_comment"'),
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/exports',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"enabled":false'),
       }),
     );
 

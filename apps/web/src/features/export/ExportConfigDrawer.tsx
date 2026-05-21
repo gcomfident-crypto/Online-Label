@@ -8,11 +8,13 @@ type ExportConfigDrawerProps = {
   selectedTaskId: string;
   format: ExportFormat;
   includeReviews: boolean;
+  fieldMapping: ExportFieldMapping[];
   preview: ExportPreviewDto | null;
   isBusy?: boolean;
   onTaskChange: (taskId: string) => void;
   onFormatChange: (format: ExportFormat) => void;
   onIncludeReviewsChange: (includeReviews: boolean) => void;
+  onFieldMappingChange: (mapping: ExportFieldMapping[]) => void;
   onCreate: () => void;
 };
 
@@ -28,11 +30,13 @@ export const ExportConfigDrawer = ({
   selectedTaskId,
   format,
   includeReviews,
+  fieldMapping,
   preview,
   isBusy,
   onTaskChange,
   onFormatChange,
   onIncludeReviewsChange,
+  onFieldMappingChange,
   onCreate,
 }: ExportConfigDrawerProps) => (
   <section className="export-config-panel" aria-label="导出配置">
@@ -79,7 +83,7 @@ export const ExportConfigDrawer = ({
       </label>
     </div>
 
-    <FieldMappingPreview mapping={preview?.fieldMapping ?? []} includeReviews={includeReviews} />
+    <FieldMappingEditor mapping={fieldMapping} includeReviews={includeReviews} onChange={onFieldMappingChange} />
     <FieldPreviewTable preview={preview} includeReviews={includeReviews} />
 
     <button type="button" className="primary-action" disabled={isBusy || !selectedTaskId} onClick={onCreate}>
@@ -88,14 +92,21 @@ export const ExportConfigDrawer = ({
   </section>
 );
 
-const FieldMappingPreview = ({
+const FieldMappingEditor = ({
   mapping,
   includeReviews,
+  onChange,
 }: {
   mapping: ExportFieldMapping[];
   includeReviews: boolean;
+  onChange: (mapping: ExportFieldMapping[]) => void;
 }) => {
-  const visibleMapping = mapping.filter((field) => includeReviews || !field.source.startsWith('review.'));
+  const visibleMapping = mapping
+    .map((field, index) => ({ field, index }))
+    .filter(({ field }) => includeReviews || !field.source.startsWith('review.'));
+  const updateField = (fieldIndex: number, patch: Partial<ExportFieldMapping>) => {
+    onChange(mapping.map((field, index) => (index === fieldIndex ? { ...field, ...patch } : field)));
+  };
 
   return (
     <section className="export-subpanel" aria-label="字段映射预设">
@@ -106,14 +117,34 @@ const FieldMappingPreview = ({
         </div>
         <small>{visibleMapping.length.toLocaleString()} 个字段</small>
       </header>
-      <div className="export-mapping-grid">
-        {visibleMapping.map((field) => (
-          <div key={`${field.source}:${field.target}`}>
-            <span>{field.source}</span>
-            <strong>{field.target}</strong>
+      <div className="export-mapping-editor">
+        {visibleMapping.map(({ field, index }) => (
+          <div key={`${field.source}:${index}`} className={field.enabled ? undefined : 'is-disabled'}>
+            <label className="export-mapping-check">
+              <input
+                aria-label={`包含字段 ${field.target}`}
+                type="checkbox"
+                checked={field.enabled}
+                onChange={(event) => updateField(index, { enabled: event.target.checked })}
+              />
+              包含
+            </label>
+            <div className="export-mapping-source">
+              <span>原字段名</span>
+              <strong>{field.source}</strong>
+            </div>
+            <label className="export-mapping-target">
+              导出字段名
+              <input
+                aria-label={`导出字段 ${field.target}`}
+                value={field.target}
+                onChange={(event) => updateField(index, { target: event.target.value })}
+              />
+            </label>
           </div>
         ))}
       </div>
+      {visibleMapping.length === 0 ? <p>暂无可配置字段。</p> : null}
     </section>
   );
 };

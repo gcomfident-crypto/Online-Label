@@ -1,5 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { EXPORT_FORMATS, type DatasetKind, type ExportFormat } from '@labelhub/shared';
+import { basename } from 'node:path';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
 import {
@@ -94,6 +95,7 @@ export type ExportPreviewDto = {
 
 export type ExportDownloadDto = {
   filePath: string;
+  fileName: string;
 };
 
 type ExportsPrismaClient = {
@@ -179,7 +181,7 @@ export class ExportsService {
       });
     }
 
-    return { filePath: job.filePath };
+    return { filePath: job.filePath, fileName: basename(job.filePath) };
   }
 
   async retryExport(exportJobId: string): Promise<ExportJobDto> {

@@ -29,6 +29,7 @@ describe('processExportJob', () => {
       ]);
       expect(await readFile(result.filePath, 'utf8')).not.toContain('qa_pending');
       expect(updates[0]).toEqual(expect.objectContaining({ status: 'PROCESSING' }));
+      expect(updates[0]).not.toHaveProperty('startedAt');
       expect(updates.at(-1)).toEqual(
         expect.objectContaining({
           status: 'SUCCEEDED',
