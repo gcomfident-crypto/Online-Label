@@ -17,7 +17,11 @@ describe('ReviewsController', () => {
       batchReject: vi.fn().mockResolvedValue({ processedCount: 1 }),
       assignReviews: vi.fn().mockResolvedValue({ processedCount: 2 }),
     };
-    const controller = new ReviewsController(service);
+    const diffService = {
+      listRounds: vi.fn().mockResolvedValue([{ round: 1 }]),
+      getDiff: vi.fn().mockResolvedValue({ changes: [] }),
+    };
+    const controller = new ReviewsController(service, diffService);
 
     await expect(controller.listPending(' reviewer_1 ', ' manual ')).resolves.toEqual([
       { submissionId: 'submission_1' },
@@ -25,6 +29,8 @@ describe('ReviewsController', () => {
     await expect(controller.listResults(' reject ')).resolves.toEqual([{ submissionId: 'submission_2' }]);
     await expect(controller.getReview('submission_1')).resolves.toEqual({ submission: { id: 'submission_1' } });
     await expect(controller.getTimeline('submission_1')).resolves.toEqual([{ id: 'timeline_1' }]);
+    await expect(controller.listRounds('assignment_1')).resolves.toEqual([{ round: 1 }]);
+    await expect(controller.getDiff('assignment_1', '1', '2')).resolves.toEqual({ changes: [] });
     await expect(controller.start('submission_1', { actorId: ' reviewer_1 ' })).resolves.toEqual({
       submission: { id: 'submission_1' },
     });
@@ -67,6 +73,8 @@ describe('ReviewsController', () => {
     expect(service.listResults).toHaveBeenCalledWith({ verdict: 'reject' });
     expect(service.getReview).toHaveBeenCalledWith('submission_1');
     expect(service.getTimeline).toHaveBeenCalledWith('submission_1');
+    expect(diffService.listRounds).toHaveBeenCalledWith('assignment_1');
+    expect(diffService.getDiff).toHaveBeenCalledWith('assignment_1', { fromRound: 1, toRound: 2 });
     expect(service.startReview).toHaveBeenCalledWith('submission_1', { actorId: 'reviewer_1' });
     expect(service.passReview).toHaveBeenCalledWith('submission_1', {
       actorId: 'reviewer_1',

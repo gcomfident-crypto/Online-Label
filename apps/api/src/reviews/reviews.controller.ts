@@ -8,6 +8,11 @@ import {
   type ReviewTimelineItemDto,
 } from './reviews.service.ts';
 import {
+  ReviewDiffService,
+  type SubmissionDiffDto,
+  type SubmissionRoundDto,
+} from './diff.service.ts';
+import {
   type AssignReviewsDto,
   type BatchReviewDto,
   type RejectReviewDto,
@@ -33,6 +38,8 @@ export class ReviewsController {
       | 'batchReject'
       | 'assignReviews'
     >,
+    @Inject(ReviewDiffService)
+    private readonly reviewDiffService: Pick<ReviewDiffService, 'listRounds' | 'getDiff'>,
   ) {}
 
   @Get('reviews/pending')
@@ -46,6 +53,23 @@ export class ReviewsController {
   @Get('reviews/results')
   listResults(@Query('verdict') verdict?: string): Promise<ReviewQueueItemDto[]> {
     return this.reviewsService.listResults(normalizeResultsQuery(verdict));
+  }
+
+  @Get('reviews/:assignmentId/rounds')
+  listRounds(@Param('assignmentId') assignmentId: string): Promise<SubmissionRoundDto[]> {
+    return this.reviewDiffService.listRounds(assignmentId);
+  }
+
+  @Get('reviews/:assignmentId/diff')
+  getDiff(
+    @Param('assignmentId') assignmentId: string,
+    @Query('fromRound') fromRound?: string,
+    @Query('toRound') toRound?: string,
+  ): Promise<SubmissionDiffDto> {
+    return this.reviewDiffService.getDiff(assignmentId, {
+      fromRound: numberValue(fromRound),
+      toRound: numberValue(toRound),
+    });
   }
 
   @Post('reviews/batch-pass')
@@ -149,6 +173,12 @@ function normalizeAssignBody(body: AssignReviewsDto): { actorId?: string; review
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function numberValue(value: unknown): number {
+  const number = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+
+  return Number.isFinite(number) ? number : 0;
 }
 
 function stringArrayValue(value: unknown): string[] {
