@@ -12,5 +12,8 @@
   "devDependencies": {
     "tsx": "^4.19.4",
     "vitest": "^3.1.4"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
   }
 }

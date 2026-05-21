@@ -7,11 +7,13 @@ import {
   startWorkerRuntime,
 } from './queues.ts';
 import { AI_REVIEW_QUEUE_NAME, buildAiReviewJobPayload } from './queues/aiReview.queue.ts';
+import { EXPORT_QUEUE_NAME, buildExportJobPayload } from './queues/export.queue.ts';
 
 describe('LabelHub Worker 壳', () => {
   it('导出 ai-review 与 export 队列名', () => {
     expect(LABELHUB_QUEUE_NAMES).toEqual(['ai-review', 'export']);
     expect(AI_REVIEW_QUEUE_NAME).toBe('ai-review');
+    expect(EXPORT_QUEUE_NAME).toBe('export');
   });
 
   it('生成 AI 预审 BullMQ 负载幂等键', () => {
@@ -26,6 +28,20 @@ describe('LabelHub Worker 壳', () => {
       taskId: 'task_qa',
       round: 2,
       idempotencyKey: 'submission_1:2:ai-review',
+    });
+  });
+
+  it('生成导出队列负载', () => {
+    expect(
+      buildExportJobPayload({
+        exportJobId: 'export_1',
+        taskId: 'task_qa',
+        format: 'xlsx',
+      }),
+    ).toEqual({
+      exportJobId: 'export_1',
+      taskId: 'task_qa',
+      format: 'xlsx',
     });
   });
 

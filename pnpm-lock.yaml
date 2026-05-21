@@ -139,6 +139,10 @@ importers:
         version: 7.3.3(@types/node@22.19.19)(jiti@2.7.0)(tsx@4.22.3)
 
   apps/worker:
+    dependencies:
+      exceljs:
+        specifier: ^4.4.0
+        version: 4.4.0
     devDependencies:
       tsx:
         specifier: ^4.19.4
