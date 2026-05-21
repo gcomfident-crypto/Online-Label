@@ -6,6 +6,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from './app.module.ts';
+import { resolveApiPort } from './main.ts';
 
 describe('LabelHub API shell', () => {
   let app: Awaited<ReturnType<typeof createTestApp>>;
@@ -113,6 +114,17 @@ describe('LabelHub API shell', () => {
       },
       requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
     });
+  });
+});
+
+describe('API 启动配置', () => {
+  it('默认使用与本地环境示例一致的 3000 端口', () => {
+    expect(resolveApiPort({})).toBe(3000);
+  });
+
+  it('优先读取 API_PORT 并兼容 PORT', () => {
+    expect(resolveApiPort({ API_PORT: '3100', PORT: '3200' })).toBe(3100);
+    expect(resolveApiPort({ PORT: '3200' })).toBe(3200);
   });
 });
 

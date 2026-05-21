@@ -4,6 +4,7 @@ import {
   LABELHUB_QUEUE_NAMES,
   createWorkerConfig,
   startWorker,
+  startWorkerRuntime,
 } from './queues.ts';
 
 describe('LabelHub Worker 壳', () => {
@@ -36,6 +37,18 @@ describe('LabelHub Worker 壳', () => {
     startWorker();
 
     expect(log).toHaveBeenCalledWith('LabelHub worker ready');
+    log.mockRestore();
+  });
+
+  it('运行时启动后保持可停止的常驻句柄', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    const runtime = startWorkerRuntime();
+
+    expect(runtime.config).toEqual(createWorkerConfig({}));
+    expect(runtime.stop).toEqual(expect.any(Function));
+
+    await runtime.stop();
     log.mockRestore();
   });
 });
