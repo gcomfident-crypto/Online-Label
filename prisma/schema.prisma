@@ -113,6 +113,7 @@ model User {
   assignments        Assignment[]   @relation("AssignmentAssignee")
   createdReviewRules ReviewRule[]   @relation("ReviewRuleCreator")
   reviewRecords      ReviewRecord[] @relation("ReviewRecordReviewer")
+  assignedReviews    ReviewRecord[] @relation("ReviewRecordAssignee")
   auditLogs          AuditLog[]     @relation("AuditActor")
   exportJobs         ExportJob[]    @relation("ExportJobRequester")
   createdAt          DateTime       @default(now())
@@ -287,10 +288,13 @@ model ReviewRecord {
   stage            ReviewStage
   reviewerId       String?
   reviewer         User?       @relation("ReviewRecordReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  assignedReviewerId String?
+  assignedReviewer User?       @relation("ReviewRecordAssignee", fields: [assignedReviewerId], references: [id], onDelete: SetNull)
   reviewerType     String      @default("AI")
   scores           Json
   decision         String?
   comment          String?
+  revisedAnswers   Json?
   rawPrompt        String?
   rawOutput        String?
   structuredOutput Json?
@@ -304,6 +308,7 @@ model ReviewRecord {
   @@index([submissionId])
   @@index([ruleId])
   @@index([stage])
+  @@index([assignedReviewerId])
   @@map("review_records")
 }
 

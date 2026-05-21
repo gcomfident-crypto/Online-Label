@@ -156,6 +156,8 @@ describe('Prisma schema', () => {
     expect(modelBlock('ReviewRecord')).toMatch(/\brawOutput\s+String\?/);
     expect(modelBlock('ReviewRecord')).toMatch(/\bretryCount\s+Int\s+@default\(0\)/);
     expect(modelBlock('ReviewRecord')).toMatch(/\bidempotencyKey\s+String\?/);
+    expect(modelBlock('ReviewRecord')).toMatch(/\bassignedReviewerId\s+String\?/);
+    expect(modelBlock('ReviewRecord')).toMatch(/\brevisedAnswers\s+Json\?/);
     expect(modelBlock('ReviewRecord')).toMatch(/@@unique\(\[idempotencyKey\]\)/);
     expect(modelBlock('AuditLog')).toMatch(/\bfromStatus\s+String\?/);
     expect(modelBlock('AuditLog')).toMatch(/\btoStatus\s+String\b/);
