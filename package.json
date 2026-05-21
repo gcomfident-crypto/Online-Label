@@ -11,9 +11,12 @@
     "dev:worker": "pnpm -r --parallel --if-present dev:worker",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
+    "db:seed:demo": "prisma db seed",
+    "demo:reset": "tsx prisma/demo-reset.ts",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "e2e": "pnpm test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",

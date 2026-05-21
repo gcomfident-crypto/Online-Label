@@ -41,6 +41,7 @@ describe('buildSeedData', () => {
       'task_qa_quality_demo',
       'task_preference_compare_demo',
     ]);
+    expect(first.tasks.every((task) => task.status === 'PUBLISHED')).toBe(true);
     expect(first.tasks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -56,6 +57,23 @@ describe('buildSeedData', () => {
     expect(
       first.taskItems.filter((item) => item.datasetKind === 'preference_compare'),
     ).toHaveLength(12);
+    expect(first.assignments).toHaveLength(2);
+    expect(first.submissions).toHaveLength(3);
+    expect(first.aiReviewJobs).toHaveLength(2);
+    expect(first.reviewRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ decision: 'reject', reviewerType: 'HUMAN' }),
+        expect.objectContaining({ decision: 'final_pass', stage: 'FINAL' }),
+      ]),
+    );
+    expect(first.exportJobs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: 'SUCCEEDED',
+          format: 'json',
+        }),
+      ]),
+    );
     for (const item of first.taskItems) {
       const rawData = item.rawData as Record<string, unknown>;
 
