@@ -29,6 +29,18 @@ const isEmptyValue = (value: unknown): boolean => {
   );
 };
 
+const isOptionalEmptyValue = (field: SchemaField, value: unknown): boolean => {
+  if (value === undefined || value === null || value === '') {
+    return true;
+  }
+
+  return (
+    (field.type === 'checkbox' || field.type === 'tag_select') &&
+    Array.isArray(value) &&
+    value.length === 0
+  );
+};
+
 const optionValues = (field: SchemaField): string[] => {
   return (field.options ?? []).map((option) => option.value);
 };
@@ -113,11 +125,12 @@ const validateTextRules = (
   value: unknown,
   errors: SchemaValidationError[],
 ) => {
+  const fieldKey = getSchemaFieldKey(field);
+
   if (typeof value !== 'string') {
+    errors.push({ fieldKey, message: `${field.label}必须是文本。` });
     return;
   }
-
-  const fieldKey = getSchemaFieldKey(field);
 
   if (field.validation?.minLength !== undefined && value.length < field.validation.minLength) {
     errors.push({
@@ -169,16 +182,19 @@ export const validateSchemaAnswers = (
       continue;
     }
 
-    if (isEmptyValue(value)) {
+    if (isOptionalEmptyValue(field, value)) {
       continue;
     }
 
-    validateTextRules(field, value, errors);
+    if (field.type === 'text' || field.type === 'textarea' || field.type === 'rich_text') {
+      validateTextRules(field, value, errors);
+    }
 
-    if (field.type === 'radio' && typeof value === 'string') {
-      if (!optionValues(field).includes(value)) {
-        errors.push({ fieldKey, message: fieldMessage(field.label, '必须选择有效选项。') });
-      }
+    if (
+      field.type === 'radio' &&
+      (typeof value !== 'string' || !optionValues(field).includes(value))
+    ) {
+      errors.push({ fieldKey, message: fieldMessage(field.label, '必须选择有效选项。') });
     }
 
     if (field.type === 'checkbox' || field.type === 'tag_select') {
@@ -189,12 +205,11 @@ export const validateSchemaAnswers = (
       }
     }
 
-    if (field.type === 'json_editor' && typeof value === 'string') {
-      try {
-        JSON.parse(value);
-      } catch {
-        errors.push({ fieldKey, message: fieldMessage(field.label, '必须是合法 JSON。') });
-      }
+    if (
+      field.type === 'json_editor' &&
+      (typeof value !== 'object' || value === null || Array.isArray(value))
+    ) {
+      errors.push({ fieldKey, message: fieldMessage(field.label, '必须是结构化对象。') });
     }
 
     if (field.type === 'file_upload' && !isUploadedFile(value)) {

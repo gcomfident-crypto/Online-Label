@@ -18,6 +18,74 @@ const collectFields = (fields: readonly SchemaField[]): SchemaField[] => {
   ]);
 };
 
+const collectFieldKeys = (field: SchemaField): string[] => {
+  return [
+    getSchemaFieldKey(field),
+    ...(field.fields?.flatMap(collectFieldKeys) ?? []),
+    ...(field.tabs?.flatMap((tab) => tab.fields.flatMap(collectFieldKeys)) ?? []),
+  ];
+};
+
+const collectDescendantKeysByFieldKey = (
+  fields: readonly SchemaField[],
+): Map<string, string[]> => {
+  const descendantsByFieldKey = new Map<string, string[]>();
+
+  for (const field of fields) {
+    descendantsByFieldKey.set(getSchemaFieldKey(field), collectFieldKeys(field));
+
+    if (field.fields) {
+      for (const [fieldKey, descendantKeys] of collectDescendantKeysByFieldKey(field.fields)) {
+        descendantsByFieldKey.set(fieldKey, descendantKeys);
+      }
+    }
+
+    for (const tab of field.tabs ?? []) {
+      for (const [fieldKey, descendantKeys] of collectDescendantKeysByFieldKey(tab.fields)) {
+        descendantsByFieldKey.set(fieldKey, descendantKeys);
+      }
+    }
+  }
+
+  return descendantsByFieldKey;
+};
+
+const getTargetFieldKeys = (
+  descendantsByFieldKey: ReadonlyMap<string, readonly string[]>,
+  targetFieldKey: string,
+): readonly string[] => {
+  return descendantsByFieldKey.get(targetFieldKey) ?? [targetFieldKey];
+};
+
+const applyToFieldKeys = (
+  fieldKeys: readonly string[],
+  action: (fieldKey: string) => void,
+) => {
+  for (const fieldKey of fieldKeys) {
+    action(fieldKey);
+  }
+};
+
+const areJsonValuesEqual = (left: unknown, right: unknown): boolean => {
+  if (Object.is(left, right)) {
+    return true;
+  }
+
+  if (typeof left !== typeof right || left === null || right === null) {
+    return false;
+  }
+
+  if (typeof left !== 'object') {
+    return false;
+  }
+
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return false;
+  }
+};
+
 const collectRules = (schema: LabelHubSchema): FieldLinkageRule[] => {
   const fieldRules = collectFields(schema.fields).flatMap((field) => [...(field.linkageRules ?? [])]);
 
@@ -73,6 +141,7 @@ export const applySchemaLinkage = (
 ): SchemaLinkageResult => {
   const fields = collectFields(schema.fields);
   const fieldKeys = fields.map(getSchemaFieldKey);
+  const descendantsByFieldKey = collectDescendantKeysByFieldKey(schema.fields);
   const visibleFieldKeys = new Set(fieldKeys);
   const hiddenFieldKeys = new Set<string>();
   const requiredFieldKeys = new Set<string>();
@@ -84,8 +153,10 @@ export const applySchemaLinkage = (
   );
 
   for (const fieldKey of showTargetFieldKeys) {
-    visibleFieldKeys.delete(fieldKey);
-    hiddenFieldKeys.add(fieldKey);
+    applyToFieldKeys(getTargetFieldKeys(descendantsByFieldKey, fieldKey), (targetFieldKey) => {
+      visibleFieldKeys.delete(targetFieldKey);
+      hiddenFieldKeys.add(targetFieldKey);
+    });
   }
 
   for (const rule of rules) {
@@ -94,13 +165,23 @@ export const applySchemaLinkage = (
     }
 
     if (rule.action === 'show') {
-      visibleFieldKeys.add(rule.targetFieldKey);
-      hiddenFieldKeys.delete(rule.targetFieldKey);
+      applyToFieldKeys(
+        getTargetFieldKeys(descendantsByFieldKey, rule.targetFieldKey),
+        (targetFieldKey) => {
+          visibleFieldKeys.add(targetFieldKey);
+          hiddenFieldKeys.delete(targetFieldKey);
+        },
+      );
     }
 
     if (rule.action === 'hide') {
-      visibleFieldKeys.delete(rule.targetFieldKey);
-      hiddenFieldKeys.add(rule.targetFieldKey);
+      applyToFieldKeys(
+        getTargetFieldKeys(descendantsByFieldKey, rule.targetFieldKey),
+        (targetFieldKey) => {
+          visibleFieldKeys.delete(targetFieldKey);
+          hiddenFieldKeys.add(targetFieldKey);
+        },
+      );
     }
 
     if (rule.action === 'require') {
@@ -108,11 +189,20 @@ export const applySchemaLinkage = (
     }
 
     if (rule.action === 'disable') {
-      disabledFieldKeys.add(rule.targetFieldKey);
+      applyToFieldKeys(
+        getTargetFieldKeys(descendantsByFieldKey, rule.targetFieldKey),
+        (targetFieldKey) => disabledFieldKeys.add(targetFieldKey),
+      );
     }
 
     if (rule.action === 'setValue') {
-      nextAnswers[rule.targetFieldKey] = rule.value;
+      if (!areJsonValuesEqual(nextAnswers[rule.targetFieldKey], rule.value)) {
+        nextAnswers[rule.targetFieldKey] = rule.value;
+      }
+      applyToFieldKeys(
+        getTargetFieldKeys(descendantsByFieldKey, rule.targetFieldKey),
+        (targetFieldKey) => disabledFieldKeys.add(targetFieldKey),
+      );
     }
   }
 

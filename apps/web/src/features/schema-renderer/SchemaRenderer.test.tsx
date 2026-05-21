@@ -624,6 +624,29 @@ describe('SchemaRenderer', () => {
     expect(validateSchemaAnswers(schema, { quality: 'bad' })).toEqual([
       { fieldKey: 'quality', message: '质量必须选择有效选项。' },
     ]);
+    expect(validateSchemaAnswers(schema, { quality: 1 })).toEqual([
+      { fieldKey: 'quality', message: '质量必须选择有效选项。' },
+    ]);
+  });
+
+  it('文本类字段拒绝非字符串答案', () => {
+    const schema = baseSchema([
+      { key: 'summary', type: 'text', label: '摘要' },
+      { key: 'comment', type: 'textarea', label: '备注' },
+      { key: 'content', type: 'rich_text', label: '正文' },
+    ]);
+
+    expect(
+      validateSchemaAnswers(schema, {
+        summary: 1,
+        comment: {},
+        content: [],
+      }),
+    ).toEqual([
+      { fieldKey: 'summary', message: '摘要必须是文本。' },
+      { fieldKey: 'comment', message: '备注必须是文本。' },
+      { fieldKey: 'content', message: '正文必须是文本。' },
+    ]);
   });
 
   it('checkbox 和 tag_select 必须是字符串数组且值在 options 内', () => {
@@ -652,10 +675,14 @@ describe('SchemaRenderer', () => {
     const schema = baseSchema([{ key: 'payload', type: 'json_editor', label: 'JSON' }]);
 
     expect(validateSchemaAnswers(schema, { payload: { ok: true } })).toEqual([]);
-    expect(validateSchemaAnswers(schema, { payload: ['ok'] })).toEqual([]);
-    expect(validateSchemaAnswers(schema, { payload: 1 })).toEqual([]);
     expect(validateSchemaAnswers(schema, { payload: '{"ok":' })).toEqual([
-      { fieldKey: 'payload', message: 'JSON 必须是合法 JSON。' },
+      { fieldKey: 'payload', message: 'JSON 必须是结构化对象。' },
+    ]);
+    expect(validateSchemaAnswers(schema, { payload: ['ok'] })).toEqual([
+      { fieldKey: 'payload', message: 'JSON 必须是结构化对象。' },
+    ]);
+    expect(validateSchemaAnswers(schema, { payload: 1 })).toEqual([
+      { fieldKey: 'payload', message: 'JSON 必须是结构化对象。' },
     ]);
   });
 
@@ -744,6 +771,111 @@ describe('SchemaRenderer', () => {
     ]);
   });
 
+  it('联动条件覆盖 notEquals、contains、notContains、exists 和 notExists', () => {
+    const schema = {
+      ...baseSchema([
+        { key: 'status', type: 'text', label: '状态' },
+        { key: 'tags', type: 'tag_select', label: '标签' },
+        { key: 'note', type: 'text', label: '备注' },
+        { key: 'a', type: 'text', label: 'A' },
+        { key: 'b', type: 'text', label: 'B' },
+        { key: 'c', type: 'text', label: 'C' },
+        { key: 'd', type: 'text', label: 'D' },
+        { key: 'e', type: 'text', label: 'E' },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'status', operator: 'notEquals', value: 'draft' },
+          action: 'hide',
+          targetFieldKey: 'a',
+        },
+        {
+          when: { fieldKey: 'tags', operator: 'contains', value: 'risk' },
+          action: 'disable',
+          targetFieldKey: 'b',
+        },
+        {
+          when: { fieldKey: 'tags', operator: 'notContains', value: 'safe' },
+          action: 'require',
+          targetFieldKey: 'c',
+        },
+        {
+          when: { fieldKey: 'note', operator: 'exists' },
+          action: 'setValue',
+          targetFieldKey: 'd',
+          value: 'has-note',
+        },
+        {
+          when: { fieldKey: 'note', operator: 'notExists' },
+          action: 'hide',
+          targetFieldKey: 'e',
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    const result = applySchemaLinkage(schema, {
+      status: 'published',
+      tags: ['risk'],
+      note: '已填写',
+    });
+
+    expect(result.hiddenFieldKeys.has('a')).toBe(true);
+    expect(result.disabledFieldKeys.has('b')).toBe(true);
+    expect(result.requiredFieldKeys.has('c')).toBe(true);
+    expect(result.answers.d).toBe('has-note');
+    expect(result.hiddenFieldKeys.has('e')).toBe(false);
+
+    const emptyResult = applySchemaLinkage(schema, {});
+
+    expect(emptyResult.hiddenFieldKeys.has('e')).toBe(true);
+  });
+
+  it('隐藏和禁用容器时会级联到子字段', () => {
+    const schema = {
+      ...baseSchema([
+        { key: 'status', type: 'text', label: '状态' },
+        {
+          key: 'basic',
+          type: 'group',
+          label: '基础信息',
+          fields: [{ key: 'summary', type: 'text', label: '摘要', validation: { required: true } }],
+        },
+        {
+          key: 'reviewTabs',
+          type: 'tabs',
+          label: '审核分组',
+          tabs: [
+            {
+              key: 'first',
+              label: '第一组',
+              fields: [{ key: 'note', type: 'text', label: '说明' }],
+            },
+          ],
+        },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'hidden' },
+          action: 'hide',
+          targetFieldKey: 'basic',
+        },
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'hidden' },
+          action: 'disable',
+          targetFieldKey: 'reviewTabs',
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    const result = applySchemaLinkage(schema, { status: 'hidden' });
+
+    expect(result.hiddenFieldKeys.has('basic')).toBe(true);
+    expect(result.hiddenFieldKeys.has('summary')).toBe(true);
+    expect(result.disabledFieldKeys.has('reviewTabs')).toBe(true);
+    expect(result.disabledFieldKeys.has('note')).toBe(true);
+    expect(validateSchemaAnswers(schema, { status: 'hidden' }, result)).toEqual([]);
+  });
+
   it('Renderer 根据联动隐藏字段、禁用字段、动态必填并写入 setValue', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
@@ -813,7 +945,9 @@ describe('SchemaRenderer', () => {
     await user.click(screen.getByLabelText('状态：通过'));
 
     expect(await screen.findByLabelText('详情')).toBeInTheDocument();
+    expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenLastCalledWith({ status: 'approved', score: '5' });
+    expect(screen.getByLabelText('分数')).toBeDisabled();
 
     await user.click(screen.getByLabelText('状态：拒绝'));
 

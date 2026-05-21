@@ -68,9 +68,10 @@ export const SchemaRenderer = ({
       ? nextValue(currentAnswers[fieldKey])
       : nextValue;
     const nextAnswers = { ...currentAnswers, [fieldKey]: resolvedValue };
+    const nextLinkageResult = applySchemaLinkage(schema, nextAnswers);
 
-    latestValueRef.current = nextAnswers;
-    onChange(nextAnswers);
+    latestValueRef.current = nextLinkageResult.answers;
+    onChange(nextLinkageResult.answers);
   };
 
   return (
