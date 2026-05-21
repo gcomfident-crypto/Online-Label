@@ -17,11 +17,6 @@ type CreateExportDto = {
   fieldMapping?: unknown;
 };
 
-type ExportPreviewDtoInput = {
-  includeReviews?: unknown;
-  fieldMapping?: unknown;
-};
-
 @Controller()
 export class ExportsController {
   constructor(
@@ -60,8 +55,12 @@ export class ExportsController {
   }
 
   @Get('tasks/:taskId/export-preview')
-  preview(@Param('taskId') taskId: string, @Body() body: ExportPreviewDtoInput = {}): Promise<ExportPreviewDto> {
-    return this.exportsService.previewTaskExport(taskId, normalizePreviewBody(body));
+  preview(
+    @Param('taskId') taskId: string,
+    @Query('includeReviews') includeReviews?: string,
+    @Query('fieldMapping') fieldMapping?: string,
+  ): Promise<ExportPreviewDto> {
+    return this.exportsService.previewTaskExport(taskId, normalizePreviewQuery(includeReviews, fieldMapping));
   }
 }
 
@@ -75,13 +74,25 @@ function normalizeCreateBody(body: CreateExportDto): CreateExportInput {
   };
 }
 
-function normalizePreviewBody(body: ExportPreviewDtoInput): ExportPreviewInput {
+function normalizePreviewQuery(includeReviews?: unknown, fieldMapping?: unknown): ExportPreviewInput {
   return {
-    includeReviews: body.includeReviews === true,
-    fieldMapping: body.fieldMapping,
+    includeReviews: includeReviews === true || includeReviews === 'true',
+    fieldMapping: parseFieldMapping(fieldMapping),
   };
 }
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function parseFieldMapping(value: unknown): unknown {
+  if (typeof value !== 'string' || !value.trim()) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return undefined;
+  }
 }

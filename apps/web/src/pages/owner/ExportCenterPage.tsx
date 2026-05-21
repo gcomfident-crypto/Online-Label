@@ -1,0 +1,185 @@
+import { useEffect, useMemo, useState } from 'react';
+
+import type { ExportFormat } from '@labelhub/shared';
+import {
+  createExport,
+  getExportPreview,
+  listExports,
+  retryExport,
+  type ExportJobDto,
+  type ExportPreviewDto,
+} from '../../api/exports';
+import { listTasks, type TaskDto } from '../../api/tasks';
+import { ExportConfigDrawer } from '../../features/export/ExportConfigDrawer';
+import { ExportHistoryTable } from '../../features/export/ExportHistoryTable';
+
+const OWNER_ID = 'user_owner_001';
+
+export const ExportCenterPage = () => {
+  const [tasks, setTasks] = useState<TaskDto[]>([]);
+  const [exports, setExports] = useState<ExportJobDto[]>([]);
+  const [preview, setPreview] = useState<ExportPreviewDto | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState('');
+  const [format, setFormat] = useState<ExportFormat>('json');
+  const [includeReviews, setIncludeReviews] = useState(true);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isBusy, setIsBusy] = useState(false);
+
+  const selectedTask = useMemo(
+    () => tasks.find((task) => task.id === selectedTaskId) ?? null,
+    [tasks, selectedTaskId],
+  );
+  const summary = useMemo(
+    () => ({
+      queued: exports.filter((job) => job.status === 'QUEUED').length,
+      succeeded: exports.filter((job) => job.status === 'SUCCEEDED').length,
+      failed: exports.filter((job) => job.status === 'FAILED').length,
+      downloadable: exports.filter((job) => job.status === 'SUCCEEDED').length,
+    }),
+    [exports],
+  );
+
+  useEffect(() => {
+    void loadInitialData();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTaskId) {
+      setPreview(null);
+      return;
+    }
+
+    void loadPreview(selectedTaskId, includeReviews);
+  }, [selectedTaskId, includeReviews]);
+
+  const loadInitialData = async () => {
+    setIsLoading(true);
+    try {
+      const [nextTasks, nextExports] = await Promise.all([listTasks(), listExports()]);
+      setTasks(nextTasks);
+      setExports(nextExports);
+      setSelectedTaskId((current) => current || nextTasks[0]?.id || '');
+      setErrorMessage(null);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '导出中心加载失败。');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadPreview = async (taskId: string, nextIncludeReviews: boolean) => {
+    try {
+      setPreview(
+        await getExportPreview({
+          taskId,
+          includeReviews: nextIncludeReviews,
+        }),
+      );
+      setErrorMessage(null);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '导出预览加载失败。');
+    }
+  };
+
+  const refreshExports = async () => {
+    setExports(await listExports());
+  };
+
+  const handleCreate = async () => {
+    if (!selectedTaskId || !preview) {
+      setErrorMessage('请选择任务并等待预览加载完成。');
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      await createExport({
+        taskId: selectedTaskId,
+        requestedById: OWNER_ID,
+        format,
+        includeReviews,
+        fieldMapping: preview.fieldMapping,
+      });
+      setStatusMessage('导出任务已创建。');
+      setErrorMessage(null);
+      await refreshExports();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '创建导出任务失败。');
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleRetry = async (exportJobId: string) => {
+    setIsBusy(true);
+    try {
+      await retryExport(exportJobId);
+      setStatusMessage('导出任务已重新排队。');
+      setErrorMessage(null);
+      await refreshExports();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '重试导出任务失败。');
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  return (
+    <section className="export-center-page" aria-labelledby="export-center-title">
+      <div className="export-center-header">
+        <div>
+          <p className="eyebrow">Owner / 导出中心</p>
+          <h1 id="export-center-title">导出中心</h1>
+          <p>导出终审通过数据，保留字段映射和审核记录配置快照。</p>
+        </div>
+        <dl>
+          <SummaryMetric label="排队中" value={summary.queued} />
+          <SummaryMetric label="已成功" value={summary.succeeded} />
+          <SummaryMetric label="失败" value={summary.failed} />
+          <SummaryMetric label="可下载" value={summary.downloadable} />
+        </dl>
+      </div>
+
+      {statusMessage || errorMessage ? (
+        <div className="task-status-message" role={errorMessage ? 'alert' : undefined} aria-live="polite">
+          {statusMessage ? <span>{statusMessage}</span> : null}
+          {errorMessage ? <span>{errorMessage}</span> : null}
+        </div>
+      ) : null}
+
+      {isLoading ? <p>正在加载导出中心。</p> : null}
+
+      <div className="export-center-layout">
+        <ExportConfigDrawer
+          tasks={tasks}
+          selectedTaskId={selectedTaskId}
+          format={format}
+          includeReviews={includeReviews}
+          preview={preview}
+          isBusy={isBusy}
+          onTaskChange={setSelectedTaskId}
+          onFormatChange={setFormat}
+          onIncludeReviewsChange={setIncludeReviews}
+          onCreate={() => void handleCreate()}
+        />
+        <aside className="export-center-side">
+          <section className="export-summary-panel">
+            <span>当前任务</span>
+            <h2>{selectedTask?.title ?? '未选择任务'}</h2>
+            <p>{preview?.totalFinalApproved.toLocaleString() ?? 0} 条终审通过数据可导出。</p>
+          </section>
+          <ExportHistoryTable jobs={exports} isBusy={isBusy} onRetry={(exportJobId) => void handleRetry(exportJobId)} />
+        </aside>
+      </div>
+    </section>
+  );
+};
+
+const SummaryMetric = ({ label, value }: { label: string; value: number }) => (
+  <div>
+    <dt>{label}</dt>
+    <dd>{value.toLocaleString()}</dd>
+  </div>
+);

@@ -16,6 +16,7 @@ import { MyDataPage } from './pages/labeler/MyDataPage';
 import { WorkbenchPage } from './pages/labeler/WorkbenchPage';
 import { AiRuleConfigPage } from './pages/owner/AiRuleConfigPage';
 import { DatasetImportPage } from './pages/owner/DatasetImportPage';
+import { ExportCenterPage } from './pages/owner/ExportCenterPage';
 import { TaskDetailPage } from './pages/owner/TaskDetailPage';
 import { OwnerTasksPage } from './pages/owner/OwnerTasksPage';
 import { TemplateDesignerPage } from './pages/owner/TemplateDesignerPage';
@@ -45,6 +46,7 @@ export const AppRouter = () => {
         <Route path="tasks/:taskId/dataset" element={<DatasetImportPage />} />
         <Route path="templates" element={<TemplateDesignerPage />} />
         <Route path="ai-rules" element={<AiRuleConfigPage />} />
+        <Route path="exports" element={<ExportCenterPage />} />
       </Route>
       <Route
         path="/labeler"

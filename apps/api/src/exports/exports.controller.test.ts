@@ -28,10 +28,11 @@ describe('ExportsController', () => {
     await expect(controller.download('export_1')).resolves.toEqual({ filePath: 'storage/exports/export_1.json' });
     await expect(controller.retry('export_1')).resolves.toEqual({ id: 'export_1', status: 'QUEUED' });
     await expect(
-      controller.preview('task_qa', {
-        includeReviews: false,
-        fieldMapping: [{ source: 'answers.comment', target: 'comment', enabled: true }],
-      }),
+      controller.preview(
+        'task_qa',
+        'false',
+        JSON.stringify([{ source: 'answers.comment', target: 'comment', enabled: true }]),
+      ),
     ).resolves.toEqual({ rows: [] });
 
     expect(service.createExport).toHaveBeenCalledWith({

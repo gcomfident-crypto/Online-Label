@@ -41,6 +41,7 @@ describe('Web 壳 smoke test', () => {
     const { unmount } = renderRoute('/owner/tasks');
     expect(screen.getByRole('navigation', { name: 'Owner 端导航' })).toHaveTextContent('任务管理');
     expect(screen.getByRole('navigation', { name: 'Owner 端导航' })).toHaveTextContent('模板配置');
+    expect(screen.getByRole('navigation', { name: 'Owner 端导航' })).toHaveTextContent('导出中心');
     expect(screen.getByText('当前使用 seed 演示数据')).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Labeler 端导航' })).not.toBeInTheDocument();
     unmount();
