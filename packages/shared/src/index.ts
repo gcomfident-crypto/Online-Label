@@ -43,6 +43,16 @@ export {
 } from './schema.ts';
 
 export {
+  getDatasetProfile,
+  normalizeDatasetRecord,
+  shouldSkipImportFile,
+  validateDatasetRecord,
+  type DatasetProfile,
+  type DatasetRecord,
+  type DatasetRecordValidationResult,
+} from './datasetProfiles.ts';
+
+export {
   AI_REVIEW_STATUS,
   AI_REVIEW_STATUS_LABELS,
   EXPORT_STATUS,
