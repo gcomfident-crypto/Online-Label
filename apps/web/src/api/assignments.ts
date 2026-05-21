@@ -1,7 +1,14 @@
 import type { DatasetKind } from '@labelhub/shared';
 
 export type MarketClaimStatus = 'available' | 'claimed' | 'full' | 'expired';
-export type AssignmentStatus = 'ASSIGNED' | 'IN_PROGRESS' | 'SUBMITTED' | 'CANCELLED';
+export type AssignmentStatus =
+  | 'ASSIGNED'
+  | 'IN_PROGRESS'
+  | 'SUBMITTED'
+  | 'UNDER_RECHECK'
+  | 'FINAL_PENDING'
+  | 'NEEDS_REVISION'
+  | 'CANCELLED';
 
 export type MarketTaskDto = {
   id: string;

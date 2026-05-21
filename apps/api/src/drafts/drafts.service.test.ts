@@ -3,7 +3,14 @@ import { describe, expect, it } from 'vitest';
 
 import { DraftsService } from './drafts.service.ts';
 
-type AssignmentStatus = 'ASSIGNED' | 'IN_PROGRESS' | 'SUBMITTED' | 'CANCELLED';
+type AssignmentStatus =
+  | 'ASSIGNED'
+  | 'IN_PROGRESS'
+  | 'SUBMITTED'
+  | 'UNDER_RECHECK'
+  | 'FINAL_PENDING'
+  | 'NEEDS_REVISION'
+  | 'CANCELLED';
 
 type DraftRecord = {
   id: string;

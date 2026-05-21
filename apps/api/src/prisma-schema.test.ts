@@ -187,9 +187,15 @@ describe('Prisma schema', () => {
 
   it('defines enums aligned exactly with shared status and dataset protocols', () => {
     expect(enumValues('TaskStatus')).toEqual(Object.values(TASK_STATUS));
-    expect(schema).toMatch(
-      /enum AssignmentStatus \{[\s\S]*ASSIGNED[\s\S]*IN_PROGRESS[\s\S]*SUBMITTED[\s\S]*CANCELLED[\s\S]*\}/,
-    );
+    expect(enumValues('AssignmentStatus')).toEqual([
+      'ASSIGNED',
+      'IN_PROGRESS',
+      'SUBMITTED',
+      'UNDER_RECHECK',
+      'FINAL_PENDING',
+      'NEEDS_REVISION',
+      'CANCELLED',
+    ]);
     expect(enumValues('SubmissionStatus')).toEqual(
       Object.values(SUBMISSION_STATUS),
     );

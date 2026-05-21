@@ -4,7 +4,14 @@ import { describe, expect, it } from 'vitest';
 import { SchemaService } from '../schema/schema.service.ts';
 import { SubmissionsService } from './submissions.service.ts';
 
-type AssignmentStatus = 'ASSIGNED' | 'IN_PROGRESS' | 'SUBMITTED' | 'CANCELLED';
+type AssignmentStatus =
+  | 'ASSIGNED'
+  | 'IN_PROGRESS'
+  | 'SUBMITTED'
+  | 'UNDER_RECHECK'
+  | 'FINAL_PENDING'
+  | 'NEEDS_REVISION'
+  | 'CANCELLED';
 type SubmissionStatus = 'AI_QUEUED' | 'AI_PASSED' | 'NEEDS_REVISION';
 
 type SubmissionRecord = {

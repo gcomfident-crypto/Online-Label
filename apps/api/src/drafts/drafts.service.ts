@@ -3,7 +3,14 @@ import type { DatasetKind, LabelHubSchema } from '@labelhub/shared';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
 
-type AssignmentStatus = 'ASSIGNED' | 'IN_PROGRESS' | 'SUBMITTED' | 'CANCELLED';
+type AssignmentStatus =
+  | 'ASSIGNED'
+  | 'IN_PROGRESS'
+  | 'SUBMITTED'
+  | 'UNDER_RECHECK'
+  | 'FINAL_PENDING'
+  | 'NEEDS_REVISION'
+  | 'CANCELLED';
 type TaskItemStatus = 'UNASSIGNED' | 'ASSIGNED' | 'COMPLETED';
 type SubmissionStatus = string;
 
