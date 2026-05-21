@@ -15,6 +15,7 @@ import { map, type Observable } from 'rxjs';
 
 import { AuthController } from './auth.controller.ts';
 import { AuditService } from './audit/audit.service.ts';
+import { DatasetsModule } from './datasets/datasets.module.ts';
 import { DebugController } from './debug/debug.controller.ts';
 import { DebugService } from './debug/debug.service.ts';
 import { HealthController } from './health.controller.ts';
@@ -90,7 +91,7 @@ class ErrorEnvelopeFilter implements ExceptionFilter {
 }
 
 @Module({
-  imports: [TemplatesModule, TasksModule],
+  imports: [TemplatesModule, TasksModule, DatasetsModule],
   controllers: [
     AuthController,
     HealthController,
