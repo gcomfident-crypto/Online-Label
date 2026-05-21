@@ -8,6 +8,7 @@ export default defineConfig({
       '/llm': 'http://localhost:3000',
       '/tasks': 'http://localhost:3000',
       '/templates': 'http://localhost:3000',
+      '/exports': 'http://localhost:3000',
     },
   },
   test: {
