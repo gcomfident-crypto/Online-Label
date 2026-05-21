@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/llm': 'http://localhost:3000',
+      '/tasks': 'http://localhost:3000',
       '/templates': 'http://localhost:3000',
     },
   },
