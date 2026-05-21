@@ -589,6 +589,27 @@ p {
   background: #edf5f1;
 }
 
+.designer-status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  padding: 10px 32px;
+  border-bottom: 1px solid #d5dde3;
+  background: #fff7e6;
+  color: #17211b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.designer-status-strip ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0;
+  padding-left: 18px;
+}
+
 .designer-gallery article,
 .designer-panel,
 .designer-json-panel,

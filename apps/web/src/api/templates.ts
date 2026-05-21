@@ -1,4 +1,4 @@
-import type { LabelHubSchema } from '@labelhub/shared';
+import type { LabelHubSchema, TemplateCompatibilityReport } from '@labelhub/shared';
 import type { OfficialTemplateKey } from '../features/template-designer/templateStore';
 
 export type TemplateDto = {
@@ -19,9 +19,28 @@ export type TemplateDto = {
 
 type ApiEnvelope<TData> = {
   data: TData;
+  error?: {
+    message?: string;
+  };
 };
 
 const apiBaseUrl = (): string => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
+
+export async function createTemplateDraft(input: {
+  name: string;
+  description?: string;
+  schema: LabelHubSchema;
+}): Promise<TemplateDto> {
+  return requestTemplateApi<TemplateDto>('/templates', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: input.name,
+      description: input.description,
+      datasetKind: input.schema.datasetKind,
+      schema: input.schema,
+    }),
+  });
+}
 
 export async function listTemplates(): Promise<TemplateDto[]> {
   return requestTemplateApi<TemplateDto[]>('/templates', { method: 'GET' });
@@ -44,13 +63,19 @@ export async function saveTemplateSchema(
   });
 }
 
-export async function publishTemplate(templateId: string, versionName: string): Promise<TemplateDto> {
-  const result = await requestTemplateApi<{ template: TemplateDto }>(`/templates/${templateId}/publish`, {
+export type PublishTemplateResponse = {
+  template: TemplateDto;
+  compatibilityReport: TemplateCompatibilityReport;
+};
+
+export async function publishTemplate(
+  templateId: string,
+  versionName: string,
+): Promise<PublishTemplateResponse> {
+  return requestTemplateApi<PublishTemplateResponse>(`/templates/${templateId}/publish`, {
     method: 'POST',
     body: JSON.stringify({ versionName }),
   });
-
-  return result.template;
 }
 
 async function requestTemplateApi<TData>(
@@ -67,7 +92,7 @@ async function requestTemplateApi<TData>(
   const envelope = (await response.json()) as ApiEnvelope<TData>;
 
   if (!response.ok) {
-    throw new Error('模板接口请求失败，请稍后重试。');
+    throw new Error(envelope.error?.message ?? '模板接口请求失败，请稍后重试。');
   }
 
   return envelope.data;

@@ -1,13 +1,19 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TemplateDesignerPage } from './TemplateDesignerPage';
 import { useTemplateDesignerStore } from '../../features/template-designer/templateStore';
+import { titleCleanupSampleSchema } from '@labelhub/shared';
 
 describe('TemplateDesignerPage', () => {
   beforeEach(() => {
+    localStorage.clear();
     useTemplateDesignerStore.getState().resetDesigner();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('从商品标题清洗 v3 蓝本进入三栏 Designer 并同步属性修改', async () => {
@@ -84,4 +90,97 @@ describe('TemplateDesignerPage', () => {
     expect(schemaJson).toHaveTextContent('"image/png"');
     expect(schemaJson).toHaveTextContent('"image/jpeg"');
   });
+
+  it('保存草稿并发布版本时调用模板 API', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            id: 'template_1',
+            name: '商品标题清洗 v3',
+            description: null,
+            datasetKind: 'generic_json',
+            schemaVersion: '1.0.0',
+            schema: titleCleanupSampleSchema,
+            status: 'DRAFT',
+            version: 0,
+            parentTemplateId: null,
+            createdById: null,
+            publishedAt: null,
+            createdAt: '2026-05-21T00:00:00.000Z',
+            updatedAt: '2026-05-21T00:00:00.000Z',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            template: {
+              id: 'template_1',
+              name: '商品标题清洗 v3',
+              description: null,
+              datasetKind: 'generic_json',
+              schemaVersion: 'r1',
+              schema: { ...titleCleanupSampleSchema, schemaVersion: 'r1' },
+              status: 'PUBLISHED',
+              version: 1,
+              parentTemplateId: null,
+              createdById: null,
+              publishedAt: '2026-05-21T00:00:00.000Z',
+              createdAt: '2026-05-21T00:00:00.000Z',
+              updatedAt: '2026-05-21T00:00:00.000Z',
+            },
+            compatibilityReport: {
+              addedFieldKeys: [],
+              removedFieldKeys: [],
+              changedFieldTypes: [],
+              compatible: true,
+              riskMessages: [],
+            },
+          },
+        }),
+      );
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+
+    await user.click(screen.getByRole('button', { name: '使用商品标题清洗 v3' }));
+    await user.click(screen.getByRole('button', { name: '保存并发布版本 r1' }));
+
+    expect(await screen.findByText('模板已发布为 r1。')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/templates',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/templates/template_1/publish',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('刷新后恢复最近保存的草稿 Schema', async () => {
+    localStorage.setItem(
+      'labelhub.templateDesignerDraft',
+      JSON.stringify({
+        templateId: 'template_1',
+        version: 0,
+        schema: titleCleanupSampleSchema,
+      }),
+    );
+
+    render(<TemplateDesignerPage />);
+
+    expect(await screen.findByText('原始商品标题')).toBeInTheDocument();
+  });
 });
+
+const jsonResponse = (body: unknown): Response =>
+  ({
+    ok: true,
+    json: async () => body,
+  }) as Response;
