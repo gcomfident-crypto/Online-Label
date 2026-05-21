@@ -1,5 +1,11 @@
 import type { EditableFieldProps } from './common';
-import { FieldDescription, isDisabledMode } from './common';
+import {
+  FieldDescription,
+  UploadedFilePreview,
+  getFieldValue,
+  getUploadedFileValue,
+  isDisabledMode,
+} from './common';
 
 const toLocalFileValue = (file: File) => ({
   name: file.name,
@@ -8,12 +14,15 @@ const toLocalFileValue = (file: File) => ({
   size: file.size,
 });
 
-export const FileUploadField = ({ field, mode, onFieldChange }: EditableFieldProps) => {
+export const FileUploadField = ({ field, value, mode, onFieldChange }: EditableFieldProps) => {
+  const uploadedFile = getUploadedFileValue(getFieldValue(field, value));
+
   return (
-    <label className="schema-field" data-field-type={field.type}>
+    <section className="schema-field" data-field-type={field.type}>
       <span>{field.label}</span>
       <span className="schema-field__meta">文件</span>
       <FieldDescription field={field} />
+      {uploadedFile ? <UploadedFilePreview file={uploadedFile} /> : null}
       <input
         aria-label={field.label}
         disabled={isDisabledMode(mode)}
@@ -26,6 +35,6 @@ export const FileUploadField = ({ field, mode, onFieldChange }: EditableFieldPro
           }
         }}
       />
-    </label>
+    </section>
   );
 };

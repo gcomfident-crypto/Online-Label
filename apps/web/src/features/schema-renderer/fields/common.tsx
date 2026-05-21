@@ -6,8 +6,15 @@ export type BaseFieldProps = FieldRendererProps;
 
 export type EditableFieldProps = Pick<
   FieldRendererProps,
-  'field' | 'value' | 'mode' | 'onFieldChange'
+  'field' | 'rendererScope' | 'fieldPath' | 'value' | 'mode' | 'onFieldChange'
 >;
+
+export type UploadedFileValue = {
+  name: string;
+  url: string;
+  mimeType: string;
+  size: number;
+};
 
 export const isDisabledMode = (mode: FieldRendererProps['mode']): boolean => {
   return mode === 'review';
@@ -25,6 +32,38 @@ export const getStringArrayValue = (value: unknown): string[] => {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string')
     : [];
+};
+
+export const getUploadedFileValue = (value: unknown): UploadedFileValue | null => {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const candidate = value as Partial<Record<keyof UploadedFileValue, unknown>>;
+
+  if (
+    typeof candidate.name !== 'string' ||
+    typeof candidate.url !== 'string' ||
+    typeof candidate.mimeType !== 'string' ||
+    typeof candidate.size !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    name: candidate.name,
+    url: candidate.url,
+    mimeType: candidate.mimeType,
+    size: candidate.size,
+  };
+};
+
+export const formatFileSize = (size: number): string => {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  return `${(size / 1024).toFixed(1)} KB`;
 };
 
 export const stringifyDisplayValue = (value: unknown): string => {
@@ -45,4 +84,16 @@ export const optionLabel = (field: SchemaField, option: FieldOption): string => 
 
 export const FieldDescription = ({ field }: { field: SchemaField }) => {
   return field.description ? <small>{field.description}</small> : null;
+};
+
+export const UploadedFilePreview = ({ file }: { file: UploadedFileValue }) => {
+  return (
+    <div className="schema-field__file-preview">
+      <span>{file.name}</span>
+      <small>
+        {file.mimeType} · {formatFileSize(file.size)}
+      </small>
+      <a href={file.url}>{file.url}</a>
+    </div>
+  );
 };

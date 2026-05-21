@@ -3,6 +3,8 @@ import type { BaseFieldProps } from './common';
 
 export const GroupField = ({
   field,
+  rendererScope,
+  fieldPath,
   rawData,
   value,
   mode,
@@ -16,6 +18,8 @@ export const GroupField = ({
         <FieldRenderer
           key={child.key}
           field={child}
+          rendererScope={rendererScope}
+          fieldPath={`${fieldPath}.${child.key}`}
           rawData={rawData}
           value={value}
           mode={mode}

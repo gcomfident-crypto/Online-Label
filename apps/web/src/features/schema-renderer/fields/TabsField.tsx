@@ -3,6 +3,8 @@ import type { BaseFieldProps } from './common';
 
 export const TabsField = ({
   field,
+  rendererScope,
+  fieldPath,
   rawData,
   value,
   mode,
@@ -19,6 +21,8 @@ export const TabsField = ({
             <FieldRenderer
               key={child.key}
               field={child}
+              rendererScope={rendererScope}
+              fieldPath={`${fieldPath}.${tab.key}.${child.key}`}
               rawData={rawData}
               value={value}
               mode={mode}

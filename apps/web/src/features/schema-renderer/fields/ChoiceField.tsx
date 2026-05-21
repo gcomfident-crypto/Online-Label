@@ -7,8 +7,16 @@ import {
   optionLabel,
 } from './common';
 
-export const RadioField = ({ field, value, mode, onFieldChange }: EditableFieldProps) => {
+export const RadioField = ({
+  field,
+  rendererScope,
+  fieldPath,
+  value,
+  mode,
+  onFieldChange,
+}: EditableFieldProps) => {
   const fieldValue = getFieldValue(field, value);
+  const radioGroupName = `${rendererScope}:${fieldPath}`;
 
   return (
     <fieldset className="schema-field" data-field-type={field.type}>
@@ -20,7 +28,7 @@ export const RadioField = ({ field, value, mode, onFieldChange }: EditableFieldP
             aria-label={option.label}
             checked={fieldValue === option.value}
             disabled={isDisabledMode(mode)}
-            name={field.key}
+            name={radioGroupName}
             type="radio"
             value={option.value}
             onChange={() => onFieldChange(field, option.value)}

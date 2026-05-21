@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import type { SchemaField } from '@labelhub/shared';
 
 import { FieldRenderer } from './FieldRenderer';
@@ -15,6 +15,7 @@ export const SchemaRenderer = ({
   mode,
   onChange,
 }: SchemaRendererProps) => {
+  const rendererScope = useId();
   const latestValueRef = useRef(value);
 
   useEffect(() => {
@@ -38,6 +39,8 @@ export const SchemaRenderer = ({
         <FieldRenderer
           key={field.key}
           field={field}
+          rendererScope={rendererScope}
+          fieldPath={field.key}
           rawData={rawData}
           value={value}
           mode={mode}

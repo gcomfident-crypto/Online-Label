@@ -405,6 +405,22 @@ p {
   white-space: pre-wrap;
 }
 
+.schema-field__file-preview {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #d8d5ce;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #f7f4ed;
+}
+
+.schema-field__file-preview a {
+  overflow-wrap: anywhere;
+  color: #6d4e1f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .schema-field--group,
 .schema-field--tabs {
   gap: 12px;

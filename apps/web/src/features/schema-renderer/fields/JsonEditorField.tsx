@@ -15,17 +15,31 @@ const getJsonEditorValue = (value: unknown): string => {
   return JSON.stringify(value, null, 2);
 };
 
-const parseJsonEditorValue = (value: string): unknown => {
+type JsonEditorParseResult =
+  | {
+      ok: true;
+      value: unknown;
+    }
+  | {
+      ok: false;
+    };
+
+const parseJsonEditorValue = (value: string): JsonEditorParseResult => {
+  if (value.trim() === '') {
+    return { ok: true, value: null };
+  }
+
   try {
-    return JSON.parse(value);
+    return { ok: true, value: JSON.parse(value) };
   } catch {
-    return value;
+    return { ok: false };
   }
 };
 
 export const JsonEditorField = ({ field, value, mode, onFieldChange }: EditableFieldProps) => {
   const fieldValue = getFieldValue(field, value);
   const [draftValue, setDraftValue] = useState(() => getJsonEditorValue(fieldValue));
+  const [error, setError] = useState<string | null>(null);
   const lastDraftRef = useRef(draftValue);
   const lastEmittedValueRef = useRef<unknown>(fieldValue);
 
@@ -53,13 +67,22 @@ export const JsonEditorField = ({ field, value, mode, onFieldChange }: EditableF
         value={draftValue}
         onChange={(event) => {
           const nextDraftValue = event.target.value;
+          const parsedValue = parseJsonEditorValue(nextDraftValue);
 
           setDraftValue(nextDraftValue);
           lastDraftRef.current = nextDraftValue;
-          lastEmittedValueRef.current = parseJsonEditorValue(nextDraftValue);
-          onFieldChange(field, lastEmittedValueRef.current);
+
+          if (!parsedValue.ok) {
+            setError('JSON 格式不合法。');
+            return;
+          }
+
+          setError(null);
+          lastEmittedValueRef.current = parsedValue.value;
+          onFieldChange(field, parsedValue.value);
         }}
       />
+      {error ? <small role="alert">{error}</small> : null}
       <small>JSON 将在校验阶段检查。</small>
     </label>
   );

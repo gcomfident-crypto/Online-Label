@@ -1,5 +1,13 @@
+import { useState } from 'react';
+
 import type { EditableFieldProps } from './common';
-import { FieldDescription, isDisabledMode } from './common';
+import {
+  FieldDescription,
+  UploadedFilePreview,
+  getFieldValue,
+  getUploadedFileValue,
+  isDisabledMode,
+} from './common';
 
 const toLocalImageValue = (file: File) => ({
   name: file.name,
@@ -8,12 +16,16 @@ const toLocalImageValue = (file: File) => ({
   size: file.size,
 });
 
-export const ImageUploadField = ({ field, mode, onFieldChange }: EditableFieldProps) => {
+export const ImageUploadField = ({ field, value, mode, onFieldChange }: EditableFieldProps) => {
+  const [error, setError] = useState<string | null>(null);
+  const uploadedImage = getUploadedFileValue(getFieldValue(field, value));
+
   return (
-    <label className="schema-field" data-field-type={field.type}>
+    <section className="schema-field" data-field-type={field.type}>
       <span>{field.label}</span>
       <span className="schema-field__meta">图片</span>
       <FieldDescription field={field} />
+      {uploadedImage ? <UploadedFilePreview file={uploadedImage} /> : null}
       <input
         accept="image/*"
         aria-label={field.label}
@@ -23,10 +35,17 @@ export const ImageUploadField = ({ field, mode, onFieldChange }: EditableFieldPr
           const file = event.target.files?.[0];
 
           if (file) {
+            if (!file.type.startsWith('image/')) {
+              setError('只能上传图片文件。');
+              return;
+            }
+
+            setError(null);
             onFieldChange(field, toLocalImageValue(file));
           }
         }}
       />
-    </label>
+      {error ? <small role="alert">{error}</small> : null}
+    </section>
   );
 };

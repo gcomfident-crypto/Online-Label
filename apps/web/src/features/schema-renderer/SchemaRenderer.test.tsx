@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -304,6 +304,61 @@ describe('SchemaRenderer', () => {
     });
   });
 
+  it('image_upload 拒绝非图片文件且不写入 answers', () => {
+    const onChange = vi.fn();
+    const file = new File(['hello'], 'report.txt', { type: 'text/plain' });
+
+    render(
+      <SchemaRenderer
+        schema={baseSchema([{ key: 'photo', type: 'image_upload', label: '图片' }])}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('图片'), { target: { files: [file] } });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('只能上传图片文件。');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('review 模式展示已保存的文件和图片元数据', () => {
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          { key: 'attachment', type: 'file_upload', label: '附件' },
+          { key: 'photo', type: 'image_upload', label: '图片' },
+        ])}
+        rawData={{}}
+        value={{
+          attachment: {
+            name: 'report.txt',
+            url: 'mock://local/report.txt',
+            mimeType: 'text/plain',
+            size: 2048,
+          },
+          photo: {
+            name: 'photo.png',
+            url: 'mock://local/photo.png',
+            mimeType: 'image/png',
+            size: 512,
+          },
+        }}
+        mode="review"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('report.txt')).toBeInTheDocument();
+    expect(screen.getByText('text/plain · 2.0 KB')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'mock://local/report.txt' })).toBeInTheDocument();
+    expect(screen.getByText('photo.png')).toBeInTheDocument();
+    expect(screen.getByText('image/png · 512 B')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'mock://local/photo.png' })).toBeInTheDocument();
+  });
+
   it('json_editor 输入合法 JSON 后写入解析对象', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
@@ -334,6 +389,63 @@ describe('SchemaRenderer', () => {
     await user.paste('{"ok":true}');
 
     expect(onChange).toHaveBeenLastCalledWith({ payload: { ok: true } });
+  });
+
+  it('json_editor 输入非法 JSON 时保留草稿且不覆盖 answers', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <SchemaRenderer
+        schema={baseSchema([{ key: 'payload', type: 'json_editor', label: 'JSON' }])}
+        rawData={{}}
+        value={{ payload: { ok: true } }}
+        mode="answer"
+        onChange={onChange}
+      />,
+    );
+
+    await user.type(screen.getByLabelText('JSON'), 'x');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('JSON 格式不合法。');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('同页多个 Renderer 的 radio name 按实例隔离', () => {
+    const schema = baseSchema([
+      {
+        key: 'quality',
+        type: 'radio',
+        label: '质量',
+        options: [
+          { label: '好', value: 'good' },
+          { label: '差', value: 'bad' },
+        ],
+      },
+    ]);
+
+    render(
+      <>
+        <SchemaRenderer
+          schema={schema}
+          rawData={{}}
+          value={{ quality: 'good' }}
+          mode="answer"
+          onChange={vi.fn()}
+        />
+        <SchemaRenderer
+          schema={schema}
+          rawData={{}}
+          value={{ quality: 'bad' }}
+          mode="answer"
+          onChange={vi.fn()}
+        />
+      </>,
+    );
+
+    const goodOptions = screen.getAllByLabelText('好');
+
+    expect(goodOptions[0]).not.toHaveAttribute('name', goodOptions[1].getAttribute('name'));
   });
 
   it('review 模式禁用新增的可编辑字段', async () => {

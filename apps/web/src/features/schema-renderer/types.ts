@@ -15,6 +15,8 @@ export type FieldNextValue = unknown | FieldValueUpdater;
 
 export type FieldRendererProps = {
   field: SchemaField;
+  rendererScope: string;
+  fieldPath: string;
   rawData: Record<string, unknown>;
   value: Record<string, unknown>;
   mode: SchemaRendererMode;
