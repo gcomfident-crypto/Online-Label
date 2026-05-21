@@ -76,6 +76,25 @@ export {
 } from './statuses.ts';
 
 export {
+  AI_REVIEW_TRANSITIONS,
+  EXPORT_TRANSITIONS,
+  HUMAN_REVIEW_TRANSITIONS,
+  SUBMISSION_TRANSITIONS,
+  TASK_TRANSITIONS,
+  assertAiReviewTransition,
+  assertExportTransition,
+  assertHumanReviewTransition,
+  assertSubmissionTransition,
+  assertTaskTransition,
+  canTransitionAiReview,
+  canTransitionExport,
+  canTransitionHumanReview,
+  canTransitionSubmission,
+  canTransitionTask,
+  type TransitionMap,
+} from './stateMachines.ts';
+
+export {
   EXPORT_FORMATS,
   LLM_PROVIDER_NAMES,
   type AiReviewJobPayload,
