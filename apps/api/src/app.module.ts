@@ -27,6 +27,7 @@ import { LlmService } from './llm/llm.service.ts';
 import { MeController } from './me.controller.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
 import { ReviewRulesModule } from './review-rules/review-rules.module.ts';
+import { ReviewsModule } from './reviews/reviews.module.ts';
 import { SchemaController } from './schema/schema.controller.ts';
 import { SchemaService } from './schema/schema.service.ts';
 import { StateMachineService } from './state-machine/state-machine.service.ts';
@@ -105,6 +106,7 @@ class ErrorEnvelopeFilter implements ExceptionFilter {
     SubmissionsModule,
     ReviewRulesModule,
     AiReviewModule,
+    ReviewsModule,
   ],
   controllers: [
     AuthController,
