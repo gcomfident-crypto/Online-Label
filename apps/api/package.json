@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "dev:api": "tsx watch src/main.ts",
+    "pretypecheck": "pnpm --dir ../.. prisma:generate",
     "typecheck": "tsc --project tsconfig.json",
+    "pretest": "pnpm --dir ../.. prisma:generate",
     "test": "vitest run"
   },
   "dependencies": {
