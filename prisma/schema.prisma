@@ -193,6 +193,7 @@ model Submission {
   authorId      String
   author        User             @relation("SubmissionAuthor", fields: [authorId], references: [id])
   status        SubmissionStatus @default(SUBMITTED)
+  round         Int
   answers       Json
   schemaVersion String
   submittedAt   DateTime         @default(now())
@@ -201,6 +202,7 @@ model Submission {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
+  @@unique([assignmentId, round])
   @@index([assignmentId])
   @@index([taskItemId])
   @@index([authorId])
@@ -272,18 +274,21 @@ model AuditLog {
 }
 
 model ExportJob {
-  id            String       @id @default(cuid())
-  taskId        String
-  task          Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  requestedById String?
-  requestedBy   User?        @relation("ExportJobRequester", fields: [requestedById], references: [id], onDelete: SetNull)
-  status        ExportStatus @default(QUEUED)
-  format        String
-  filters       Json?
-  resultUrl     String?
-  errorMessage  String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id             String       @id @default(cuid())
+  taskId         String
+  task           Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  requestedById  String?
+  requestedBy    User?        @relation("ExportJobRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  status         ExportStatus @default(QUEUED)
+  format         String
+  fieldMapping   Json
+  includeReviews Boolean      @default(false)
+  filters        Json?
+  filePath       String?
+  resultUrl      String?
+  errorMessage   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@index([taskId])
   @@index([requestedById])

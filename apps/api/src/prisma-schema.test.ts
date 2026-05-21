@@ -55,6 +55,8 @@ describe('Prisma schema', () => {
     expect(modelBlock('TaskItem')).toMatch(/\bexternalId\s+String\b/);
     expect(modelBlock('TaskItem')).toMatch(/\bdatasetKind\s+DatasetKind\b/);
     expect(modelBlock('Submission')).toMatch(/\bschemaVersion\s+String\b/);
+    expect(modelBlock('Submission')).toMatch(/\bround\s+Int\b/);
+    expect(modelBlock('Submission')).toMatch(/@@unique\(\[assignmentId, round\]\)/);
   });
 
   it('keeps review trace fields and audit transitions', () => {
@@ -64,6 +66,12 @@ describe('Prisma schema', () => {
     expect(modelBlock('AuditLog')).toMatch(/\btoStatus\s+String\b/);
     expect(modelBlock('AuditLog')).toMatch(/\bactorId\s+String\?/);
     expect(modelBlock('AuditLog')).toMatch(/\breason\s+String\?/);
+  });
+
+  it('keeps export parameter snapshots and generated file locations', () => {
+    expect(modelBlock('ExportJob')).toMatch(/\bfieldMapping\s+Json\b/);
+    expect(modelBlock('ExportJob')).toMatch(/\bincludeReviews\s+Boolean\b/);
+    expect(modelBlock('ExportJob')).toMatch(/\bfilePath\s+String\?/);
   });
 
   it('defines enums aligned with shared status and dataset protocols', () => {
