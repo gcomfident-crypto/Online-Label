@@ -61,6 +61,13 @@ enum ExportStatus {
   FAILED
 }
 
+enum ExportFormat {
+  json
+  jsonl
+  csv
+  xlsx
+}
+
 enum DatasetKind {
   qa_quality
   preference_compare
@@ -74,8 +81,6 @@ model User {
   createdTasks       Task[]         @relation("TaskCreator")
   createdTemplates   TaskTemplate[] @relation("TaskTemplateCreator")
   assignments        Assignment[]   @relation("AssignmentAssignee")
-  drafts             Draft[]        @relation("DraftAuthor")
-  submissions        Submission[]   @relation("SubmissionAuthor")
   createdReviewRules ReviewRule[]   @relation("ReviewRuleCreator")
   reviewRecords      ReviewRecord[] @relation("ReviewRecordReviewer")
   auditLogs          AuditLog[]     @relation("AuditActor")
@@ -134,11 +139,10 @@ model TaskItem {
   rawData     Json
   sortOrder   Int          @default(0)
   assignments Assignment[]
-  drafts      Draft[]
-  submissions Submission[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
+  @@unique([id, taskId])
   @@unique([taskId, externalId])
   @@index([datasetKind])
   @@map("task_items")
@@ -149,7 +153,7 @@ model Assignment {
   taskId      String
   task        Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
   taskItemId  String
-  taskItem    TaskItem         @relation(fields: [taskItemId], references: [id], onDelete: Cascade)
+  taskItem    TaskItem         @relation(fields: [taskItemId, taskId], references: [id, taskId], onDelete: Cascade)
   assigneeId  String
   assignee    User             @relation("AssignmentAssignee", fields: [assigneeId], references: [id])
   status      AssignmentStatus @default(ASSIGNED)
@@ -169,18 +173,12 @@ model Draft {
   id            String     @id @default(cuid())
   assignmentId  String
   assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  taskItemId    String
-  taskItem      TaskItem   @relation(fields: [taskItemId], references: [id], onDelete: Cascade)
-  authorId      String
-  author        User       @relation("DraftAuthor", fields: [authorId], references: [id])
   answers       Json
   schemaVersion String
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
   @@index([assignmentId])
-  @@index([taskItemId])
-  @@index([authorId])
   @@map("drafts")
 }
 
@@ -188,10 +186,6 @@ model Submission {
   id            String           @id @default(cuid())
   assignmentId  String
   assignment    Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  taskItemId    String
-  taskItem      TaskItem         @relation(fields: [taskItemId], references: [id], onDelete: Cascade)
-  authorId      String
-  author        User             @relation("SubmissionAuthor", fields: [authorId], references: [id])
   status        SubmissionStatus @default(SUBMITTED)
   round         Int
   answers       Json
@@ -204,8 +198,6 @@ model Submission {
 
   @@unique([assignmentId, round])
   @@index([assignmentId])
-  @@index([taskItemId])
-  @@index([authorId])
   @@index([status])
   @@map("submissions")
 }
@@ -280,7 +272,7 @@ model ExportJob {
   requestedById  String?
   requestedBy    User?        @relation("ExportJobRequester", fields: [requestedById], references: [id], onDelete: SetNull)
   status         ExportStatus @default(QUEUED)
-  format         String
+  format         ExportFormat
   fieldMapping   Json
   includeReviews Boolean      @default(false)
   filters        Json?

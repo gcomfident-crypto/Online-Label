@@ -1,5 +1,13 @@
 import { readFileSync } from 'node:fs';
 
+import {
+  DATASET_KINDS,
+  EXPORT_FORMATS,
+  EXPORT_STATUS,
+  REVIEW_STAGES,
+  SUBMISSION_STATUS,
+  TASK_STATUS,
+} from '@labelhub/shared';
 import { describe, expect, it } from 'vitest';
 
 const schema = readFileSync(
@@ -15,6 +23,20 @@ const modelBlock = (modelName: string): string => {
   expect(match, `Expected model ${modelName} to exist`).not.toBeNull();
 
   return match?.[0] ?? '';
+};
+
+const enumValues = (enumName: string): string[] => {
+  const match = schema.match(
+    new RegExp(`enum ${enumName} \\{\\n([\\s\\S]*?)\\n\\}`),
+  );
+
+  expect(match, `Expected enum ${enumName} to exist`).not.toBeNull();
+
+  return (match?.[1] ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('//'))
+    .map((line) => line.split(/\s+/)[0]);
 };
 
 describe('Prisma schema', () => {
@@ -56,7 +78,27 @@ describe('Prisma schema', () => {
     expect(modelBlock('TaskItem')).toMatch(/\bdatasetKind\s+DatasetKind\b/);
     expect(modelBlock('Submission')).toMatch(/\bschemaVersion\s+String\b/);
     expect(modelBlock('Submission')).toMatch(/\bround\s+Int\b/);
-    expect(modelBlock('Submission')).toMatch(/@@unique\(\[assignmentId, round\]\)/);
+    expect(modelBlock('Submission')).toMatch(
+      /@@unique\(\[assignmentId, round\]\)/,
+    );
+  });
+
+  it('avoids redundant draft and submission ownership columns', () => {
+    expect(modelBlock('Draft')).not.toMatch(/\btaskItemId\s+String\b/);
+    expect(modelBlock('Draft')).not.toMatch(/\bauthorId\s+String\b/);
+    expect(modelBlock('Submission')).not.toMatch(/\btaskItemId\s+String\b/);
+    expect(modelBlock('Submission')).not.toMatch(/\bauthorId\s+String\b/);
+    expect(modelBlock('User')).not.toMatch(/\bdrafts\s+Draft\[\]/);
+    expect(modelBlock('User')).not.toMatch(/\bsubmissions\s+Submission\[\]/);
+    expect(modelBlock('TaskItem')).not.toMatch(/\bdrafts\s+Draft\[\]/);
+    expect(modelBlock('TaskItem')).not.toMatch(/\bsubmissions\s+Submission\[\]/);
+  });
+
+  it('ties assignment task items to the same task through a compound relation', () => {
+    expect(modelBlock('TaskItem')).toMatch(/@@unique\(\[id, taskId\]\)/);
+    expect(modelBlock('Assignment')).toMatch(
+      /taskItem\s+TaskItem\s+@relation\(fields: \[taskItemId, taskId\], references: \[id, taskId\], onDelete: Cascade\)/,
+    );
   });
 
   it('keeps review trace fields and audit transitions', () => {
@@ -69,29 +111,23 @@ describe('Prisma schema', () => {
   });
 
   it('keeps export parameter snapshots and generated file locations', () => {
+    expect(modelBlock('ExportJob')).toMatch(/\bformat\s+ExportFormat\b/);
     expect(modelBlock('ExportJob')).toMatch(/\bfieldMapping\s+Json\b/);
     expect(modelBlock('ExportJob')).toMatch(/\bincludeReviews\s+Boolean\b/);
     expect(modelBlock('ExportJob')).toMatch(/\bfilePath\s+String\?/);
   });
 
-  it('defines enums aligned with shared status and dataset protocols', () => {
-    expect(schema).toMatch(
-      /enum TaskStatus \{[\s\S]*DRAFT[\s\S]*PUBLISHED[\s\S]*PAUSED[\s\S]*ENDED[\s\S]*\}/,
-    );
+  it('defines enums aligned exactly with shared status and dataset protocols', () => {
+    expect(enumValues('TaskStatus')).toEqual(Object.values(TASK_STATUS));
     expect(schema).toMatch(
       /enum AssignmentStatus \{[\s\S]*ASSIGNED[\s\S]*IN_PROGRESS[\s\S]*SUBMITTED[\s\S]*CANCELLED[\s\S]*\}/,
     );
-    expect(schema).toMatch(
-      /enum SubmissionStatus \{[\s\S]*AI_QUEUED[\s\S]*FINAL_APPROVED[\s\S]*NEEDS_REVISION[\s\S]*\}/,
+    expect(enumValues('SubmissionStatus')).toEqual(
+      Object.values(SUBMISSION_STATUS),
     );
-    expect(schema).toMatch(
-      /enum ReviewStage \{[\s\S]*AI_PRECHECK[\s\S]*INITIAL[\s\S]*RECHECK[\s\S]*FINAL[\s\S]*\}/,
-    );
-    expect(schema).toMatch(
-      /enum ExportStatus \{[\s\S]*QUEUED[\s\S]*PROCESSING[\s\S]*SUCCEEDED[\s\S]*FAILED[\s\S]*\}/,
-    );
-    expect(schema).toMatch(
-      /enum DatasetKind \{[\s\S]*qa_quality[\s\S]*preference_compare[\s\S]*generic_json[\s\S]*\}/,
-    );
+    expect(enumValues('ReviewStage')).toEqual([...REVIEW_STAGES]);
+    expect(enumValues('ExportStatus')).toEqual(Object.values(EXPORT_STATUS));
+    expect(enumValues('DatasetKind')).toEqual([...DATASET_KINDS]);
+    expect(enumValues('ExportFormat')).toEqual([...EXPORT_FORMATS]);
   });
 });
