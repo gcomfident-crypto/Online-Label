@@ -9,11 +9,12 @@ import { OwnerPortalLayout } from './layouts/OwnerPortalLayout';
 import { ReviewerPortalLayout } from './layouts/ReviewerPortalLayout';
 import { ForbiddenPage } from './pages/ForbiddenPage';
 import { LoginPage } from './pages/LoginPage';
-import { AgentAiReviewPage } from './pages/agent/AgentAiReviewPage';
+import { AiReviewQueuePage } from './pages/agent/AiReviewQueuePage';
 import { RendererPlaygroundPage } from './pages/dev/RendererPlaygroundPage';
 import { LabelerMarketPage } from './pages/labeler/LabelerMarketPage';
 import { MyDataPage } from './pages/labeler/MyDataPage';
 import { WorkbenchPage } from './pages/labeler/WorkbenchPage';
+import { AiRuleConfigPage } from './pages/owner/AiRuleConfigPage';
 import { DatasetImportPage } from './pages/owner/DatasetImportPage';
 import { TaskDetailPage } from './pages/owner/TaskDetailPage';
 import { OwnerTasksPage } from './pages/owner/OwnerTasksPage';
@@ -41,6 +42,7 @@ export const AppRouter = () => {
         <Route path="tasks/:taskId" element={<TaskDetailPage />} />
         <Route path="tasks/:taskId/dataset" element={<DatasetImportPage />} />
         <Route path="templates" element={<TemplateDesignerPage />} />
+        <Route path="ai-rules" element={<AiRuleConfigPage />} />
       </Route>
       <Route
         path="/labeler"
@@ -68,7 +70,7 @@ export const AppRouter = () => {
         }
       >
         <Route index element={<Navigate to="/agent/ai-review" replace />} />
-        <Route path="ai-review" element={<AgentAiReviewPage />} />
+        <Route path="ai-review" element={<AiReviewQueuePage />} />
       </Route>
       <Route
         path="/reviewer"

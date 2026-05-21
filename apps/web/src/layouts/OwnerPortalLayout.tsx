@@ -21,6 +21,7 @@ export const OwnerPortalLayout = () => {
         <nav className="portal-nav" aria-label="Owner 端导航">
           <NavLink to="/owner/tasks">任务管理</NavLink>
           <NavLink to="/owner/templates">模板配置</NavLink>
+          <NavLink to="/owner/ai-rules">AI 规则</NavLink>
         </nav>
       </aside>
       <main className="portal-main">
