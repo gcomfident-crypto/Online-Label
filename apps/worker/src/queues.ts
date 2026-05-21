@@ -33,7 +33,6 @@ export function startWorkerRuntime(config: WorkerConfig = createWorkerConfig()):
   startWorker(config);
 
   const keepAlive = setInterval(() => undefined, 60_000);
-  keepAlive.unref?.();
 
   return {
     config,
