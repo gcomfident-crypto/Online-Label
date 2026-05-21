@@ -54,7 +54,7 @@ export class DebugController {
   }
 
   private assertDebugEnabled(): void {
-    if (this.env.NODE_ENV !== 'production') {
+    if (this.env.NODE_ENV === 'development') {
       return;
     }
 

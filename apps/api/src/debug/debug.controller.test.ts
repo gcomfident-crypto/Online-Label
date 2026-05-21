@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { DebugController } from './debug.controller.ts';
 
 describe('DebugController', () => {
-  it('returns seed count structure outside production', async () => {
+  it('returns seed count structure in development', async () => {
     const controller = new DebugController(
       {
         getSeedStatus: async () => ({
@@ -19,7 +19,7 @@ describe('DebugController', () => {
         listTasks: async () => [],
         listUsers: async () => [],
       },
-      { NODE_ENV: 'test' },
+      { NODE_ENV: 'development' },
     );
 
     await expect(controller.getSeedStatus()).resolves.toEqual({
@@ -33,23 +33,43 @@ describe('DebugController', () => {
     });
   });
 
-  it('hides debug routes in production', async () => {
-    const controller = new DebugController(
-      {
-        getSeedStatus: async () => ({
-          users: 0,
-          templates: 0,
-          tasks: 0,
-          taskItems: { qa_quality: 0, preference_compare: 0 },
-        }),
-        listTasks: async () => [],
-        listUsers: async () => [],
-      },
-      { NODE_ENV: 'production' },
+  it('hides debug routes in test', async () => {
+    const controller = createHiddenDebugController({ NODE_ENV: 'test' });
+
+    await expect(controller.getSeedStatus()).rejects.toBeInstanceOf(
+      NotFoundException,
     );
+  });
+
+  it('hides debug routes when NODE_ENV is unset', async () => {
+    const controller = createHiddenDebugController({});
+
+    await expect(controller.getSeedStatus()).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('hides debug routes in production', async () => {
+    const controller = createHiddenDebugController({ NODE_ENV: 'production' });
 
     await expect(controller.getSeedStatus()).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });
 });
+
+function createHiddenDebugController(env: { NODE_ENV?: string }): DebugController {
+  return new DebugController(
+    {
+      getSeedStatus: async () => ({
+        users: 0,
+        templates: 0,
+        tasks: 0,
+        taskItems: { qa_quality: 0, preference_compare: 0 },
+      }),
+      listTasks: async () => [],
+      listUsers: async () => [],
+    },
+    env,
+  );
+}
