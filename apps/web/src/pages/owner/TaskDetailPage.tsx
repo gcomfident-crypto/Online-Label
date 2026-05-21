@@ -64,7 +64,12 @@ export const TaskDetailPage = () => {
           <h1 id="task-detail-title">{task.title}</h1>
           <p>{task.description ?? '暂无任务描述。'}</p>
         </div>
-        <StatusTag group="task" status={task.status} />
+        <div className="task-detail-actions">
+          <StatusTag group="task" status={task.status} />
+          <Link className="primary-action" to={`/owner/tasks/${task.id}/dataset`}>
+            导入题目数据
+          </Link>
+        </div>
       </div>
 
       <dl className="task-detail-grid">

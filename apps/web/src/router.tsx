@@ -12,6 +12,7 @@ import { LoginPage } from './pages/LoginPage';
 import { AgentAiReviewPage } from './pages/agent/AgentAiReviewPage';
 import { RendererPlaygroundPage } from './pages/dev/RendererPlaygroundPage';
 import { LabelerMarketPage } from './pages/labeler/LabelerMarketPage';
+import { DatasetImportPage } from './pages/owner/DatasetImportPage';
 import { TaskDetailPage } from './pages/owner/TaskDetailPage';
 import { OwnerTasksPage } from './pages/owner/OwnerTasksPage';
 import { TemplateDesignerPage } from './pages/owner/TemplateDesignerPage';
@@ -36,6 +37,7 @@ export const AppRouter = () => {
         <Route index element={<Navigate to="/owner/tasks" replace />} />
         <Route path="tasks" element={<OwnerTasksPage />} />
         <Route path="tasks/:taskId" element={<TaskDetailPage />} />
+        <Route path="tasks/:taskId/dataset" element={<DatasetImportPage />} />
         <Route path="templates" element={<TemplateDesignerPage />} />
       </Route>
       <Route

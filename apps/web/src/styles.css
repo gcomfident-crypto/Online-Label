@@ -1291,6 +1291,23 @@ p {
   font-size: 32px;
 }
 
+.task-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.task-detail-actions .primary-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 0 14px;
+  text-decoration: none;
+}
+
 .task-detail-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1349,6 +1366,414 @@ p {
   color: #6b757a;
 }
 
+.dataset-import-page,
+.task-market-page {
+  min-height: calc(100vh - 76px);
+  padding: 24px 32px 48px;
+  background: #eef3f5;
+}
+
+.dataset-import-header,
+.task-market-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #cad5db;
+}
+
+.dataset-import-header h1,
+.task-market-header h1 {
+  margin-bottom: 8px;
+  font-size: 32px;
+}
+
+.dataset-import-header dl,
+.task-market-header dl {
+  min-width: min(420px, 100%);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.dataset-import-header dl div,
+.task-market-header dl div {
+  border: 1px solid #cad5db;
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.dataset-import-header dt,
+.task-market-header dt,
+.task-market-card__meta dt {
+  margin-bottom: 6px;
+  color: #587064;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dataset-import-header dd,
+.task-market-header dd,
+.task-market-card__meta dd {
+  margin: 0;
+  color: #17211b;
+  font-weight: 900;
+}
+
+.dataset-import-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.dataset-import-form,
+.dataset-import-summary,
+.dataset-bulk-panel,
+.dataset-preview-shell,
+.dataset-empty-state,
+.task-market-card {
+  border: 1px solid #cad5db;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.dataset-import-form,
+.dataset-import-summary,
+.dataset-bulk-panel,
+.dataset-empty-state {
+  padding: 16px;
+}
+
+.dataset-import-form {
+  align-self: start;
+  display: grid;
+  gap: 12px;
+}
+
+.dataset-import-form h2,
+.dataset-import-summary h2,
+.dataset-bulk-panel h2,
+.task-market-card h2 {
+  margin: 0;
+}
+
+.dataset-import-form label,
+.dataset-bulk-panel label {
+  display: grid;
+  gap: 6px;
+  color: #4f5c63;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dataset-import-form input,
+.dataset-import-form select,
+.dataset-import-form textarea,
+.dataset-bulk-panel input,
+.task-market-filter input,
+.task-market-filter select {
+  width: 100%;
+  border: 1px solid #b7c4cc;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #17211b;
+  background: #ffffff;
+  font: inherit;
+}
+
+.dataset-import-form textarea {
+  min-height: 180px;
+  resize: vertical;
+}
+
+.dataset-import-note {
+  border: 1px solid #d8cda5;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #5f4727;
+  background: #fff7dc;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.dataset-import-summary {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.dataset-import-summary h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.dataset-import-summary ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.dataset-result-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dataset-result-grid div {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #dde5e9;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f7fafb;
+}
+
+.dataset-result-grid span {
+  color: #587064;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dataset-result-grid strong {
+  color: #17211b;
+  font-size: 20px;
+}
+
+.dataset-chip-list,
+.task-market-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dataset-chip-list span,
+.task-market-card__tags span {
+  border: 1px solid #d6dfe4;
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #52626b;
+  background: #f4f7f8;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dataset-bulk-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 220px) minmax(180px, 260px) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.dataset-bulk-panel p {
+  margin: 6px 0 0;
+}
+
+.dataset-preview-shell {
+  margin-top: 16px;
+  overflow: hidden;
+}
+
+.dataset-table-scroll {
+  overflow-x: auto;
+}
+
+.dataset-preview-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.dataset-preview-table th,
+.dataset-preview-table td {
+  border-bottom: 1px solid #dde5e9;
+  padding: 12px 14px;
+  vertical-align: top;
+}
+
+.dataset-preview-table th {
+  color: #52626b;
+  background: #f7fafb;
+  font-size: 12px;
+}
+
+.dataset-preview-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.dataset-preview-table strong,
+.dataset-preview-table small {
+  display: block;
+}
+
+.dataset-preview-table small {
+  margin-top: 4px;
+  color: #6b757a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dataset-preview-table pre {
+  max-width: 520px;
+  max-height: 120px;
+  overflow: auto;
+  margin: 0;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f1f5f7;
+  color: #17211b;
+  white-space: pre-wrap;
+}
+
+.dataset-edit-panel {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #dde5e9;
+  padding: 16px;
+  background: #f7fafb;
+}
+
+.dataset-edit-panel h2,
+.dataset-edit-panel p {
+  margin: 0;
+}
+
+.dataset-edit-panel [role='alert'] {
+  color: #8a342b;
+  font-weight: 800;
+}
+
+.dataset-edit-panel textarea {
+  min-height: 220px;
+  border: 1px solid #b7c4cc;
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+  color: #17211b;
+  font: inherit;
+  resize: vertical;
+}
+
+.dataset-edit-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dataset-empty-state {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.dataset-empty-state strong {
+  color: #17211b;
+}
+
+.dataset-empty-state span {
+  color: #6b757a;
+}
+
+.task-market-filter {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 180px 190px auto;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.task-market-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.task-market-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.task-market-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.task-market-card__header span {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: #587064;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.task-market-card p {
+  margin: 0;
+}
+
+.claim-status {
+  align-self: start;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.claim-status--available {
+  border-color: #b9d4c7;
+  color: #245b43;
+  background: #e8f4ec;
+}
+
+.claim-status--claimed {
+  border-color: #bfd1d8;
+  color: #244f66;
+  background: #e7f2f5;
+}
+
+.claim-status--full,
+.claim-status--expired {
+  border-color: #e0c99b;
+  color: #72511c;
+  background: #fbf0d6;
+}
+
+.task-market-card__meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.task-market-card__meta div {
+  border: 1px solid #dde5e9;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f7fafb;
+}
+
+.task-market-progress {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e3e9ec;
+}
+
+.task-market-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #2f7f5f;
+}
+
 @media (max-width: 760px) {
   .login-panel,
   .portal-shell,
@@ -1357,13 +1782,24 @@ p {
   .task-summary-grid,
   .task-filter-bar,
   .task-publish-form__split,
-  .task-detail-grid {
+  .task-detail-grid,
+  .dataset-import-header dl,
+  .dataset-import-layout,
+  .dataset-result-grid,
+  .dataset-bulk-panel,
+  .task-market-header dl,
+  .task-market-filter,
+  .task-market-grid,
+  .task-market-card__meta {
     grid-template-columns: 1fr;
   }
 
   .playground-header,
   .task-management-header,
-  .task-detail-header {
+  .task-detail-header,
+  .dataset-import-header,
+  .task-market-header,
+  .task-market-card__header {
     align-items: stretch;
     flex-direction: column;
   }
@@ -1377,7 +1813,9 @@ p {
   .demo-account-grid,
   .workspace-page,
   .task-management-page,
-  .task-detail-page {
+  .task-detail-page,
+  .dataset-import-page,
+  .task-market-page {
     padding: 24px;
   }
 
