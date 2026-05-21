@@ -6,10 +6,27 @@ import {
   startWorker,
   startWorkerRuntime,
 } from './queues.ts';
+import { AI_REVIEW_QUEUE_NAME, buildAiReviewJobPayload } from './queues/aiReview.queue.ts';
 
 describe('LabelHub Worker 壳', () => {
   it('导出 ai-review 与 export 队列名', () => {
     expect(LABELHUB_QUEUE_NAMES).toEqual(['ai-review', 'export']);
+    expect(AI_REVIEW_QUEUE_NAME).toBe('ai-review');
+  });
+
+  it('生成 AI 预审 BullMQ 负载幂等键', () => {
+    expect(
+      buildAiReviewJobPayload({
+        submissionId: 'submission_1',
+        taskId: 'task_qa',
+        round: 2,
+      }),
+    ).toEqual({
+      submissionId: 'submission_1',
+      taskId: 'task_qa',
+      round: 2,
+      idempotencyKey: 'submission_1:2:ai-review',
+    });
   });
 
   it('默认读取本地 Redis 地址与 labelhub 队列前缀', () => {
