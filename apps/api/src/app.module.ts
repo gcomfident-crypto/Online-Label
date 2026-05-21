@@ -19,6 +19,7 @@ import { AuditService } from './audit/audit.service.ts';
 import { DatasetsModule } from './datasets/datasets.module.ts';
 import { DebugController } from './debug/debug.controller.ts';
 import { DebugService } from './debug/debug.service.ts';
+import { DraftsModule } from './drafts/drafts.module.ts';
 import { HealthController } from './health.controller.ts';
 import { LlmController } from './llm/llm.controller.ts';
 import { LlmService } from './llm/llm.service.ts';
@@ -92,7 +93,7 @@ class ErrorEnvelopeFilter implements ExceptionFilter {
 }
 
 @Module({
-  imports: [TemplatesModule, TasksModule, DatasetsModule, AssignmentsModule],
+  imports: [TemplatesModule, TasksModule, DatasetsModule, AssignmentsModule, DraftsModule],
   controllers: [
     AuthController,
     HealthController,
