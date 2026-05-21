@@ -1,0 +1,79 @@
+import { Navigate, Route, Routes } from 'react-router-dom';
+
+import { USER_ROLE } from '@labelhub/shared';
+import { RequireAuth } from './guards/RequireAuth';
+import { RequireRole } from './guards/RequireRole';
+import { AgentPortalLayout } from './layouts/AgentPortalLayout';
+import { LabelerPortalLayout } from './layouts/LabelerPortalLayout';
+import { OwnerPortalLayout } from './layouts/OwnerPortalLayout';
+import { ReviewerPortalLayout } from './layouts/ReviewerPortalLayout';
+import { ForbiddenPage } from './pages/ForbiddenPage';
+import { LoginPage } from './pages/LoginPage';
+import { AgentAiReviewPage } from './pages/agent/AgentAiReviewPage';
+import { LabelerMarketPage } from './pages/labeler/LabelerMarketPage';
+import { OwnerTasksPage } from './pages/owner/OwnerTasksPage';
+import { OwnerTemplatesPage } from './pages/owner/OwnerTemplatesPage';
+import { ReviewerReviewsPage } from './pages/reviewer/ReviewerReviewsPage';
+
+export const AppRouter = () => {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/forbidden" element={<ForbiddenPage />} />
+      <Route
+        path="/owner"
+        element={
+          <RequireAuth>
+            <RequireRole role={USER_ROLE.OWNER}>
+              <OwnerPortalLayout />
+            </RequireRole>
+          </RequireAuth>
+        }
+      >
+        <Route index element={<Navigate to="/owner/tasks" replace />} />
+        <Route path="tasks" element={<OwnerTasksPage />} />
+        <Route path="templates" element={<OwnerTemplatesPage />} />
+      </Route>
+      <Route
+        path="/labeler"
+        element={
+          <RequireAuth>
+            <RequireRole role={USER_ROLE.LABELER}>
+              <LabelerPortalLayout />
+            </RequireRole>
+          </RequireAuth>
+        }
+      >
+        <Route index element={<Navigate to="/labeler/market" replace />} />
+        <Route path="market" element={<LabelerMarketPage />} />
+      </Route>
+      <Route
+        path="/agent"
+        element={
+          <RequireAuth>
+            <RequireRole role={USER_ROLE.AI_AGENT}>
+              <AgentPortalLayout />
+            </RequireRole>
+          </RequireAuth>
+        }
+      >
+        <Route index element={<Navigate to="/agent/ai-review" replace />} />
+        <Route path="ai-review" element={<AgentAiReviewPage />} />
+      </Route>
+      <Route
+        path="/reviewer"
+        element={
+          <RequireAuth>
+            <RequireRole role={USER_ROLE.REVIEWER}>
+              <ReviewerPortalLayout />
+            </RequireRole>
+          </RequireAuth>
+        }
+      >
+        <Route index element={<Navigate to="/reviewer/reviews" replace />} />
+        <Route path="reviews" element={<ReviewerReviewsPage />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+};

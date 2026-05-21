@@ -1,0 +1,316 @@
+:root {
+  color: #17211b;
+  background: #f4f1ea;
+  font-family:
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+.login-page,
+.system-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background:
+    linear-gradient(135deg, rgba(25, 76, 63, 0.14), transparent 34%),
+    linear-gradient(315deg, rgba(199, 81, 58, 0.15), transparent 30%),
+    #f4f1ea;
+}
+
+.login-panel,
+.system-panel {
+  width: min(960px, 100%);
+  border: 1px solid #d7d0c3;
+  border-radius: 8px;
+  background: rgba(255, 252, 246, 0.92);
+  box-shadow: 0 24px 80px rgba(42, 35, 25, 0.12);
+}
+
+.login-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
+  min-height: 520px;
+}
+
+.login-copy {
+  padding: 56px;
+  border-right: 1px solid #d7d0c3;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: #587064;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 16px;
+  color: #17211b;
+  font-size: clamp(32px, 5vw, 56px);
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+h2 {
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+
+p {
+  color: #5f625b;
+  line-height: 1.7;
+}
+
+.demo-account-grid {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  padding: 40px;
+}
+
+.demo-account-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 76px;
+  border: 1px solid #d7d0c3;
+  border-radius: 8px;
+  padding: 18px 20px;
+  color: #17211b;
+  background: #fffaf1;
+  cursor: pointer;
+  text-align: left;
+}
+
+.demo-account-button:hover {
+  border-color: #194c3f;
+  background: #f8efe0;
+}
+
+.demo-account-button span {
+  font-weight: 800;
+}
+
+.demo-account-button small,
+.portal-brand small {
+  color: #6e736b;
+}
+
+.portal-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  background: #f6f4ef;
+}
+
+.portal-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 24px;
+  border-right: 1px solid #d8d5ce;
+  background: #fffdf8;
+}
+
+.portal-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  color: #fffaf1;
+  background: #194c3f;
+  font-weight: 900;
+}
+
+.portal-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.portal-nav a {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #485249;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.portal-nav a.active,
+.portal-nav a:hover {
+  color: #17211b;
+  background: #ebe5d8;
+}
+
+.portal-main {
+  min-width: 0;
+}
+
+.portal-topbar {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 32px;
+  border-bottom: 1px solid #d8d5ce;
+  background: rgba(255, 253, 248, 0.82);
+}
+
+.portal-topbar .eyebrow {
+  margin-bottom: 4px;
+}
+
+.ghost-button,
+.disabled-action,
+.primary-link {
+  min-height: 40px;
+  border: 1px solid #c9c3b7;
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #17211b;
+  background: #fffdf8;
+  text-decoration: none;
+}
+
+.ghost-button {
+  cursor: pointer;
+}
+
+.disabled-action {
+  color: #777a73;
+  background: #e9e5dc;
+}
+
+.primary-link {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.workspace-page {
+  padding: 32px;
+}
+
+.page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid #d8d5ce;
+}
+
+.page-heading h1 {
+  font-size: clamp(30px, 4vw, 44px);
+}
+
+.placeholder-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.placeholder-card {
+  min-height: 180px;
+  border: 1px solid #d8d5ce;
+  border-radius: 8px;
+  padding: 24px;
+  background: #fffdf8;
+}
+
+.placeholder-card span {
+  display: inline-flex;
+  margin-bottom: 24px;
+  color: #9d513f;
+  font-weight: 900;
+}
+
+.system-panel {
+  max-width: 520px;
+  padding: 44px;
+}
+
+.labeler-shell .brand-mark {
+  background: #7b5e2e;
+}
+
+.agent-shell .brand-mark {
+  background: #43536c;
+}
+
+.reviewer-shell .brand-mark {
+  background: #7c3f34;
+}
+
+@media (max-width: 760px) {
+  .login-panel,
+  .portal-shell,
+  .placeholder-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .login-copy {
+    padding: 32px;
+    border-right: 0;
+    border-bottom: 1px solid #d7d0c3;
+  }
+
+  .demo-account-grid,
+  .workspace-page {
+    padding: 24px;
+  }
+
+  .portal-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid #d8d5ce;
+  }
+
+  .page-heading,
+  .portal-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
