@@ -16,6 +16,7 @@ type TaskRecord = {
   distributionStrategy: 'FIRST_COME_FIRST_SERVE' | 'ASSIGNMENT' | 'QUOTA_RACE';
   aiPreReviewEnabled: boolean;
   aiRuleName: string | null;
+  reviewStageConfig: ('INITIAL' | 'RECHECK' | 'FINAL')[];
   status: 'DRAFT' | 'PUBLISHED' | 'PAUSED' | 'ENDED';
   templateId: string;
   createdById: string | null;
@@ -154,6 +155,42 @@ describe('TasksService', () => {
 
     await expect(service.get('missing')).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('保存审核阶段配置时规范化为默认链路或完整链路并写入审计日志', async () => {
+    const { service, auditLogs } = createService();
+
+    await expect(
+      service.updateReviewStageConfig('task_1', {
+        reviewStageConfig: ['FINAL'],
+        actorId: 'user_owner_001',
+      }),
+    ).resolves.toMatchObject({
+      id: 'task_1',
+      reviewStageConfig: ['RECHECK', 'FINAL'],
+    });
+
+    await expect(
+      service.updateReviewStageConfig('task_1', {
+        reviewStageConfig: ['INITIAL'],
+        actorId: 'user_owner_001',
+      }),
+    ).resolves.toMatchObject({
+      id: 'task_1',
+      reviewStageConfig: ['INITIAL', 'RECHECK', 'FINAL'],
+    });
+
+    expect(auditLogs.at(-1)).toEqual(
+      expect.objectContaining({
+        taskId: 'task_1',
+        toStatus: 'DRAFT',
+        actorId: 'user_owner_001',
+        metadata: {
+          action: 'TASK_REVIEW_STAGE_CONFIG_UPDATED',
+          reviewStageConfig: ['INITIAL', 'RECHECK', 'FINAL'],
+        },
+      }),
+    );
+  });
 });
 
 function createService(overrides: Partial<TaskRecord> = {}) {
@@ -172,6 +209,7 @@ function createService(overrides: Partial<TaskRecord> = {}) {
       distributionStrategy: 'FIRST_COME_FIRST_SERVE',
       aiPreReviewEnabled: true,
       aiRuleName: '问答质量 v1',
+      reviewStageConfig: ['RECHECK', 'FINAL'],
       status: 'DRAFT',
       templateId: 'template_qa',
       createdById: 'user_owner_001',

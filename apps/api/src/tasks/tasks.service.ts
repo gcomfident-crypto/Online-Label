@@ -5,7 +5,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { TASK_STATUS_LABELS, type TaskStatus } from '@labelhub/shared';
+import {
+  TASK_STATUS_LABELS,
+  normalizeReviewStageConfig,
+  type ConfigurableReviewStage,
+  type TaskStatus,
+} from '@labelhub/shared';
 
 import type { CreateTaskInput, DistributionStrategy } from './dto/create-task.dto.ts';
 import type { UpdateTaskStatusInput } from './dto/update-task-status.dto.ts';
@@ -34,6 +39,7 @@ type TaskRecord = {
   distributionStrategy: DistributionStrategy;
   aiPreReviewEnabled: boolean;
   aiRuleName: string | null;
+  reviewStageConfig: ConfigurableReviewStage[];
   status: TaskStatus;
   templateId: string;
   createdById: string | null;
@@ -62,6 +68,11 @@ export type TaskAuditLogDto = {
 type TaskQueryInput = {
   ownerId?: string;
   status?: TaskStatus;
+};
+
+export type UpdateReviewStageConfigInput = {
+  reviewStageConfig: ConfigurableReviewStage[];
+  actorId?: string;
 };
 
 type TasksPrismaClient = {
@@ -216,6 +227,32 @@ export class TasksService {
     });
   }
 
+  async updateReviewStageConfig(taskId: string, input: UpdateReviewStageConfigInput): Promise<TaskDto> {
+    const current = await this.findTaskOrThrow(taskId);
+    const reviewStageConfig = normalizeReviewStageConfig(input.reviewStageConfig);
+
+    return this.prisma.$transaction(async (client) => {
+      const task = await client.task.update({
+        where: { id: taskId },
+        data: { reviewStageConfig },
+        include: TASK_INCLUDE,
+      });
+      await client.auditLog.create({
+        data: {
+          taskId,
+          toStatus: current.status,
+          actorId: input.actorId,
+          metadata: {
+            action: 'TASK_REVIEW_STAGE_CONFIG_UPDATED',
+            reviewStageConfig,
+          },
+        },
+      });
+
+      return toTaskDto(task);
+    });
+  }
+
   listAuditLogs(taskId: string): Promise<TaskAuditLogDto[]> {
     return this.prisma.auditLog.findMany({
       where: { taskId },
@@ -321,6 +358,7 @@ const toTaskDto = (task: TaskRecord): TaskDto => ({
   distributionStrategy: task.distributionStrategy,
   aiPreReviewEnabled: task.aiPreReviewEnabled,
   aiRuleName: task.aiRuleName,
+  reviewStageConfig: task.reviewStageConfig,
   status: task.status,
   templateId: task.templateId,
   template: task.template,

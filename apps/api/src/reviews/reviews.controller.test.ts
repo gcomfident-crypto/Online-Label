@@ -21,7 +21,12 @@ describe('ReviewsController', () => {
       listRounds: vi.fn().mockResolvedValue([{ round: 1 }]),
       getDiff: vi.fn().mockResolvedValue({ changes: [] }),
     };
-    const controller = new ReviewsController(service, diffService);
+    const finalReviewService = {
+      listFinalPending: vi.fn().mockResolvedValue([{ submissionId: 'submission_final' }]),
+      finalPass: vi.fn().mockResolvedValue({ submission: { id: 'submission_final', status: 'FINAL_APPROVED' } }),
+      finalReject: vi.fn().mockResolvedValue({ submission: { id: 'submission_final', status: 'NEEDS_REVISION' } }),
+    };
+    const controller = new ReviewsController(service, diffService, finalReviewService);
 
     await expect(controller.listPending(' reviewer_1 ', ' manual ')).resolves.toEqual([
       { submissionId: 'submission_1' },
@@ -31,6 +36,13 @@ describe('ReviewsController', () => {
     await expect(controller.getTimeline('submission_1')).resolves.toEqual([{ id: 'timeline_1' }]);
     await expect(controller.listRounds('assignment_1')).resolves.toEqual([{ round: 1 }]);
     await expect(controller.getDiff('assignment_1', '1', '2')).resolves.toEqual({ changes: [] });
+    await expect(controller.listFinalPending()).resolves.toEqual([{ submissionId: 'submission_final' }]);
+    await expect(
+      controller.finalPass('submission_final', { actorId: ' final_reviewer ', comment: ' 通过 ' }),
+    ).resolves.toEqual({ submission: { id: 'submission_final', status: 'FINAL_APPROVED' } });
+    await expect(
+      controller.finalReject('submission_final', { actorId: ' final_reviewer ', reason: ' 需要补充证据 ' }),
+    ).resolves.toEqual({ submission: { id: 'submission_final', status: 'NEEDS_REVISION' } });
     await expect(controller.start('submission_1', { actorId: ' reviewer_1 ' })).resolves.toEqual({
       submission: { id: 'submission_1' },
     });
@@ -75,6 +87,15 @@ describe('ReviewsController', () => {
     expect(service.getTimeline).toHaveBeenCalledWith('submission_1');
     expect(diffService.listRounds).toHaveBeenCalledWith('assignment_1');
     expect(diffService.getDiff).toHaveBeenCalledWith('assignment_1', { fromRound: 1, toRound: 2 });
+    expect(finalReviewService.listFinalPending).toHaveBeenCalledWith();
+    expect(finalReviewService.finalPass).toHaveBeenCalledWith('submission_final', {
+      actorId: 'final_reviewer',
+      comment: '通过',
+    });
+    expect(finalReviewService.finalReject).toHaveBeenCalledWith('submission_final', {
+      actorId: 'final_reviewer',
+      reason: '需要补充证据',
+    });
     expect(service.startReview).toHaveBeenCalledWith('submission_1', { actorId: 'reviewer_1' });
     expect(service.passReview).toHaveBeenCalledWith('submission_1', {
       actorId: 'reviewer_1',

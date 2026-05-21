@@ -10,6 +10,10 @@ describe('TasksController', () => {
       get: vi.fn().mockResolvedValue({ id: 'task_1' }),
       update: vi.fn().mockResolvedValue({ id: 'task_1', title: '新版任务' }),
       updateStatus: vi.fn().mockResolvedValue({ id: 'task_1', status: 'PUBLISHED' }),
+      updateReviewStageConfig: vi.fn().mockResolvedValue({
+        id: 'task_1',
+        reviewStageConfig: ['INITIAL', 'RECHECK', 'FINAL'],
+      }),
       listAuditLogs: vi.fn().mockResolvedValue([{ toStatus: 'PUBLISHED' }]),
     };
     const controller = new TasksController(service);
@@ -37,6 +41,15 @@ describe('TasksController', () => {
         confirm: true,
       }),
     ).resolves.toEqual({ id: 'task_1', status: 'PUBLISHED' });
+    await expect(
+      controller.updateReviewStageConfig('task_1', {
+        reviewStageConfig: ['INITIAL'],
+        actorId: ' user_owner_001 ',
+      }),
+    ).resolves.toEqual({
+      id: 'task_1',
+      reviewStageConfig: ['INITIAL', 'RECHECK', 'FINAL'],
+    });
     await expect(controller.listAuditLogs('task_1')).resolves.toEqual([{ toStatus: 'PUBLISHED' }]);
 
     expect(service.create).toHaveBeenCalledWith({
@@ -62,6 +75,10 @@ describe('TasksController', () => {
       actorId: 'user_owner_001',
       confirm: true,
       reason: undefined,
+    });
+    expect(service.updateReviewStageConfig).toHaveBeenCalledWith('task_1', {
+      reviewStageConfig: ['INITIAL', 'RECHECK', 'FINAL'],
+      actorId: 'user_owner_001',
     });
   });
 });

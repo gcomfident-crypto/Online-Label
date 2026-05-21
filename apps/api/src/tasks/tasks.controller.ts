@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common';
-import { TASK_STATUS, type TaskStatus } from '@labelhub/shared';
+import { TASK_STATUS, normalizeReviewStageConfig, type TaskStatus } from '@labelhub/shared';
 
 import type {
   CreateTaskDto,
@@ -8,7 +8,12 @@ import type {
 } from './dto/create-task.dto.ts';
 import type { UpdateTaskStatusDto, UpdateTaskStatusInput } from './dto/update-task-status.dto.ts';
 import type { UpdateTaskDto, UpdateTaskInput } from './dto/update-task.dto.ts';
-import { TasksService, type TaskAuditLogDto, type TaskDto } from './tasks.service.ts';
+import {
+  TasksService,
+  type TaskAuditLogDto,
+  type TaskDto,
+  type UpdateReviewStageConfigInput,
+} from './tasks.service.ts';
 
 const DISTRIBUTION_STRATEGIES: readonly DistributionStrategy[] = [
   'FIRST_COME_FIRST_SERVE',
@@ -22,7 +27,7 @@ export class TasksController {
     @Inject(TasksService)
     private readonly tasksService: Pick<
       TasksService,
-      'create' | 'list' | 'get' | 'update' | 'updateStatus' | 'listAuditLogs'
+      'create' | 'list' | 'get' | 'update' | 'updateStatus' | 'updateReviewStageConfig' | 'listAuditLogs'
     >,
   ) {}
 
@@ -57,11 +62,25 @@ export class TasksController {
     return this.tasksService.updateStatus(id, normalizeUpdateTaskStatusBody(body));
   }
 
+  @Patch(':id/review-stage-config')
+  updateReviewStageConfig(
+    @Param('id') id: string,
+    @Body() body: UpdateReviewStageConfigDto = {},
+  ): Promise<TaskDto> {
+    return this.tasksService.updateReviewStageConfig(id, normalizeUpdateReviewStageConfigBody(body));
+  }
+
   @Get(':id/audit-logs')
   listAuditLogs(@Param('id') id: string): Promise<TaskAuditLogDto[]> {
     return this.tasksService.listAuditLogs(id);
   }
 }
+
+type UpdateReviewStageConfigDto = {
+  reviewStageConfig?: unknown;
+  stages?: unknown;
+  actorId?: unknown;
+};
 
 const normalizeCreateTaskBody = (body: CreateTaskDto): CreateTaskInput => {
   return {
@@ -108,6 +127,15 @@ const normalizeUpdateTaskStatusBody = (body: UpdateTaskStatusDto): UpdateTaskSta
     actorId: stringValue(body.actorId),
     reason: stringValue(body.reason),
     confirm: booleanValue(body.confirm),
+  };
+};
+
+const normalizeUpdateReviewStageConfigBody = (
+  body: UpdateReviewStageConfigDto,
+): UpdateReviewStageConfigInput => {
+  return {
+    reviewStageConfig: normalizeReviewStageConfig(body.reviewStageConfig ?? body.stages),
+    actorId: stringValue(body.actorId),
   };
 };
 
