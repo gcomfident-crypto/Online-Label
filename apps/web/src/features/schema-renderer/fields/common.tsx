@@ -1,12 +1,13 @@
 import type { FieldOption, SchemaField } from '@labelhub/shared';
 
 import type { FieldRendererProps } from '../types';
+import { getSchemaFieldKey } from '../types';
 
 export type BaseFieldProps = FieldRendererProps;
 
 export type EditableFieldProps = Pick<
   FieldRendererProps,
-  'field' | 'rendererScope' | 'fieldPath' | 'value' | 'mode' | 'onFieldChange'
+  'field' | 'rendererScope' | 'fieldPath' | 'value' | 'mode' | 'onFieldChange' | 'disabled'
 >;
 
 export type UploadedFileValue = {
@@ -16,12 +17,15 @@ export type UploadedFileValue = {
   size: number;
 };
 
-export const isDisabledMode = (mode: FieldRendererProps['mode']): boolean => {
-  return mode === 'review';
+export const isDisabledMode = (
+  mode: FieldRendererProps['mode'],
+  disabled = false,
+): boolean => {
+  return mode === 'review' || disabled;
 };
 
 export const getFieldValue = (field: SchemaField, value: Record<string, unknown>): unknown => {
-  return value[field.key];
+  return value[getSchemaFieldKey(field)];
 };
 
 export const getStringValue = (value: unknown): string => {

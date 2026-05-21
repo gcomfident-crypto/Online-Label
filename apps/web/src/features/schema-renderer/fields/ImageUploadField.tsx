@@ -16,7 +16,13 @@ const toLocalImageValue = (file: File) => ({
   size: file.size,
 });
 
-export const ImageUploadField = ({ field, value, mode, onFieldChange }: EditableFieldProps) => {
+export const ImageUploadField = ({
+  field,
+  value,
+  mode,
+  disabled,
+  onFieldChange,
+}: EditableFieldProps) => {
   const [error, setError] = useState<string | null>(null);
   const uploadedImage = getUploadedFileValue(getFieldValue(field, value));
 
@@ -29,7 +35,7 @@ export const ImageUploadField = ({ field, value, mode, onFieldChange }: Editable
       <input
         accept="image/*"
         aria-label={field.label}
-        disabled={isDisabledMode(mode)}
+        disabled={isDisabledMode(mode, disabled)}
         type="file"
         onChange={(event) => {
           const file = event.target.files?.[0];

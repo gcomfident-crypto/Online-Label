@@ -8,6 +8,9 @@ export const GroupField = ({
   rawData,
   value,
   mode,
+  hiddenFieldKeys,
+  disabledFieldKeys,
+  validationMessagesByField,
   onFieldChange,
 }: BaseFieldProps) => {
   return (
@@ -23,6 +26,9 @@ export const GroupField = ({
           rawData={rawData}
           value={value}
           mode={mode}
+          hiddenFieldKeys={hiddenFieldKeys}
+          disabledFieldKeys={disabledFieldKeys}
+          validationMessagesByField={validationMessagesByField}
           onFieldChange={onFieldChange}
         />
       ))}

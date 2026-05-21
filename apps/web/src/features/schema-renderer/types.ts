@@ -20,5 +20,13 @@ export type FieldRendererProps = {
   rawData: Record<string, unknown>;
   value: Record<string, unknown>;
   mode: SchemaRendererMode;
+  hiddenFieldKeys: ReadonlySet<string>;
+  disabledFieldKeys: ReadonlySet<string>;
+  validationMessagesByField: ReadonlyMap<string, readonly string[]>;
   onFieldChange: (field: SchemaField, nextValue: FieldNextValue) => void;
+  disabled?: boolean;
+};
+
+export const getSchemaFieldKey = (field: SchemaField): string => {
+  return field.fieldKey ?? field.key;
 };

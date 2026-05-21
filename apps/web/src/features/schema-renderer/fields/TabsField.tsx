@@ -8,6 +8,9 @@ export const TabsField = ({
   rawData,
   value,
   mode,
+  hiddenFieldKeys,
+  disabledFieldKeys,
+  validationMessagesByField,
   onFieldChange,
 }: BaseFieldProps) => {
   return (
@@ -26,6 +29,9 @@ export const TabsField = ({
               rawData={rawData}
               value={value}
               mode={mode}
+              hiddenFieldKeys={hiddenFieldKeys}
+              disabledFieldKeys={disabledFieldKeys}
+              validationMessagesByField={validationMessagesByField}
               onFieldChange={onFieldChange}
             />
           ))}

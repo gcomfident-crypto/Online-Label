@@ -14,7 +14,13 @@ const toLocalFileValue = (file: File) => ({
   size: file.size,
 });
 
-export const FileUploadField = ({ field, value, mode, onFieldChange }: EditableFieldProps) => {
+export const FileUploadField = ({
+  field,
+  value,
+  mode,
+  disabled,
+  onFieldChange,
+}: EditableFieldProps) => {
   const uploadedFile = getUploadedFileValue(getFieldValue(field, value));
 
   return (
@@ -25,7 +31,7 @@ export const FileUploadField = ({ field, value, mode, onFieldChange }: EditableF
       {uploadedFile ? <UploadedFilePreview file={uploadedFile} /> : null}
       <input
         aria-label={field.label}
-        disabled={isDisabledMode(mode)}
+        disabled={isDisabledMode(mode, disabled)}
         type="file"
         onChange={(event) => {
           const file = event.target.files?.[0];

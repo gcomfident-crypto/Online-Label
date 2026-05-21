@@ -1,7 +1,13 @@
 import type { EditableFieldProps } from './common';
 import { FieldDescription, getFieldValue, getStringValue, isDisabledMode } from './common';
 
-export const RichTextField = ({ field, value, mode, onFieldChange }: EditableFieldProps) => {
+export const RichTextField = ({
+  field,
+  value,
+  mode,
+  disabled,
+  onFieldChange,
+}: EditableFieldProps) => {
   return (
     <label className="schema-field" data-field-type={field.type}>
       <span>{field.label}</span>
@@ -9,7 +15,7 @@ export const RichTextField = ({ field, value, mode, onFieldChange }: EditableFie
       <FieldDescription field={field} />
       <textarea
         aria-label={field.label}
-        disabled={isDisabledMode(mode)}
+        disabled={isDisabledMode(mode, disabled)}
         placeholder={field.placeholder}
         value={getStringValue(getFieldValue(field, value))}
         onChange={(event) => onFieldChange(field, event.target.value)}

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { MultiChoiceField, RadioField } from './fields/ChoiceField';
 import { FileUploadField } from './fields/FileUploadField';
 import { GroupField } from './fields/GroupField';
@@ -10,34 +12,73 @@ import { TextareaField } from './fields/TextareaField';
 import { TextField } from './fields/TextField';
 import { UnsupportedField } from './fields/UnsupportedField';
 import type { FieldRendererProps } from './types';
+import { getSchemaFieldKey } from './types';
 
 export const FieldRenderer = (props: FieldRendererProps) => {
+  const fieldKey = getSchemaFieldKey(props.field);
+
+  if (props.hiddenFieldKeys.has(fieldKey)) {
+    return null;
+  }
+
+  const fieldProps = {
+    ...props,
+    disabled: props.disabledFieldKeys.has(fieldKey),
+  };
+  const validationMessages = props.validationMessagesByField.get(fieldKey) ?? [];
+  let fieldElement: ReactNode;
+
   switch (props.field.type) {
     case 'show_item':
-      return <ShowItemField {...props} />;
+      fieldElement = <ShowItemField {...fieldProps} />;
+      break;
     case 'text':
-      return <TextField {...props} />;
+      fieldElement = <TextField {...fieldProps} />;
+      break;
     case 'textarea':
-      return <TextareaField {...props} />;
+      fieldElement = <TextareaField {...fieldProps} />;
+      break;
     case 'radio':
-      return <RadioField {...props} />;
+      fieldElement = <RadioField {...fieldProps} />;
+      break;
     case 'checkbox':
     case 'tag_select':
-      return <MultiChoiceField {...props} />;
+      fieldElement = <MultiChoiceField {...fieldProps} />;
+      break;
     case 'rich_text':
-      return <RichTextField {...props} />;
+      fieldElement = <RichTextField {...fieldProps} />;
+      break;
     case 'file_upload':
-      return <FileUploadField {...props} />;
+      fieldElement = <FileUploadField {...fieldProps} />;
+      break;
     case 'image_upload':
-      return <ImageUploadField {...props} />;
+      fieldElement = <ImageUploadField {...fieldProps} />;
+      break;
     case 'json_editor':
-      return <JsonEditorField {...props} />;
+      fieldElement = <JsonEditorField {...fieldProps} />;
+      break;
     case 'group':
-      return <GroupField {...props} />;
+      fieldElement = <GroupField {...fieldProps} />;
+      break;
     case 'tabs':
-      return <TabsField {...props} />;
+      fieldElement = <TabsField {...fieldProps} />;
+      break;
     case 'llm_assist':
     default:
-      return <UnsupportedField {...props} />;
+      fieldElement = <UnsupportedField {...fieldProps} />;
+      break;
   }
+
+  return (
+    <>
+      {fieldElement}
+      {validationMessages.length > 0 ? (
+        <ul className="schema-field__errors" role="alert">
+          {validationMessages.map((message) => (
+            <li key={message}>{message}</li>
+          ))}
+        </ul>
+      ) : null}
+    </>
+  );
 };

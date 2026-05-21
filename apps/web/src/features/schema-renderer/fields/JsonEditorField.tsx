@@ -38,7 +38,13 @@ const parseJsonEditorValue = (value: string): JsonEditorParseResult => {
   }
 };
 
-export const JsonEditorField = ({ field, value, mode, onFieldChange }: EditableFieldProps) => {
+export const JsonEditorField = ({
+  field,
+  value,
+  mode,
+  disabled,
+  onFieldChange,
+}: EditableFieldProps) => {
   const fieldValue = getFieldValue(field, value);
   const [draftValue, setDraftValue] = useState(() => getJsonEditorValue(fieldValue));
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +76,7 @@ export const JsonEditorField = ({ field, value, mode, onFieldChange }: EditableF
       <FieldDescription field={field} />
       <textarea
         aria-label={field.label}
-        disabled={isDisabledMode(mode)}
+        disabled={isDisabledMode(mode, disabled)}
         placeholder={field.placeholder}
         value={draftValue}
         onChange={(event) => {

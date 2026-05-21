@@ -77,12 +77,15 @@ export type FieldOption = {
 
 export type SchemaField = {
   key: string;
+  fieldKey?: string;
   type: FieldType;
   label: string;
   description?: string;
   placeholder?: string;
   options?: readonly FieldOption[];
+  required?: boolean;
   validation?: FieldValidation;
+  validateWhenHidden?: boolean;
   linkageRules?: readonly FieldLinkageRule[];
   fields?: readonly SchemaField[];
   tabs?: readonly {
@@ -96,6 +99,7 @@ export type LabelHubSchema = {
   schemaVersion: string;
   datasetKind: DatasetKind;
   fields: readonly SchemaField[];
+  linkageRules?: readonly FieldLinkageRule[];
 };
 
 export type LabelhubSchema = LabelHubSchema;

@@ -13,6 +13,7 @@ export const RadioField = ({
   fieldPath,
   value,
   mode,
+  disabled,
   onFieldChange,
 }: EditableFieldProps) => {
   const fieldValue = getFieldValue(field, value);
@@ -27,7 +28,7 @@ export const RadioField = ({
           <input
             aria-label={option.label}
             checked={fieldValue === option.value}
-            disabled={isDisabledMode(mode)}
+            disabled={isDisabledMode(mode, disabled)}
             name={radioGroupName}
             type="radio"
             value={option.value}
@@ -40,7 +41,13 @@ export const RadioField = ({
   );
 };
 
-export const MultiChoiceField = ({ field, value, mode, onFieldChange }: EditableFieldProps) => {
+export const MultiChoiceField = ({
+  field,
+  value,
+  mode,
+  disabled,
+  onFieldChange,
+}: EditableFieldProps) => {
   const selectedValues = getStringArrayValue(getFieldValue(field, value));
 
   return (
@@ -55,7 +62,7 @@ export const MultiChoiceField = ({ field, value, mode, onFieldChange }: Editable
             <input
               aria-label={option.label}
               checked={checked}
-              disabled={isDisabledMode(mode)}
+              disabled={isDisabledMode(mode, disabled)}
               type="checkbox"
               value={option.value}
               onChange={() =>

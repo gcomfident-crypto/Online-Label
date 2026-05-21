@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { LabelHubSchema } from '@labelhub/shared';
 
 import { SchemaRenderer } from './SchemaRenderer';
+import { applySchemaLinkage } from './linkage';
+import { validateSchemaAnswers } from './validation';
 
 const baseSchema = (fields: LabelHubSchema['fields']): LabelHubSchema => ({
   schemaVersion: '1.0.0',
@@ -565,5 +567,317 @@ describe('SchemaRenderer', () => {
     await user.type(jsonEditor, '{"ok":true}');
 
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('必填文本为空时返回并展示中文错误', () => {
+    const schema = baseSchema([
+      { key: 'summary', type: 'text', label: '摘要', validation: { required: true } },
+    ]);
+
+    expect(validateSchemaAnswers(schema, {})).toEqual([
+      { fieldKey: 'summary', message: '摘要为必填项。' },
+    ]);
+
+    render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent('摘要为必填项。');
+  });
+
+  it('minLength、maxLength 和 pattern 校验生效', () => {
+    const schema = baseSchema([
+      {
+        key: 'code',
+        type: 'text',
+        label: '编码',
+        validation: { minLength: 3, maxLength: 5, pattern: '^[A-Z]+$' },
+      },
+    ]);
+
+    expect(validateSchemaAnswers(schema, { code: 'ab' })).toEqual([
+      { fieldKey: 'code', message: '编码不能少于 3 个字符。' },
+      { fieldKey: 'code', message: '编码格式不符合要求。' },
+    ]);
+
+    expect(validateSchemaAnswers(schema, { code: 'ABCDEF' })).toEqual([
+      { fieldKey: 'code', message: '编码不能超过 5 个字符。' },
+    ]);
+  });
+
+  it('radio 非 options 值时报错', () => {
+    const schema = baseSchema([
+      {
+        key: 'quality',
+        type: 'radio',
+        label: '质量',
+        options: [{ label: '好', value: 'good' }],
+      },
+    ]);
+
+    expect(validateSchemaAnswers(schema, { quality: 'bad' })).toEqual([
+      { fieldKey: 'quality', message: '质量必须选择有效选项。' },
+    ]);
+  });
+
+  it('checkbox 和 tag_select 必须是字符串数组且值在 options 内', () => {
+    const schema = baseSchema([
+      {
+        key: 'tags',
+        type: 'checkbox',
+        label: '标签',
+        options: [{ label: '清晰', value: 'clear' }],
+      },
+      {
+        key: 'keywords',
+        type: 'tag_select',
+        label: '关键词',
+        options: [{ label: '标题', value: 'title' }],
+      },
+    ]);
+
+    expect(validateSchemaAnswers(schema, { tags: 'clear', keywords: ['title', 'other'] })).toEqual([
+      { fieldKey: 'tags', message: '标签必须是字符串数组。' },
+      { fieldKey: 'keywords', message: '关键词包含无效选项。' },
+    ]);
+  });
+
+  it('json_editor 接受合法值并拒绝非法字符串', () => {
+    const schema = baseSchema([{ key: 'payload', type: 'json_editor', label: 'JSON' }]);
+
+    expect(validateSchemaAnswers(schema, { payload: { ok: true } })).toEqual([]);
+    expect(validateSchemaAnswers(schema, { payload: ['ok'] })).toEqual([]);
+    expect(validateSchemaAnswers(schema, { payload: 1 })).toEqual([]);
+    expect(validateSchemaAnswers(schema, { payload: '{"ok":' })).toEqual([
+      { fieldKey: 'payload', message: 'JSON 必须是合法 JSON。' },
+    ]);
+  });
+
+  it('file_upload 和 image_upload 校验结构化文件元数据', () => {
+    const schema = baseSchema([
+      { key: 'attachment', type: 'file_upload', label: '附件' },
+      { key: 'photo', type: 'image_upload', label: '图片' },
+    ]);
+
+    expect(
+      validateSchemaAnswers(schema, {
+        attachment: { name: 'a.txt', url: 'mock://a.txt', mimeType: 'text/plain' },
+        photo: { name: 'p.txt', url: 'mock://p.txt', mimeType: 'text/plain', size: 1 },
+      }),
+    ).toEqual([
+      { fieldKey: 'attachment', message: '附件需要上传有效文件。' },
+      { fieldKey: 'photo', message: '图片必须上传图片文件。' },
+    ]);
+  });
+
+  it('联动支持 show、hide、disable、require 和 setValue', () => {
+    const schema = {
+      ...baseSchema([
+        {
+          key: 'status',
+          type: 'radio',
+          label: '状态',
+          options: [
+            { label: '通过', value: 'approved' },
+            { label: '拒绝', value: 'rejected' },
+          ],
+        },
+        { key: 'detail', type: 'text', label: '详情', validation: { required: true } },
+        { key: 'reason', type: 'textarea', label: '原因' },
+        { key: 'score', type: 'text', label: '分数' },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'approved' },
+          action: 'show',
+          targetFieldKey: 'detail',
+        },
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'rejected' },
+          action: 'hide',
+          targetFieldKey: 'detail',
+        },
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'rejected' },
+          action: 'disable',
+          targetFieldKey: 'score',
+        },
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'rejected' },
+          action: 'require',
+          targetFieldKey: 'reason',
+        },
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'approved' },
+          action: 'setValue',
+          targetFieldKey: 'score',
+          value: '5',
+        },
+      ],
+    } satisfies LabelHubSchema & {
+      linkageRules: NonNullable<LabelHubSchema['fields'][number]['linkageRules']>;
+    };
+
+    const hiddenResult = applySchemaLinkage(schema, {});
+
+    expect(hiddenResult.hiddenFieldKeys.has('detail')).toBe(true);
+    expect(validateSchemaAnswers(schema, {}, hiddenResult)).toEqual([]);
+
+    const approvedResult = applySchemaLinkage(schema, { status: 'approved' });
+
+    expect(approvedResult.visibleFieldKeys.has('detail')).toBe(true);
+    expect(approvedResult.answers).toMatchObject({ status: 'approved', score: '5' });
+
+    const rejectedResult = applySchemaLinkage(schema, { status: 'rejected' });
+
+    expect(rejectedResult.hiddenFieldKeys.has('detail')).toBe(true);
+    expect(rejectedResult.disabledFieldKeys.has('score')).toBe(true);
+    expect(rejectedResult.requiredFieldKeys.has('reason')).toBe(true);
+    expect(validateSchemaAnswers(schema, { status: 'rejected' }, rejectedResult)).toEqual([
+      { fieldKey: 'reason', message: '原因为必填项。' },
+    ]);
+  });
+
+  it('Renderer 根据联动隐藏字段、禁用字段、动态必填并写入 setValue', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const schema = {
+      ...baseSchema([
+        {
+          key: 'status',
+          type: 'radio',
+          label: '状态',
+          options: [
+            { label: '通过', value: 'approved' },
+            { label: '拒绝', value: 'rejected' },
+          ],
+        },
+        { key: 'detail', type: 'text', label: '详情', validation: { required: true } },
+        { key: 'reason', type: 'textarea', label: '原因' },
+        { key: 'score', type: 'text', label: '分数' },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'approved' },
+          action: 'show',
+          targetFieldKey: 'detail',
+        },
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'rejected' },
+          action: 'disable',
+          targetFieldKey: 'score',
+        },
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'rejected' },
+          action: 'require',
+          targetFieldKey: 'reason',
+        },
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'approved' },
+          action: 'setValue',
+          targetFieldKey: 'score',
+          value: '5',
+        },
+      ],
+    } satisfies LabelHubSchema & {
+      linkageRules: NonNullable<LabelHubSchema['fields'][number]['linkageRules']>;
+    };
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <SchemaRenderer
+          schema={schema}
+          rawData={{}}
+          value={answers}
+          mode="answer"
+          onChange={(next) => {
+            setAnswers(next);
+            onChange(next);
+          }}
+        />
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    expect(screen.queryByLabelText('详情')).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('状态：通过'));
+
+    expect(await screen.findByLabelText('详情')).toBeInTheDocument();
+    expect(onChange).toHaveBeenLastCalledWith({ status: 'approved', score: '5' });
+
+    await user.click(screen.getByLabelText('状态：拒绝'));
+
+    expect(screen.queryByLabelText('详情')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('分数')).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent('原因为必填项。');
+  });
+
+  it('隐藏字段默认不触发必填，validateWhenHidden 为 true 时仍校验', () => {
+    const schema = {
+      ...baseSchema([
+        {
+          key: 'status',
+          type: 'radio',
+          label: '状态',
+          options: [{ label: '拒绝', value: 'rejected' }],
+        },
+        {
+          key: 'detail',
+          type: 'text',
+          label: '详情',
+          validation: { required: true },
+        },
+        {
+          key: 'auditNote',
+          type: 'text',
+          label: '审计备注',
+          validation: { required: true },
+          validateWhenHidden: true,
+        },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'rejected' },
+          action: 'hide',
+          targetFieldKey: 'detail',
+        },
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'rejected' },
+          action: 'hide',
+          targetFieldKey: 'auditNote',
+        },
+      ],
+    } as LabelHubSchema;
+
+    const linkage = applySchemaLinkage(schema, { status: 'rejected' });
+
+    expect(validateSchemaAnswers(schema, { status: 'rejected' }, linkage)).toEqual([
+      { fieldKey: 'auditNote', message: '审计备注为必填项。' },
+    ]);
+  });
+
+  it('自定义校验 key 命中时返回中文错误', () => {
+    const schema = baseSchema([
+      {
+        key: 'email',
+        type: 'text',
+        label: '邮箱',
+        validation: { customValidatorKey: 'valid_email' },
+      },
+    ]);
+
+    expect(validateSchemaAnswers(schema, { email: 'bad-email' })).toEqual([
+      { fieldKey: 'email', message: '邮箱格式不正确。' },
+    ]);
   });
 });
