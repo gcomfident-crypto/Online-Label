@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 
 import {
+  AI_REVIEW_STATUS,
   DATASET_KINDS,
   EXPORT_FORMATS,
   EXPORT_STATUS,
@@ -51,6 +52,7 @@ describe('Prisma schema', () => {
       'Submission',
       'ReviewRule',
       'ReviewRecord',
+      'AiReviewJob',
       'AuditLog',
       'ExportJob',
     ];
@@ -70,6 +72,9 @@ describe('Prisma schema', () => {
     expect(modelBlock('Draft')).toMatch(/\banswers\s+Json\b/);
     expect(modelBlock('Submission')).toMatch(/\banswers\s+Json\b/);
     expect(modelBlock('ReviewRecord')).toMatch(/\bscores\s+Json\b/);
+    expect(modelBlock('ReviewRecord')).toMatch(/\bstructuredOutput\s+Json\?/);
+    expect(modelBlock('ReviewRecord')).toMatch(/\bmodelMetadata\s+Json\?/);
+    expect(modelBlock('AiReviewJob')).toMatch(/\blogs\s+Json\?/);
     expect(modelBlock('AuditLog')).toMatch(/\bmetadata\s+Json\?/);
   });
 
@@ -138,12 +143,39 @@ describe('Prisma schema', () => {
   });
 
   it('keeps review trace fields and audit transitions', () => {
+    expect(modelBlock('ReviewRule')).toMatch(/\bpromptTemplate\s+String\b/);
+    expect(modelBlock('ReviewRule')).toMatch(/\bpromptVersion\s+Int\s+@default\(1\)/);
+    expect(modelBlock('ReviewRule')).toMatch(/\bdimensions\s+Json\b/);
+    expect(modelBlock('ReviewRule')).toMatch(/\bdimensionVersion\s+Int\s+@default\(1\)/);
+    expect(modelBlock('ReviewRule')).toMatch(/\bpassThreshold\s+Int\s+@default\(80\)/);
+    expect(modelBlock('ReviewRule')).toMatch(/\bmanualThreshold\s+Int\s+@default\(60\)/);
+    expect(modelBlock('ReviewRule')).toMatch(/\bprovider\s+String\s+@default\(\"mock\"\)/);
+    expect(modelBlock('ReviewRule')).toMatch(/\bmodel\s+String\s+@default\(\"mock-stable-reviewer\"\)/);
+    expect(modelBlock('ReviewRule')).toMatch(/\btemperature\s+Float\s+@default\(0\)/);
     expect(modelBlock('ReviewRecord')).toMatch(/\brawPrompt\s+String\?/);
     expect(modelBlock('ReviewRecord')).toMatch(/\brawOutput\s+String\?/);
+    expect(modelBlock('ReviewRecord')).toMatch(/\bretryCount\s+Int\s+@default\(0\)/);
+    expect(modelBlock('ReviewRecord')).toMatch(/\bidempotencyKey\s+String\?/);
+    expect(modelBlock('ReviewRecord')).toMatch(/@@unique\(\[idempotencyKey\]\)/);
     expect(modelBlock('AuditLog')).toMatch(/\bfromStatus\s+String\?/);
     expect(modelBlock('AuditLog')).toMatch(/\btoStatus\s+String\b/);
     expect(modelBlock('AuditLog')).toMatch(/\bactorId\s+String\?/);
     expect(modelBlock('AuditLog')).toMatch(/\breason\s+String\?/);
+  });
+
+  it('keeps idempotent AI review job snapshots', () => {
+    expect(enumValues('AiReviewJobStatus')).toEqual(Object.values(AI_REVIEW_STATUS));
+    expect(modelBlock('AiReviewJob')).toMatch(/\bsubmissionId\s+String\b/);
+    expect(modelBlock('AiReviewJob')).toMatch(/\btaskId\s+String\b/);
+    expect(modelBlock('AiReviewJob')).toMatch(/\bround\s+Int\b/);
+    expect(modelBlock('AiReviewJob')).toMatch(/\bidempotencyKey\s+String\b/);
+    expect(modelBlock('AiReviewJob')).toMatch(/\bstatus\s+AiReviewJobStatus\s+@default\(QUEUED\)/);
+    expect(modelBlock('AiReviewJob')).toMatch(/\battempts\s+Int\s+@default\(0\)/);
+    expect(modelBlock('AiReviewJob')).toMatch(/\bmaxAttempts\s+Int\s+@default\(3\)/);
+    expect(modelBlock('AiReviewJob')).toMatch(/\bstructuredOutputMode\s+String\?/);
+    expect(modelBlock('AiReviewJob')).toMatch(/\blastError\s+String\?/);
+    expect(modelBlock('AiReviewJob')).toMatch(/@@unique\(\[idempotencyKey\]\)/);
+    expect(modelBlock('AiReviewJob')).toMatch(/@@index\(\[status\]\)/);
   });
 
   it('keeps export parameter snapshots and generated file locations', () => {
@@ -162,6 +194,7 @@ describe('Prisma schema', () => {
       Object.values(SUBMISSION_STATUS),
     );
     expect(enumValues('ReviewStage')).toEqual([...REVIEW_STAGES]);
+    expect(enumValues('AiReviewJobStatus')).toEqual(Object.values(AI_REVIEW_STATUS));
     expect(enumValues('ExportStatus')).toEqual(Object.values(EXPORT_STATUS));
     expect(enumValues('DatasetKind')).toEqual([...DATASET_KINDS]);
     expect(enumValues('ExportFormat')).toEqual([...EXPORT_FORMATS]);

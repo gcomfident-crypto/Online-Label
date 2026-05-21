@@ -72,6 +72,15 @@ enum ReviewStage {
   FINAL
 }
 
+enum AiReviewJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED_RETRYING
+  FAILED_FINAL
+  MANUAL_FALLBACK
+}
+
 enum ExportStatus {
   QUEUED
   PROCESSING
@@ -152,6 +161,7 @@ model Task {
   items                TaskItem[]
   assignments          Assignment[]
   reviewRules          ReviewRule[]
+  aiReviewJobs         AiReviewJob[]
   auditLogs            AuditLog[]
   exportJobs           ExportJob[]
   createdAt            DateTime             @default(now())
@@ -226,6 +236,7 @@ model Submission {
   schemaVersion String
   submittedAt   DateTime         @default(now())
   reviewRecords ReviewRecord[]
+  aiReviewJobs  AiReviewJob[]
   auditLogs     AuditLog[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
@@ -237,19 +248,27 @@ model Submission {
 }
 
 model ReviewRule {
-  id            String         @id @default(cuid())
-  taskId        String
-  task          Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  stage         ReviewStage
-  name          String
-  prompt        String
-  config        Json?
-  enabled       Boolean        @default(true)
-  createdById   String?
-  createdBy     User?          @relation("ReviewRuleCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  reviewRecords ReviewRecord[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id               String         @id @default(cuid())
+  taskId           String
+  task             Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  stage            ReviewStage    @default(AI_PRECHECK)
+  name             String
+  promptTemplate   String
+  promptVersion    Int            @default(1)
+  dimensions       Json
+  dimensionVersion Int            @default(1)
+  passThreshold    Int            @default(80)
+  manualThreshold  Int            @default(60)
+  provider         String         @default("mock")
+  model            String         @default("mock-stable-reviewer")
+  temperature      Float          @default(0)
+  config           Json?
+  enabled          Boolean        @default(true)
+  createdById      String?
+  createdBy        User?          @relation("ReviewRuleCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewRecords    ReviewRecord[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@index([taskId])
   @@index([stage])
@@ -257,25 +276,61 @@ model ReviewRule {
 }
 
 model ReviewRecord {
-  id           String      @id @default(cuid())
-  submissionId String
-  submission   Submission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  ruleId       String?
-  rule         ReviewRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
-  stage        ReviewStage
-  reviewerId   String?
-  reviewer     User?       @relation("ReviewRecordReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
-  scores       Json
-  decision     String?
-  rawPrompt    String?
-  rawOutput    String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id               String      @id @default(cuid())
+  submissionId     String
+  submission       Submission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  ruleId           String?
+  rule             ReviewRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  stage            ReviewStage
+  reviewerId       String?
+  reviewer         User?       @relation("ReviewRecordReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewerType     String      @default("AI")
+  scores           Json
+  decision         String?
+  comment          String?
+  rawPrompt        String?
+  rawOutput        String?
+  structuredOutput Json?
+  modelMetadata    Json?
+  retryCount       Int         @default(0)
+  idempotencyKey   String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
+  @@unique([idempotencyKey])
   @@index([submissionId])
   @@index([ruleId])
   @@index([stage])
   @@map("review_records")
+}
+
+model AiReviewJob {
+  id                   String            @id @default(cuid())
+  submissionId         String
+  submission           Submission        @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  taskId               String
+  task                 Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  round                Int
+  idempotencyKey       String
+  status               AiReviewJobStatus @default(QUEUED)
+  attempts             Int               @default(0)
+  maxAttempts          Int               @default(3)
+  structuredOutputMode String?
+  provider             String?
+  model                String?
+  lastError            String?
+  logs                 Json?
+  queuedAt             DateTime          @default(now())
+  startedAt            DateTime?
+  finishedAt           DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@unique([idempotencyKey])
+  @@index([submissionId])
+  @@index([taskId])
+  @@index([status])
+  @@map("ai_review_jobs")
 }
 
 model AuditLog {
