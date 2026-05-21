@@ -10,10 +10,13 @@ export type SchemaRendererProps = {
   onChange: (next: Record<string, unknown>) => void;
 };
 
+export type FieldValueUpdater = (currentValue: unknown) => unknown;
+export type FieldNextValue = unknown | FieldValueUpdater;
+
 export type FieldRendererProps = {
   field: SchemaField;
   rawData: Record<string, unknown>;
   value: Record<string, unknown>;
   mode: SchemaRendererMode;
-  onFieldChange: (field: SchemaField, nextValue: unknown) => void;
+  onFieldChange: (field: SchemaField, nextValue: FieldNextValue) => void;
 };

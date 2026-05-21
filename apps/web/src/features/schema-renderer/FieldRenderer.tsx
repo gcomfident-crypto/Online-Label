@@ -113,9 +113,6 @@ export const FieldRenderer = ({
         {field.description ? <small>{field.description}</small> : null}
         {(field.options ?? []).map((option) => {
           const checked = selectedValues.includes(option.value);
-          const nextValues = checked
-            ? selectedValues.filter((item) => item !== option.value)
-            : [...selectedValues, option.value];
 
           return (
             <label key={option.value}>
@@ -125,7 +122,15 @@ export const FieldRenderer = ({
                 disabled={disabled}
                 type="checkbox"
                 value={option.value}
-                onChange={() => onFieldChange(field, nextValues)}
+                onChange={() =>
+                  onFieldChange(field, (currentValue: unknown) => {
+                    const currentValues = getStringArrayValue(currentValue);
+
+                    return currentValues.includes(option.value)
+                      ? currentValues.filter((item) => item !== option.value)
+                      : [...currentValues, option.value];
+                  })
+                }
               />
               <span>{optionLabel(field, option)}</span>
             </label>

@@ -61,6 +61,59 @@ describe('SchemaRenderer', () => {
     expect(onChange).toHaveBeenLastCalledWith({ summary: '新的摘要' });
   });
 
+  it('父组件尚未 rerender 时连续更新两个字段不会丢失前一次值', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          { key: 'summary', type: 'text', label: '摘要' },
+          { key: 'title', type: 'text', label: '标题' },
+        ])}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        onChange={onChange}
+      />,
+    );
+
+    await user.type(screen.getByLabelText('摘要'), '甲');
+    await user.type(screen.getByLabelText('标题'), '乙');
+
+    expect(onChange).toHaveBeenLastCalledWith({ summary: '甲', title: '乙' });
+  });
+
+  it('同一 checkbox 字段连续点击两个选项不会丢失前一个选项', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'tags',
+            type: 'checkbox',
+            label: '标签',
+            options: [
+              { label: '清晰', value: 'clear' },
+              { label: '完整', value: 'complete' },
+            ],
+          },
+        ])}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        onChange={onChange}
+      />,
+    );
+
+    await user.click(screen.getByLabelText('清晰'));
+    await user.click(screen.getByLabelText('完整'));
+
+    expect(onChange).toHaveBeenLastCalledWith({ tags: ['clear', 'complete'] });
+  });
+
   it('review 模式禁用可提交字段且不允许编辑', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

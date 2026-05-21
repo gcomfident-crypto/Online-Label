@@ -1,7 +1,12 @@
+import { useEffect, useRef } from 'react';
 import type { SchemaField } from '@labelhub/shared';
 
 import { FieldRenderer } from './FieldRenderer';
-import type { SchemaRendererProps } from './types';
+import type { FieldNextValue, FieldValueUpdater, SchemaRendererProps } from './types';
+
+const isFieldValueUpdater = (nextValue: FieldNextValue): nextValue is FieldValueUpdater => {
+  return typeof nextValue === 'function';
+};
 
 export const SchemaRenderer = ({
   schema,
@@ -10,8 +15,21 @@ export const SchemaRenderer = ({
   mode,
   onChange,
 }: SchemaRendererProps) => {
-  const handleFieldChange = (field: SchemaField, nextValue: unknown) => {
-    onChange({ ...value, [field.key]: nextValue });
+  const latestValueRef = useRef(value);
+
+  useEffect(() => {
+    latestValueRef.current = value;
+  }, [value]);
+
+  const handleFieldChange = (field: SchemaField, nextValue: FieldNextValue) => {
+    const currentAnswers = latestValueRef.current;
+    const resolvedValue = isFieldValueUpdater(nextValue)
+      ? nextValue(currentAnswers[field.key])
+      : nextValue;
+    const nextAnswers = { ...currentAnswers, [field.key]: resolvedValue };
+
+    latestValueRef.current = nextAnswers;
+    onChange(nextAnswers);
   };
 
   return (
