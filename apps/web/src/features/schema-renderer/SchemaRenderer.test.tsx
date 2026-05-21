@@ -40,6 +40,22 @@ describe('SchemaRenderer', () => {
     expect(screen.getByText('请总结这段内容')).toBeInTheDocument();
   });
 
+  it('show_item 单字段为空时保留暂无内容占位', () => {
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          { key: 'material', type: 'show_item', label: '题目', sourceKey: 'prompt' },
+        ])}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('暂无内容')).toBeInTheDocument();
+  });
+
   it('qa_quality 官方示例展示 prompt、model_answer 和 reference', () => {
     render(
       <SchemaRenderer
@@ -81,6 +97,8 @@ describe('SchemaRenderer', () => {
     );
 
     expect(screen.getByText('纯文本题目')).toBeInTheDocument();
+    expect(screen.queryByText('媒体类型')).not.toBeInTheDocument();
+    expect(screen.queryByText('text')).not.toBeInTheDocument();
 
     rerender(
       <SchemaRenderer
@@ -137,6 +155,98 @@ describe('SchemaRenderer', () => {
     expect(screen.getByText('标题')).toBeInTheDocument();
     expect(screen.getByText('要点一')).toBeInTheDocument();
     expect(screen.getByText('要点二')).toBeInTheDocument();
+  });
+
+  it('show_item 仅在当前字段配置媒体 sourceKeys 时渲染媒体', () => {
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          { key: 'prompt_only', type: 'show_item', label: '纯题目', sourceKey: 'prompt' },
+        ])}
+        rawData={{
+          prompt: '这张图片不属于当前展示项',
+          media_type: 'image',
+          media_url: 'https://example.test/leaked.png',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('这张图片不属于当前展示项')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: '题目媒体' })).not.toBeInTheDocument();
+  });
+
+  it('show_item 在媒体无法消费时回退显示原始媒体链接', () => {
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'material',
+            type: 'show_item',
+            label: '题目物料',
+            sourceKeys: ['prompt', 'media_type', 'media_url'],
+          },
+        ])}
+        rawData={{
+          prompt: '未知媒体类型',
+          media_type: 'audio',
+          media_url: 'https://example.test/audio.mp3',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('未知媒体类型')).toBeInTheDocument();
+    expect(screen.queryByText('媒体类型')).not.toBeInTheDocument();
+    expect(screen.getByText('媒体链接')).toBeInTheDocument();
+    expect(screen.getByText('https://example.test/audio.mp3')).toBeInTheDocument();
+  });
+
+  it('show_item markdown 渲染图片、链接并保持文本安全', () => {
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'material',
+            type: 'show_item',
+            label: 'Markdown 物料',
+            sourceKeys: ['media_type', 'content_markdown'],
+          },
+        ])}
+        rawData={{
+          media_type: 'markdown',
+          content_markdown:
+            '![流程图](data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E)\n\n[查看规则](https://example.com/rules)\n\n<script>alert(1)</script>',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('img', { name: '流程图' })).toHaveAttribute(
+      'src',
+      expect.stringContaining('data:image/svg+xml'),
+    );
+    expect(screen.getByRole('link', { name: '查看规则' })).toHaveAttribute(
+      'href',
+      'https://example.com/rules',
+    );
+    expect(screen.getByText('<script>alert(1)</script>')).toBeInTheDocument();
+  });
+
+  it('官方媒体示例使用稳定可加载资源地址', () => {
+    const imageSample = qaQualityRawDataSamples.find((sample) => sample.media_type === 'image');
+    const videoSample = qaQualityRawDataSamples.find((sample) => sample.media_type === 'video');
+
+    expect(imageSample?.media_url).toMatch(/^data:image\/svg\+xml/);
+    expect(videoSample?.media_url).toBe(
+      'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+    );
   });
 
   it('preference_compare 官方示例并排展示 response_a 与 response_b 并显示 prompt', () => {

@@ -439,6 +439,24 @@ p {
   margin: 0;
 }
 
+.schema-field__markdown img {
+  max-width: 100%;
+  border: 1px solid #d8d5ce;
+  border-radius: 8px;
+  background: #f1eee7;
+}
+
+.schema-field__markdown a {
+  color: #6d4e1f;
+  font-weight: 800;
+}
+
+.schema-field__markdown code {
+  border-radius: 4px;
+  padding: 2px 4px;
+  background: #ebe7de;
+}
+
 .schema-field__file-preview {
   display: grid;
   gap: 4px;
