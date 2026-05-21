@@ -132,11 +132,11 @@ export const useSession = () => {
   );
 };
 
-const isStoredSession = (value: Partial<SessionState>): value is SessionState => {
+function isStoredSession(value: Partial<SessionState>): value is SessionState {
   return (
     typeof value.token === 'string' &&
     typeof value.user?.id === 'string' &&
     typeof value.user?.name === 'string' &&
     isUserRole(value.user?.role)
   );
-};
+}

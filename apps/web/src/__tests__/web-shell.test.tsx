@@ -116,4 +116,24 @@ describe('Web 路由守卫', () => {
     expect(freshSessionStore.getSnapshot()).toBeNull();
     expect(window.localStorage.getItem('labelhub.session.v1')).toBeNull();
   });
+
+  it('恢复结构有效的本地会话', async () => {
+    vi.resetModules();
+    window.localStorage.setItem(
+      'labelhub.session.v1',
+      JSON.stringify({
+        token: 'mock-token-labeler',
+        user: {
+          id: 'demo-labeler',
+          name: 'Labeler 演示账号',
+          role: 'LABELER',
+        },
+      }),
+    );
+
+    const { sessionStore: freshSessionStore } = await import('../stores/sessionStore');
+
+    expect(freshSessionStore.getSnapshot()?.user.role).toBe('LABELER');
+    expect(window.localStorage.getItem('labelhub.session.v1')).not.toBeNull();
+  });
 });
