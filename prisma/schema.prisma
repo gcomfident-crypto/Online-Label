@@ -13,10 +13,280 @@ enum UserRole {
   REVIEWER
 }
 
+enum TaskStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  ENDED
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  IN_PROGRESS
+  SUBMITTED
+  CANCELLED
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  AI_QUEUED
+  AI_REVIEWING
+  AI_PASSED
+  AI_REJECTED
+  AI_MANUAL
+  HUMAN_PENDING
+  RECHECK_REVIEWING
+  RECHECK_APPROVED
+  RECHECK_REJECTED
+  RECHECK_REVISED_APPROVED
+  FINAL_PENDING
+  FINAL_REVIEWING
+  FINAL_APPROVED
+  FINAL_REJECTED
+  NEEDS_REVISION
+}
+
+enum ReviewStage {
+  AI_PRECHECK
+  INITIAL
+  RECHECK
+  FINAL
+}
+
+enum ExportStatus {
+  QUEUED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+enum DatasetKind {
+  qa_quality
+  preference_compare
+  generic_json
+}
+
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  role      UserRole
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String         @id @default(cuid())
+  name               String
+  role               UserRole
+  createdTasks       Task[]         @relation("TaskCreator")
+  createdTemplates   TaskTemplate[] @relation("TaskTemplateCreator")
+  assignments        Assignment[]   @relation("AssignmentAssignee")
+  drafts             Draft[]        @relation("DraftAuthor")
+  submissions        Submission[]   @relation("SubmissionAuthor")
+  createdReviewRules ReviewRule[]   @relation("ReviewRuleCreator")
+  reviewRecords      ReviewRecord[] @relation("ReviewRecordReviewer")
+  auditLogs          AuditLog[]     @relation("AuditActor")
+  exportJobs         ExportJob[]    @relation("ExportJobRequester")
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@map("users")
+}
+
+model TaskTemplate {
+  id            String      @id @default(cuid())
+  name          String
+  description   String?
+  datasetKind   DatasetKind
+  schemaVersion String
+  schema        Json
+  createdById   String?
+  createdBy     User?       @relation("TaskTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  tasks         Task[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([datasetKind])
+  @@map("task_templates")
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus   @default(DRAFT)
+  templateId  String
+  template    TaskTemplate @relation(fields: [templateId], references: [id])
+  createdById String?
+  createdBy   User?        @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  items       TaskItem[]
+  assignments Assignment[]
+  reviewRules ReviewRule[]
+  auditLogs   AuditLog[]
+  exportJobs  ExportJob[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([status])
+  @@index([templateId])
+  @@map("tasks")
+}
+
+model TaskItem {
+  id          String       @id @default(cuid())
+  taskId      String
+  task        Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  externalId  String
+  datasetKind DatasetKind
+  rawData     Json
+  sortOrder   Int          @default(0)
+  assignments Assignment[]
+  drafts      Draft[]
+  submissions Submission[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([taskId, externalId])
+  @@index([datasetKind])
+  @@map("task_items")
+}
+
+model Assignment {
+  id          String           @id @default(cuid())
+  taskId      String
+  task        Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskItemId  String
+  taskItem    TaskItem         @relation(fields: [taskItemId], references: [id], onDelete: Cascade)
+  assigneeId  String
+  assignee    User             @relation("AssignmentAssignee", fields: [assigneeId], references: [id])
+  status      AssignmentStatus @default(ASSIGNED)
+  drafts      Draft[]
+  submissions Submission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([taskItemId, assigneeId])
+  @@index([taskId])
+  @@index([assigneeId])
+  @@index([status])
+  @@map("assignments")
+}
+
+model Draft {
+  id            String     @id @default(cuid())
+  assignmentId  String
+  assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  taskItemId    String
+  taskItem      TaskItem   @relation(fields: [taskItemId], references: [id], onDelete: Cascade)
+  authorId      String
+  author        User       @relation("DraftAuthor", fields: [authorId], references: [id])
+  answers       Json
+  schemaVersion String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([assignmentId])
+  @@index([taskItemId])
+  @@index([authorId])
+  @@map("drafts")
+}
+
+model Submission {
+  id            String           @id @default(cuid())
+  assignmentId  String
+  assignment    Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  taskItemId    String
+  taskItem      TaskItem         @relation(fields: [taskItemId], references: [id], onDelete: Cascade)
+  authorId      String
+  author        User             @relation("SubmissionAuthor", fields: [authorId], references: [id])
+  status        SubmissionStatus @default(SUBMITTED)
+  answers       Json
+  schemaVersion String
+  submittedAt   DateTime         @default(now())
+  reviewRecords ReviewRecord[]
+  auditLogs     AuditLog[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([assignmentId])
+  @@index([taskItemId])
+  @@index([authorId])
+  @@index([status])
+  @@map("submissions")
+}
+
+model ReviewRule {
+  id            String         @id @default(cuid())
+  taskId        String
+  task          Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  stage         ReviewStage
+  name          String
+  prompt        String
+  config        Json?
+  enabled       Boolean        @default(true)
+  createdById   String?
+  createdBy     User?          @relation("ReviewRuleCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewRecords ReviewRecord[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([taskId])
+  @@index([stage])
+  @@map("review_rules")
+}
+
+model ReviewRecord {
+  id           String      @id @default(cuid())
+  submissionId String
+  submission   Submission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  ruleId       String?
+  rule         ReviewRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  stage        ReviewStage
+  reviewerId   String?
+  reviewer     User?       @relation("ReviewRecordReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  scores       Json
+  decision     String?
+  rawPrompt    String?
+  rawOutput    String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([submissionId])
+  @@index([ruleId])
+  @@index([stage])
+  @@map("review_records")
+}
+
+model AuditLog {
+  id           String      @id @default(cuid())
+  taskId       String?
+  task         Task?       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  submissionId String?
+  submission   Submission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  fromStatus   String?
+  toStatus     String
+  actorId      String?
+  actor        User?       @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  reason       String?
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([taskId])
+  @@index([submissionId])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+model ExportJob {
+  id            String       @id @default(cuid())
+  taskId        String
+  task          Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  requestedById String?
+  requestedBy   User?        @relation("ExportJobRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  status        ExportStatus @default(QUEUED)
+  format        String
+  filters       Json?
+  resultUrl     String?
+  errorMessage  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([taskId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("export_jobs")
 }
