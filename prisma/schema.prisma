@@ -39,6 +39,12 @@ enum AssignmentStatus {
   CANCELLED
 }
 
+enum TaskItemStatus {
+  UNASSIGNED
+  ASSIGNED
+  COMPLETED
+}
+
 enum SubmissionStatus {
   DRAFT
   SUBMITTED
@@ -157,16 +163,17 @@ model Task {
 }
 
 model TaskItem {
-  id          String       @id @default(cuid())
+  id          String         @id @default(cuid())
   taskId      String
-  task        Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task        Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
   externalId  String
   datasetKind DatasetKind
   rawData     Json
-  sortOrder   Int          @default(0)
+  status      TaskItemStatus @default(UNASSIGNED)
+  sortOrder   Int            @default(0)
   assignments Assignment[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   @@unique([id, taskId])
   @@unique([taskId, externalId])
@@ -183,6 +190,7 @@ model Assignment {
   assigneeId  String
   assignee    User             @relation("AssignmentAssignee", fields: [assigneeId], references: [id])
   status      AssignmentStatus @default(ASSIGNED)
+  claimedAt   DateTime         @default(now())
   drafts      Draft[]
   submissions Submission[]
   createdAt   DateTime         @default(now())

@@ -101,8 +101,12 @@ describe('Prisma schema', () => {
   });
 
   it('keeps dataset identity and submission schema snapshots', () => {
+    expect(enumValues('TaskItemStatus')).toEqual(['UNASSIGNED', 'ASSIGNED', 'COMPLETED']);
     expect(modelBlock('TaskItem')).toMatch(/\bexternalId\s+String\b/);
     expect(modelBlock('TaskItem')).toMatch(/\bdatasetKind\s+DatasetKind\b/);
+    expect(modelBlock('TaskItem')).toMatch(
+      /\bstatus\s+TaskItemStatus\s+@default\(UNASSIGNED\)/,
+    );
     expect(modelBlock('Submission')).toMatch(/\bschemaVersion\s+String\b/);
     expect(modelBlock('Submission')).toMatch(/\bround\s+Int\b/);
     expect(modelBlock('Submission')).toMatch(
@@ -123,6 +127,7 @@ describe('Prisma schema', () => {
 
   it('ties assignment task items to the same task through a compound relation', () => {
     expect(modelBlock('TaskItem')).toMatch(/@@unique\(\[id, taskId\]\)/);
+    expect(modelBlock('Assignment')).toMatch(/\bclaimedAt\s+DateTime\s+@default\(now\(\)\)/);
     expect(modelBlock('Assignment')).toMatch(
       /taskItem\s+TaskItem\s+@relation\(fields: \[taskItemId, taskId\], references: \[id, taskId\], onDelete: Cascade\)/,
     );
