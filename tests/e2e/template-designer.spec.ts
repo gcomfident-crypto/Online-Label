@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+const SESSION_KEY = 'labelhub.session.v1';
+
 test('Owner 模板 Designer 支持蓝本载入、属性配置和 Renderer 预览', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => {
@@ -9,7 +11,19 @@ test('Owner 模板 Designer 支持蓝本载入、属性配置和 Renderer 预览
   });
 
   await page.goto('/login');
-  await page.getByRole('button', { name: /Owner 演示账号/ }).click();
+  await page.evaluate((key) => {
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        token: 'mock-token-owner',
+        user: {
+          id: 'demo-owner',
+          name: 'Owner 演示账号',
+          role: 'OWNER',
+        },
+      }),
+    );
+  }, SESSION_KEY);
   await page.goto('/owner/templates');
 
   await expect(page.getByRole('heading', { name: '模板搭建器（Designer）' })).toBeVisible();
