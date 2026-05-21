@@ -9,6 +9,7 @@ export type SchemaValidationError = {
 
 type ValidationContext = {
   hiddenFieldKeys?: ReadonlySet<string>;
+  disabledFieldKeys?: ReadonlySet<string>;
   requiredFieldKeys?: ReadonlySet<string>;
 };
 
@@ -169,11 +170,12 @@ export const validateSchemaAnswers = (
     const fieldKey = getSchemaFieldKey(field);
     const value = answers[fieldKey];
     const hidden = context.hiddenFieldKeys?.has(fieldKey) ?? false;
+    const disabled = context.disabledFieldKeys?.has(fieldKey) ?? false;
     const required = Boolean(
       field.required || field.validation?.required || context.requiredFieldKeys?.has(fieldKey),
     );
 
-    if (hidden && !field.validateWhenHidden) {
+    if ((hidden && !field.validateWhenHidden) || disabled) {
       continue;
     }
 

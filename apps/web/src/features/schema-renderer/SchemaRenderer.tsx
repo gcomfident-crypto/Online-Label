@@ -20,8 +20,28 @@ const areAnswersEqual = (
 
   return (
     leftKeys.length === rightKeys.length &&
-    leftKeys.every((key) => Object.is(left[key], right[key]))
+    leftKeys.every((key) => areAnswerValuesEqual(left[key], right[key]))
   );
+};
+
+const areAnswerValuesEqual = (left: unknown, right: unknown): boolean => {
+  if (Object.is(left, right)) {
+    return true;
+  }
+
+  if (typeof left !== typeof right || left === null || right === null) {
+    return false;
+  }
+
+  if (typeof left !== 'object') {
+    return false;
+  }
+
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return false;
+  }
 };
 
 export const SchemaRenderer = ({
@@ -33,6 +53,7 @@ export const SchemaRenderer = ({
 }: SchemaRendererProps) => {
   const rendererScope = useId();
   const latestValueRef = useRef(value);
+  const lastAutoEmittedAnswersRef = useRef<Record<string, unknown> | null>(null);
   const linkageResult = useMemo(() => applySchemaLinkage(schema, value), [schema, value]);
   const validationErrors = useMemo(
     () => validateSchemaAnswers(schema, linkageResult.answers, linkageResult),
@@ -56,9 +77,25 @@ export const SchemaRenderer = ({
   }, [linkageResult.answers]);
 
   useEffect(() => {
-    if (!areAnswersEqual(value, linkageResult.answers)) {
-      onChange(linkageResult.answers);
+    if (areAnswersEqual(value, linkageResult.answers)) {
+      if (
+        lastAutoEmittedAnswersRef.current &&
+        areAnswersEqual(value, lastAutoEmittedAnswersRef.current)
+      ) {
+        lastAutoEmittedAnswersRef.current = null;
+      }
+      return;
     }
+
+    if (
+      lastAutoEmittedAnswersRef.current &&
+      areAnswersEqual(lastAutoEmittedAnswersRef.current, linkageResult.answers)
+    ) {
+      return;
+    }
+
+    lastAutoEmittedAnswersRef.current = linkageResult.answers;
+    onChange(linkageResult.answers);
   }, [linkageResult.answers, onChange, value]);
 
   const handleFieldChange = (field: SchemaField, nextValue: FieldNextValue) => {

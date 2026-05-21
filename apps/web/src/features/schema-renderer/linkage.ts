@@ -142,12 +142,32 @@ export const applySchemaLinkage = (
   const fields = collectFields(schema.fields);
   const fieldKeys = fields.map(getSchemaFieldKey);
   const descendantsByFieldKey = collectDescendantKeysByFieldKey(schema.fields);
+  const nextAnswers = { ...answers };
+  const rules = collectRules(schema);
+  const setValueRules = rules.filter((rule) => rule.action === 'setValue');
+
+  for (let passIndex = 0; passIndex <= setValueRules.length; passIndex += 1) {
+    let changed = false;
+
+    for (const rule of setValueRules) {
+      if (
+        matchesCondition(nextAnswers, rule) &&
+        !areJsonValuesEqual(nextAnswers[rule.targetFieldKey], rule.value)
+      ) {
+        nextAnswers[rule.targetFieldKey] = rule.value;
+        changed = true;
+      }
+    }
+
+    if (!changed) {
+      break;
+    }
+  }
+
   const visibleFieldKeys = new Set(fieldKeys);
   const hiddenFieldKeys = new Set<string>();
   const requiredFieldKeys = new Set<string>();
   const disabledFieldKeys = new Set<string>();
-  const nextAnswers = { ...answers };
-  const rules = collectRules(schema);
   const showTargetFieldKeys = new Set(
     rules.filter((rule) => rule.action === 'show').map((rule) => rule.targetFieldKey),
   );
@@ -160,7 +180,7 @@ export const applySchemaLinkage = (
   }
 
   for (const rule of rules) {
-    if (!matchesCondition(answers, rule)) {
+    if (!matchesCondition(nextAnswers, rule)) {
       continue;
     }
 
@@ -196,9 +216,6 @@ export const applySchemaLinkage = (
     }
 
     if (rule.action === 'setValue') {
-      if (!areJsonValuesEqual(nextAnswers[rule.targetFieldKey], rule.value)) {
-        nextAnswers[rule.targetFieldKey] = rule.value;
-      }
       applyToFieldKeys(
         getTargetFieldKeys(descendantsByFieldKey, rule.targetFieldKey),
         (targetFieldKey) => disabledFieldKeys.add(targetFieldKey),

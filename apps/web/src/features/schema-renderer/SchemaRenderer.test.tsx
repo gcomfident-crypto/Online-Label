@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { LabelHubSchema } from '@labelhub/shared';
@@ -874,6 +874,90 @@ describe('SchemaRenderer', () => {
     expect(result.disabledFieldKeys.has('reviewTabs')).toBe(true);
     expect(result.disabledFieldKeys.has('note')).toBe(true);
     expect(validateSchemaAnswers(schema, { status: 'hidden' }, result)).toEqual([]);
+  });
+
+  it('链式 setValue 在同一轮联动内完成', () => {
+    const schema = {
+      ...baseSchema([
+        { key: 'a', type: 'text', label: 'A' },
+        { key: 'b', type: 'text', label: 'B' },
+        { key: 'c', type: 'text', label: 'C' },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'a', operator: 'equals', value: 'go' },
+          action: 'setValue',
+          targetFieldKey: 'b',
+          value: 'ready',
+        },
+        {
+          when: { fieldKey: 'b', operator: 'equals', value: 'ready' },
+          action: 'setValue',
+          targetFieldKey: 'c',
+          value: 'done',
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    expect(applySchemaLinkage(schema, { a: 'go' }).answers).toEqual({
+      a: 'go',
+      b: 'ready',
+      c: 'done',
+    });
+  });
+
+  it('禁用字段默认不触发校验错误', () => {
+    const schema = {
+      ...baseSchema([
+        { key: 'status', type: 'text', label: '状态' },
+        { key: 'reason', type: 'text', label: '原因', validation: { required: true } },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'locked' },
+          action: 'disable',
+          targetFieldKey: 'reason',
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    const result = applySchemaLinkage(schema, { status: 'locked' });
+
+    expect(result.disabledFieldKeys.has('reason')).toBe(true);
+    expect(validateSchemaAnswers(schema, { status: 'locked' }, result)).toEqual([]);
+  });
+
+  it('StrictMode 下初始 setValue 联动只回写一次', () => {
+    const onChange = vi.fn();
+    const schema = {
+      ...baseSchema([
+        { key: 'status', type: 'text', label: '状态' },
+        { key: 'score', type: 'text', label: '分数' },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'approved' },
+          action: 'setValue',
+          targetFieldKey: 'score',
+          value: '5',
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    render(
+      <StrictMode>
+        <SchemaRenderer
+          schema={schema}
+          rawData={{}}
+          value={{ status: 'approved' }}
+          mode="answer"
+          onChange={onChange}
+        />
+      </StrictMode>,
+    );
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith({ status: 'approved', score: '5' });
   });
 
   it('Renderer 根据联动隐藏字段、禁用字段、动态必填并写入 setValue', async () => {
