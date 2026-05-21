@@ -62,7 +62,15 @@ const detail = {
     rawPrompt: '请根据 prompt、model_answer 和 answers 评分。',
     rawOutput: '{"verdict":"pass"}',
     structuredOutput: { verdict: 'pass', scores: { overall: 90 } },
-    modelMetadata: { provider: 'mock', model: 'mock-stable-reviewer', latencyMs: 120 },
+    modelMetadata: {
+      provider: 'mock',
+      model: 'mock-stable-reviewer',
+      temperature: 0,
+      promptTokens: 64,
+      completionTokens: 32,
+      totalTokens: 96,
+      latencyMs: 120,
+    },
     retryCount: 0,
     idempotencyKey: 'submission_1:1:ai-review',
     createdAt: '2026-05-21T08:00:02.000Z',
@@ -101,6 +109,8 @@ describe('AiReviewQueuePage', () => {
     expect(screen.getByText('审核 Prompt 模板')).toBeInTheDocument();
     expect(screen.getByText('处理日志 / 审计')).toBeInTheDocument();
     expect(screen.getByText(/如何判断回答质量/)).toBeInTheDocument();
+    expect(screen.getByText('总令牌')).toBeInTheDocument();
+    expect(screen.getByText('96')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '失败' }));
     expect(fetchMock).toHaveBeenLastCalledWith('/ai-review/jobs?status=FAILED_FINAL', expect.objectContaining({ method: 'GET' }));

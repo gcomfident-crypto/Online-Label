@@ -308,6 +308,22 @@ const CommentPanel = ({ detail, job }: { detail: AiReviewDetailDto | null; job: 
         <dt>耗时</dt>
         <dd>{metadataValue(detail?.reviewRecord?.modelMetadata, 'latencyMs') ?? '未记录'}</dd>
       </div>
+      <div>
+        <dt>温度</dt>
+        <dd>{metadataValue(detail?.reviewRecord?.modelMetadata, 'temperature') ?? '未记录'}</dd>
+      </div>
+      <div>
+        <dt>输入令牌</dt>
+        <dd>{metadataValue(detail?.reviewRecord?.modelMetadata, 'promptTokens') ?? '未记录'}</dd>
+      </div>
+      <div>
+        <dt>输出令牌</dt>
+        <dd>{metadataValue(detail?.reviewRecord?.modelMetadata, 'completionTokens') ?? '未记录'}</dd>
+      </div>
+      <div>
+        <dt>总令牌</dt>
+        <dd>{metadataValue(detail?.reviewRecord?.modelMetadata, 'totalTokens') ?? '未记录'}</dd>
+      </div>
     </dl>
   </section>
 );
