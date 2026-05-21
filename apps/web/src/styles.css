@@ -1781,6 +1781,14 @@ p {
   background: #f3f6f8;
 }
 
+.labeler-workbench-page {
+  height: calc(100vh - 116px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .workbench-topline,
 .my-data-header {
   display: flex;
@@ -1810,10 +1818,13 @@ p {
 }
 
 .workbench-layout {
+  min-height: 0;
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: 220px minmax(420px, 1fr) 280px;
   gap: 14px;
   margin-top: 16px;
+  overflow: hidden;
 }
 
 .question-navigator,
@@ -1827,9 +1838,11 @@ p {
 
 .question-navigator,
 .labeler-insight-panel {
-  align-self: start;
+  align-self: stretch;
   display: grid;
+  align-content: start;
   gap: 14px;
+  overflow-y: auto;
   padding: 14px;
 }
 
@@ -1875,6 +1888,7 @@ p {
   display: grid;
   align-content: start;
   gap: 14px;
+  overflow-y: auto;
   padding: 16px;
 }
 
@@ -2009,12 +2023,13 @@ p {
 }
 
 .workbench-footer-actions {
+  flex: 0 0 auto;
   position: sticky;
   bottom: 0;
   z-index: 20;
   align-items: center;
   justify-content: flex-end;
-  margin: 18px -32px -96px;
+  margin: 18px -32px 0;
   border-top: 1px solid #d5dde3;
   padding: 12px 32px;
   background: rgba(255, 255, 255, 0.96);
@@ -2140,6 +2155,19 @@ p {
     padding: 24px;
   }
 
+  .labeler-workbench-page {
+    height: auto;
+    min-height: calc(100vh - 76px);
+    overflow: visible;
+  }
+
+  .workbench-layout,
+  .question-navigator,
+  .workbench-main-panel,
+  .labeler-insight-panel {
+    overflow: visible;
+  }
+
   .portal-sidebar {
     border-right: 0;
     border-bottom: 1px solid #d8d5ce;
@@ -2167,7 +2195,8 @@ p {
   }
 
   .workbench-footer-actions {
-    margin: 18px -24px -24px;
+    position: static;
+    margin: 18px -24px 0;
     padding: 12px 24px;
   }
 }
