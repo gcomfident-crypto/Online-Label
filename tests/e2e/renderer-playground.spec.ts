@@ -32,9 +32,12 @@ test('Renderer 调试台覆盖示例切换、模式切换和 LLM 采纳', async 
   await expect(
     page.getByLabel('Renderer 预览').getByText('卖点关键词为必填项。'),
   ).toBeVisible();
+  await expect(page.getByLabel('调试输出').getByText('卖点关键词为必填项。')).toBeVisible();
   await page.getByLabel('降噪').click();
   await expect(page.getByText(/"keywords":/)).toBeVisible();
 
+  await page.getByRole('button', { name: '预览' }).click();
+  await expect(page.getByLabel('清洗后标题')).toBeEnabled();
   await page.getByRole('button', { name: '复核' }).click();
   await expect(page.getByLabel('清洗后标题')).toBeDisabled();
   await page.getByRole('button', { name: '作答' }).click();
