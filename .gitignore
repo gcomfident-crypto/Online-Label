@@ -1,0 +1,17 @@
+.DS_Store
+
+# 依赖与构建产物
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+
+# 本地环境与密钥
+.env
+env
+docs/labelhub-plan/env
+
+# 本地导出文件
+storage/exports/

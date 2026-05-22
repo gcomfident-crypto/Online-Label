@@ -1,0 +1,1243 @@
+openapi: 3.1.0
+info:
+  title: LabelHub API
+  version: 0.12.0
+  description: LabelHub 本地演示 API，覆盖任务、模板、导入、草稿、提交、AI 审核、人工审核、终审和导出。
+servers:
+  - url: http://localhost:3000
+    description: 本地开发 API
+tags:
+  - name: Auth
+    description: 统一登录和当前用户
+  - name: Tasks
+    description: Owner 任务管理
+  - name: Templates
+    description: 官方模板和 Designer Schema
+  - name: Datasets
+    description: 官方数据导入和题目管理
+  - name: Labeler
+    description: 任务广场、草稿和提交
+  - name: AiReview
+    description: AI 自动预审队列
+  - name: Reviews
+    description: 人工复审、多轮 Diff 和终审
+  - name: Exports
+    description: 终审通过数据导出
+paths:
+  /health:
+    get:
+      tags: [Auth]
+      summary: 健康检查
+      responses:
+        "200":
+          description: 服务可用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: 使用演示角色登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  $ref: "#/components/schemas/UserRole"
+                account:
+                  type: string
+                  enum: [owner, labeler, ai_agent, agent, reviewer]
+      responses:
+        "201":
+          description: 返回 mock token 和角色首页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /me:
+    get:
+      tags: [Auth]
+      summary: 获取当前用户
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 当前用户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /tasks:
+    get:
+      tags: [Tasks]
+      summary: 查询 Owner 任务
+      parameters:
+        - $ref: "#/components/parameters/OwnerId"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/TaskStatus"
+      responses:
+        "200":
+          description: 任务列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+    post:
+      tags: [Tasks]
+      summary: 创建任务草稿
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTask"
+      responses:
+        "201":
+          description: 任务详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /tasks/{id}:
+    get:
+      tags: [Tasks]
+      summary: 获取任务详情
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 任务详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+    patch:
+      tags: [Tasks]
+      summary: 更新任务基础信息
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTask"
+      responses:
+        "200":
+          description: 更新后的任务
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /tasks/{id}/status:
+    patch:
+      tags: [Tasks]
+      summary: 任务状态流转
+      description: 支持草稿发布、暂停、恢复和结束，所有变更写入审计日志。
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: "#/components/schemas/TaskStatus"
+                actorId:
+                  type: string
+                reason:
+                  type: string
+                confirm:
+                  type: boolean
+      responses:
+        "200":
+          description: 更新后的任务
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /tasks/{id}/review-stage-config:
+    patch:
+      tags: [Tasks]
+      summary: 配置审核阶段
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reviewStageConfig:
+                  type: array
+                  items:
+                    type: string
+                    enum: [RECHECK, FINAL]
+                actorId:
+                  type: string
+      responses:
+        "200":
+          description: 更新后的任务
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /tasks/{id}/audit-logs:
+    get:
+      tags: [Tasks]
+      summary: 查询任务审计日志
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 审计日志列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /templates:
+    get:
+      tags: [Templates]
+      summary: 查询模板列表
+      responses:
+        "200":
+          description: 模板列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+    post:
+      tags: [Templates]
+      summary: 创建模板
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateInput"
+      responses:
+        "201":
+          description: 模板详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /templates/from-profile:
+    post:
+      tags: [Templates]
+      summary: 从官方 DatasetProfile 创建模板
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profile:
+                  type: string
+                  enum: [qa_quality, preference_compare, title_cleanup]
+                actorId:
+                  type: string
+      responses:
+        "201":
+          description: 模板详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /templates/{id}:
+    get:
+      tags: [Templates]
+      summary: 获取模板详情
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 模板详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+    patch:
+      tags: [Templates]
+      summary: 更新模板 Schema
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateInput"
+      responses:
+        "200":
+          description: 模板详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /templates/{id}/publish:
+    post:
+      tags: [Templates]
+      summary: 发布模板版本
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                versionName:
+                  type: string
+                actorId:
+                  type: string
+      responses:
+        "201":
+          description: 发布结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /tasks/{taskId}/items/import:
+    post:
+      tags: [Datasets]
+      summary: 导入 JSON、JSONL 或 Excel 题目
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [datasetKind, format]
+              properties:
+                datasetKind:
+                  $ref: "#/components/schemas/DatasetKind"
+                format:
+                  type: string
+                  enum: [json, jsonl, xlsx]
+                fileName:
+                  type: string
+                content:
+                  type: string
+                contentBase64:
+                  type: string
+      responses:
+        "201":
+          description: 导入统计和预览
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /tasks/{taskId}/items/import-zip:
+    post:
+      tags: [Datasets]
+      summary: 导入官方 datasets.zip
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fileName:
+                  type: string
+                contentBase64:
+                  type: string
+      responses:
+        "201":
+          description: zip 导入统计
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /tasks/{taskId}/items:
+    get:
+      tags: [Datasets]
+      summary: 查询任务题目
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: 题目列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /task-items/{id}:
+    patch:
+      tags: [Datasets]
+      summary: 更新题目 rawData 补丁
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rawDataPatch:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: 题目详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /labeler/tasks:
+    get:
+      tags: [Labeler]
+      summary: 查询任务广场
+      parameters:
+        - name: keyword
+          in: query
+          schema:
+            type: string
+        - name: tag
+          in: query
+          schema:
+            type: string
+        - name: claimStatus
+          in: query
+          schema:
+            type: string
+            enum: [available, claimed, full, expired]
+        - name: labelerId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 可领取任务列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /assignments/claim:
+    post:
+      tags: [Labeler]
+      summary: 领取题目
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [taskId]
+              properties:
+                taskId:
+                  type: string
+                labelerId:
+                  type: string
+      responses:
+        "201":
+          description: 领取结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /assignments/{assignmentId}/workbench:
+    get:
+      tags: [Labeler]
+      summary: 查询标注台数据
+      parameters:
+        - $ref: "#/components/parameters/AssignmentId"
+      responses:
+        "200":
+          description: 任务、题目、Schema、草稿和历史
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /drafts/{assignmentId}:
+    get:
+      tags: [Labeler]
+      summary: 查询草稿
+      parameters:
+        - $ref: "#/components/parameters/AssignmentId"
+      responses:
+        "200":
+          description: 草稿或空值
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+    put:
+      tags: [Labeler]
+      summary: 保存草稿
+      parameters:
+        - $ref: "#/components/parameters/AssignmentId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actorId:
+                  type: string
+                answers:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: 草稿详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /submissions:
+    post:
+      tags: [Labeler]
+      summary: 提交标注结果
+      parameters:
+        - name: idempotency-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignmentId, answers]
+              properties:
+                assignmentId:
+                  type: string
+                actorId:
+                  type: string
+                answers:
+                  type: object
+                  additionalProperties: true
+                idempotencyKey:
+                  type: string
+      responses:
+        "201":
+          description: 提交结果，默认进入 AI 预审队列
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /labeler/submissions:
+    get:
+      tags: [Labeler]
+      summary: 查询标注员提交历史
+      parameters:
+        - name: labelerId
+          in: query
+          schema:
+            type: string
+        - name: taskId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/SubmissionStatus"
+        - name: datasetKind
+          in: query
+          schema:
+            $ref: "#/components/schemas/DatasetKind"
+        - name: itemId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 提交历史
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /labeler/stats:
+    get:
+      tags: [Labeler]
+      summary: 查询标注员统计
+      parameters:
+        - name: labelerId
+          in: query
+          schema:
+            type: string
+        - name: taskId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 贡献统计
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /ai-review/jobs:
+    get:
+      tags: [AiReview]
+      summary: 查询 AI 预审队列
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/AiReviewStatus"
+      responses:
+        "200":
+          description: AI 预审任务列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /ai-review/jobs/{id}/retry:
+    post:
+      tags: [AiReview]
+      summary: 重试 AI 预审任务
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "201":
+          description: 更新后的任务
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /submissions/{submissionId}/ai-review:
+    get:
+      tags: [AiReview]
+      summary: 查询某次提交的 AI 预审详情
+      parameters:
+        - $ref: "#/components/parameters/SubmissionId"
+      responses:
+        "200":
+          description: AI 预审详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/pending:
+    get:
+      tags: [Reviews]
+      summary: 查询待人工复审列表
+      parameters:
+        - name: reviewerId
+          in: query
+          schema:
+            type: string
+        - name: aiDecision
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 复审队列
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/results:
+    get:
+      tags: [Reviews]
+      summary: 查询审核结果
+      parameters:
+        - name: verdict
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 审核结果列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/final-pending:
+    get:
+      tags: [Reviews]
+      summary: 查询终审待办
+      responses:
+        "200":
+          description: 终审队列
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/{assignmentId}/rounds:
+    get:
+      tags: [Reviews]
+      summary: 查询同一 assignment 的提交轮次
+      parameters:
+        - $ref: "#/components/parameters/AssignmentId"
+      responses:
+        "200":
+          description: 多轮提交列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/{assignmentId}/diff:
+    get:
+      tags: [Reviews]
+      summary: 查询第 1 / 2 轮 Diff
+      parameters:
+        - $ref: "#/components/parameters/AssignmentId"
+        - name: fromRound
+          in: query
+          schema:
+            type: integer
+        - name: toRound
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 差异详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/{submissionId}:
+    get:
+      tags: [Reviews]
+      summary: 查询复审详情
+      parameters:
+        - $ref: "#/components/parameters/SubmissionId"
+      responses:
+        "200":
+          description: 复审详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/{submissionId}/timeline:
+    get:
+      tags: [Reviews]
+      summary: 查询审计时间线
+      parameters:
+        - $ref: "#/components/parameters/SubmissionId"
+      responses:
+        "200":
+          description: 审计时间线
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/{submissionId}/start:
+    post:
+      tags: [Reviews]
+      summary: 开始人工复审
+      parameters:
+        - $ref: "#/components/parameters/SubmissionId"
+      responses:
+        "201":
+          description: 复审详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/{submissionId}/pass:
+    post:
+      tags: [Reviews]
+      summary: 人工复审通过并进入终审待办
+      parameters:
+        - $ref: "#/components/parameters/SubmissionId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewAction"
+      responses:
+        "201":
+          description: 复审详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/{submissionId}/reject:
+    post:
+      tags: [Reviews]
+      summary: 人工复审打回
+      parameters:
+        - $ref: "#/components/parameters/SubmissionId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                actorId:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        "201":
+          description: 复审详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/{submissionId}/revise-and-pass:
+    post:
+      tags: [Reviews]
+      summary: 人工直接修订并通过
+      parameters:
+        - $ref: "#/components/parameters/SubmissionId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actorId:
+                  type: string
+                comment:
+                  type: string
+                revisedAnswers:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "201":
+          description: 复审详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/{submissionId}/final-pass:
+    post:
+      tags: [Reviews]
+      summary: 终审通过，数据可导出
+      parameters:
+        - $ref: "#/components/parameters/SubmissionId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewAction"
+      responses:
+        "201":
+          description: 终审详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/{submissionId}/final-reject:
+    post:
+      tags: [Reviews]
+      summary: 终审打回
+      parameters:
+        - $ref: "#/components/parameters/SubmissionId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                actorId:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        "201":
+          description: 终审详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/batch-pass:
+    post:
+      tags: [Reviews]
+      summary: 批量复审通过
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchReview"
+      responses:
+        "201":
+          description: 批量结果，包含逐条成功和失败明细
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/batch-reject:
+    post:
+      tags: [Reviews]
+      summary: 批量复审打回
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchReview"
+      responses:
+        "201":
+          description: 批量结果，包含逐条成功和失败明细
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /reviews/assign:
+    post:
+      tags: [Reviews]
+      summary: 批量指派 Reviewer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reviewerId, submissionIds]
+              properties:
+                actorId:
+                  type: string
+                reviewerId:
+                  type: string
+                submissionIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "201":
+          description: 批量结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /tasks/{taskId}/review-rule:
+    get:
+      tags: [AiReview]
+      summary: 查询任务 AI 预审规则
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: 规则详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+    post:
+      tags: [AiReview]
+      summary: 保存任务 AI 预审规则
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                promptTemplate:
+                  type: string
+                provider:
+                  type: string
+                  example: mock
+                model:
+                  type: string
+                passThreshold:
+                  type: number
+                manualThreshold:
+                  type: number
+      responses:
+        "201":
+          description: 规则详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /exports:
+    get:
+      tags: [Exports]
+      summary: 查询导出历史
+      parameters:
+        - name: taskId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 导出历史
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+    post:
+      tags: [Exports]
+      summary: 创建导出任务
+      parameters:
+        - name: idempotency-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [taskId, format, fieldMapping]
+              properties:
+                taskId:
+                  type: string
+                requestedById:
+                  type: string
+                format:
+                  type: string
+                  enum: [json, jsonl, csv, xlsx]
+                includeReviews:
+                  type: boolean
+                fieldMapping:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/FieldMapping"
+                idempotencyKey:
+                  type: string
+      responses:
+        "201":
+          description: 导出任务
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /exports/{id}:
+    get:
+      tags: [Exports]
+      summary: 查询导出详情
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 导出任务
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /exports/{id}/download:
+    get:
+      tags: [Exports]
+      summary: 下载导出文件
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 文件下载
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /exports/{id}/retry:
+    post:
+      tags: [Exports]
+      summary: 重试失败导出
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "201":
+          description: 导出任务
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /tasks/{taskId}/export-preview:
+    get:
+      tags: [Exports]
+      summary: 预览终审通过数据的导出字段映射
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+        - name: includeReviews
+          in: query
+          schema:
+            type: boolean
+        - name: fieldMapping
+          in: query
+          schema:
+            type: string
+            description: JSON 字符串形式的字段映射
+      responses:
+        "200":
+          description: 导出预览，只包含 FINAL_APPROVED 数据
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        type: string
+    AssignmentId:
+      name: assignmentId
+      in: path
+      required: true
+      schema:
+        type: string
+    SubmissionId:
+      name: submissionId
+      in: path
+      required: true
+      schema:
+        type: string
+    OwnerId:
+      name: ownerId
+      in: query
+      schema:
+        type: string
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        data:
+          description: 实际业务响应
+        requestId:
+          type: string
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+        requestId:
+          type: string
+    UserRole:
+      type: string
+      enum: [OWNER, LABELER, AI_AGENT, REVIEWER]
+    DatasetKind:
+      type: string
+      enum: [qa_quality, preference_compare, generic_json]
+    TaskStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, PAUSED, ENDED]
+    SubmissionStatus:
+      type: string
+      enum:
+        - DRAFT
+        - SUBMITTED
+        - AI_QUEUED
+        - AI_REVIEWING
+        - AI_PASSED
+        - AI_REJECTED
+        - AI_MANUAL
+        - HUMAN_PENDING
+        - RECHECK_REVIEWING
+        - RECHECK_APPROVED
+        - RECHECK_REJECTED
+        - RECHECK_REVISED_APPROVED
+        - FINAL_PENDING
+        - FINAL_REVIEWING
+        - FINAL_APPROVED
+        - FINAL_REJECTED
+        - NEEDS_REVISION
+    AiReviewStatus:
+      type: string
+      enum: [QUEUED, RUNNING, SUCCEEDED, FAILED_RETRYING, FAILED_FINAL, MANUAL_FALLBACK]
+    CreateTask:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        richTextInstruction:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        rewardRule:
+          type: string
+        quota:
+          type: integer
+        deadline:
+          type: string
+          format: date-time
+        distributionStrategy:
+          type: string
+          enum: [FIRST_COME_FIRST_SERVE, ASSIGNMENT, QUOTA_RACE]
+        aiPreReviewEnabled:
+          type: boolean
+        aiRuleName:
+          type: string
+        templateId:
+          type: string
+        actorId:
+          type: string
+    TemplateInput:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        datasetKind:
+          $ref: "#/components/schemas/DatasetKind"
+        schema:
+          $ref: "#/components/schemas/LabelHubSchema"
+        actorId:
+          type: string
+    LabelHubSchema:
+      type: object
+      required: [schemaVersion, datasetKind, fields]
+      properties:
+        schemaVersion:
+          type: string
+        datasetKind:
+          $ref: "#/components/schemas/DatasetKind"
+        fields:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    ReviewAction:
+      type: object
+      properties:
+        actorId:
+          type: string
+        comment:
+          type: string
+    BatchReview:
+      type: object
+      required: [submissionIds]
+      properties:
+        actorId:
+          type: string
+        submissionIds:
+          type: array
+          items:
+            type: string
+        comment:
+          type: string
+        reason:
+          type: string
+    FieldMapping:
+      type: object
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+        enabled:
+          type: boolean

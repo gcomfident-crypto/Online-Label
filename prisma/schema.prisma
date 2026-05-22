@@ -1,0 +1,392 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  OWNER
+  LABELER
+  AI_AGENT
+  REVIEWER
+}
+
+enum TaskStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  ENDED
+}
+
+enum TemplateStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum DistributionStrategy {
+  FIRST_COME_FIRST_SERVE
+  ASSIGNMENT
+  QUOTA_RACE
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  IN_PROGRESS
+  SUBMITTED
+  UNDER_RECHECK
+  FINAL_PENDING
+  NEEDS_REVISION
+  CANCELLED
+}
+
+enum TaskItemStatus {
+  UNASSIGNED
+  ASSIGNED
+  COMPLETED
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  AI_QUEUED
+  AI_REVIEWING
+  AI_PASSED
+  AI_REJECTED
+  AI_MANUAL
+  HUMAN_PENDING
+  RECHECK_REVIEWING
+  RECHECK_APPROVED
+  RECHECK_REJECTED
+  RECHECK_REVISED_APPROVED
+  FINAL_PENDING
+  FINAL_REVIEWING
+  FINAL_APPROVED
+  FINAL_REJECTED
+  NEEDS_REVISION
+}
+
+enum ReviewStage {
+  AI_PRECHECK
+  INITIAL
+  RECHECK
+  FINAL
+}
+
+enum AiReviewJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED_RETRYING
+  FAILED_FINAL
+  MANUAL_FALLBACK
+}
+
+enum ExportStatus {
+  QUEUED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+enum ExportFormat {
+  json
+  jsonl
+  csv
+  xlsx
+}
+
+enum DatasetKind {
+  qa_quality
+  preference_compare
+  generic_json
+}
+
+model User {
+  id                 String         @id @default(cuid())
+  name               String
+  role               UserRole
+  createdTasks       Task[]         @relation("TaskCreator")
+  createdTemplates   TaskTemplate[] @relation("TaskTemplateCreator")
+  assignments        Assignment[]   @relation("AssignmentAssignee")
+  createdReviewRules ReviewRule[]   @relation("ReviewRuleCreator")
+  reviewRecords      ReviewRecord[] @relation("ReviewRecordReviewer")
+  assignedReviews    ReviewRecord[] @relation("ReviewRecordAssignee")
+  auditLogs          AuditLog[]     @relation("AuditActor")
+  exportJobs         ExportJob[]    @relation("ExportJobRequester")
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@map("users")
+}
+
+model TaskTemplate {
+  id               String         @id @default(cuid())
+  name             String
+  description      String?
+  datasetKind      DatasetKind
+  schemaVersion    String
+  schema           Json
+  status           TemplateStatus @default(DRAFT)
+  version          Int            @default(0)
+  parentTemplateId String?
+  publishedAt      DateTime?
+  createdById      String?
+  createdBy        User?          @relation("TaskTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  tasks            Task[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([datasetKind])
+  @@index([status])
+  @@index([parentTemplateId])
+  @@map("task_templates")
+}
+
+model Task {
+  id                   String               @id @default(cuid())
+  title                String
+  description          String?
+  richTextInstruction  String?
+  tags                 String[]             @default([])
+  rewardRule           String?
+  quota                Int?
+  deadline             DateTime?
+  distributionStrategy DistributionStrategy @default(FIRST_COME_FIRST_SERVE)
+  aiPreReviewEnabled   Boolean              @default(false)
+  aiRuleName           String?
+  reviewStageConfig    ReviewStage[]        @default([RECHECK, FINAL])
+  status               TaskStatus           @default(DRAFT)
+  templateId           String
+  template             TaskTemplate         @relation(fields: [templateId], references: [id])
+  createdById          String?
+  createdBy            User?                @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  items                TaskItem[]
+  assignments          Assignment[]
+  reviewRules          ReviewRule[]
+  aiReviewJobs         AiReviewJob[]
+  auditLogs            AuditLog[]
+  exportJobs           ExportJob[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([status])
+  @@index([templateId])
+  @@map("tasks")
+}
+
+model TaskItem {
+  id          String         @id @default(cuid())
+  taskId      String
+  task        Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  externalId  String
+  datasetKind DatasetKind
+  rawData     Json
+  status      TaskItemStatus @default(UNASSIGNED)
+  sortOrder   Int            @default(0)
+  assignments Assignment[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([id, taskId])
+  @@unique([taskId, externalId])
+  @@index([datasetKind])
+  @@map("task_items")
+}
+
+model Assignment {
+  id          String           @id @default(cuid())
+  taskId      String
+  task        Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskItemId  String
+  taskItem    TaskItem         @relation(fields: [taskItemId, taskId], references: [id, taskId], onDelete: Cascade)
+  assigneeId  String
+  assignee    User             @relation("AssignmentAssignee", fields: [assigneeId], references: [id])
+  status      AssignmentStatus @default(ASSIGNED)
+  claimedAt   DateTime         @default(now())
+  drafts      Draft[]
+  submissions Submission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([taskItemId, assigneeId])
+  @@index([taskId])
+  @@index([assigneeId])
+  @@index([status])
+  @@map("assignments")
+}
+
+model Draft {
+  id            String     @id @default(cuid())
+  assignmentId  String
+  assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  answers       Json
+  schemaVersion String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([assignmentId])
+  @@map("drafts")
+}
+
+model Submission {
+  id            String           @id @default(cuid())
+  assignmentId  String
+  assignment    Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  status        SubmissionStatus @default(SUBMITTED)
+  round         Int
+  answers       Json
+  schemaVersion String
+  idempotencyKey String?
+  submittedAt   DateTime         @default(now())
+  reviewRecords ReviewRecord[]
+  aiReviewJobs  AiReviewJob[]
+  auditLogs     AuditLog[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([assignmentId, round])
+  @@unique([idempotencyKey])
+  @@index([assignmentId])
+  @@index([status])
+  @@map("submissions")
+}
+
+model ReviewRule {
+  id               String         @id @default(cuid())
+  taskId           String
+  task             Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  stage            ReviewStage    @default(AI_PRECHECK)
+  name             String
+  promptTemplate   String
+  promptVersion    Int            @default(1)
+  dimensions       Json
+  dimensionVersion Int            @default(1)
+  passThreshold    Int            @default(80)
+  manualThreshold  Int            @default(60)
+  provider         String         @default("mock")
+  model            String         @default("mock-stable-reviewer")
+  temperature      Float          @default(0)
+  config           Json?
+  enabled          Boolean        @default(true)
+  createdById      String?
+  createdBy        User?          @relation("ReviewRuleCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewRecords    ReviewRecord[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([taskId])
+  @@index([stage])
+  @@map("review_rules")
+}
+
+model ReviewRecord {
+  id               String      @id @default(cuid())
+  submissionId     String
+  submission       Submission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  ruleId           String?
+  rule             ReviewRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  stage            ReviewStage
+  reviewerId       String?
+  reviewer         User?       @relation("ReviewRecordReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  assignedReviewerId String?
+  assignedReviewer User?       @relation("ReviewRecordAssignee", fields: [assignedReviewerId], references: [id], onDelete: SetNull)
+  reviewerType     String      @default("AI")
+  scores           Json
+  decision         String?
+  comment          String?
+  revisedAnswers   Json?
+  rawPrompt        String?
+  rawOutput        String?
+  structuredOutput Json?
+  modelMetadata    Json?
+  retryCount       Int         @default(0)
+  idempotencyKey   String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([idempotencyKey])
+  @@index([submissionId])
+  @@index([ruleId])
+  @@index([stage])
+  @@index([assignedReviewerId])
+  @@map("review_records")
+}
+
+model AiReviewJob {
+  id                   String            @id @default(cuid())
+  submissionId         String
+  submission           Submission        @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  taskId               String
+  task                 Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  round                Int
+  idempotencyKey       String
+  status               AiReviewJobStatus @default(QUEUED)
+  attempts             Int               @default(0)
+  maxAttempts          Int               @default(3)
+  structuredOutputMode String?
+  provider             String?
+  model                String?
+  lastError            String?
+  logs                 Json?
+  queuedAt             DateTime          @default(now())
+  startedAt            DateTime?
+  finishedAt           DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@unique([idempotencyKey])
+  @@index([submissionId])
+  @@index([taskId])
+  @@index([status])
+  @@map("ai_review_jobs")
+}
+
+model AuditLog {
+  id           String      @id @default(cuid())
+  taskId       String?
+  task         Task?       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  submissionId String?
+  submission   Submission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  fromStatus   String?
+  toStatus     String
+  actorId      String?
+  actor        User?       @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  reason       String?
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([taskId])
+  @@index([submissionId])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+model ExportJob {
+  id             String       @id @default(cuid())
+  taskId         String
+  task           Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  requestedById  String?
+  requestedBy    User?        @relation("ExportJobRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  status         ExportStatus @default(QUEUED)
+  format         ExportFormat
+  idempotencyKey String?
+  fieldMapping   Json
+  includeReviews Boolean      @default(false)
+  filters        Json?
+  filePath       String?
+  resultUrl      String?
+  errorMessage   String?
+  finishedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([idempotencyKey])
+  @@index([taskId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("export_jobs")
+}

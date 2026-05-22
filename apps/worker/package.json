@@ -1,0 +1,19 @@
+{
+  "name": "@labelhub/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "dev:worker": "tsx src/main.ts",
+    "typecheck": "tsc --project tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.4",
+    "vitest": "^3.1.4"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  }
+}

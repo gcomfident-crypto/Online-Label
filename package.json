@@ -1,0 +1,34 @@
+{
+  "name": "labelhub",
+  "version": "0.0.0",
+  "private": true,
+  "description": "LabelHub 全栈标注平台工作区",
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel --if-present dev",
+    "dev:web": "pnpm -r --parallel --if-present dev:web",
+    "dev:api": "pnpm -r --parallel --if-present dev:api",
+    "dev:worker": "pnpm -r --parallel --if-present dev:worker",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "db:seed:demo": "prisma db seed",
+    "demo:reset": "tsx prisma/demo-reset.ts",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "test:e2e": "playwright test",
+    "e2e": "pnpm test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^22.15.21",
+    "dotenv": "^17.4.2",
+    "prisma": "^7.8.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0"
+  }
+}

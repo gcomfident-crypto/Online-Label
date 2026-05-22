@@ -1,0 +1,186 @@
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { TemplateDesignerPage } from './TemplateDesignerPage';
+import { useTemplateDesignerStore } from '../../features/template-designer/templateStore';
+import { titleCleanupSampleSchema } from '@labelhub/shared';
+
+describe('TemplateDesignerPage', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useTemplateDesignerStore.getState().resetDesigner();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('从商品标题清洗 v3 蓝本进入三栏 Designer 并同步属性修改', async () => {
+    const user = userEvent.setup();
+
+    render(<TemplateDesignerPage />);
+
+    expect(screen.getByRole('heading', { name: '模板搭建器（Designer）' })).toBeInTheDocument();
+    expect(screen.getByText('物料')).toBeInTheDocument();
+    expect(screen.getByText('画布')).toBeInTheDocument();
+    expect(screen.getByText('属性配置')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '使用商品标题清洗 v3' }));
+
+    expect(screen.getByText('原始商品标题')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '选择 清洗后标题' }));
+    expect(screen.getByText('属性配置 · cleaned_title')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: '校验' }));
+    await user.clear(screen.getByLabelText('最大长度'));
+    await user.type(screen.getByLabelText('最大长度'), '42');
+    fireEvent.change(screen.getByLabelText('正则'), { target: { value: '^[^#]+$' } });
+    await user.selectOptions(screen.getByLabelText('自定义函数'), 'valid_json');
+
+    const schemaJson = screen.getByRole('region', { name: 'Schema JSON' });
+    expect(schemaJson).toHaveTextContent('"maxLength": 42');
+    expect(schemaJson).toHaveTextContent('"pattern": "^[^#]+$"');
+    expect(schemaJson).toHaveTextContent('"customValidatorKey": "valid_json"');
+
+    await user.click(screen.getByRole('tab', { name: '联动' }));
+    await user.click(screen.getByRole('button', { name: '新增联动规则' }));
+    expect(screen.getByText('条件字段')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '预览' }));
+    const preview = screen.getByRole('region', { name: 'Renderer 预览' });
+    expect(within(preview).getByText('展示项 ShowItem')).toBeInTheDocument();
+    expect(within(preview).getByLabelText('清洗后标题')).toBeInTheDocument();
+  });
+
+  it('能从物料面板添加字段并撤销重做', async () => {
+    const user = userEvent.setup();
+
+    render(<TemplateDesignerPage />);
+
+    await user.click(screen.getByRole('button', { name: '添加单行输入' }));
+    expect(screen.getByRole('button', { name: '选择 单行输入' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '拖拽排序 单行输入' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '撤销' }));
+    expect(screen.queryByRole('button', { name: '选择 单行输入' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '重做' }));
+    expect(screen.getByRole('button', { name: '选择 单行输入' })).toBeInTheDocument();
+  });
+
+  it('能配置上传字段的数量、大小和允许类型', async () => {
+    const user = userEvent.setup();
+
+    render(<TemplateDesignerPage />);
+
+    await user.click(screen.getByRole('button', { name: '添加图片上传' }));
+
+    await user.clear(screen.getByLabelText('文件数量'));
+    await user.type(screen.getByLabelText('文件数量'), '2');
+    await user.clear(screen.getByLabelText('大小上限 MB'));
+    await user.type(screen.getByLabelText('大小上限 MB'), '8');
+    fireEvent.change(screen.getByLabelText('允许类型'), {
+      target: { value: 'image/png\nimage/jpeg' },
+    });
+
+    const schemaJson = screen.getByRole('region', { name: 'Schema JSON' });
+    expect(schemaJson).toHaveTextContent('"maxFiles": 2');
+    expect(schemaJson).toHaveTextContent('"maxSizeMb": 8');
+    expect(schemaJson).toHaveTextContent('"image/png"');
+    expect(schemaJson).toHaveTextContent('"image/jpeg"');
+  });
+
+  it('保存草稿并发布版本时调用模板 API', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            id: 'template_1',
+            name: '商品标题清洗 v3',
+            description: null,
+            datasetKind: 'generic_json',
+            schemaVersion: '1.0.0',
+            schema: titleCleanupSampleSchema,
+            status: 'DRAFT',
+            version: 0,
+            parentTemplateId: null,
+            createdById: null,
+            publishedAt: null,
+            createdAt: '2026-05-21T00:00:00.000Z',
+            updatedAt: '2026-05-21T00:00:00.000Z',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            template: {
+              id: 'template_1',
+              name: '商品标题清洗 v3',
+              description: null,
+              datasetKind: 'generic_json',
+              schemaVersion: 'r1',
+              schema: { ...titleCleanupSampleSchema, schemaVersion: 'r1' },
+              status: 'PUBLISHED',
+              version: 1,
+              parentTemplateId: null,
+              createdById: null,
+              publishedAt: '2026-05-21T00:00:00.000Z',
+              createdAt: '2026-05-21T00:00:00.000Z',
+              updatedAt: '2026-05-21T00:00:00.000Z',
+            },
+            compatibilityReport: {
+              addedFieldKeys: [],
+              removedFieldKeys: [],
+              changedFieldTypes: [],
+              compatible: true,
+              riskMessages: [],
+            },
+          },
+        }),
+      );
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+
+    await user.click(screen.getByRole('button', { name: '使用商品标题清洗 v3' }));
+    await user.click(screen.getByRole('button', { name: '保存并发布版本 r1' }));
+
+    expect(await screen.findByText('模板已发布为 r1。')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/templates',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/templates/template_1/publish',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('刷新后恢复最近保存的草稿 Schema', async () => {
+    localStorage.setItem(
+      'labelhub.templateDesignerDraft',
+      JSON.stringify({
+        templateId: 'template_1',
+        version: 0,
+        schema: titleCleanupSampleSchema,
+      }),
+    );
+
+    render(<TemplateDesignerPage />);
+
+    expect(await screen.findByText('原始商品标题')).toBeInTheDocument();
+  });
+});
+
+const jsonResponse = (body: unknown): Response =>
+  ({
+    ok: true,
+    json: async () => body,
+  }) as Response;

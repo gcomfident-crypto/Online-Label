@@ -1,0 +1,111 @@
+import { Body, Controller, Get, Headers, Inject, Param, Post, Query, Res } from '@nestjs/common';
+
+import { resolveIdempotencyKey } from '../common/idempotency/idempotency-key.ts';
+import {
+  ExportsService,
+  type CreateExportInput,
+  type ExportJobDto,
+  type ExportPreviewDto,
+  type ExportPreviewInput,
+} from './exports.service.ts';
+
+type CreateExportDto = {
+  taskId?: unknown;
+  requestedById?: unknown;
+  format?: unknown;
+  includeReviews?: unknown;
+  fieldMapping?: unknown;
+  idempotencyKey?: unknown;
+};
+
+type ExportDownloadResponse = {
+  download: (filePath: string, fileName: string) => void;
+};
+
+@Controller()
+export class ExportsController {
+  constructor(
+    @Inject(ExportsService)
+    private readonly exportsService: Pick<
+      ExportsService,
+      'createExport' | 'listExports' | 'getExport' | 'downloadExport' | 'retryExport' | 'previewTaskExport'
+    >,
+  ) {}
+
+  @Post('exports')
+  create(
+    @Body() body: CreateExportDto = {},
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ): Promise<ExportJobDto> {
+    return this.exportsService.createExport(normalizeCreateBody(body, idempotencyKey));
+  }
+
+  @Get('exports')
+  list(@Query('taskId') taskId?: string): Promise<ExportJobDto[]> {
+    return this.exportsService.listExports({
+      ...(stringValue(taskId) ? { taskId: stringValue(taskId) } : {}),
+    });
+  }
+
+  @Get('exports/:id')
+  get(@Param('id') id: string): Promise<ExportJobDto> {
+    return this.exportsService.getExport(id);
+  }
+
+  @Get('exports/:id/download')
+  async download(@Param('id') id: string, @Res() response: ExportDownloadResponse): Promise<void> {
+    const download = await this.exportsService.downloadExport(id);
+    response.download(download.filePath, download.fileName);
+  }
+
+  @Post('exports/:id/retry')
+  retry(@Param('id') id: string): Promise<ExportJobDto> {
+    return this.exportsService.retryExport(id);
+  }
+
+  @Get('tasks/:taskId/export-preview')
+  preview(
+    @Param('taskId') taskId: string,
+    @Query('includeReviews') includeReviews?: string,
+    @Query('fieldMapping') fieldMapping?: string,
+  ): Promise<ExportPreviewDto> {
+    return this.exportsService.previewTaskExport(taskId, normalizePreviewQuery(includeReviews, fieldMapping));
+  }
+}
+
+function normalizeCreateBody(body: CreateExportDto, headerIdempotencyKey?: string): CreateExportInput {
+  return {
+    taskId: stringValue(body.taskId) ?? '',
+    requestedById: stringValue(body.requestedById),
+    format: stringValue(body.format) ?? 'json',
+    includeReviews: body.includeReviews === true,
+    fieldMapping: body.fieldMapping,
+    idempotencyKey: resolveIdempotencyKey({
+      headerValue: headerIdempotencyKey,
+      bodyValue: body.idempotencyKey,
+    }),
+  };
+}
+
+function normalizePreviewQuery(includeReviews?: unknown, fieldMapping?: unknown): ExportPreviewInput {
+  return {
+    includeReviews: includeReviews === true || includeReviews === 'true',
+    fieldMapping: parseFieldMapping(fieldMapping),
+  };
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function parseFieldMapping(value: unknown): unknown {
+  if (typeof value !== 'string' || !value.trim()) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return undefined;
+  }
+}

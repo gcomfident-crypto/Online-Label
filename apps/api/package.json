@@ -1,0 +1,33 @@
+{
+  "name": "@labelhub/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "dev:api": "tsx watch src/main.ts",
+    "pretypecheck": "pnpm --dir ../.. prisma:generate",
+    "typecheck": "tsc --project tsconfig.json",
+    "pretest": "pnpm --dir ../.. prisma:generate",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@labelhub/shared": "workspace:*",
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "exceljs": "^4.4.0",
+    "jszip": "^3.10.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.1.0",
+    "@types/supertest": "^6.0.3",
+    "supertest": "^7.1.1",
+    "tsx": "^4.19.4",
+    "vitest": "^3.1.4"
+  }
+}
