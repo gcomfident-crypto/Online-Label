@@ -1,4 +1,5 @@
 import type { DatasetKind, LabelHubSchema } from '@labelhub/shared';
+import { requestApi } from './request';
 
 export type AssignmentStatus =
   | 'ASSIGNED'
@@ -6,6 +7,7 @@ export type AssignmentStatus =
   | 'SUBMITTED'
   | 'UNDER_RECHECK'
   | 'FINAL_PENDING'
+  | 'FINAL_APPROVED'
   | 'NEEDS_REVISION'
   | 'CANCELLED';
 export type TaskItemStatus = 'UNASSIGNED' | 'ASSIGNED' | 'COMPLETED';
@@ -66,21 +68,16 @@ export type WorkbenchDto = {
     schemaVersion: string;
     submittedAt: string;
     reviewRecords: Array<{
+      stage?: string;
+      reviewerType?: string;
+      assignedReviewerId?: string | null;
       decision: string | null;
+      comment?: string | null;
       scores: Record<string, unknown>;
       createdAt: string;
     }>;
   }>;
 };
-
-type ApiEnvelope<TData> = {
-  data: TData;
-  error?: {
-    message?: string;
-  };
-};
-
-const apiBaseUrl = (): string => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
 
 export async function getAssignmentWorkbench(assignmentId: string): Promise<WorkbenchDto> {
   return requestDraftApi<WorkbenchDto>(`/assignments/${assignmentId}/workbench`, { method: 'GET' });
@@ -101,18 +98,5 @@ export async function saveDraft(
 }
 
 async function requestDraftApi<TData>(path: string, init: RequestInit): Promise<TData> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  const envelope = (await response.json()) as ApiEnvelope<TData>;
-
-  if (!response.ok) {
-    throw new Error(envelope.error?.message ?? '草稿接口请求失败，请稍后重试。');
-  }
-
-  return envelope.data;
+  return requestApi<TData>(path, init, '草稿接口请求失败，请稍后重试。');
 }

@@ -4,17 +4,29 @@ import { DATASET_KINDS, type DatasetKind } from '@labelhub/shared';
 import { resolveIdempotencyKey } from '../common/idempotency/idempotency-key.ts';
 import {
   SubmissionsService,
+  type LabelerAssignmentDto,
   type LabelerStatsDto,
   type LabelerSubmissionDto,
   type LabelerSubmissionQuery,
   type SubmissionDto,
   type SubmitInput,
+  type SubmitTaskInput,
+  type TaskSubmissionDto,
 } from './submissions.service.ts';
 
 type SubmitBody = {
   assignmentId?: unknown;
   actorId?: unknown;
   answers?: unknown;
+  idempotencyKey?: unknown;
+};
+
+type SubmitTaskBody = {
+  taskId?: unknown;
+  labelerId?: unknown;
+  actorId?: unknown;
+  currentAssignmentId?: unknown;
+  currentAnswers?: unknown;
   idempotencyKey?: unknown;
 };
 
@@ -26,7 +38,7 @@ export class SubmissionsController {
     @Inject(SubmissionsService)
     private readonly submissionsService: Pick<
       SubmissionsService,
-      'submit' | 'listLabelerSubmissions' | 'getLabelerStats'
+      'submit' | 'submitTask' | 'listLabelerAssignments' | 'listLabelerSubmissions' | 'getLabelerStats'
     >,
   ) {}
 
@@ -36,6 +48,14 @@ export class SubmissionsController {
     @Headers('idempotency-key') idempotencyKey?: string,
   ): Promise<SubmissionDto> {
     return this.submissionsService.submit(normalizeSubmitBody(body, idempotencyKey));
+  }
+
+  @Post('submissions/task')
+  submitTask(
+    @Body() body: SubmitTaskBody,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ): Promise<TaskSubmissionDto> {
+    return this.submissionsService.submitTask(normalizeSubmitTaskBody(body, idempotencyKey));
   }
 
   @Get('labeler/submissions')
@@ -49,6 +69,17 @@ export class SubmissionsController {
     return this.submissionsService.listLabelerSubmissions(
       normalizeLabelerSubmissionQuery(labelerId, taskId, status, datasetKind, itemId),
     );
+  }
+
+  @Get('labeler/assignments')
+  listLabelerAssignments(
+    @Query('labelerId') labelerId?: string,
+    @Query('taskId') taskId?: string,
+  ): Promise<LabelerAssignmentDto[]> {
+    return this.submissionsService.listLabelerAssignments({
+      labelerId: stringValue(labelerId) ?? DEFAULT_LABELER_ID,
+      ...(stringValue(taskId) ? { taskId: stringValue(taskId) } : {}),
+    });
   }
 
   @Get('labeler/stats')
@@ -68,6 +99,20 @@ function normalizeSubmitBody(body: SubmitBody, headerIdempotencyKey?: string): S
     assignmentId: stringValue(body.assignmentId) ?? '',
     actorId: stringValue(body.actorId),
     answers: recordValue(body.answers),
+    idempotencyKey: resolveIdempotencyKey({
+      headerValue: headerIdempotencyKey,
+      bodyValue: body.idempotencyKey,
+    }),
+  };
+}
+
+function normalizeSubmitTaskBody(body: SubmitTaskBody, headerIdempotencyKey?: string): SubmitTaskInput {
+  return {
+    taskId: stringValue(body.taskId) ?? '',
+    labelerId: stringValue(body.labelerId) ?? DEFAULT_LABELER_ID,
+    actorId: stringValue(body.actorId),
+    currentAssignmentId: stringValue(body.currentAssignmentId),
+    currentAnswers: recordValue(body.currentAnswers),
     idempotencyKey: resolveIdempotencyKey({
       headerValue: headerIdempotencyKey,
       bodyValue: body.idempotencyKey,

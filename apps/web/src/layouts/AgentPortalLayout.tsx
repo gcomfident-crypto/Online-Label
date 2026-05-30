@@ -1,46 +1,33 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
-import { ROLE_HOME_METADATA } from '@labelhub/shared';
 import { DemoDataBanner } from '../components/DemoDataBanner';
-import { sessionStore, useSession } from '../stores/sessionStore';
+import { PortalPageTransitionOutlet } from './PortalPageTransitionOutlet';
+import { PortalSidebar } from './PortalSidebar';
+import { PortalTopbar } from './PortalTopbar';
+
+const AGENT_NAV_ITEMS = [
+  { to: '/agent/ai-review', label: '机审队列', parts: ['机', '审', '队', '列'], icon: 'ai-review' },
+];
 
 export const AgentPortalLayout = () => {
-  const navigate = useNavigate();
-  const session = useSession();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   return (
-    <div className="portal-shell agent-shell">
-      <aside className="portal-sidebar">
-        <div className="portal-brand">
-          <span className="brand-mark">LH</span>
-          <div>
-            <strong>AI Agent 工作区</strong>
-            <small>{ROLE_HOME_METADATA.AI_AGENT.routePrefix}</small>
-          </div>
-        </div>
-        <nav className="portal-nav" aria-label="AI Agent 端导航">
-          <NavLink to="/agent/ai-review">机审队列</NavLink>
-        </nav>
-      </aside>
+    <div className={isSidebarCollapsed ? 'portal-shell agent-shell is-sidebar-collapsed' : 'portal-shell agent-shell'}>
+      <PortalTopbar
+        navLabel="AI Agent 端导航"
+        userRoleLabel="AI Agent"
+        links={[]}
+      />
+      <PortalSidebar
+        isCollapsed={isSidebarCollapsed}
+        items={AGENT_NAV_ITEMS}
+        navLabel="AI Agent 端导航"
+        onToggle={() => setIsSidebarCollapsed((current) => !current)}
+      />
       <main className="portal-main">
-        <header className="portal-topbar">
-          <div>
-            <p className="eyebrow">AI Agent 端</p>
-            <strong>{session?.user.name}</strong>
-          </div>
-          <button
-            className="ghost-button"
-            type="button"
-            onClick={() => {
-              sessionStore.clear();
-              navigate('/login', { replace: true });
-            }}
-          >
-            退出登录
-          </button>
-        </header>
         <DemoDataBanner />
-        <Outlet />
+        <PortalPageTransitionOutlet />
       </main>
     </div>
   );

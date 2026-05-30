@@ -19,7 +19,7 @@ describe('中文状态标签', () => {
   it('覆盖任务状态中文标签', () => {
     expect(TASK_STATUS.PUBLISHED).toBe('PUBLISHED');
     expect(Object.values(TASK_STATUS_LABELS)).toEqual(
-      expect.arrayContaining(['草稿', '发布中', '已暂停', '已结束']),
+      expect.arrayContaining(['草稿', '进行中', '已暂停', '已完成']),
     );
   });
 
@@ -35,8 +35,7 @@ describe('中文状态标签', () => {
         '已提交',
         'AI 预审中',
         '待人工复审',
-        '待终审',
-        '终审通过',
+        '已完成',
         '已打回',
       ]),
     );
@@ -56,23 +55,20 @@ describe('中文状态标签', () => {
     );
   });
 
-  it('覆盖人工复审和终审状态中文标签', () => {
+  it('覆盖人工复审状态中文标签', () => {
     expect(HUMAN_REVIEW_STATUS.RECHECK_REVIEWING).toBe('RECHECK_REVIEWING');
-    expect(HUMAN_REVIEW_STATUS.FINAL_REVIEWING).toBe('FINAL_REVIEWING');
     expect(Object.values(HUMAN_REVIEW_STATUS_LABELS)).toEqual(
       expect.arrayContaining([
         '待人工复审',
         '人工复审中',
         '复审通过',
-        '待终审',
-        '终审中',
-        '终审通过',
+        '已完成',
         '已打回',
       ]),
     );
     expect(FINAL_REVIEW_STATUS.FINAL_APPROVED).toBe('FINAL_APPROVED');
     expect(Object.values(FINAL_REVIEW_STATUS_LABELS)).toEqual(
-      expect.arrayContaining(['待终审', '终审中', '终审通过', '已打回']),
+      expect.arrayContaining(['已完成', '已打回']),
     );
   });
 

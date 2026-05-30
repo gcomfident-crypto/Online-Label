@@ -1,47 +1,52 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
-import { ROLE_HOME_METADATA } from '@labelhub/shared';
+import missionSquareIcon from '../assets/mission_square.svg';
+import workbenchIcon from '../assets/workbench.svg';
 import { DemoDataBanner } from '../components/DemoDataBanner';
-import { sessionStore, useSession } from '../stores/sessionStore';
+import { PortalPageTransitionOutlet } from './PortalPageTransitionOutlet';
+import { PortalSidebar } from './PortalSidebar';
+import { PortalTopbar } from './PortalTopbar';
+
+const LABELER_NAV_ITEMS = [
+  {
+    to: '/labeler/market',
+    label: '任务广场',
+    parts: ['任', '务', '广', '场'],
+    icon: 'market',
+    iconAsset: missionSquareIcon,
+  },
+  {
+    to: '/labeler/my-data',
+    label: '工作台',
+    parts: ['工', '作', '台'],
+    icon: 'my-data',
+    iconAsset: workbenchIcon,
+  },
+];
 
 export const LabelerPortalLayout = () => {
-  const navigate = useNavigate();
-  const session = useSession();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   return (
-    <div className="portal-shell labeler-shell">
-      <aside className="portal-sidebar">
-        <div className="portal-brand">
-          <span className="brand-mark">LH</span>
-          <div>
-            <strong>Labeler 工作区</strong>
-            <small>{ROLE_HOME_METADATA.LABELER.routePrefix}</small>
-          </div>
-        </div>
-        <nav className="portal-nav" aria-label="Labeler 端导航">
-          <NavLink to="/labeler/market">任务广场</NavLink>
-          <NavLink to="/labeler/my-data">我的数据</NavLink>
-        </nav>
-      </aside>
+    <div
+      className={
+        isSidebarCollapsed ? 'portal-shell labeler-shell is-sidebar-collapsed' : 'portal-shell labeler-shell'
+      }
+    >
+      <PortalTopbar
+        navLabel="Labeler 端导航"
+        userRoleLabel="Labeler"
+        links={[]}
+      />
+      <PortalSidebar
+        isCollapsed={isSidebarCollapsed}
+        items={LABELER_NAV_ITEMS}
+        navLabel="Labeler 端导航"
+        onToggle={() => setIsSidebarCollapsed((current) => !current)}
+      />
       <main className="portal-main">
-        <header className="portal-topbar">
-          <div>
-            <p className="eyebrow">Labeler 端</p>
-            <strong>{session?.user.name}</strong>
-          </div>
-          <button
-            className="ghost-button"
-            type="button"
-            onClick={() => {
-              sessionStore.clear();
-              navigate('/login', { replace: true });
-            }}
-          >
-            退出登录
-          </button>
-        </header>
         <DemoDataBanner />
-        <Outlet />
+        <PortalPageTransitionOutlet />
       </main>
     </div>
   );

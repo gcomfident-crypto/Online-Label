@@ -10,7 +10,6 @@ export const ForbiddenPage = () => {
   return (
     <main className="system-page">
       <section className="system-panel" aria-labelledby="forbidden-title">
-        <p className="eyebrow">访问被拦截</p>
         <h1 id="forbidden-title">无权限访问</h1>
         <p>当前账号不能访问该端工作区。</p>
         <Link className="primary-link" to={homePath}>

@@ -36,6 +36,8 @@ type SeedTask = {
   richTextInstruction: string;
   tags: string[];
   rewardRule: string;
+  rewardPerItem: number;
+  perUserLimit: number;
   quota: number;
   deadline: Date;
   distributionStrategy: 'FIRST_COME_FIRST_SERVE';
@@ -101,80 +103,18 @@ export function buildSeedData(): SeedData {
     { id: SEED_USER_IDS[3], name: '系统机审账号', role: 'AI_AGENT' },
   ];
 
-  const templates: SeedTemplate[] = [
-    {
-      id: SEED_TEMPLATE_IDS[0],
-      name: '官方问答质量模板',
-      description: '用于评估问答内容事实性、完整性和表达质量的官方模板。',
-      datasetKind: 'qa_quality',
-      schemaVersion: SCHEMA_VERSION,
-      schema: toPrismaJson(createQaQualitySchema()),
-      status: 'PUBLISHED',
-      version: 1,
-      publishedAt: SEED_PUBLISHED_AT,
-      createdById: SEED_USER_IDS[0],
-    },
-    {
-      id: SEED_TEMPLATE_IDS[1],
-      name: '官方偏好对比模板',
-      description: '用于对比两个候选回答并选择更优结果的官方模板。',
-      datasetKind: 'preference_compare',
-      schemaVersion: SCHEMA_VERSION,
-      schema: toPrismaJson(createPreferenceCompareSchema()),
-      status: 'PUBLISHED',
-      version: 1,
-      publishedAt: SEED_PUBLISHED_AT,
-      createdById: SEED_USER_IDS[0],
-    },
-  ];
-
-  const tasks: SeedTask[] = [
-    {
-      id: SEED_TASK_IDS[0],
-      title: '问答质量标注任务',
-      description: '演示用 qa_quality 问答质量标注任务，包含 30 条题目。',
-      richTextInstruction: '请根据参考答案和媒体材料评估回答质量，必要时填写修订建议。',
-      tags: ['问答质量', '官方数据', 'AI 预审'],
-      rewardRule: '0.30 元 / 条',
-      quota: 30,
-      deadline: new Date('2026-06-01T15:59:00.000Z'),
-      distributionStrategy: 'FIRST_COME_FIRST_SERVE',
-      aiPreReviewEnabled: true,
-      aiRuleName: '问答质量 v1',
-      status: 'PUBLISHED',
-      templateId: SEED_TEMPLATE_IDS[0],
-      createdById: SEED_USER_IDS[0],
-    },
-    {
-      id: SEED_TASK_IDS[1],
-      title: '偏好对比标注任务',
-      description: '演示用 preference_compare 偏好对比任务，包含 12 条题目。',
-      richTextInstruction: '请比较 A/B 回答的有用性、准确性和安全性，给出偏好结论。',
-      tags: ['偏好对比', 'A/B', '官方数据'],
-      rewardRule: '0.45 元 / 条',
-      quota: 12,
-      deadline: new Date('2026-06-05T15:59:00.000Z'),
-      distributionStrategy: 'FIRST_COME_FIRST_SERVE',
-      aiPreReviewEnabled: true,
-      aiRuleName: '偏好安全 v1',
-      status: 'PUBLISHED',
-      templateId: SEED_TEMPLATE_IDS[1],
-      createdById: SEED_USER_IDS[0],
-    },
-  ];
-
   return {
     users,
-    templates,
-    tasks,
-    taskItems: [...createQaQualityItems(), ...createPreferenceCompareItems()],
-    reviewRules: createReviewRules(),
-    assignments: createDemoAssignments(),
-    submissions: createDemoSubmissions(),
-    aiReviewJobs: createDemoAiReviewJobs(),
-    reviewRecords: createDemoReviewRecords(),
-    auditLogs: createDemoAuditLogs(),
-    exportJobs: createDemoExportJobs(),
+    templates: [],
+    tasks: [],
+    taskItems: [],
+    reviewRules: [],
+    assignments: [],
+    submissions: [],
+    aiReviewJobs: [],
+    reviewRecords: [],
+    auditLogs: [],
+    exportJobs: [],
   };
 }
 
@@ -219,6 +159,8 @@ export async function seed(prisma = createPrismaClient()): Promise<void> {
         richTextInstruction: task.richTextInstruction,
         tags: task.tags,
         rewardRule: task.rewardRule,
+        rewardPerItem: task.rewardPerItem,
+        perUserLimit: task.perUserLimit,
         quota: task.quota,
         deadline: task.deadline,
         distributionStrategy: task.distributionStrategy,

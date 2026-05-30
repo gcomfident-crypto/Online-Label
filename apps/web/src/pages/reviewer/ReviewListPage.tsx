@@ -1,422 +1,383 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
-import { SUBMISSION_STATUS_LABELS } from '@labelhub/shared';
-import {
-  assignReviews,
-  batchPassReviews,
-  batchRejectReviews,
-  getReview,
-  listPendingReviews,
-  passReview,
-  rejectReview,
-  reviseAndPassReview,
-  startReview,
-  type ReviewDetailDto,
-  type ReviewQueueItemDto,
-} from '../../api/reviews';
-import { EmptyState } from '../../components/EmptyState';
-import { PageLoading } from '../../components/PageLoading';
-import { AiReviewSummary } from '../../features/review/AiReviewSummary';
-import { AuditTimeline } from '../../features/review/AuditTimeline';
-import { BatchReviewToolbar } from '../../features/review/BatchReviewToolbar';
-import { ReviewDecisionPanel } from '../../features/review/ReviewDecisionPanel';
-import { RoundSelector } from '../../features/review/RoundSelector';
+import { TableEmptyState } from '../../components/TableEmptyState';
+import { listPendingReviews, type ReviewQueueItemDto } from '../../api/reviews';
+import { ReviewTaskDetailContent } from './ReviewDetailPage';
 
-const REVIEWER_ID = 'user_reviewer_wang_fang';
+type ManualReviewStage = '初审' | '复审' | '终审';
+type ManualReviewTaskStatus = '复审中' | '终审中' | '已完成';
 
-const AI_DECISION_OPTIONS = [
-  { label: '全部 AI 结论', value: '' },
-  { label: '建议通过', value: 'pass' },
-  { label: '转人工', value: 'manual' },
-  { label: '建议打回', value: 'reject' },
-];
+type ManualReviewTask = {
+  taskId: string;
+  taskName: string;
+  batchNo: string;
+  stage: ManualReviewStage;
+  pendingCount: number;
+  aiPassCount: number;
+  aiRejectCount: number;
+  manualCount: number;
+  reviewerName: string;
+  status: ManualReviewTaskStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+const SHEET_EXIT_ANIMATION_MS = 260;
 
 export const ReviewListPage = () => {
-  const [reviews, setReviews] = useState<ReviewQueueItemDto[]>([]);
-  const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [detail, setDetail] = useState<ReviewDetailDto | null>(null);
-  const [aiDecision, setAiDecision] = useState('');
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [queueItems, setQueueItems] = useState<ReviewQueueItemDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
-  const [isBusy, setIsBusy] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isSheetClosing, setIsSheetClosing] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
 
-  const selectedReview = useMemo(
-    () => reviews.find((review) => review.submissionId === selectedSubmissionId) ?? reviews[0] ?? null,
-    [reviews, selectedSubmissionId],
-  );
-  const selectedIdList = useMemo(() => Array.from(selectedIds), [selectedIds]);
-  const summary = useMemo(
-    () => ({
-      pending: reviews.filter((review) => review.status === 'HUMAN_PENDING').length,
-      reviewing: reviews.filter((review) => review.status === 'RECHECK_REVIEWING').length,
-      manual: reviews.filter((review) => review.aiDecision === 'manual').length,
-      assigned: reviews.filter((review) => review.assignedReviewerId).length,
-    }),
-    [reviews],
+  const tasks = useMemo(() => buildManualReviewTasks(queueItems), [queueItems]);
+
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    },
+    [],
   );
 
   useEffect(() => {
-    void loadReviews();
+    let isMounted = true;
+
+    setIsLoading(true);
+    listPendingReviews()
+      .then((items) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setQueueItems(items);
+        setErrorMessage(null);
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setQueueItems([]);
+        setErrorMessage(error instanceof Error ? error.message : '人工审核任务加载失败。');
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  useEffect(() => {
-    if (!selectedReview) {
-      setDetail(null);
+  const openTask = (taskId: string) => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+
+    setIsSheetClosing(false);
+    setSelectedTaskId(taskId);
+  };
+
+  const closeTaskSheet = () => {
+    if (!selectedTaskId || isSheetClosing || closeTimerRef.current !== null) {
       return;
     }
 
-    setSelectedSubmissionId(selectedReview.submissionId);
-    void loadDetail(selectedReview.submissionId);
-  }, [selectedReview?.submissionId]);
-
-  const loadReviews = async (nextAiDecision = aiDecision) => {
-    setIsLoading(true);
-    try {
-      const nextReviews = await listPendingReviews({
-        ...(nextAiDecision ? { aiDecision: nextAiDecision } : {}),
-      });
-      setReviews(nextReviews);
-      setSelectedSubmissionId((current) =>
-        current && nextReviews.some((review) => review.submissionId === current)
-          ? current
-          : nextReviews[0]?.submissionId ?? null,
-      );
-      setSelectedIds((current) => new Set([...current].filter((id) => nextReviews.some((review) => review.submissionId === id))));
-      setErrorMessage(null);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '人工复审列表加载失败。');
-    } finally {
-      setIsLoading(false);
-    }
+    setIsSheetClosing(true);
+    closeTimerRef.current = window.setTimeout(() => {
+      setSelectedTaskId(null);
+      setIsSheetClosing(false);
+      closeTimerRef.current = null;
+    }, SHEET_EXIT_ANIMATION_MS);
   };
-
-  const loadDetail = async (submissionId: string) => {
-    setIsDetailLoading(true);
-    try {
-      setDetail(await getReview(submissionId));
-      setErrorMessage(null);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '人工复审详情加载失败。');
-    } finally {
-      setIsDetailLoading(false);
-    }
-  };
-
-  const handleAction = async (action: () => Promise<ReviewDetailDto>, message: string) => {
-    setIsBusy(true);
-    try {
-      const nextDetail = await action();
-      setDetail(nextDetail);
-      setStatusMessage(message);
-      setErrorMessage(null);
-      await loadReviews();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '人工复审操作失败。');
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const handleBatchPass = async (comment: string) => {
-    if (selectedIdList.length === 0) {
-      setErrorMessage('请选择需要批量处理的提交。');
-      return;
-    }
-
-    setIsBusy(true);
-    try {
-      const result = await batchPassReviews({
-        actorId: REVIEWER_ID,
-        submissionIds: selectedIdList,
-        ...(comment ? { comment } : {}),
-      });
-      setStatusMessage(`已批量通过 ${result.processedCount.toLocaleString()} 条提交。`);
-      setErrorMessage(null);
-      setSelectedIds(new Set());
-      await loadReviews();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '批量通过失败。');
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const handleBatchReject = async (reason: string) => {
-    if (!reason) {
-      setErrorMessage('批量打回必须填写统一理由。');
-      return;
-    }
-    if (selectedIdList.length === 0) {
-      setErrorMessage('请选择需要批量处理的提交。');
-      return;
-    }
-
-    setIsBusy(true);
-    try {
-      const result = await batchRejectReviews({
-        actorId: REVIEWER_ID,
-        submissionIds: selectedIdList,
-        reason,
-      });
-      setStatusMessage(`已批量打回 ${result.processedCount.toLocaleString()} 条提交。`);
-      setErrorMessage(null);
-      setSelectedIds(new Set());
-      await loadReviews();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '批量打回失败。');
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const handleAssign = async (reviewerId: string) => {
-    if (!reviewerId) {
-      setErrorMessage('指派审核员不能为空。');
-      return;
-    }
-    if (selectedIdList.length === 0) {
-      setErrorMessage('请选择需要指派的提交。');
-      return;
-    }
-
-    setIsBusy(true);
-    try {
-      const result = await assignReviews({
-        actorId: REVIEWER_ID,
-        reviewerId,
-        submissionIds: selectedIdList,
-      });
-      setStatusMessage(`已指派 ${result.processedCount.toLocaleString()} 条提交。`);
-      setErrorMessage(null);
-      await loadReviews();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '指派审核员失败。');
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const toggleSelection = (submissionId: string) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(submissionId)) {
-        next.delete(submissionId);
-      } else {
-        next.add(submissionId);
-      }
-
-      return next;
-    });
-  };
-
-  const selectAll = () => setSelectedIds(new Set(reviews.map((review) => review.submissionId)));
 
   return (
-    <section className="human-review-page" aria-labelledby="human-review-title">
-      <div className="human-review-header">
+    <section className="manual-review-list-page" aria-labelledby="manual-review-list-title">
+      <header className="manual-review-list-header">
         <div>
-          <p className="eyebrow">人工复审 / 工作台</p>
-          <h1 id="human-review-title">人工复审工作台</h1>
-          <p>对 AI 预审后的提交进行复核、打回、直接修订和批量处理。</p>
+          <span>审核任务列表</span>
+          <h1 id="manual-review-list-title">人工审核</h1>
+          <p>按任务聚合展示当前需要人工审核的批次，进入后查看题目明细、AI 预审结果和审计时间线。</p>
         </div>
-        <dl>
-          <SummaryMetric label="待复审" value={summary.pending} />
-          <SummaryMetric label="复审中" value={summary.reviewing} />
-          <SummaryMetric label="转人工" value={summary.manual} />
-          <SummaryMetric label="已指派" value={summary.assigned} />
-        </dl>
-      </div>
+      </header>
 
-      {statusMessage || errorMessage ? (
-        <div className="task-status-message" role={errorMessage ? 'alert' : undefined} aria-live="polite">
-          {statusMessage ? <span>{statusMessage}</span> : null}
-          {errorMessage ? <span>{errorMessage}</span> : null}
+      {errorMessage ? <p role="alert">{errorMessage}</p> : null}
+
+      <div className="task-table-panel manual-review-task-table-panel">
+        <div className="task-table-scroll manual-review-task-table-scroll" data-adaptive-table-viewport="true">
+          <table className="task-table manual-review-task-table" aria-label="人工审核任务列表">
+            <colgroup>
+              <col className="manual-review-task-table__col-task" />
+              <col className="manual-review-task-table__col-stage" />
+              <col className="manual-review-task-table__col-count" />
+              <col className="manual-review-task-table__col-count" />
+              <col className="manual-review-task-table__col-count" />
+              <col className="manual-review-task-table__col-count" />
+              <col className="manual-review-task-table__col-reviewer" />
+              <col className="manual-review-task-table__col-status" />
+              <col className="manual-review-task-table__col-time" />
+              <col className="manual-review-task-table__col-action" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col">任务名称 / 批次</th>
+                <th scope="col">审核阶段</th>
+                <th scope="col">待审核</th>
+                <th scope="col">AI 通过</th>
+                <th scope="col">AI 打回</th>
+                <th scope="col">转人工</th>
+                <th scope="col">处理人</th>
+                <th scope="col">状态</th>
+                <th scope="col">创建 / 更新</th>
+                <th scope="col">操作</th>
+              </tr>
+            </thead>
+            <tbody className="task-table__body">
+              {!isLoading && tasks.length > 0 ? (
+                tasks.map((task) => (
+                  <tr
+                    key={task.taskId}
+                    tabIndex={0}
+                    aria-label={`人工审核任务 ${task.taskName}`}
+                    onClick={(event) => {
+                      if (shouldIgnoreRowOpen(event.target) || hasActiveTextSelection()) {
+                        return;
+                      }
+                      openTask(task.taskId);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') {
+                        return;
+                      }
+                      if (shouldIgnoreRowOpen(event.target)) {
+                        return;
+                      }
+                      event.preventDefault();
+                      openTask(task.taskId);
+                    }}
+                    className={selectedTaskId === task.taskId ? 'is-active' : undefined}
+                  >
+                    <td>
+                      <div className="manual-review-task-title">
+                        <strong>{task.taskName}</strong>
+                        <small>
+                          {task.batchNo} · {task.taskId}
+                        </small>
+                      </div>
+                    </td>
+                    <td>
+                      <StagePill stage={task.stage} />
+                    </td>
+                    <td>
+                      <CountCell value={task.pendingCount} tone="blue" />
+                    </td>
+                    <td>
+                      <CountCell value={task.aiPassCount} tone="green" />
+                    </td>
+                    <td>
+                      <CountCell value={task.aiRejectCount} tone="orange" />
+                    </td>
+                    <td>
+                      <CountCell value={task.manualCount} tone="gray" />
+                    </td>
+                    <td>{task.reviewerName}</td>
+                    <td>
+                      <TaskStatusPill status={task.status} />
+                    </td>
+                    <td>
+                      <span className="manual-review-task-time">
+                        <span>{task.createdAt}</span>
+                        <small>{task.updatedAt}</small>
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        className="manual-review-enter-button"
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openTask(task.taskId);
+                        }}
+                      >
+                        进入审核
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr className="task-table__empty-row">
+                  <td colSpan={10}>
+                    <TableEmptyState
+                      title={isLoading ? '正在加载人工审核任务' : '当前没有任务哦'}
+                      illustrationAlt="空人工审核任务插画"
+                    />
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      ) : null}
-
-      <div className="human-review-layout">
-        <aside className="human-review-queue" aria-label="待复审队列">
-          <div className="human-review-filter">
-            <select
-              aria-label="AI 结论筛选"
-              value={aiDecision}
-              onChange={(event) => setAiDecision(event.target.value)}
-            >
-              {AI_DECISION_OPTIONS.map((option) => (
-                <option key={option.label} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <button type="button" onClick={() => void loadReviews()}>
-              筛选
-            </button>
-          </div>
-          {isLoading && reviews.length === 0 ? (
-            <PageLoading
-              className="page-loading--compact"
-              title="正在加载待复审队列"
-              description="正在同步 AI 结论、轮次和指派状态。"
-            />
-          ) : null}
-          <div className="human-review-list">
-            {reviews.map((review) => (
-              <article key={review.submissionId} className={review.submissionId === selectedReview?.submissionId ? 'is-active' : ''}>
-                <input
-                  type="checkbox"
-                  aria-label={`选择 ${review.externalId}`}
-                  checked={selectedIds.has(review.submissionId)}
-                  onChange={() => toggleSelection(review.submissionId)}
-                />
-                <button type="button" onClick={() => setSelectedSubmissionId(review.submissionId)}>
-                  <strong>任务：{review.taskTitle}</strong>
-                  <span>
-                    {review.externalId} · 第 {review.round} 轮 · {statusLabel(review.status)}
-                  </span>
-                  <em>AI：{review.aiComment ?? decisionLabel(review.aiDecision)}</em>
-                </button>
-              </article>
-            ))}
-          </div>
-          {!isLoading && reviews.length === 0 ? (
-            <EmptyState
-              className="empty-state--compact"
-              title="暂无待复审数据"
-              description="切换 AI 结论筛选或等待 AI 预审入队。"
-            />
-          ) : null}
-        </aside>
-
-        <main className="human-review-main">
-          {detail ? (
-            <>
-              <header className="human-review-main__topline">
-                <div>
-                  <span>{DATASET_KIND_LABELS[detail.task.datasetKind]}</span>
-                  <h2>{detail.task.title}</h2>
-                  <p>
-                    {detail.taskItem.externalId} · {statusLabel(detail.submission.status)} · 第 {detail.submission.round} 轮
-                  </p>
-                </div>
-                <Link className="primary-link" to={`/reviewer/reviews/${detail.submission.id}`}>
-                  打开详情
-                </Link>
-              </header>
-              <div className="human-review-compare">
-                <JsonPanel title="题目原文" subtitle={detail.taskItem.externalId} value={detail.taskItem.rawData} />
-                <JsonPanel title="首次标注" subtitle={detail.submission.schemaVersion} value={detail.submission.answers} />
-              </div>
-              <RoundSelector assignmentId={detail.submission.assignmentId} />
-              <AiReviewSummary
-                record={detail.aiReview}
-                fallbackComment={selectedReview?.aiComment}
-                fallbackScores={selectedReview?.aiScores}
-              />
-              <ReviewDecisionPanel
-                detail={detail}
-                isBusy={isBusy || isDetailLoading}
-                onStart={() =>
-                  void handleAction(
-                    () => startReview(detail.submission.id, { actorId: REVIEWER_ID }),
-                    '已开始人工复审。',
-                  )
-                }
-                onPass={(comment) =>
-                  void handleAction(
-                    () => passReview(detail.submission.id, { actorId: REVIEWER_ID, ...(comment ? { comment } : {}) }),
-                    '已通过复审，进入终审待办。',
-                  )
-                }
-                onReject={(reason) =>
-                  void handleAction(
-                    () => rejectReview(detail.submission.id, { actorId: REVIEWER_ID, reason }),
-                    '已打回给标注员。',
-                  )
-                }
-                onReviseAndPass={(input) =>
-                  void handleAction(
-                    () =>
-                      reviseAndPassReview(detail.submission.id, {
-                        actorId: REVIEWER_ID,
-                        comment: input.comment,
-                        revisedAnswers: input.revisedAnswers,
-                      }),
-                    '已修订并进入终审待办。',
-                  )
-                }
-              />
-            </>
-          ) : (
-            <EmptyState
-              className="empty-state--compact"
-              title="请选择一条待复审提交"
-              description="左侧队列会按 AI 结论、状态和轮次展示。"
-            />
-          )}
-        </main>
-
-        <aside className="human-review-side">
-          <BatchReviewToolbar
-            selectedCount={selectedIds.size}
-            selectedIds={selectedIdList}
-            totalCount={reviews.length}
-            isBusy={isBusy}
-            onSelectAll={selectAll}
-            onClearSelection={() => setSelectedIds(new Set())}
-            onBatchPass={(comment) => void handleBatchPass(comment)}
-            onBatchReject={(reason) => void handleBatchReject(reason)}
-            onAssign={(reviewerId) => void handleAssign(reviewerId)}
-          />
-          {detail ? <AuditTimeline items={detail.timeline} /> : null}
-        </aside>
       </div>
+      <ManualReviewTaskSheetPortal>
+        {selectedTaskId ? (
+          <ManualReviewTaskSheet isClosing={isSheetClosing} taskId={selectedTaskId} onClose={closeTaskSheet} />
+        ) : null}
+      </ManualReviewTaskSheetPortal>
     </section>
   );
 };
 
-const SummaryMetric = ({ label, value }: { label: string; value: number }) => (
-  <div>
-    <dt>{label}</dt>
-    <dd>{value.toLocaleString()}</dd>
-  </div>
-);
-
-const JsonPanel = ({ title, subtitle, value }: { title: string; subtitle: string; value: unknown }) => (
-  <section className="review-panel">
-    <header className="review-panel__heading">
-      <div>
-        <span>{subtitle}</span>
-        <h3>{title}</h3>
-      </div>
-    </header>
-    <pre>{JSON.stringify(value, null, 2)}</pre>
-  </section>
-);
-
-function statusLabel(status: string): string {
-  return SUBMISSION_STATUS_LABELS[status as keyof typeof SUBMISSION_STATUS_LABELS] ?? status;
-}
-
-function decisionLabel(decision: string | null): string {
-  if (decision === 'pass') {
-    return '建议通过';
-  }
-  if (decision === 'manual') {
-    return '转人工判断';
-  }
-  if (decision === 'reject') {
-    return '建议打回';
+const ManualReviewTaskSheetPortal = ({ children }: { children: ReactNode }) => {
+  if (!children) {
+    return null;
   }
 
-  return '等待 AI 结论';
-}
+  if (typeof document === 'undefined') {
+    return <>{children}</>;
+  }
 
-const DATASET_KIND_LABELS: Record<ReviewQueueItemDto['datasetKind'], string> = {
-  qa_quality: '问答质量',
-  preference_compare: '偏好对比',
-  generic_json: '通用 JSON',
+  return createPortal(children, document.body);
 };
+
+const ManualReviewTaskSheet = ({
+  isClosing,
+  onClose,
+  taskId,
+}: {
+  isClosing: boolean;
+  onClose: () => void;
+  taskId: string;
+}) => {
+  const sheetRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node) || sheetRef.current?.contains(target)) {
+        return;
+      }
+
+      onClose();
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+  }, [onClose]);
+
+  const handleOverlayMouseDown = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  };
+
+  return (
+    <div
+      className={isClosing ? 'manual-review-sheet-overlay is-closing' : 'manual-review-sheet-overlay'}
+      role="presentation"
+      onMouseDown={handleOverlayMouseDown}
+    >
+      <section
+        ref={sheetRef}
+        className={isClosing ? 'manual-review-task-sheet is-closing' : 'manual-review-task-sheet'}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="manual-review-detail-title"
+      >
+        <ReviewTaskDetailContent taskId={taskId} onClose={onClose} />
+      </section>
+    </div>
+  );
+};
+
+const StagePill = ({ stage }: { stage: ManualReviewStage }) => (
+  <span className="manual-review-stage-pill">{stage}</span>
+);
+
+const TaskStatusPill = ({ status }: { status: ManualReviewTaskStatus }) => (
+  <span className={`manual-review-task-status is-${statusTone(status)}`}>{status}</span>
+);
+
+const CountCell = ({ tone, value }: { tone: 'blue' | 'gray' | 'green' | 'orange'; value: number }) => (
+  <strong className={`manual-review-count is-${tone}`}>{value.toLocaleString()}</strong>
+);
+
+function buildManualReviewTasks(queueItems: ReviewQueueItemDto[]): ManualReviewTask[] {
+  const groups = new Map<string, ReviewQueueItemDto[]>();
+
+  for (const item of queueItems) {
+    groups.set(item.taskId, [...(groups.get(item.taskId) ?? []), item]);
+  }
+
+  return [...groups.entries()]
+    .map(([taskId, items]) => {
+      const orderedItems = [...items].sort((first, second) => first.submittedAt.localeCompare(second.submittedAt));
+      const latestItem = orderedItems[orderedItems.length - 1] ?? items[0];
+      const createdAt = orderedItems[0]?.submittedAt ?? latestItem?.submittedAt ?? '';
+      const updatedAt = latestItem?.updatedAt ?? latestItem?.submittedAt ?? createdAt;
+
+      return {
+        taskId,
+        taskName: latestItem?.taskTitle ?? taskId,
+        batchNo: `TASK-${taskId.slice(-8).toUpperCase()}`,
+        stage: '复审',
+        pendingCount: items.length,
+        aiPassCount: items.filter((item) => item.aiDecision === 'pass').length,
+        aiRejectCount: items.filter((item) => item.aiDecision === 'reject').length,
+        manualCount: items.filter((item) => item.aiDecision === 'manual' || !item.aiDecision).length,
+        reviewerName: resolveReviewerName(latestItem?.assignedReviewerId),
+        status: '复审中',
+        createdAt: formatMinute(createdAt),
+        updatedAt: formatMinute(updatedAt),
+      } satisfies ManualReviewTask;
+    })
+    .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
+}
+
+function resolveReviewerName(reviewerId: string | null | undefined): string {
+  if (!reviewerId) {
+    return '待处理';
+  }
+
+  if (reviewerId === 'user_reviewer_wang_fang' || reviewerId === 'reviewer_1') {
+    return '王芳';
+  }
+
+  return reviewerId;
+}
+
+function statusTone(status: ManualReviewTask['status']): 'done' | 'final' | 'reviewing' {
+  if (status === '已完成') {
+    return 'done';
+  }
+  if (status === '终审中') {
+    return 'final';
+  }
+
+  return 'reviewing';
+}
+
+function shouldIgnoreRowOpen(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return Boolean(target.closest('button, a, input, select, textarea'));
+}
+
+function hasActiveTextSelection(): boolean {
+  const selection = window.getSelection?.();
+
+  return Boolean(selection && selection.type === 'Range' && selection.toString().trim());
+}
+
+function formatMinute(value: string): string {
+  return value ? value.slice(0, 16).replace('T', ' ') : '未记录';
+}

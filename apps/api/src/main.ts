@@ -1,8 +1,13 @@
 import 'reflect-metadata';
 
+import { fileURLToPath } from 'node:url';
+
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module.ts';
+import { loadWorkspaceEnv } from './env.ts';
+
+loadWorkspaceEnv();
 
 export const DEFAULT_API_PORT = 3000;
 
@@ -16,4 +21,6 @@ async function bootstrap(): Promise<void> {
   await app.listen(port);
 }
 
-void bootstrap();
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  void bootstrap();
+}

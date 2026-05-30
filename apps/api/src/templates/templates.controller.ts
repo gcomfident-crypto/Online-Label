@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post } from '@nestjs/common';
 import { DATASET_KINDS, type DatasetKind, type LabelHubSchema } from '@labelhub/shared';
 
 import type {
@@ -11,6 +11,7 @@ import type { PublishTemplateDto, PublishTemplateInput } from './dto/publish-tem
 import type { UpdateTemplateDto, UpdateTemplateInput } from './dto/update-template.dto.ts';
 import {
   TemplatesService,
+  type DeleteTemplateResult,
   type PublishTemplateResult,
   type TemplateDto,
 } from './templates.service.ts';
@@ -21,7 +22,7 @@ export class TemplatesController {
     @Inject(TemplatesService)
     private readonly templatesService: Pick<
       TemplatesService,
-      'create' | 'list' | 'get' | 'update' | 'publish' | 'createFromProfile'
+      'create' | 'list' | 'get' | 'update' | 'publish' | 'createFromProfile' | 'deleteTemplate'
     >,
   ) {}
 
@@ -53,6 +54,11 @@ export class TemplatesController {
   @Post(':id/publish')
   publish(@Param('id') id: string, @Body() body: PublishTemplateDto): Promise<PublishTemplateResult> {
     return this.templatesService.publish(id, normalizePublishBody(body));
+  }
+
+  @Delete(':id')
+  deleteTemplate(@Param('id') id: string): Promise<DeleteTemplateResult> {
+    return this.templatesService.deleteTemplate(id);
   }
 }
 

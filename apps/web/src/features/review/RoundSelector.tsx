@@ -7,6 +7,7 @@ import {
   type SubmissionFieldDiffDto,
   type SubmissionRoundDto,
 } from '../../api/reviews';
+import { ToastViewport, useToastController } from '../../components/ToastViewport';
 
 type RoundSelectorProps = {
   assignmentId: string;
@@ -17,9 +18,9 @@ export const RoundSelector = ({ assignmentId }: RoundSelectorProps) => {
   const [fromRound, setFromRound] = useState<number | null>(null);
   const [toRound, setToRound] = useState<number | null>(null);
   const [diff, setDiff] = useState<SubmissionDiffDto | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoadingRounds, setIsLoadingRounds] = useState(true);
   const [isLoadingDiff, setIsLoadingDiff] = useState(false);
+  const { dismissToast, messages, showErrorToast } = useToastController();
 
   const orderedRounds = useMemo(() => [...rounds].sort((left, right) => left.round - right.round), [rounds]);
   const hasComparableRounds = orderedRounds.length >= 2;
@@ -27,7 +28,6 @@ export const RoundSelector = ({ assignmentId }: RoundSelectorProps) => {
   useEffect(() => {
     let isActive = true;
     setIsLoadingRounds(true);
-    setErrorMessage(null);
     setDiff(null);
 
     listReviewRounds(assignmentId)
@@ -46,7 +46,7 @@ export const RoundSelector = ({ assignmentId }: RoundSelectorProps) => {
         if (!isActive) {
           return;
         }
-        setErrorMessage(error instanceof Error ? error.message : '轮次列表加载失败。');
+        showErrorToast(error instanceof Error ? error.message : '轮次列表加载失败。');
         setRounds([]);
         setFromRound(null);
         setToRound(null);
@@ -60,7 +60,7 @@ export const RoundSelector = ({ assignmentId }: RoundSelectorProps) => {
     return () => {
       isActive = false;
     };
-  }, [assignmentId]);
+  }, [assignmentId, showErrorToast]);
 
   useEffect(() => {
     if (!fromRound || !toRound || fromRound === toRound) {
@@ -70,7 +70,6 @@ export const RoundSelector = ({ assignmentId }: RoundSelectorProps) => {
 
     let isActive = true;
     setIsLoadingDiff(true);
-    setErrorMessage(null);
     getReviewDiff(assignmentId, { fromRound, toRound })
       .then((nextDiff) => {
         if (isActive) {
@@ -79,7 +78,7 @@ export const RoundSelector = ({ assignmentId }: RoundSelectorProps) => {
       })
       .catch((error) => {
         if (isActive) {
-          setErrorMessage(error instanceof Error ? error.message : '轮次 Diff 加载失败。');
+          showErrorToast(error instanceof Error ? error.message : '轮次 Diff 加载失败。');
           setDiff(null);
         }
       })
@@ -92,12 +91,13 @@ export const RoundSelector = ({ assignmentId }: RoundSelectorProps) => {
     return () => {
       isActive = false;
     };
-  }, [assignmentId, fromRound, toRound]);
+  }, [assignmentId, fromRound, showErrorToast, toRound]);
 
   const title = fromRound && toRound && fromRound !== toRound ? `第 ${fromRound} / ${toRound} 轮 Diff` : '轮次 Diff';
 
   return (
     <section className="review-panel round-diff-panel" aria-label="轮次 Diff">
+      <ToastViewport messages={messages} onDismiss={dismissToast} />
       <header className="review-panel__heading">
         <div>
           <span>多轮对比</span>
@@ -105,12 +105,6 @@ export const RoundSelector = ({ assignmentId }: RoundSelectorProps) => {
         </div>
         <small>{orderedRounds.length.toLocaleString()} 轮</small>
       </header>
-
-      {errorMessage ? (
-        <div className="task-status-message" role="alert">
-          {errorMessage}
-        </div>
-      ) : null}
 
       {isLoadingRounds ? <p>正在加载提交轮次。</p> : null}
 
@@ -196,13 +190,13 @@ const DiffItem = ({ change }: { change: SubmissionFieldDiffDto }) => (
 
 function statusText(status: string): string {
   if (status === 'FINAL_PENDING') {
-    return '待终审';
+    return '待完成';
   }
   if (status === 'NEEDS_REVISION') {
     return '需修改';
   }
   if (status === 'FINAL_APPROVED') {
-    return '终审通过';
+    return '已完成';
   }
 
   return status;

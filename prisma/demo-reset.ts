@@ -20,7 +20,7 @@ export async function resetDemoData(): Promise<void> {
     await prisma.user.deleteMany();
 
     await seed(prisma);
-    console.log('LabelHub 演示数据已重置。');
+    console.log('LabelHub 已重置为空平台，仅保留基础登录用户。');
   } finally {
     await prisma.$disconnect();
   }

@@ -1,6 +1,6 @@
 import type { EditableFieldProps } from './common';
 import {
-  FieldDescription,
+  FieldTitleRow,
   UploadedFilePreview,
   getFieldValue,
   getUploadedFileValue,
@@ -25,9 +25,7 @@ export const FileUploadField = ({
 
   return (
     <section className="schema-field" data-field-type={field.type}>
-      <span>{field.label}</span>
-      <span className="schema-field__meta">文件</span>
-      <FieldDescription field={field} />
+      <FieldTitleRow field={field} meta="文件" />
       {uploadedFile ? <UploadedFilePreview file={uploadedFile} /> : null}
       <input
         aria-label={field.label}

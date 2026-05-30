@@ -29,6 +29,32 @@ describe('DatasetsService', () => {
     });
   });
 
+  it('导入题目数据后持久化文件摘要供任务刷新后回显', async () => {
+    const { service, persistedDatasetImportSummaries } = createService();
+
+    await service.importItems('task_qa', {
+      datasetKind: 'qa_quality',
+      format: 'json',
+      fileName: 'qa_refresh.json',
+      content: JSON.stringify([createQaRecord('qa_refresh_1')]),
+    });
+
+    expect(persistedDatasetImportSummaries).toEqual([
+      expect.objectContaining({
+        taskId: 'task_qa',
+        datasetKind: 'qa_quality',
+        importedCount: 1,
+        files: [
+          expect.objectContaining({
+            fileName: 'qa_refresh.json',
+            format: 'json',
+            importedCount: 1,
+          }),
+        ],
+      }),
+    ]);
+  });
+
   it('拒绝和任务模板 profile 不一致的导入', async () => {
     const { service } = createService();
 
@@ -110,6 +136,7 @@ function createTaskItem(overrides: Partial<TaskItemRecord> = {}): TaskItemRecord
 
 function createService(overrides: { taskItems?: TaskItemRecord[] } = {}) {
   const taskItems = overrides.taskItems ?? [];
+  const persistedDatasetImportSummaries: unknown[] = [];
   const now = new Date('2026-05-21T00:00:00.000Z');
   const prisma = {
     task: {
@@ -120,6 +147,10 @@ function createService(overrides: { taskItems?: TaskItemRecord[] } = {}) {
               template: { datasetKind: 'qa_quality' as const },
             }
           : null,
+      update: async ({ data }: { data: { datasetImportSummary?: unknown } }) => {
+        persistedDatasetImportSummaries.push(data.datasetImportSummary);
+        return {};
+      },
     },
     taskItem: {
       count: async ({ where }: { where: { taskId: string } }) =>
@@ -169,6 +200,7 @@ function createService(overrides: { taskItems?: TaskItemRecord[] } = {}) {
   };
 
   return {
+    persistedDatasetImportSummaries,
     taskItems,
     service: new DatasetsService(prisma),
   };

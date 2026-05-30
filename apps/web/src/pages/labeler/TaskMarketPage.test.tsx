@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -9,8 +9,11 @@ const marketTask = {
   id: 'task_qa',
   title: '问答质量标注',
   description: '检查回答是否解决核心诉求。',
+  ownerId: 'user_owner_zhang_man',
+  ownerName: '张满',
   tags: ['问答', '官方数据'],
   rewardRule: '0.30 元 / 条',
+  perUserLimit: 5,
   quota: 30,
   deadline: '2026-06-01T15:59:00.000Z',
   datasetKind: 'qa_quality',
@@ -18,9 +21,20 @@ const marketTask = {
   templateName: '问答质量官方模板',
   itemCount: 30,
   assignedCount: 8,
+  claimedByMeCount: 0,
   remainingCount: 22,
   claimedByMe: false,
   claimStatus: 'available',
+  previewItems: [
+    {
+      id: 'item_qa_1',
+      externalId: 'qa_1',
+      rawData: {
+        prompt: '如何判断回答质量？',
+        model_answer: '检查事实性与完整性。',
+      },
+    },
+  ],
   createdAt: '2026-05-21T00:00:00.000Z',
   updatedAt: '2026-05-21T00:00:00.000Z',
 };
@@ -44,7 +58,8 @@ describe('TaskMarketPage', () => {
             labelerId: 'user_labeler_li_lei',
             status: 'ASSIGNED',
             claimedAt: '2026-05-21T00:00:00.000Z',
-            claimedCount: 9,
+            claimedItemCount: 22,
+            claimedCount: 30,
             taskItem: {
               id: 'item_qa_1',
               externalId: 'qa_1',
@@ -56,7 +71,16 @@ describe('TaskMarketPage', () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({
-          data: [{ ...marketTask, assignedCount: 9, remainingCount: 21, claimedByMe: true, claimStatus: 'claimed' }],
+          data: [
+            {
+              ...marketTask,
+              assignedCount: 30,
+              claimedByMeCount: 22,
+              remainingCount: 0,
+              claimedByMe: true,
+              claimStatus: 'claimed',
+            },
+          ],
         }),
       );
     vi.stubGlobal('fetch', fetchMock);
@@ -64,18 +88,56 @@ describe('TaskMarketPage', () => {
     renderTaskMarketPage();
 
     expect(await screen.findByRole('heading', { name: '任务广场' })).toBeInTheDocument();
-    const card = screen.getByText('问答质量标注').closest('.task-market-card');
-    expect(card).not.toBeNull();
-    expect(within(card as HTMLElement).getByText('可领取')).toBeInTheDocument();
-    expect(within(card as HTMLElement).getByText('0.30 元 / 条')).toBeInTheDocument();
+    expect(screen.queryByText('全部 Owner 发布任务')).not.toBeInTheDocument();
+    expect(screen.queryByText('演示标注员')).not.toBeInTheDocument();
+    expect(screen.queryByText('李雷')).not.toBeInTheDocument();
+    expect(document.querySelector('.task-market-header')).toBeNull();
+    expect(screen.getByRole('heading', { name: '待领取任务列表' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('任务广场任务统计')).not.toBeInTheDocument();
+    expect(screen.queryByText('可领取任务')).not.toBeInTheDocument();
+    expect(screen.queryByText('我已领取')).not.toBeInTheDocument();
+    expect(document.querySelector('.task-market-table-panel .task-table-scroll')).toBeNull();
+    expect(document.querySelector('.task-market-table-frame')).not.toBeNull();
+    expect(screen.getByLabelText('任务广场分页')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '上一页' })).toBeInTheDocument();
+    expect(screen.getByLabelText('当前页码')).toHaveTextContent('第 1 / 1 页');
+    expect(screen.getByRole('button', { name: '下一页' })).toBeInTheDocument();
+    const table = screen.getByRole('table', { name: '任务广场列表' });
+    const taskRow = within(table).getByText('问答质量标注').closest('tr');
+    expect(taskRow).not.toBeNull();
+    expect(document.querySelector('.task-market-card')).toBeNull();
+    expect(within(taskRow as HTMLElement).getByText('T-0001')).toBeInTheDocument();
+    expect(within(taskRow as HTMLElement).getByText('张满')).toBeInTheDocument();
+    expect(within(taskRow as HTMLElement).getByText('可领取')).toBeInTheDocument();
+    expect(within(taskRow as HTMLElement).getByText('整任务')).toBeInTheDocument();
+    expect(within(taskRow as HTMLElement).getByText('8 / 30')).toBeInTheDocument();
+    expect(within(taskRow as HTMLElement).getByRole('button', { name: '预览 问答质量标注' })).toBeInTheDocument();
 
-    await user.click(within(card as HTMLElement).getByRole('button', { name: '领取题目' }));
+    await user.click(within(taskRow as HTMLElement).getByRole('button', { name: '预览 问答质量标注' }));
+    const previewDialog = screen.getByRole('dialog', { name: '任务内容预览 · 问答质量标注' });
+    const previewTable = within(previewDialog).getByRole('table', { name: '任务内容预览表格' });
+    expect(within(previewTable).getByRole('columnheader', { name: '序号' })).toBeInTheDocument();
+    expect(within(previewTable).getByRole('columnheader', { name: '外部 ID' })).toBeInTheDocument();
+    expect(within(previewTable).getByRole('columnheader', { name: 'prompt' })).toBeInTheDocument();
+    expect(within(previewTable).getByRole('columnheader', { name: 'model_answer' })).toBeInTheDocument();
+    expect(within(previewDialog).getByText('qa_1')).toBeInTheDocument();
+    expect(within(previewDialog).getByText('如何判断回答质量？')).toBeInTheDocument();
+    expect(within(previewDialog).getByText('检查事实性与完整性。')).toBeInTheDocument();
+    expect(previewDialog.querySelector('.task-market-preview-item')).toBeNull();
+    await user.click(within(previewDialog).getByRole('button', { name: '关闭预览' }));
 
-    expect(await screen.findByText('已领取题目 qa_1。')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '进入标注台' })).toHaveAttribute(
+    await user.click(within(taskRow as HTMLElement).getByRole('button', { name: '领取题目 问答质量标注' }));
+
+    expect(await screen.findByText('已领取任务「问答质量标注」，')).toBeInTheDocument();
+    expect(screen.queryByText('已达上限')).not.toBeInTheDocument();
+    await waitFor(() => expect(within(table).queryByText('问答质量标注')).not.toBeInTheDocument());
+    expect(within(table).getByText('暂无可领取任务')).toBeInTheDocument();
+    const claimLink = screen.getByRole('link', { name: '现在去标注' });
+    expect(claimLink).toHaveAttribute(
       'href',
       '/labeler/tasks/task_qa/items/item_qa_1?assignmentId=assignment_1',
     );
+    expect(claimLink.closest('.toast')).toHaveClass('toast--claim-task');
     expect(fetchMock).toHaveBeenCalledWith(
       '/assignments/claim',
       expect.objectContaining({
@@ -104,6 +166,106 @@ describe('TaskMarketPage', () => {
       '/labeler/tasks?keyword=%E9%97%AE%E7%AD%94&claimStatus=available&labelerId=user_labeler_li_lei',
       expect.objectContaining({ method: 'GET' }),
     );
+  });
+
+  it('任务广场任务编号按发布时间先后递增，不受最新任务置顶影响', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(
+        jsonResponse({
+          data: [
+            {
+              ...marketTask,
+              id: 'task_new',
+              title: '最新发布任务',
+              createdAt: '2026-05-23T10:00:00.000Z',
+              updatedAt: '2026-05-23T10:00:00.000Z',
+            },
+            {
+              ...marketTask,
+              id: 'task_old',
+              title: '最早发布任务',
+              createdAt: '2026-05-21T10:00:00.000Z',
+              updatedAt: '2026-05-21T10:00:00.000Z',
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderTaskMarketPage();
+
+    const table = await screen.findByRole('table', { name: '任务广场列表' });
+    const latestRow = within(table).getByText('最新发布任务').closest('tr');
+    const earliestRow = within(table).getByText('最早发布任务').closest('tr');
+    expect(latestRow).not.toBeNull();
+    expect(earliestRow).not.toBeNull();
+    expect(within(latestRow as HTMLElement).getByText('T-0002')).toBeInTheDocument();
+    expect(within(earliestRow as HTMLElement).getByText('T-0001')).toBeInTheDocument();
+  });
+
+  it('已领取任务不再展示在任务广场', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(
+        jsonResponse({
+          data: [
+            {
+              ...marketTask,
+              claimedByMe: true,
+              claimedByMeCount: 5,
+              remainingCount: 0,
+              claimStatus: 'claimed',
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderTaskMarketPage();
+
+    const table = await screen.findByRole('table', { name: '任务广场列表' });
+    expect(within(table).queryByText('问答质量标注')).not.toBeInTheDocument();
+    expect(screen.queryByText('已达上限')).not.toBeInTheDocument();
+    expect(within(table).getByText('暂无可领取任务')).toBeInTheDocument();
+  });
+
+  it('任务接口返回空数组时仍保留表格和分页结构', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({ data: [] })));
+
+    renderTaskMarketPage();
+
+    expect(await screen.findByRole('heading', { name: '待领取任务列表' })).toBeInTheDocument();
+    expect(screen.getByText('0 个任务')).toBeInTheDocument();
+    expect(screen.getByLabelText('任务广场分页')).toBeInTheDocument();
+    expect(screen.getByLabelText('当前页码')).toHaveTextContent('第 1 / 1 页');
+    const table = screen.getByRole('table', { name: '任务广场列表' });
+    expect(within(table).getByRole('img', { name: '空任务广场列表插画' })).toHaveAttribute(
+      'src',
+      expect.stringContaining('empty-table-illustration.svg'),
+    );
+    expect(within(table).getByText('暂无可领取任务')).toBeInTheDocument();
+    expect(within(table).getByText('调整关键词、标签或领取状态后再试')).toBeInTheDocument();
+  });
+
+  it('任务广场接口不可用时降级为空表格且不展示代理 500 错误', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response('', { status: 500 })));
+
+    renderTaskMarketPage();
+
+    expect(await screen.findByRole('heading', { name: '待领取任务列表' })).toBeInTheDocument();
+    expect(screen.getByText('0 个任务')).toBeInTheDocument();
+    const table = screen.getByRole('table', { name: '任务广场列表' });
+    expect(within(table).getByRole('img', { name: '空任务广场列表插画' })).toHaveAttribute(
+      'src',
+      expect.stringContaining('empty-table-illustration.svg'),
+    );
+    expect(within(table).getByText('暂无可领取任务')).toBeInTheDocument();
+    expect(screen.queryByText('领取任务接口请求失败，请稍后重试。（HTTP 500）。')).not.toBeInTheDocument();
+    const toast = screen.getByRole('alert');
+    expect(toast).toHaveClass('toast');
+    expect(toast).toHaveTextContent('领取任务接口请求失败，请稍后重试');
+    expect(document.querySelector('.task-status-message')).toBeNull();
   });
 });
 

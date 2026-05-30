@@ -40,7 +40,7 @@ describe('AiRuleConfigPage', () => {
         body: expect.stringContaining('问答质量 AI 预审 v2'),
       }),
     );
-    expect(await screen.findByText('规则已保存为新版本。')).toBeInTheDocument();
+    expect(await screen.findByText('规则已保存为新版本')).toBeInTheDocument();
   });
 });
 

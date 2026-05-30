@@ -11,6 +11,7 @@ describe('TemplatesController', () => {
       update: vi.fn().mockResolvedValue({ id: 'template_1', name: '新版模板' }),
       publish: vi.fn().mockResolvedValue({ template: { id: 'template_1' } }),
       createFromProfile: vi.fn().mockResolvedValue({ id: 'template_profile' }),
+      deleteTemplate: vi.fn().mockResolvedValue({ id: 'template_1' }),
     };
     const controller = new TemplatesController(service);
 
@@ -27,6 +28,7 @@ describe('TemplatesController', () => {
     await expect(controller.createFromProfile({ profile: 'qa_quality' })).resolves.toEqual({
       id: 'template_profile',
     });
+    await expect(controller.deleteTemplate('template_1')).resolves.toEqual({ id: 'template_1' });
 
     expect(service.create).toHaveBeenCalledWith({
       name: '新模板',
@@ -38,5 +40,6 @@ describe('TemplatesController', () => {
     expect(service.update).toHaveBeenCalledWith('template_1', { name: '新版模板' });
     expect(service.publish).toHaveBeenCalledWith('template_1', { versionName: 'r1' });
     expect(service.createFromProfile).toHaveBeenCalledWith({ profile: 'qa_quality' });
+    expect(service.deleteTemplate).toHaveBeenCalledWith('template_1');
   });
 });

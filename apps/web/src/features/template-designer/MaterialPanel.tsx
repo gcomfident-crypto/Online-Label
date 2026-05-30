@@ -1,23 +1,116 @@
 import { useDraggable } from '@dnd-kit/core';
 
+import type { CSSProperties, WheelEvent } from 'react';
+
+import divideIcon from '../../assets/divide.svg';
+import tabsIcon from '../../assets/tabs.svg';
 import { DESIGNER_MATERIALS, type MaterialSpec } from './templateStore';
 
-type MaterialPanelProps = {
-  onAddField: (type: MaterialSpec['type']) => void;
+type MaterialIconConfig = {
+  viewBox: string;
+  paths: Array<{ d: string; fill?: string }>;
 };
 
-export const MaterialPanel = ({ onAddField }: MaterialPanelProps) => {
-  const groups = ['基础物料', '高级物料', '布局物料'] as const;
+const MATERIAL_ICON_CONFIG: Partial<Record<MaterialSpec['type'], MaterialIconConfig>> = {
+  text: {
+    viewBox: '0 0 1536 1024',
+    paths: [
+      {
+        d: 'M717.856 973.696h127.232L486.944 2.272h-119.84L8.96 973.696h127.232l97.6-278.016h386.4l97.6 278.016zM421.632 159.168h10.784l152.128 433.536h-315.04l152.128-433.536z m751.264 725.696c-84.16 0-146.752-43.072-146.752-117.12 0-72.704 48.48-111.072 158.88-118.496l195.232-12.8v66.656c0 103.68-88.192 181.76-207.328 181.76z m-21.536 101.632c96.928 0 176.384-42.4 223.488-119.84h10.784v107.04h110.4v-496.8c0-150.784-98.944-241.664-276-241.664-154.848 0-269.28 76.736-284.768 193.216h117.12c16.16-57.216 76.736-90.208 163.584-90.208 108.384 0 164.256 49.152 164.256 138.688v65.984l-209.376 12.8c-168.96 10.112-264.576 84.832-264.576 214.752 0 132.608 104.352 216.096 245.056 216.096z',
+      },
+    ],
+  },
+  textarea: {
+    viewBox: '0 0 1024 1024',
+    paths: [
+      {
+        d: 'M85.333333 213.333333h853.333334v85.333334H85.333333zM85.333333 469.333333h853.333334v85.333334H85.333333zM85.333333 725.333333h341.333334v85.333334H85.333333z',
+      },
+    ],
+  },
+  radio: {
+    viewBox: '0 0 1024 1024',
+    paths: [
+      { d: 'M352 512a160 160 0 1 0 320 0 160 160 0 1 0-320 0z' },
+      {
+        d: 'M512 64C265.6 64 64 265.6 64 512s201.6 448 448 448 448-201.6 448-448S758.4 64 512 64z m0 832c-211.2 0-384-172.8-384-384s172.8-384 384-384 384 172.8 384 384-172.8 384-384 384z',
+      },
+    ],
+  },
+  checkbox: {
+    viewBox: '0 0 1024 1024',
+    paths: [
+      {
+        d: 'M732.09344 341.98528c-12.544-12.45184-32.82944-12.31872-45.24544 0.256L453.56544 578.048 350.30528 471.936c-12.35456-12.70272-32.60928-12.928-45.25056-0.64-12.672 12.31872-12.95872 32.60928-0.64 45.25056l126.01856 129.50528c0.06144 0.09728 0.19456 0.09728 0.256 0.18944 0.06656 0.06656 0.09728 0.18944 0.15872 0.256 2.01728 1.98656 4.51072 3.2 6.88128 4.54656 1.24928 0.67072 2.24256 1.792 3.52256 2.304 3.87072 1.60256 8.00256 2.40128 12.09856 2.40128 4.06016 0 8.12544-0.79872 11.96544-2.33472 1.24928-0.51712 2.20672-1.54112 3.39456-2.18112 2.40128-1.34144 4.89472-2.52416 6.94272-4.54144 0.06656-0.06656 0.09728-0.19456 0.19456-0.26112 0.06656-0.09728 0.15872-0.12288 0.256-0.18944l256.22528-259.00544C744.77056 374.68672 744.64256 354.432 732.09344 341.98528zM832 928l-640 0c-52.92544 0-96-43.06944-96-96l0-640c0-52.92544 43.07456-96 96-96l640 0c52.93056 0 96 43.07456 96 96l0 640C928 884.93056 884.93056 928 832 928zM192 160c-17.63328 0-32 14.36672-32 32l0 640c0 17.664 14.36672 32 32 32l640 0c17.664 0 32-14.336 32-32l0-640c0-17.63328-14.336-32-32-32L192 160z',
+      },
+    ],
+  },
+  tag_select: {
+    viewBox: '0 0 1024 1024',
+    paths: [
+      {
+        d: 'M443.306667 171.306667a42.666667 42.666667 0 0 1 34.56 49.450666L456.618667 341.333333h169.301333l23.893333-135.381333a42.666667 42.666667 0 1 1 84.053334 14.805333L712.618667 341.333333H810.666667a42.666667 42.666667 0 0 1 0 85.333334h-113.109334l-30.08 170.666666H768a42.666667 42.666667 0 0 1 0 85.333334h-115.584l-22.272 126.336a42.666667 42.666667 0 0 1-84.053333-14.805334L565.76 682.666667H396.416l-22.272 126.336a42.666667 42.666667 0 0 1-84.053333-14.805334L309.76 682.666667H213.333333a42.666667 42.666667 0 0 1 0-85.333334h111.445334l30.122666-170.666666H256a42.666667 42.666667 0 1 1 0-85.333334h113.92l23.893333-135.381333a42.666667 42.666667 0 0 1 49.493334-34.645333zM580.736 597.333333l30.122667-170.666666h-169.344l-30.08 170.666666h169.301333z',
+      },
+    ],
+  },
+  rich_text: {
+    viewBox: '0 0 1024 1024',
+    paths: [
+      {
+        d: 'M106.667 874.667c0 23.466 19.2 42.666 42.666 42.666h725.334c23.466 0 42.666-19.2 42.666-42.666V149.333c0-23.466-19.2-42.666-42.666-42.666h-256c-23.467 0-42.667 19.2-42.667 42.666S595.2 192 618.667 192H832v640H192V618.667C192 595.2 172.8 576 149.333 576s-42.666 19.2-42.666 42.667v256z',
+      },
+      {
+        d: 'M448 277.333c23.467 0 42.667-19.2 42.667-42.666v-85.334c0-23.466-19.2-42.666-42.667-42.666H149.333c-23.466 0-42.666 19.2-42.666 42.666v85.334c0 23.466 19.2 42.666 42.666 42.666S192 258.133 192 234.667V192h64v234.667h-42.667c-23.466 0-42.666 19.2-42.666 42.666S189.867 512 213.333 512H384c23.467 0 42.667-19.2 42.667-42.667s-19.2-42.666-42.667-42.666h-42.667V192h64v42.667c0 23.466 19.2 42.666 42.667 42.666',
+      },
+    ],
+  },
+  file_upload: {
+    viewBox: '0 0 1024 1024',
+    paths: [
+      {
+        d: 'M966.382033 160.880361c79.190333 81.690028 76.890614 212.374075-3.59956 292.764262L538.534261 877.792848l-0.099988-0.099988-66.591871 66.591871c-106.287026 106.287026-280.265788 106.287026-386.552813 0l-5.199366-5.199365C-26.096814 832.898328-26.096814 658.919565 80.190211 552.63254l401.450995-401.450995c18.697718-18.697718 49.094007-18.697718 67.891712 0 18.697718 18.697718 18.697718 49.094007 0 67.891713L147.981936 620.524252c-33.295936 33.295936-51.593702 77.790504-51.593702 125.384695 0 47.59419 18.297766 92.088759 51.593702 125.384694l5.199365 5.199365c33.295936 33.295936 77.790504 51.593702 125.384694 51.593702 47.59419 0 92.088759-18.297766 125.384695-51.593702l435.446844-435.446845 0.099988 0.099988 56.69308-56.693079c20.897449-20.897449 32.496033-48.994019 32.496033-78.990358s-11.498596-58.092909-32.496033-78.990358c-20.897449-20.897449-48.994019-32.496033-78.990358-32.496033s-58.092909 11.498596-78.990358 32.496033L261.668058 702.814207c-9.998779 9.998779-11.598584 21.997315-11.598584 28.296546 0 6.299231 1.499817 18.197779 11.598584 28.296546 9.998779 9.998779 21.997315 11.598584 28.296546 11.598584 6.299231 0 18.197779-1.499817 28.296546-11.598584l385.752911-385.752911c18.697718-18.697718 49.094007-18.697718 67.891712 0 18.697718 18.697718 18.697718 49.094007 0 67.891712L387.252728 826.199146c-52.893543 52.893543-139.083022 54.39336-192.476504 1.999756-53.793433-52.793555-54.093397-140.0829-0.899891-193.176419l476.441841-476.441841C710.713243 118.185573 764.006737 97.988039 817.200244 97.988039c54.193385-0.099988 108.486757 20.897449 149.181789 62.892322z',
+      },
+    ],
+  },
+  json_editor: {
+    viewBox: '0 0 1024 1024',
+    paths: [
+      {
+        d: 'M355.398 139.327c-15.858 0-30.395 2.643-43.611 7.929-18.501 10.572-33.699 24.448-45.593 41.628-11.894 17.18-17.841 37.664-17.841 61.451v99.115c0 15.858-1.322 31.717-3.965 47.575-2.643 15.858-6.608 30.395-11.894 43.611-13.215 29.074-31.717 52.861-55.504 71.363 23.788 18.501 42.289 42.289 55.504 71.363 5.286 13.215 9.251 27.752 11.894 43.611 2.643 15.858 3.965 31.717 3.965 47.575v99.115c0 15.858 2.643 30.395 7.929 43.611 5.286 13.215 12.555 25.109 21.805 35.681 9.251 10.572 20.484 18.502 33.699 23.788 13.215 5.286 27.752 7.929 43.611 7.929h7.929V960h-7.929c-23.788-2.643-46.254-7.929-67.398-15.858s-40.307-20.484-57.487-37.664-29.735-36.342-37.664-57.487c-7.929-21.145-13.215-40.968-15.858-59.469v-3.965a254.735 254.735 0 0 1 0-63.434V658.69c0-15.858-2.643-30.395-7.929-43.611-5.286-13.215-13.215-23.788-23.788-31.717v-3.965c-7.929-7.929-18.501-14.537-31.717-19.823v-3.965c-13.215-5.286-27.752-7.929-43.611-7.929H65.98v-71.363h3.965c15.858 0 30.395-2.643 43.611-7.929 26.431-13.215 44.932-33.038 55.504-59.469 5.286-13.215 7.929-27.752 7.929-43.611v-63.434a254.735 254.735 0 0 1 0-63.434c2.643-21.145 7.929-42.289 15.858-63.434 7.929-21.145 19.823-40.307 35.681-57.487s35.021-30.395 57.487-39.646S331.611 64 355.398 64h7.929v75.327h-7.929z m309.239 745.346c15.858 0 30.395-2.643 43.611-7.929 18.501-10.572 33.699-24.448 45.593-41.628s17.841-37.664 17.841-61.451V674.55c0-15.858 1.322-31.717 3.965-47.575 2.643-15.858 6.608-30.395 11.894-43.611 13.215-29.074 31.717-52.861 55.504-71.363-23.788-18.501-42.289-42.289-55.504-71.363-5.286-13.215-9.251-27.752-11.894-43.611-2.643-15.858-3.965-31.717-3.965-47.575v-99.115c0-15.858-2.643-30.395-7.929-43.611-5.286-13.215-12.555-25.109-21.805-35.681-9.251-10.572-20.484-18.501-33.699-23.788s-27.752-7.929-43.611-7.929h-3.965V67.965h3.965c23.788-2.643 46.254 0.661 67.398 9.912s40.307 22.466 57.487 39.646 29.735 36.342 37.664 57.487c7.929 21.145 13.215 40.968 15.858 59.469v3.965a254.735 254.735 0 0 1 0 63.434v63.434c0 15.858 2.643 30.395 7.929 43.611 5.286 13.215 13.215 23.788 23.788 31.717v3.965c7.929 7.929 18.502 14.537 31.717 19.823v3.965c13.215 5.286 27.752 7.929 43.611 7.929h7.929v71.363h-7.929c-15.858 0-30.395 2.643-43.611 7.929-26.431 13.215-44.932 33.038-55.504 59.469-5.286 13.215-7.929 27.752-7.929 43.611v63.434a254.735 254.735 0 0 1 0 63.434c-2.643 23.788-7.929 44.932-15.858 63.434-7.929 21.145-20.484 40.307-37.664 57.487s-36.342 29.734-57.487 37.664-43.611 11.894-67.398 11.894h-3.965v-71.363h3.963z',
+      },
+    ],
+  },
+  show_item: {
+    viewBox: '0 0 1024 1024',
+    paths: [
+      {
+        d: 'M502.054 183.68c69.605 0.133 132.349 14.482 192.58 40.424 68.932 29.689 129.792 71.797 185.902 121.183 47.445 41.758 90.322 87.848 129.929 137.026 13.577 16.859 12.714 30.815 2.157 46.452-29.091 43.085-62.349 82.697-98.383 120.04-48.923 50.701-103.14 94.712-164.84 129.088-52.59 29.3-108.311 49.788-168.13 58.164-74.098 10.375-146.114 1.624-216.238-24.098-74.147-27.196-139.002-69.687-198.604-120.729-57.139-48.933-107.566-104.215-153.463-163.708-12.511-16.217-12.712-25.623-0.805-42.445 53.434-75.496 117.087-140.989 191.974-195.392 49.495-35.958 102.841-64.598 161.175-83.529 45.676-14.823 92.546-22.319 136.749-22.473zM729.829 312.353c62.471 114.537 26.775 243.337-55.2 312.739-85.635 72.502-206.65 80.404-298.895 18.919-55.437-36.951-91.14-88.173-105.728-153.369-14.559-65.065-3.497-126.304 29.599-184.028-89.074 49.493-160.202 118.702-222.228 198.313 28.273 35.352 57.686 68.854 89.381 100.289 28.474 28.243 58.594 54.593 91.232 78.017 59.076 42.4 123.006 73.687 195.211 86.407 46.052 8.116 92.043 8.097 137.882-1.203 67.85-13.766 128.424-43.944 183.977-84.295 65.973-47.922 121.714-106.232 169.908-171.884 2.369-3.228 2.381-5.26-0.301-8.232-18.146-20.096-35.688-40.754-54.262-60.443-41.478-43.972-86.637-83.725-137.453-116.748-7.624-4.955-15.412-9.661-23.122-14.479zM338.953 446.287c1.141 3.841 1.933 9.901 4.648 14.923 4.954 9.165 17.306 12.925 29.093 10.007 11.171-2.767 17.454-11.352 19.1-23.42 1.913-14.034 3.599-28.346 7.818-41.773 16.275-51.814 52.514-80.178 105.998-86.948 15.556-1.969 26.188-13.654 25.942-29.385-0.226-14.399-9.358-23.32-23.712-22.702-5.562 0.239-11.118 1.18-16.623 2.113-32.155 5.451-61.785 16.983-87.005 38.054-42.629 35.615-59.669 83.495-65.258 139.132z',
+      },
+    ],
+  },
+};
+
+const MATERIAL_ICON_ASSETS: Partial<Record<MaterialSpec['type'], string>> = {
+  group: divideIcon,
+  tabs: tabsIcon,
+};
+
+export const MaterialPanel = () => {
+  const groups = [
+    { key: '基础物料', title: null },
+    { key: '高级物料', title: null },
+    { key: '布局物料', title: '布局' },
+  ] as const;
 
   return (
-    <aside className="designer-panel designer-materials" aria-label="物料">
+    <aside className="designer-panel designer-materials" aria-label="物料" onWheel={handleMaterialPanelWheel}>
       <h2>物料</h2>
-      {groups.map((group) => (
-        <section key={group}>
-          <h3>{group}</h3>
+      {groups.map(({ key, title }) => (
+        <section key={key}>
+          {title ? <h3 className="designer-materials__group-title">{title}</h3> : null}
           <div className="designer-materials__list">
-            {DESIGNER_MATERIALS.filter((material) => material.group === group).map((material) => (
-              <DraggableMaterial key={material.type} material={material} onAddField={onAddField} />
+            {DESIGNER_MATERIALS.filter((material) => material.group === key).map((material) => (
+              <DraggableMaterial key={material.type} material={material} />
             ))}
           </div>
         </section>
@@ -26,41 +119,148 @@ export const MaterialPanel = ({ onAddField }: MaterialPanelProps) => {
   );
 };
 
+const handleMaterialPanelWheel = (event: WheelEvent<HTMLElement>) => {
+  const target = event.target;
+
+  if (!(target instanceof Element) || !target.closest('.designer-material, .designer-material__handle')) {
+    return;
+  }
+
+  const container = event.currentTarget;
+  const deltaY = resolveWheelDeltaY(event);
+
+  if (deltaY === 0 || container.scrollHeight <= container.clientHeight) {
+    return;
+  }
+
+  event.preventDefault();
+  if (typeof container.scrollBy === 'function') {
+    container.scrollBy({ top: deltaY, left: 0, behavior: 'auto' });
+    return;
+  }
+
+  container.scrollTop += deltaY;
+};
+
+const resolveWheelDeltaY = (event: WheelEvent<HTMLElement>): number => {
+  if (event.deltaMode === 1) {
+    return event.deltaY * 16;
+  }
+
+  if (event.deltaMode === 2) {
+    return event.deltaY * event.currentTarget.clientHeight;
+  }
+
+  return event.deltaY;
+};
+
+const MaterialDragHandleIcon = () => (
+  <>
+    {Array.from({ length: 6 }).map((_, index) => (
+      <span key={index} className="designer-material__handle-dot" aria-hidden="true" />
+    ))}
+  </>
+);
+
+const MaterialTypeIcon = ({ material }: { material: MaterialSpec }) => {
+  const iconConfig = MATERIAL_ICON_CONFIG[material.type];
+  const iconAsset = MATERIAL_ICON_ASSETS[material.type];
+  const className = [
+    'designer-material__icon',
+    `designer-material__icon--${material.type}`,
+    iconConfig ? 'designer-material__icon--svg' : null,
+    iconAsset ? 'designer-material__icon--asset' : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <span className={className} aria-hidden="true">
+      {iconConfig ? (
+        <svg className="designer-material__icon-svg" viewBox={iconConfig.viewBox} focusable="false">
+          {iconConfig.paths.map((path, index) => (
+            <path key={index} d={path.d} fill={path.fill ?? '#306DF8'} />
+          ))}
+        </svg>
+      ) : iconAsset ? (
+        <img className="designer-material__icon-img" src={iconAsset} alt="" draggable={false} />
+      ) : null}
+    </span>
+  );
+};
+
 const DraggableMaterial = ({
   material,
-  onAddField,
 }: {
   material: MaterialSpec;
-  onAddField: (type: MaterialSpec['type']) => void;
 }) => {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+  const { attributes, isDragging, listeners, setActivatorNodeRef, setNodeRef, transform } = useDraggable({
     id: `material:${material.type}`,
     data: { type: material.type },
   });
-  const style = transform
+  const style = transform && !isDragging
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
 
   return (
-    <div ref={setNodeRef} className="designer-material-shell" style={style}>
+    <div
+      ref={setNodeRef}
+      className={isDragging ? 'designer-material-shell is-dragging' : 'designer-material-shell'}
+      style={style}
+    >
       <button
-        aria-label={`添加${material.label}`}
-        className="designer-material"
-        type="button"
-        onClick={() => onAddField(material.type)}
-      >
-        <span>{material.label}</span>
-        <small>{material.type}</small>
-      </button>
-      <button
+        ref={setActivatorNodeRef}
         aria-label={`拖拽${material.label}`}
         className="designer-material__handle"
         type="button"
+        title="按住拖动物料"
         {...listeners}
         {...attributes}
       >
-        拖拽
+        <MaterialDragHandleIcon />
       </button>
+      <div
+        aria-label={material.label}
+        className="designer-material"
+      >
+        <MaterialTypeIcon material={material} />
+        <span>{material.label}</span>
+      </div>
+    </div>
+  );
+};
+
+export const MaterialDragOverlay = ({
+  expandedWidth,
+  isExpanded,
+  material,
+}: {
+  expandedWidth?: number | null;
+  isExpanded: boolean;
+  material: MaterialSpec;
+}) => {
+  const style =
+    isExpanded && expandedWidth
+      ? ({ '--designer-material-overlay-width': `${expandedWidth}px` } as CSSProperties)
+      : undefined;
+
+  return (
+    <div
+      className={
+        isExpanded
+          ? 'designer-material-drag-overlay is-expanded'
+          : 'designer-material-drag-overlay'
+      }
+      aria-hidden="true"
+      style={style}
+    >
+      <span className="designer-material-drag-overlay__handle" aria-hidden="true">
+        <MaterialDragHandleIcon />
+      </span>
+      <span className="designer-material-drag-overlay__body">
+        <MaterialTypeIcon material={material} />
+        <span>{material.label}</span>
+      </span>
     </div>
   );
 };

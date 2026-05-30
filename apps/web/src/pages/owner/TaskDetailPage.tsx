@@ -3,18 +3,22 @@ import { Link, useParams } from 'react-router-dom';
 
 import { TASK_STATUS_LABELS } from '@labelhub/shared';
 import { getTask, listTaskAuditLogs, type TaskAuditLogDto, type TaskDto } from '../../api/tasks';
+import { PageLoading } from '../../components/PageLoading';
 import { StatusTag } from '../../components/StatusTag';
+import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { DISTRIBUTION_LABELS } from './components/TaskTable';
 
 export const TaskDetailPage = () => {
   const { taskId } = useParams<{ taskId: string }>();
   const [task, setTask] = useState<TaskDto | null>(null);
   const [auditLogs, setAuditLogs] = useState<TaskAuditLogDto[]>([]);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasLoadFailed, setHasLoadFailed] = useState(false);
+  const { dismissToast, messages, showErrorToast } = useToastController();
 
   useEffect(() => {
     if (!taskId) {
-      setErrorMessage('缺少任务 ID，无法加载详情。');
+      showErrorToast('缺少任务 ID，无法加载详情。');
+      setHasLoadFailed(true);
       return;
     }
 
@@ -26,20 +30,22 @@ export const TaskDetailPage = () => {
       const [nextTask, nextAuditLogs] = await Promise.all([getTask(id), listTaskAuditLogs(id)]);
       setTask(nextTask);
       setAuditLogs(nextAuditLogs);
-      setErrorMessage(null);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '任务详情加载失败。');
+      setHasLoadFailed(false);
+    } catch {
+      showErrorToast('任务详情加载失败，请稍后重试。');
+      setHasLoadFailed(true);
     }
   };
 
-  if (errorMessage) {
+  if (hasLoadFailed) {
     return (
       <section className="task-detail-page" aria-labelledby="task-detail-title">
+        <ToastViewport messages={messages} onDismiss={dismissToast} />
         <Link className="primary-link" to="/owner/tasks">
           返回任务列表
         </Link>
         <h1 id="task-detail-title">任务详情</h1>
-        <p role="alert">{errorMessage}</p>
+        <p>请返回任务列表重新选择任务。</p>
       </section>
     );
   }
@@ -47,22 +53,22 @@ export const TaskDetailPage = () => {
   if (!task) {
     return (
       <section className="task-detail-page" aria-labelledby="task-detail-title">
+        <ToastViewport messages={messages} onDismiss={dismissToast} />
         <h1 id="task-detail-title">任务详情</h1>
-        <p>正在加载任务详情。</p>
+        <PageLoading title="正在加载任务详情" />
       </section>
     );
   }
 
   return (
     <section className="task-detail-page" aria-labelledby="task-detail-title">
+      <ToastViewport messages={messages} onDismiss={dismissToast} />
       <Link className="primary-link" to="/owner/tasks">
         返回任务列表
       </Link>
       <div className="task-detail-header">
         <div>
-          <p className="eyebrow">任务详情 / {task.id}</p>
           <h1 id="task-detail-title">{task.title}</h1>
-          <p>{task.description ?? '暂无任务描述。'}</p>
         </div>
         <div className="task-detail-actions">
           <StatusTag group="task" status={task.status} />
@@ -84,10 +90,8 @@ export const TaskDetailPage = () => {
           <dd>{DISTRIBUTION_LABELS[task.distributionStrategy]}</dd>
         </div>
         <div>
-          <dt>配额 / 题目</dt>
-          <dd>
-            {task.quota ? `${task.itemCount.toLocaleString()} / ${task.quota.toLocaleString()}` : '未设置配额'}
-          </dd>
+          <dt>已完成 / 总题目数</dt>
+          <dd>{formatTaskProgress(task)}</dd>
         </div>
         <div>
           <dt>截止时间</dt>
@@ -130,4 +134,14 @@ const auditAction = (auditLog: TaskAuditLogDto): string => {
   }
 
   return '任务状态变更';
+};
+
+const formatTaskProgress = (task: TaskDto): string => {
+  const totalCount = task.quota ?? task.itemCount;
+
+  if (totalCount <= 0) {
+    return '未设置题目数';
+  }
+
+  return `${Math.min(task.completedItemCount ?? 0, totalCount).toLocaleString()} / ${totalCount.toLocaleString()}`;
 };

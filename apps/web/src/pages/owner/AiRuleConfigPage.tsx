@@ -7,6 +7,8 @@ import {
   type ReviewDimensionDto,
   type ReviewRuleDto,
 } from '../../api/reviewRules';
+import { PageLoading } from '../../components/PageLoading';
+import { ToastViewport, useToastController } from '../../components/ToastViewport';
 
 const OWNER_ID = 'user_owner_zhang_man';
 
@@ -28,10 +30,9 @@ export const AiRuleConfigPage = () => {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const [form, setForm] = useState<RuleForm | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const { dismissToast, messages, showErrorToast, showStatusToast } = useToastController();
 
   const selectedTask = useMemo(
     () => tasks.find((task) => task.id === selectedTaskId) ?? null,
@@ -58,9 +59,8 @@ export const AiRuleConfigPage = () => {
         setForm(ruleToForm(await getReviewRule(firstTask.id)));
       }
 
-      setErrorMessage(null);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'AI 规则配置加载失败。');
+      showErrorToast(error instanceof Error ? error.message : 'AI 规则配置加载失败。');
     } finally {
       setIsLoading(false);
     }
@@ -68,18 +68,16 @@ export const AiRuleConfigPage = () => {
 
   const handleSelectTask = async (taskId: string) => {
     setSelectedTaskId(taskId);
-    setStatusMessage(null);
     try {
       setForm(ruleToForm(await getReviewRule(taskId)));
-      setErrorMessage(null);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'AI 规则加载失败。');
+      showErrorToast(error instanceof Error ? error.message : 'AI 规则加载失败。');
     }
   };
 
   const handleSave = async () => {
     if (!selectedTaskId || !form) {
-      setErrorMessage('请选择任务并填写 AI 审核规则。');
+      showErrorToast('请选择任务并填写 AI 审核规则。');
       return;
     }
 
@@ -104,10 +102,9 @@ export const AiRuleConfigPage = () => {
             : task,
         ),
       );
-      setStatusMessage('规则已保存为新版本。');
-      setErrorMessage(null);
+      showStatusToast('规则已保存为新版本。');
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'AI 规则保存失败。');
+      showErrorToast(error instanceof Error ? error.message : 'AI 规则保存失败。');
     } finally {
       setIsSaving(false);
     }
@@ -156,18 +153,17 @@ export const AiRuleConfigPage = () => {
   if (isLoading) {
     return (
       <section className="ai-rule-page">
-        <p>正在加载 AI 规则配置。</p>
+        <PageLoading title="正在加载 AI 规则配置" />
       </section>
     );
   }
 
   return (
     <section className="ai-rule-page" aria-labelledby="ai-rule-title">
+      <ToastViewport messages={messages} onDismiss={dismissToast} />
       <div className="ai-rule-header">
         <div>
-          <p className="eyebrow">Owner / AI 预审规则</p>
           <h1 id="ai-rule-title">AI 规则配置</h1>
-          <p>配置每个任务的 Prompt、评分维度、阈值和结构化输出方式。</p>
         </div>
         <dl>
           <SummaryMetric label="任务数" value={tasks.length} />
@@ -175,13 +171,6 @@ export const AiRuleConfigPage = () => {
           <SummaryMetric label="当前维度" value={form?.dimensions.length ?? 0} />
         </dl>
       </div>
-
-      {statusMessage || errorMessage ? (
-        <div className="task-status-message" aria-live="polite">
-          {statusMessage ? <span>{statusMessage}</span> : null}
-          {errorMessage ? <span role="alert">{errorMessage}</span> : null}
-        </div>
-      ) : null}
 
       {form ? (
         <form

@@ -21,14 +21,14 @@ export const AiReviewSummary = ({ record, fallbackComment, fallbackScores }: AiR
       <p className="review-ai-comment">{record?.comment ?? fallbackComment ?? '暂无 AI 评语。'}</p>
       {scores.length > 0 ? (
         <div className="review-score-grid">
-          {scores.map(([key, score]) => (
-            <div key={key} className="review-score">
+          {scores.map((scoreItem) => (
+            <div key={scoreItem.key} className="review-score">
               <span>
-                <strong>{key}</strong>
-                <em>{score}</em>
+                <strong>{scoreItem.label}</strong>
+                <em>{scoreItem.score}</em>
               </span>
               <i aria-hidden="true">
-                <b style={{ width: `${Math.min(100, Math.max(0, score))}%` }} />
+                <b style={{ width: `${Math.min(100, Math.max(0, scoreItem.score))}%` }} />
               </i>
             </div>
           ))}
@@ -40,12 +40,34 @@ export const AiReviewSummary = ({ record, fallbackComment, fallbackScores }: AiR
   );
 };
 
-function scoreEntries(scores: Record<string, unknown> | null | undefined): Array<[string, number]> {
+type ScoreEntry = {
+  key: string;
+  label: string;
+  score: number;
+};
+
+const SCORE_DIMENSIONS: Array<{ key: string; label: string }> = [
+  { key: 'relevance', label: '相关性' },
+  { key: 'accuracy', label: '准确性' },
+  { key: 'format', label: '格式合规' },
+  { key: 'safety', label: '安全性' },
+  { key: 'overall', label: '综合' },
+];
+
+function scoreEntries(scores: Record<string, unknown> | null | undefined): ScoreEntry[] {
   if (!scores) {
     return [];
   }
 
-  return Object.entries(scores).filter((entry): entry is [string, number] => typeof entry[1] === 'number');
+  const numericScores = Object.entries(scores)
+    .filter((entry): entry is [string, number] => typeof entry[1] === 'number')
+    .map(([key, score]) => ({
+      key,
+      label: SCORE_DIMENSIONS.find((dimension) => dimension.key === key)?.label ?? key,
+      score,
+    }));
+
+  return numericScores.sort((first, second) => scoreOrder(first.key) - scoreOrder(second.key));
 }
 
 function decisionLabel(decision: string | null | undefined): string {
@@ -60,4 +82,9 @@ function decisionLabel(decision: string | null | undefined): string {
   }
 
   return '等待结论';
+}
+
+function scoreOrder(key: string): number {
+  const index = SCORE_DIMENSIONS.findIndex((dimension) => dimension.key === key);
+  return index >= 0 ? index : SCORE_DIMENSIONS.length;
 }

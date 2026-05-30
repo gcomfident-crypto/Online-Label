@@ -2,21 +2,16 @@ import { useState } from 'react';
 
 import type { SchemaField } from '@labelhub/shared';
 
+import { requestApi } from '../../../api/request';
+import { ToastViewport, useToastController } from '../../../components/ToastViewport';
 import type { BaseFieldProps } from './common';
-import { FieldDescription, isDisabledMode, stringifyDisplayValue } from './common';
+import { FieldTitleRow, isDisabledMode, stringifyDisplayValue } from './common';
 
 type LlmAssistResult = {
   datasetKind: string;
   targetFieldKey: string;
   summary: string;
   suggestion: unknown;
-};
-
-type LlmAssistEnvelope = {
-  data?: Partial<LlmAssistResult>;
-  error?: {
-    message?: string;
-  };
 };
 
 const DEFAULT_ERROR_MESSAGE = 'LLM 辅助暂时不可用，请稍后重试。';
@@ -31,42 +26,39 @@ export const LlmAssistField = ({
   onFieldChange,
 }: BaseFieldProps) => {
   const [assistResult, setAssistResult] = useState<LlmAssistResult | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { dismissToast, messages, showErrorToast } = useToastController();
   const targetFieldKey = field.targetFieldKey;
   const isReadonly = isDisabledMode(mode, disabled);
 
   const generateSuggestion = async () => {
     if (!targetFieldKey) {
-      setErrorMessage('LLM 触发组件缺少目标字段。');
+      showErrorToast('LLM 触发组件缺少目标字段。');
       return;
     }
 
     setIsLoading(true);
-    setErrorMessage(null);
 
     try {
-      const response = await fetch(resolveLlmAssistEndpoint(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          datasetKind,
-          rawData,
-          answers: value,
-          targetFieldKey,
-          promptTemplate: field.promptTemplate,
-        }),
-      });
-      const envelope = await parseAssistEnvelope(response);
+      const data = await requestApi<Partial<LlmAssistResult>>(
+        '/llm/assist/mock',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            datasetKind,
+            rawData,
+            answers: value,
+            targetFieldKey,
+            promptTemplate: field.promptTemplate,
+          }),
+        },
+        DEFAULT_ERROR_MESSAGE,
+      );
 
-      if (!response.ok) {
-        throw new Error(envelope.error?.message ?? DEFAULT_ERROR_MESSAGE);
-      }
-
-      setAssistResult(resolveAssistResult(envelope.data, datasetKind, targetFieldKey));
+      setAssistResult(resolveAssistResult(data, datasetKind, targetFieldKey));
     } catch (error) {
       setAssistResult(null);
-      setErrorMessage(error instanceof Error ? error.message : DEFAULT_ERROR_MESSAGE);
+      showErrorToast(error instanceof Error ? error.message : DEFAULT_ERROR_MESSAGE);
     } finally {
       setIsLoading(false);
     }
@@ -88,9 +80,9 @@ export const LlmAssistField = ({
 
   return (
     <section className="schema-field schema-field--llm-assist" data-field-type={field.type}>
+      <ToastViewport messages={messages} onDismiss={dismissToast} />
       <div className="schema-field__meta">LLM 触发组件</div>
-      <h3>{field.label}</h3>
-      <FieldDescription field={field} />
+      <FieldTitleRow field={field} />
       {targetFieldKey ? <small>采纳后写入：{targetFieldKey}</small> : <small>未配置目标字段</small>}
       <div className="schema-field__actions">
         <button disabled={isReadonly || isLoading} type="button" onClick={generateSuggestion}>
@@ -104,11 +96,6 @@ export const LlmAssistField = ({
           采纳为答案
         </button>
       </div>
-      {errorMessage ? (
-        <small className="schema-field__error-text" role="alert">
-          {errorMessage}
-        </small>
-      ) : null}
       {assistResult ? (
         <div className="schema-field__assist-result">
           <span>{assistResult.summary}</span>
@@ -118,20 +105,6 @@ export const LlmAssistField = ({
     </section>
   );
 };
-
-function resolveLlmAssistEndpoint(): string {
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
-
-  return `${apiBaseUrl}/llm/assist/mock`;
-}
-
-async function parseAssistEnvelope(response: Response): Promise<LlmAssistEnvelope> {
-  try {
-    return (await response.json()) as LlmAssistEnvelope;
-  } catch {
-    return {};
-  }
-}
 
 function resolveAssistResult(
   data: Partial<LlmAssistResult> | undefined,

@@ -1,7 +1,18 @@
-import { useMemo, useState } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FocusEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 
-import type { SchemaField } from '@labelhub/shared';
+import type { FieldAiReviewRole, SchemaField, ShowItemDisplayField } from '@labelhub/shared';
 
+import { FilterSelect } from '../../components/FilterSelect';
 import { CUSTOM_VALIDATOR_OPTIONS } from './templateStore';
 
 type PropertyPanelProps = {
@@ -11,13 +22,18 @@ type PropertyPanelProps = {
   onAddLinkageRule: () => void;
 };
 
-type PropertyTab = 'basic' | 'validation' | 'linkage';
+type NormalizedAiReviewConfig = {
+  enabled: boolean;
+  role: FieldAiReviewRole;
+  requirement: string;
+};
 
-const TABS: readonly { key: PropertyTab; label: string }[] = [
-  { key: 'basic', label: '基础' },
-  { key: 'validation', label: '校验' },
-  { key: 'linkage', label: '联动' },
-];
+const SHOW_ITEM_DEFAULT_LAYOUT: NonNullable<SchemaField['displayConfig']>['layout'] = 'table';
+const SHOW_ITEM_FORMAT_OPTIONS = [
+  { label: '文本', value: 'text' },
+  { label: '代码', value: 'code' },
+] as const;
+const FIELD_DESCRIPTION_MAX_LENGTH = 20;
 
 export const PropertyPanel = ({
   field,
@@ -25,39 +41,33 @@ export const PropertyPanel = ({
   onUpdateValidation,
   onAddLinkageRule,
 }: PropertyPanelProps) => {
-  const [activeTab, setActiveTab] = useState<PropertyTab>('basic');
-  const optionsDraft = useMemo(() => formatOptions(field), [field]);
+  const isShowItemField = field?.type === 'show_item';
+  const panelTitle = isShowItemField ? '题目展示字段' : '属性配置';
+  const panelClassName = isShowItemField
+    ? 'designer-panel designer-properties designer-properties--show-item'
+    : 'designer-panel designer-properties';
 
   return (
-    <aside className="designer-panel designer-properties" aria-label="属性配置">
-      <h2>{field ? `属性配置 · ${field.fieldKey ?? field.key}` : '属性配置'}</h2>
-      <div className="designer-tabs" role="tablist">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            aria-selected={activeTab === tab.key}
-            role="tab"
-            type="button"
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-      {!field ? (
-        <p>请选择画布中的字段后配置属性。</p>
+    <aside className={panelClassName} aria-label="属性配置">
+      {!field || !isShowItemField ? <h2>{panelTitle}</h2> : null}
+      {!field ? null : isShowItemField ? (
+        <div className="designer-property-stack designer-property-stack--show-item">
+          <ShowItemDisplayConfigEditor field={field} onUpdateField={onUpdateField} />
+        </div>
       ) : (
-        <>
-          {activeTab === 'basic' ? (
-            <BasicProperties field={field} optionsDraft={optionsDraft} onUpdateField={onUpdateField} />
-          ) : null}
-          {activeTab === 'validation' ? (
-            <ValidationProperties field={field} onUpdateValidation={onUpdateValidation} />
-          ) : null}
-          {activeTab === 'linkage' ? (
-            <LinkageProperties field={field} onAddLinkageRule={onAddLinkageRule} />
-          ) : null}
-        </>
+        <div className="designer-property-stack">
+          <BasicProperties
+            field={field}
+            onUpdateField={onUpdateField}
+            onUpdateValidation={onUpdateValidation}
+          />
+          <ValidationProperties field={field} onUpdateValidation={onUpdateValidation} />
+          <LinkageProperties
+            field={field}
+            onAddLinkageRule={onAddLinkageRule}
+            onUpdateField={onUpdateField}
+          />
+        </div>
       )}
     </aside>
   );
@@ -65,12 +75,12 @@ export const PropertyPanel = ({
 
 const BasicProperties = ({
   field,
-  optionsDraft,
   onUpdateField,
+  onUpdateValidation,
 }: {
   field: SchemaField;
-  optionsDraft: string;
   onUpdateField: (patch: Partial<SchemaField>) => void;
+  onUpdateValidation: (patch: NonNullable<SchemaField['validation']>) => void;
 }) => {
   const updateFileConstraints = (patch: NonNullable<SchemaField['fileConstraints']>) => {
     onUpdateField({
@@ -82,92 +92,467 @@ const BasicProperties = ({
   };
 
   return (
-    <div className="designer-form-grid">
-      <label>
-        字段名
-        <input
-          aria-label="字段名"
-          value={field.fieldKey ?? field.key}
-          onChange={(event) => onUpdateField({ fieldKey: event.target.value })}
-        />
-      </label>
-      <label>
-        标题
-        <input
-          aria-label="标题"
-          value={field.label}
-          onChange={(event) => onUpdateField({ label: event.target.value })}
-        />
-      </label>
-      <label>
-        占位符
-        <input
-          aria-label="占位符"
-          value={field.placeholder ?? ''}
-          onChange={(event) => onUpdateField({ placeholder: event.target.value })}
-        />
-      </label>
-      <label>
-        原始数据 sourceKey
-        <input
-          aria-label="原始数据 sourceKey"
-          value={field.sourceKey ?? field.sourceKeys?.join(',') ?? ''}
-          onChange={(event) => onUpdateField({ sourceKey: event.target.value })}
-        />
-      </label>
-      <label>
-        LLM targetFieldKey
-        <input
-          aria-label="LLM targetFieldKey"
-          value={field.targetFieldKey ?? ''}
-          onChange={(event) => onUpdateField({ targetFieldKey: event.target.value })}
-        />
-      </label>
-      <label>
-        选项
-        <textarea
-          aria-label="选项"
-          value={optionsDraft}
-          onChange={(event) => onUpdateField({ options: parseOptions(event.target.value) })}
-        />
-      </label>
-      {field.type === 'file_upload' || field.type === 'image_upload' ? (
-        <>
-          <label>
-            文件数量
+    <>
+      <div className="designer-form-grid">
+        <PropertyRow label="字段名">
+          <input
+            aria-label="字段名"
+            value={field.fieldKey ?? field.key}
+            onChange={(event) => onUpdateField({ fieldKey: event.target.value })}
+          />
+        </PropertyRow>
+        <PropertyRow label="标题">
+          <input
+            aria-label="标题"
+            value={field.label}
+            onChange={(event) => onUpdateField({ label: event.target.value })}
+          />
+        </PropertyRow>
+        <PropertyRow label="字段说明">
+          <input
+            aria-label="字段说明"
+            maxLength={FIELD_DESCRIPTION_MAX_LENGTH}
+            placeholder="20字内说明"
+            value={field.description ?? ''}
+            onChange={(event) => onUpdateField({ description: event.target.value })}
+          />
+        </PropertyRow>
+        <PropertyRow label="必填">
+          <label className="designer-switch">
             <input
-              aria-label="文件数量"
-              min="1"
-              type="number"
-              value={field.fileConstraints?.maxFiles ?? ''}
-              onChange={(event) => updateFileConstraints({ maxFiles: numericValue(event.target.value) })}
+              aria-label="必填"
+              checked={Boolean(field.validation?.required)}
+              type="checkbox"
+              onChange={(event) => onUpdateValidation({ required: event.target.checked })}
             />
+            <span aria-hidden="true" />
           </label>
-          <label>
-            大小上限 MB
+        </PropertyRow>
+        {supportsPlaceholder(field) ? (
+          <PropertyRow label="占位符">
             <input
-              aria-label="大小上限 MB"
-              min="1"
-              type="number"
-              value={field.fileConstraints?.maxSizeMb ?? ''}
-              onChange={(event) => updateFileConstraints({ maxSizeMb: numericValue(event.target.value) })}
+              aria-label="占位符"
+              value={field.placeholder ?? ''}
+              onChange={(event) => onUpdateField({ placeholder: event.target.value })}
             />
-          </label>
-          <label>
-            允许类型
+          </PropertyRow>
+        ) : null}
+        {field.type === 'llm_assist' ? (
+          <PropertyRow label="写入字段">
+            <input
+              aria-label="写入字段"
+              value={field.targetFieldKey ?? ''}
+              onChange={(event) => onUpdateField({ targetFieldKey: event.target.value })}
+            />
+          </PropertyRow>
+        ) : null}
+        {isChoiceField(field) ? (
+          <OptionBubbleEditor
+            key={field.key}
+            options={field.options ?? []}
+            onChange={(options) => onUpdateField({ options })}
+          />
+        ) : null}
+        {field.type === 'file_upload' || field.type === 'image_upload' ? (
+          <>
+            <PropertyRow label="文件数量">
+              <input
+                aria-label="文件数量"
+                min="1"
+                type="number"
+                value={field.fileConstraints?.maxFiles ?? ''}
+                onChange={(event) => updateFileConstraints({ maxFiles: numericValue(event.target.value) })}
+              />
+            </PropertyRow>
+            <PropertyRow label="大小上限 MB">
+              <input
+                aria-label="大小上限 MB"
+                min="1"
+                type="number"
+                value={field.fileConstraints?.maxSizeMb ?? ''}
+                onChange={(event) => updateFileConstraints({ maxSizeMb: numericValue(event.target.value) })}
+              />
+            </PropertyRow>
+            <PropertyRow label="允许类型">
+              <textarea
+                aria-label="允许类型"
+                value={formatMimeTypes(field)}
+                onChange={(event) =>
+                  updateFileConstraints({ acceptedMimeTypes: parseMimeTypes(event.target.value) })
+                }
+              />
+            </PropertyRow>
+          </>
+        ) : null}
+      </div>
+      <AiReviewProperties field={field} onUpdateField={onUpdateField} />
+    </>
+  );
+};
+
+const AiReviewProperties = ({
+  field,
+  onUpdateField,
+}: {
+  field: SchemaField;
+  onUpdateField: (patch: Partial<SchemaField>) => void;
+}) => {
+  const aiReview = normalizeAiReviewConfig(field);
+  const [isExpanded, setIsExpanded] = useState(() => shouldExpandAiReview(field));
+  const selectedFieldKey = field.fieldKey ?? field.key;
+
+  useEffect(() => {
+    setIsExpanded(shouldExpandAiReview(field));
+  }, [selectedFieldKey, field.aiReview?.enabled]);
+
+  const updateAiReview = (patch: Partial<NormalizedAiReviewConfig>) => {
+    onUpdateField({
+      aiReview: {
+        ...aiReview,
+        enabled: patch.enabled ?? isExpanded,
+        ...patch,
+      },
+    });
+  };
+  const toggleAiReview = (enabled: boolean) => {
+    setIsExpanded(enabled);
+    updateAiReview({ enabled });
+  };
+
+  return (
+    <PropertySection
+      title="AI 预审"
+      action={
+        <PropertySectionSwitch
+          checked={isExpanded}
+          className="designer-ai-review-switch"
+          offLabel="启用 AI 预审"
+          onChange={toggleAiReview}
+          onLabel="关闭 AI 预审"
+        />
+      }
+    >
+      <PropertyCollapse
+        className="designer-ai-review-collapse"
+        dataTestId="designer-ai-review-collapse"
+        expanded={isExpanded}
+      >
+        <div className="designer-form-grid designer-ai-review-form">
+          <PropertyRow label="审核要求">
             <textarea
-              aria-label="允许类型"
-              value={formatMimeTypes(field)}
-              onChange={(event) =>
-                updateFileConstraints({ acceptedMimeTypes: parseMimeTypes(event.target.value) })
-              }
+              aria-label="审核要求"
+              placeholder="例如：必须保留商品核心信息，不得新增不存在的信息。"
+              value={aiReview.requirement}
+              onChange={(event) => updateAiReview({ requirement: event.target.value })}
             />
-          </label>
-        </>
-      ) : null}
+          </PropertyRow>
+        </div>
+      </PropertyCollapse>
+    </PropertySection>
+  );
+};
+
+const PropertySection = ({
+  action,
+  title,
+  children,
+}: {
+  action?: ReactNode;
+  title: string;
+  children: ReactNode;
+}) => {
+  return (
+    <section className="designer-property-section">
+      <div className="designer-property-section__header">
+        <h3>{title}</h3>
+        {action}
+      </div>
+      <div className="designer-property-section__body">{children}</div>
+    </section>
+  );
+};
+
+const PropertyRow = ({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) => {
+  return (
+    <div className="designer-property-row">
+      <span className="designer-property-row__label">{label}</span>
+      <span className="designer-property-row__control">{children}</span>
     </div>
   );
 };
+
+const PropertySectionSwitch = ({
+  checked,
+  className,
+  offLabel,
+  onChange,
+  onLabel,
+}: {
+  checked: boolean;
+  className?: string;
+  offLabel: string;
+  onChange: (checked: boolean) => void;
+  onLabel: string;
+}) => {
+  return (
+    <label className={`designer-switch designer-section-switch${className ? ` ${className}` : ''}`}>
+      <input
+        aria-expanded={checked}
+        aria-label={checked ? onLabel : offLabel}
+        checked={checked}
+        type="checkbox"
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span aria-hidden="true" />
+    </label>
+  );
+};
+
+const PropertyCollapse = ({
+  children,
+  className,
+  dataTestId,
+  expanded,
+}: {
+  children: ReactNode;
+  className?: string;
+  dataTestId: string;
+  expanded: boolean;
+}) => {
+  return (
+    <div
+      aria-hidden={!expanded}
+      className={`designer-property-collapse${className ? ` ${className}` : ''}${expanded ? ' is-expanded' : ''}`}
+      data-testid={dataTestId}
+      inert={expanded ? undefined : true}
+    >
+      <div className="designer-property-collapse__inner">{children}</div>
+    </div>
+  );
+};
+
+const supportsPlaceholder = (field: SchemaField): boolean =>
+  field.type === 'text' ||
+  field.type === 'textarea' ||
+  field.type === 'rich_text' ||
+  field.type === 'json_editor';
+
+const normalizeAiReviewConfig = (field: SchemaField): NormalizedAiReviewConfig => {
+  return {
+    enabled: Boolean(field.aiReview?.enabled),
+    role: field.aiReview?.role ?? defaultAiReviewRole(field),
+    requirement: field.aiReview?.requirement ?? '',
+  };
+};
+
+const shouldExpandAiReview = (field: SchemaField): boolean => {
+  return Boolean(field.aiReview?.enabled);
+};
+
+const defaultAiReviewRole = (field: SchemaField): FieldAiReviewRole => {
+  return field.type === 'show_item' ? 'source_context' : 'annotation_answer';
+};
+
+const supportsLengthLimit = (field: SchemaField): boolean =>
+  field.type === 'text' || field.type === 'textarea' || field.type === 'rich_text';
+
+const shouldExpandValidation = (field: SchemaField): boolean =>
+  Boolean(
+    field.validation?.minLength !== undefined ||
+      field.validation?.maxLength !== undefined ||
+      field.validation?.pattern ||
+      field.validation?.customValidatorKey,
+  );
+
+const shouldExpandLinkage = (field: SchemaField): boolean => Boolean(field.linkageRules?.length);
+
+const ShowItemDisplayConfigEditor = ({
+  field,
+  onUpdateField,
+}: {
+  field: SchemaField;
+  onUpdateField: (patch: Partial<SchemaField>) => void;
+}) => {
+  const displayConfig = normalizeShowItemDisplayConfig(field);
+  const [confirmingDeleteIndex, setConfirmingDeleteIndex] = useState<number | null>(null);
+
+  const commitDisplayConfig = (fields: readonly ShowItemDisplayField[]) => {
+    const contentAreaFields = normalizeShowItemContentAreaFields(fields);
+
+    onUpdateField({
+      displayConfig: {
+        layout: SHOW_ITEM_DEFAULT_LAYOUT,
+        fields: contentAreaFields,
+      },
+      sourceKeys: contentAreaFields
+        .filter((item) => isShowItemDisplayFieldVisible(item))
+        .map((item) => item.sourceKey.trim())
+        .filter(Boolean),
+    });
+  };
+
+  const commitFields = (fields: readonly ShowItemDisplayField[]) => {
+    setConfirmingDeleteIndex(null);
+    commitDisplayConfig(fields);
+  };
+
+  const updateField = (
+    index: number,
+    patch: Partial<ShowItemDisplayField>,
+  ) => {
+    commitFields(
+      displayConfig.fields.map((item, currentIndex) =>
+        currentIndex === index
+          ? {
+              ...item,
+              ...patch,
+            }
+          : item,
+      ),
+    );
+  };
+
+  const visibleFieldCount = displayConfig.fields.filter(isShowItemDisplayFieldVisible).length;
+  const hiddenFieldCount = displayConfig.fields.length - visibleFieldCount;
+
+  const requestRemoveField = (index: number) => {
+    if (confirmingDeleteIndex !== index) {
+      setConfirmingDeleteIndex(index);
+      return;
+    }
+
+    commitFields(displayConfig.fields.filter((_, currentIndex) => currentIndex !== index));
+  };
+
+  return (
+    <section className="designer-show-item-config" aria-label="ShowItem 展示字段配置">
+      <div className="designer-show-item-config__header">
+        <div className="designer-show-item-config__title-row">
+          <div className="designer-show-item-config__title-copy">
+            <h2>题目展示字段</h2>
+          </div>
+          <button
+            className="designer-show-item-config__add"
+            type="button"
+            onClick={() => commitFields([...displayConfig.fields, { sourceKey: '', label: '', area: 'content' }])}
+          >
+            <PropertyPanelPlusIcon />
+            <span>新增展示字段</span>
+          </button>
+        </div>
+        <div className="designer-show-item-stats" aria-label="ShowItem 字段统计">
+          <span aria-label={`已识别 ${displayConfig.fields.length} 个`}>
+            <small>已识别</small>
+            <strong>{displayConfig.fields.length} 个</strong>
+          </span>
+          <span aria-label={`默认展示 ${visibleFieldCount} 个`}>
+            <small>默认展示</small>
+            <strong>{visibleFieldCount} 个</strong>
+          </span>
+          <span aria-label={`隐藏 ${hiddenFieldCount} 个`}>
+            <small>隐藏</small>
+            <strong>{hiddenFieldCount} 个</strong>
+          </span>
+        </div>
+      </div>
+      <section className="designer-show-item-fields" aria-label="展示字段清单">
+        {displayConfig.fields.map((item, index) => (
+          <article
+            aria-label={`展示字段 ${item.sourceKey || `字段 ${index + 1}`}`}
+            className={`designer-show-item-field${
+              isShowItemDisplayFieldVisible(item) ? '' : ' is-hidden'
+            }${confirmingDeleteIndex === index ? ' is-confirming-delete' : ''}`}
+            key={`${item.sourceKey}:${index}`}
+          >
+            <div className="designer-show-item-field__topline">
+              <label className="designer-show-item-field__visible">
+                <input
+                  aria-label={`是否展示 ${item.sourceKey || `字段 ${index + 1}`}`}
+                  checked={isShowItemDisplayFieldVisible(item)}
+                  type="checkbox"
+                  onChange={(event) => updateField(index, { visible: event.target.checked })}
+                />
+                <span aria-hidden="true" />
+              </label>
+              <div className="designer-show-item-field__source-wrap">
+                <code className="designer-show-item-field__source" title={item.sourceKey || '未绑定字段'}>
+                  {item.sourceKey || '未绑定字段'}
+                </code>
+              </div>
+              <button
+                aria-label={
+                  confirmingDeleteIndex === index
+                    ? `确认删除展示字段 ${index + 1}`
+                    : `删除展示字段 ${index + 1}`
+                }
+                className="template-manager-row-action designer-show-item-field__delete"
+                title={confirmingDeleteIndex === index ? '再次点击确认删除' : '删除'}
+                type="button"
+                onClick={() => requestRemoveField(index)}
+              >
+                <PropertyPanelDeleteIcon />
+              </button>
+            </div>
+            <label className="designer-show-item-control designer-show-item-control--label">
+              <span>显示名称</span>
+              <input
+                aria-label={`展示字段 ${index + 1} 显示名`}
+                className="designer-show-item-field__label"
+                value={item.label}
+                onChange={(event) => updateField(index, { label: event.target.value })}
+              />
+            </label>
+            <div className="designer-show-item-field__settings">
+              <div className="designer-show-item-control designer-show-item-control--format">
+                <span>展示类型</span>
+                <FilterSelect
+                  ariaLabel={`展示字段 ${index + 1} 展示格式`}
+                  options={SHOW_ITEM_FORMAT_OPTIONS}
+                  value={normalizeShowItemDisplayFormatValue(item.format)}
+                  onChange={(format) =>
+                    updateField(index, {
+                      format,
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </article>
+        ))}
+      </section>
+    </section>
+  );
+};
+
+const PropertyPanelPlusIcon = () => (
+  <svg
+    aria-hidden="true"
+    className="designer-show-item-config__add-icon"
+    viewBox="0 0 20 20"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M10 4.25c0.46 0 0.83 0.37 0.83 0.83v4.09h4.09c0.46 0 0.83 0.37 0.83 0.83s-0.37 0.83-0.83 0.83h-4.09v4.09c0 0.46-0.37 0.83-0.83 0.83s-0.83-0.37-0.83-0.83v-4.09H5.08c-0.46 0-0.83-0.37-0.83-0.83s0.37-0.83 0.83-0.83h4.09V5.08c0-0.46 0.37-0.83 0.83-0.83z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+const isShowItemDisplayFieldVisible = (field: ShowItemDisplayField): boolean => field.visible !== false;
+
+const normalizeShowItemContentAreaFields = (
+  fields: readonly ShowItemDisplayField[],
+): ShowItemDisplayField[] => fields.map((item) => ({ ...item, area: 'content' }));
+
+const normalizeShowItemDisplayFormatValue = (
+  format: ShowItemDisplayField['format'] | undefined,
+): (typeof SHOW_ITEM_FORMAT_OPTIONS)[number]['value'] => (format === 'code' ? 'code' : 'text');
 
 const ValidationProperties = ({
   field,
@@ -176,103 +561,231 @@ const ValidationProperties = ({
   field: SchemaField;
   onUpdateValidation: (patch: NonNullable<SchemaField['validation']>) => void;
 }) => {
+  const [isExpanded, setIsExpanded] = useState(() => shouldExpandValidation(field));
+  const selectedFieldKey = field.fieldKey ?? field.key;
+
+  useEffect(() => {
+    setIsExpanded(shouldExpandValidation(field));
+  }, [selectedFieldKey]);
+
   return (
-    <div className="designer-form-grid">
-      <label className="designer-toggle">
-        <input
-          aria-label="必填"
-          checked={Boolean(field.validation?.required)}
-          type="checkbox"
-          onChange={(event) => onUpdateValidation({ required: event.target.checked })}
+    <PropertySection
+      title="校验规则"
+      action={
+        <PropertySectionSwitch
+          checked={isExpanded}
+          offLabel="显示校验规则"
+          onChange={setIsExpanded}
+          onLabel="隐藏校验规则"
         />
-        必填
-      </label>
-      <label>
-        最小长度
-        <input
-          aria-label="最小长度"
-          min="0"
-          type="number"
-          value={field.validation?.minLength ?? ''}
-          onChange={(event) => onUpdateValidation({ minLength: numericValue(event.target.value) })}
-        />
-      </label>
-      <label>
-        最大长度
-        <input
-          aria-label="最大长度"
-          min="0"
-          type="number"
-          value={field.validation?.maxLength ?? ''}
-          onChange={(event) => onUpdateValidation({ maxLength: numericValue(event.target.value) })}
-        />
-      </label>
-      <label>
-        正则
-        <input
-          aria-label="正则"
-          value={field.validation?.pattern ?? ''}
-          onChange={(event) => onUpdateValidation({ pattern: event.target.value })}
-        />
-      </label>
-      <label>
-        自定义函数
-        <select
-          aria-label="自定义函数"
-          value={field.validation?.customValidatorKey ?? ''}
-          onChange={(event) =>
-            onUpdateValidation({
-              customValidatorKey: event.target.value
-                ? (event.target.value as NonNullable<SchemaField['validation']>['customValidatorKey'])
-                : undefined,
-            })
-          }
-        >
-          <option value="">不使用</option>
-          {CUSTOM_VALIDATOR_OPTIONS.map((key) => (
-            <option key={key} value={key}>
-              {key}
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
+      }
+    >
+      <PropertyCollapse dataTestId="designer-validation-collapse" expanded={isExpanded}>
+        <div className="designer-form-grid">
+          {field.validation?.minLength !== undefined ? (
+            <PropertyRow label="最小长度">
+              <input
+                aria-label="最小长度"
+                min="0"
+                type="number"
+                value={field.validation.minLength}
+                onChange={(event) => onUpdateValidation({ minLength: numericValue(event.target.value) })}
+              />
+            </PropertyRow>
+          ) : null}
+          {supportsLengthLimit(field) ? (
+            <PropertyRow label="最大长度">
+              <input
+                aria-label="最大长度"
+                min="0"
+                type="number"
+                value={field.validation?.maxLength ?? ''}
+                onChange={(event) => onUpdateValidation({ maxLength: numericValue(event.target.value) })}
+              />
+            </PropertyRow>
+          ) : null}
+          <PropertyRow label="正则">
+          <input
+            aria-label="正则"
+            value={field.validation?.pattern ?? ''}
+            onChange={(event) => onUpdateValidation({ pattern: event.target.value })}
+          />
+          </PropertyRow>
+          <PropertyRow label="自定义函数">
+          <select
+            aria-label="自定义函数"
+            value={field.validation?.customValidatorKey ?? ''}
+            onChange={(event) =>
+              onUpdateValidation({
+                customValidatorKey: event.target.value
+                  ? (event.target.value as NonNullable<SchemaField['validation']>['customValidatorKey'])
+                  : undefined,
+              })
+            }
+          >
+            <option value="">不使用</option>
+            {CUSTOM_VALIDATOR_OPTIONS.map((key) => (
+              <option key={key} value={key}>
+                {key}
+              </option>
+            ))}
+          </select>
+          </PropertyRow>
+        </div>
+      </PropertyCollapse>
+    </PropertySection>
   );
 };
 
 const LinkageProperties = ({
   field,
   onAddLinkageRule,
+  onUpdateField,
 }: {
   field: SchemaField;
   onAddLinkageRule: () => void;
+  onUpdateField: (patch: Partial<SchemaField>) => void;
 }) => {
+  const [isExpanded, setIsExpanded] = useState(() => shouldExpandLinkage(field));
+  const selectedFieldKey = field.fieldKey ?? field.key;
+
+  useEffect(() => {
+    setIsExpanded(shouldExpandLinkage(field));
+  }, [selectedFieldKey]);
+
+  const removeLinkageRule = (index: number) => {
+    onUpdateField({
+      linkageRules: (field.linkageRules ?? []).filter((_, currentIndex) => currentIndex !== index),
+    });
+  };
+
   return (
-    <div className="designer-linkage">
-      <button type="button" onClick={onAddLinkageRule}>
-        新增联动规则
-      </button>
-      {(field.linkageRules ?? []).map((rule, index) => (
-        <div key={`${rule.targetFieldKey}:${index}`} className="designer-linkage__rule">
-          <span>条件字段</span>
-          <code>{rule.when.fieldKey}</code>
-          <span>动作</span>
-          <code>{rule.action}</code>
-          <span>目标字段</span>
-          <code>{rule.targetFieldKey}</code>
+    <PropertySection
+      title="字段联动"
+      action={
+        <PropertySectionSwitch
+          checked={isExpanded}
+          offLabel="显示字段联动"
+          onChange={setIsExpanded}
+          onLabel="隐藏字段联动"
+        />
+      }
+    >
+      <PropertyCollapse dataTestId="designer-linkage-collapse" expanded={isExpanded}>
+        <div className="designer-linkage">
+          {(field.linkageRules ?? []).map((rule, index) => (
+            <div key={`${rule.targetFieldKey}:${index}`} className="designer-linkage__rule">
+              <button
+                aria-label={`删除联动规则 ${index + 1}`}
+                className="template-manager-row-action template-manager-row-action--delete designer-linkage__delete"
+                title="删除"
+                type="button"
+                onClick={() => removeLinkageRule(index)}
+              >
+                <PropertyPanelDeleteIcon />
+              </button>
+              <span className="designer-linkage__rule-label">条件字段</span>
+              <span>
+                当 <code>{rule.when.fieldKey}</code> {formatOperator(rule.when.operator)}{' '}
+                <strong>{formatRuleValue(rule.when.value)}</strong> 时
+              </span>
+              <span className="designer-linkage__rule-label">目标字段</span>
+              <span>
+                {formatAction(rule.action)} <code>{rule.targetFieldKey}</code>
+              </span>
+            </div>
+          ))}
+          <button
+            aria-label="新增联动规则"
+            className="designer-linkage__add"
+            type="button"
+            onClick={onAddLinkageRule}
+          >
+            + 新增联动规则
+          </button>
         </div>
-      ))}
-    </div>
+      </PropertyCollapse>
+    </PropertySection>
   );
+};
+
+const formatOperator = (operator: NonNullable<SchemaField['linkageRules']>[number]['when']['operator']): string => {
+  const labels: Record<typeof operator, string> = {
+    equals: '=',
+    notEquals: '≠',
+    contains: '包含',
+    notContains: '不包含',
+    exists: '存在',
+    notExists: '不存在',
+  };
+
+  return labels[operator];
+};
+
+const formatAction = (action: NonNullable<SchemaField['linkageRules']>[number]['action']): string => {
+  const labels: Record<typeof action, string> = {
+    show: '显示',
+    hide: '隐藏',
+    require: '设为必填',
+    disable: '禁用',
+    setValue: '设置',
+  };
+
+  return labels[action];
+};
+
+const formatRuleValue = (value: unknown): string => {
+  if (value === undefined || value === null || value === '') {
+    return '';
+  }
+
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  return JSON.stringify(value);
 };
 
 const numericValue = (value: string): number | undefined => {
   return value === '' ? undefined : Number(value);
 };
 
-const formatOptions = (field: SchemaField | null): string => {
-  return (field?.options ?? []).map((option) => `${option.label}=${option.value}`).join('\n');
+const normalizeShowItemDisplayConfig = (field: SchemaField): NonNullable<SchemaField['displayConfig']> => {
+  if (field.displayConfig && field.displayConfig.fields.length > 0) {
+    return {
+      ...field.displayConfig,
+      layout: SHOW_ITEM_DEFAULT_LAYOUT,
+      fields: normalizeShowItemContentAreaFields(field.displayConfig.fields),
+    };
+  }
+
+  const sourceKeys = field.sourceKeys && field.sourceKeys.length > 0
+    ? [...field.sourceKeys]
+    : [field.sourceKey ?? 'prompt'];
+
+  return {
+    layout: SHOW_ITEM_DEFAULT_LAYOUT,
+    fields: sourceKeys.map((sourceKey) => ({
+      sourceKey,
+      label: sourceKey,
+      area: 'content',
+    })),
+  };
 };
+
+const PropertyPanelDeleteIcon = () => (
+  <svg
+    aria-hidden="true"
+    className="template-manager-row-action__icon"
+    viewBox="0 0 1024 1024"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M836.6 339.2c-21.5 0-39 16.5-39 36.9v419.7c0 49.5-42.6 89.9-94.9 89.9H320.2c-52.3 0-94.9-40.3-94.9-89.9V376.1c0-20.4-17.5-36.9-39-36.9s-39 16.5-39 36.9v419.7c0 90.3 77.6 163.7 173 163.7h382.4c95.4 0 173-73.4 173-163.7V376.1c-0.1-20.4-17.6-36.9-39.1-36.9zM919.8 193H718.4l-81.5-89.9c-21.9-24.1-53.8-38-87.4-38h-86.6c-35.8 0-68.9 15.3-90.9 42L301.2 193H103c-21.5 0-39 16.5-39 36.9s17.5 36.9 39 36.9h217.3c12 0 23.4-5.2 30.8-14.2l82.5-100.1c7.1-8.6 17.8-13.6 29.3-13.6h86.6c10.9 0 21.2 4.5 28.3 12.3L670.9 254c7.4 8.2 18.2 12.9 29.6 12.9h219.3c21.5 0 39-16.5 39-36.9s-17.5-37-39-37zM447.2 754.5V420.1c0-20.4-17.5-36.9-39-36.9s-39 16.5-39 36.9v334.4c0 20.4 17.5 36.9 39 36.9 21.6 0.1 39-16.5 39-36.9z m206.4 0V420.1c0-20.4-17.5-36.9-39-36.9-21.6 0-39 16.5-39 36.9v334.4c0 20.4 17.5 36.9 39 36.9 21.5 0.1 39-16.5 39-36.9z"
+      fill="currentColor"
+    />
+  </svg>
+);
 
 const formatMimeTypes = (field: SchemaField): string => {
   return (field.fileConstraints?.acceptedMimeTypes ?? []).join('\n');
@@ -285,17 +798,556 @@ const parseMimeTypes = (value: string): string[] => {
     .filter(Boolean);
 };
 
-const parseOptions = (value: string): SchemaField['options'] => {
-  return value
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [label, optionValue] = line.split('=');
+const isChoiceField = (field: SchemaField): boolean =>
+  field.type === 'radio' || field.type === 'checkbox' || field.type === 'tag_select';
 
-      return {
-        label: label.trim(),
-        value: (optionValue ?? label).trim(),
+type OptionComposerState = 'closed' | 'closing' | 'committing' | 'open';
+type OptionDragState = {
+  activeIndex: number;
+  currentX: number;
+  originX: number;
+  pointerId: number;
+  shiftWidth: number;
+  targetIndex: number;
+  value: string;
+};
+
+const OPTION_DRAG_HOLD_MS = 160;
+const OPTION_DRAG_GAP = 8;
+
+const getPointerClientX = (event: ReactPointerEvent<HTMLElement>): number => {
+  const clientX = Number(event.clientX);
+
+  if (Number.isFinite(clientX)) {
+    return clientX;
+  }
+
+  const nativeEvent = event.nativeEvent as PointerEvent & {
+    pageX?: number;
+    screenX?: number;
+  };
+  const fallbackValues = [nativeEvent.clientX, nativeEvent.pageX, nativeEvent.screenX].map(Number);
+
+  return fallbackValues.find(Number.isFinite) ?? 0;
+};
+
+const OptionBubbleEditor = ({
+  options,
+  onChange,
+}: {
+  options: NonNullable<SchemaField['options']>;
+  onChange: (options: NonNullable<SchemaField['options']>) => void;
+}) => {
+  const [composerState, setComposerState] = useState<OptionComposerState>('closed');
+  const [draftOption, setDraftOption] = useState('');
+  const [enteringOptionValue, setEnteringOptionValue] = useState<string | null>(null);
+  const [removingOption, setRemovingOption] = useState<{ value: string; width: number } | null>(null);
+  const [dragState, setDragState] = useState<OptionDragState | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const isOptionInputComposingRef = useRef(false);
+  const dragHoldTimerRef = useRef<number | null>(null);
+  const dragStateRef = useRef<OptionDragState | null>(null);
+  const optionElementRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
+  const pendingDragRef = useRef<{
+    optionElement: HTMLElement;
+    originX: number;
+    pointerId: number;
+    startIndex: number;
+    value: string;
+  } | null>(null);
+  const isComposerVisible = composerState !== 'closed';
+
+  useEffect(() => {
+    dragStateRef.current = dragState;
+  }, [dragState]);
+
+  useEffect(() => () => clearDragHoldTimer(), []);
+
+  useEffect(() => {
+    if (composerState !== 'open') {
+      return;
+    }
+
+    const input = inputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }, [composerState]);
+
+  const commitOption = (withAnimation = true): boolean => {
+    const label = draftOption.trim();
+
+    if (!label || options.some((option) => option.label === label)) {
+      inputRef.current?.focus();
+      return false;
+    }
+
+    const nextOption = {
+      label,
+      value: createOptionValue(label, options),
+    };
+
+    onChange([
+      ...options,
+      nextOption,
+    ]);
+    setEnteringOptionValue(nextOption.value);
+    isOptionInputComposingRef.current = false;
+
+    if (withAnimation) {
+      setComposerState('committing');
+      return true;
+    }
+
+    setDraftOption('');
+    setComposerState('closed');
+    return true;
+  };
+
+  const collapseComposer = () => {
+    isOptionInputComposingRef.current = false;
+    setComposerState((currentState) => (currentState === 'open' ? 'closing' : currentState));
+  };
+
+  const handleComposerBlur = (event: FocusEvent<HTMLFormElement>) => {
+    const nextTarget = event.relatedTarget;
+
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    collapseComposer();
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      const isComposing =
+        isOptionInputComposingRef.current || event.nativeEvent.isComposing || event.keyCode === 229;
+
+      if (isComposing) {
+        return;
+      }
+
+      event.preventDefault();
+      commitOption(false);
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      collapseComposer();
+    }
+  };
+
+  const removeOption = (
+    option: NonNullable<SchemaField['options']>[number],
+    event: MouseEvent<HTMLButtonElement>,
+  ) => {
+    if (removingOption) {
+      return;
+    }
+
+    const optionElement = event.currentTarget.closest('.designer-option-bubble');
+    const measuredWidth = optionElement instanceof HTMLElement ? optionElement.getBoundingClientRect().width : 0;
+    const width = measuredWidth > 0 ? measuredWidth : 80;
+
+    setRemovingOption({ value: option.value, width });
+  };
+
+  const clearDragHoldTimer = () => {
+    if (dragHoldTimerRef.current) {
+      window.clearTimeout(dragHoldTimerRef.current);
+      dragHoldTimerRef.current = null;
+    }
+  };
+
+  const startOptionDrag = (
+    option: NonNullable<SchemaField['options']>[number],
+    event: ReactPointerEvent<HTMLSpanElement>,
+  ) => {
+    if ((event.button !== 0 && event.button !== undefined) || removingOption) {
+      return;
+    }
+
+    const optionElement = event.currentTarget.closest('.designer-option-bubble');
+    const startIndex = options.findIndex((item) => item.value === option.value);
+
+    if (!(optionElement instanceof HTMLElement) || startIndex < 0) {
+      return;
+    }
+
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    clearDragHoldTimer();
+    const originX = getPointerClientX(event);
+
+    pendingDragRef.current = {
+      optionElement,
+      originX,
+      pointerId: event.pointerId,
+      startIndex,
+      value: option.value,
+    };
+
+    dragHoldTimerRef.current = window.setTimeout(() => {
+      const pendingDrag = pendingDragRef.current;
+
+      if (!pendingDrag || pendingDrag.pointerId !== event.pointerId) {
+        return;
+      }
+
+      const measuredWidth = pendingDrag.optionElement.getBoundingClientRect().width;
+      const nextDragState = {
+        activeIndex: pendingDrag.startIndex,
+        currentX: pendingDrag.originX,
+        originX: pendingDrag.originX,
+        pointerId: pendingDrag.pointerId,
+        shiftWidth: (measuredWidth > 0 ? measuredWidth : 80) + OPTION_DRAG_GAP,
+        targetIndex: pendingDrag.startIndex,
+        value: pendingDrag.value,
       };
-    });
+
+      dragStateRef.current = nextDragState;
+      setDragState(nextDragState);
+      dragHoldTimerRef.current = null;
+    }, OPTION_DRAG_HOLD_MS);
+  };
+
+  const moveOptionDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
+    const currentDrag = dragStateRef.current;
+
+    if (!currentDrag || currentDrag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const nextDragState = {
+      ...currentDrag,
+      currentX: getPointerClientX(event),
+      targetIndex: getOptionDragTargetIndex(
+        options,
+        optionElementRefs.current,
+        currentDrag.value,
+        getPointerClientX(event),
+      ),
+    };
+
+    dragStateRef.current = nextDragState;
+    setDragState(nextDragState);
+  };
+
+  const finishOptionDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
+    const currentDrag = dragStateRef.current;
+
+    clearDragHoldTimer();
+    pendingDragRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+
+    if (!currentDrag || currentDrag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const activeIndex = options.findIndex((item) => item.value === currentDrag.value);
+
+    if (activeIndex >= 0 && currentDrag.targetIndex >= 0 && activeIndex !== currentDrag.targetIndex) {
+      onChange(moveOption(options, activeIndex, currentDrag.targetIndex));
+    }
+
+    dragStateRef.current = null;
+    setDragState(null);
+  };
+
+  const cancelOptionDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
+    clearDragHoldTimer();
+    pendingDragRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    dragStateRef.current = null;
+    setDragState(null);
+  };
+
+  const getOptionDragStyle = (
+    optionValue: string,
+    baseStyle?: CSSProperties,
+  ): CSSProperties | undefined => {
+    if (!dragState) {
+      return baseStyle;
+    }
+
+    const offset = getOptionDragOffset(options, dragState, optionValue);
+
+    if (offset === 0 && dragState.value !== optionValue) {
+      return baseStyle;
+    }
+
+    return {
+      ...baseStyle,
+      transform: `translateX(${offset}px)`,
+      zIndex: dragState.value === optionValue ? 5 : undefined,
+    };
+  };
+
+  return (
+    <div className="designer-property-row designer-option-editor">
+      <span className="designer-property-row__label">选项</span>
+      <div className="designer-property-row__control designer-option-editor__bubbles">
+        <div className="designer-option-editor__action">
+          {isComposerVisible ? (
+            <form
+              aria-label="新选项输入"
+              className={`task-tag-composer designer-option-composer${
+                composerState === 'closing' ? ' task-tag-composer--closing designer-option-composer--closing' : ''
+              }${composerState === 'committing' ? ' task-tag-composer--committing designer-option-composer--committing' : ''}`}
+              onAnimationEnd={(event) => {
+                if (event.target !== event.currentTarget) {
+                  return;
+                }
+
+                if (composerState === 'committing') {
+                  setDraftOption('');
+                  setComposerState('closed');
+                  return;
+                }
+
+                setComposerState((currentState) => (currentState === 'closing' ? 'closed' : currentState));
+              }}
+              onBlur={handleComposerBlur}
+              onSubmit={(event) => {
+                event.preventDefault();
+
+                if (isOptionInputComposingRef.current) {
+                  return;
+                }
+
+                commitOption();
+              }}
+            >
+              <input
+                ref={inputRef}
+                aria-label="新选项"
+                className="task-tag-composer__input designer-option-composer__input"
+                value={draftOption}
+                onChange={(event) => setDraftOption(event.target.value)}
+                onCompositionStart={() => {
+                  isOptionInputComposingRef.current = true;
+                }}
+                onCompositionEnd={() => {
+                  isOptionInputComposingRef.current = false;
+                }}
+                onKeyDown={handleKeyDown}
+              />
+              <button
+                aria-label="确认新增选项"
+                className="task-tag-composer__confirm designer-option-composer__confirm"
+                type="submit"
+              >
+                <span aria-hidden="true" />
+              </button>
+            </form>
+          ) : (
+            <button
+              aria-label="新增选项"
+              className="task-tag-bubble task-tag-bubble--add designer-option-bubble--add"
+              type="button"
+              onClick={() => setComposerState('open')}
+            >
+              +
+            </button>
+          )}
+        </div>
+        <div
+          className={`designer-option-editor__option-list${
+            dragState ? ' designer-option-editor__option-list--dragging' : ''
+          }`}
+        >
+          {options.map((option) => (
+            <span
+              className={`task-tag-bubble task-tag-bubble--removable designer-option-bubble${
+                enteringOptionValue === option.value ? ' task-tag-bubble--entering designer-option-bubble--entering' : ''
+              }${
+                removingOption?.value === option.value ? ' task-tag-bubble--removing designer-option-bubble--removing' : ''
+              }${
+                dragState?.value === option.value ? ' designer-option-bubble--dragging' : ''
+              }${
+                dragState && dragState.value !== option.value && getOptionDragOffset(options, dragState, option.value) !== 0
+                  ? ' designer-option-bubble--drag-shifted'
+                  : ''
+              }`}
+              key={option.value}
+              ref={(element) => {
+                if (element) {
+                  optionElementRefs.current.set(option.value, element);
+                  return;
+                }
+
+                optionElementRefs.current.delete(option.value);
+              }}
+              style={getOptionDragStyle(
+                option.value,
+                removingOption?.value === option.value
+                  ? ({ '--task-tag-remove-width': `${removingOption.width}px` } as CSSProperties)
+                  : undefined,
+              )}
+              onAnimationEnd={(event) => {
+                if (event.target !== event.currentTarget) {
+                  return;
+                }
+
+                if (removingOption?.value === option.value) {
+                  onChange(options.filter((item) => item.value !== option.value));
+                  setRemovingOption(null);
+                  return;
+                }
+
+                if (enteringOptionValue === option.value) {
+                  setEnteringOptionValue(null);
+                }
+              }}
+            >
+              <span
+                className={`task-tag-bubble__surface designer-option-bubble__surface${
+                  removingOption?.value === option.value ? ' task-tag-bubble__surface--removing designer-option-bubble__surface--removing' : ''
+                }`}
+                onPointerDown={(event) => startOptionDrag(option, event)}
+                onPointerMove={moveOptionDrag}
+                onPointerUp={finishOptionDrag}
+                onPointerCancel={cancelOptionDrag}
+              >
+                <span className="task-tag-bubble__label designer-option-bubble__label">{option.label}</span>
+                <button
+                  className="task-tag-bubble__remove designer-option-bubble__delete"
+                  type="button"
+                  aria-label={`删除选项 ${option.label}`}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => removeOption(option, event)}
+                >
+                  <span aria-hidden="true" />
+                </button>
+              </span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const createOptionValue = (
+  label: string,
+  options: NonNullable<SchemaField['options']>,
+): string => {
+  const usedValues = new Set(options.map((option) => option.value));
+  const normalized = label
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_-]/g, '');
+  const base = normalized || `option_${options.length + 1}`;
+  let value = base;
+  let index = 2;
+
+  while (usedValues.has(value)) {
+    value = `${base}_${index}`;
+    index += 1;
+  }
+
+  return value;
+};
+
+const getOptionDragTargetIndex = (
+  options: NonNullable<SchemaField['options']>,
+  optionElements: Map<string, HTMLSpanElement>,
+  activeValue: string,
+  clientX: number,
+): number => {
+  const activeIndex = options.findIndex((option) => option.value === activeValue);
+
+  if (activeIndex < 0) {
+    return activeIndex;
+  }
+
+  let targetIndex = activeIndex;
+
+  if (clientX >= getOptionCenterX(optionElements, activeValue)) {
+    for (let index = activeIndex + 1; index < options.length; index += 1) {
+      if (clientX > getOptionCenterX(optionElements, options[index].value)) {
+        targetIndex = index;
+      }
+    }
+
+    return targetIndex;
+  }
+
+  for (let index = activeIndex - 1; index >= 0; index -= 1) {
+    if (clientX < getOptionCenterX(optionElements, options[index].value)) {
+      targetIndex = index;
+    }
+  }
+
+  return targetIndex;
+};
+
+const getOptionCenterX = (
+  optionElements: Map<string, HTMLSpanElement>,
+  optionValue: string,
+): number => {
+  const optionElement = optionElements.get(optionValue);
+
+  if (!optionElement) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const rect = optionElement.getBoundingClientRect();
+
+  return rect.left + rect.width / 2;
+};
+
+const getOptionDragOffset = (
+  options: NonNullable<SchemaField['options']>,
+  dragState: OptionDragState,
+  optionValue: string,
+): number => {
+  if (optionValue === dragState.value) {
+    return dragState.currentX - dragState.originX;
+  }
+
+  const optionIndex = options.findIndex((option) => option.value === optionValue);
+
+  if (optionIndex < 0 || dragState.targetIndex === dragState.activeIndex) {
+    return 0;
+  }
+
+  if (
+    dragState.targetIndex > dragState.activeIndex &&
+    optionIndex > dragState.activeIndex &&
+    optionIndex <= dragState.targetIndex
+  ) {
+    return -dragState.shiftWidth;
+  }
+
+  if (
+    dragState.targetIndex < dragState.activeIndex &&
+    optionIndex >= dragState.targetIndex &&
+    optionIndex < dragState.activeIndex
+  ) {
+    return dragState.shiftWidth;
+  }
+
+  return 0;
+};
+
+const moveOption = (
+  options: NonNullable<SchemaField['options']>,
+  fromIndex: number,
+  toIndex: number,
+): NonNullable<SchemaField['options']> => {
+  const nextOptions = [...options];
+  const [movedOption] = nextOptions.splice(fromIndex, 1);
+
+  nextOptions.splice(toIndex, 0, movedOption);
+
+  return nextOptions;
 };

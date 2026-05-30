@@ -44,7 +44,7 @@ export const ContributionStats = ({ stats, history }: ContributionStatsProps) =>
       <section>
         <h2>快捷键</h2>
         <ul className="shortcut-list">
-          <li>⌘/Ctrl + Enter 提交本题</li>
+          <li>⌘/Ctrl + Enter 提交任务</li>
           <li>⌘/Ctrl + S 保存草稿</li>
           <li>J / K 切换上一题或下一题</li>
           <li>R 报告题目</li>
@@ -58,6 +58,6 @@ const SUBMISSION_STATUS_LABELS: Record<string, string> = {
   AI_QUEUED: 'AI 预审排队中',
   AI_PASSED: 'AI 预审通过',
   NEEDS_REVISION: '待修改',
-  FINAL_APPROVED: '终审通过',
-  FINAL_REJECTED: '终审打回',
+  FINAL_APPROVED: '已完成',
+  FINAL_REJECTED: '已打回',
 };

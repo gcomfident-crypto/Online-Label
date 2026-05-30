@@ -1,7 +1,7 @@
 import type { EditableFieldProps } from './common';
 import {
   FieldCounter,
-  FieldDescription,
+  FieldTitleRow,
   getFieldValue,
   getStringValue,
   isDisabledMode,
@@ -12,8 +12,7 @@ export const TextField = ({ field, value, mode, disabled, onFieldChange }: Edita
 
   return (
     <label className="schema-field" data-field-type={field.type}>
-      <span>{field.label}</span>
-      <FieldDescription field={field} />
+      <FieldTitleRow field={field} />
       <input
         aria-label={field.label}
         disabled={isDisabledMode(mode, disabled)}

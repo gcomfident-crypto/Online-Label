@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common';
 import { TASK_STATUS, normalizeReviewStageConfig, type TaskStatus } from '@labelhub/shared';
 
 import type {
@@ -10,6 +10,7 @@ import type { UpdateTaskStatusDto, UpdateTaskStatusInput } from './dto/update-ta
 import type { UpdateTaskDto, UpdateTaskInput } from './dto/update-task.dto.ts';
 import {
   TasksService,
+  type DeleteTaskResult,
   type TaskAuditLogDto,
   type TaskDto,
   type UpdateReviewStageConfigInput,
@@ -27,7 +28,14 @@ export class TasksController {
     @Inject(TasksService)
     private readonly tasksService: Pick<
       TasksService,
-      'create' | 'list' | 'get' | 'update' | 'updateStatus' | 'updateReviewStageConfig' | 'listAuditLogs'
+      | 'create'
+      | 'list'
+      | 'get'
+      | 'update'
+      | 'updateStatus'
+      | 'deleteTask'
+      | 'updateReviewStageConfig'
+      | 'listAuditLogs'
     >,
   ) {}
 
@@ -62,6 +70,11 @@ export class TasksController {
     return this.tasksService.updateStatus(id, normalizeUpdateTaskStatusBody(body));
   }
 
+  @Delete(':id')
+  deleteTask(@Param('id') id: string): Promise<DeleteTaskResult> {
+    return this.tasksService.deleteTask(id);
+  }
+
   @Patch(':id/review-stage-config')
   updateReviewStageConfig(
     @Param('id') id: string,
@@ -88,14 +101,16 @@ const normalizeCreateTaskBody = (body: CreateTaskDto): CreateTaskInput => {
     description: nullableStringValue(body.description),
     richTextInstruction: nullableStringValue(body.richTextInstruction),
     tags: stringArrayValue(body.tags),
-    rewardRule: nullableStringValue(body.rewardRule),
+    ...(body.rewardRule !== undefined ? { rewardRule: nullableStringValue(body.rewardRule) } : {}),
+    rewardPerItem: nullableNumberValue(body.rewardPerItem),
+    perUserLimit: nullableIntegerValue(body.perUserLimit),
     quota: numberValue(body.quota),
     deadline: stringValue(body.deadline),
     distributionStrategy: distributionStrategyValue(body.distributionStrategy),
     aiPreReviewEnabled: booleanValue(body.aiPreReviewEnabled),
     aiRuleName: nullableStringValue(body.aiRuleName),
-    templateId: stringValue(body.templateId) || '',
-    actorId: stringValue(body.actorId),
+    templateId: stringValue(body.templateId) || null,
+    actorId: stringValue(body.actorId) ?? '',
   };
 };
 
@@ -108,6 +123,8 @@ const normalizeUpdateTaskBody = (body: UpdateTaskDto): UpdateTaskInput => {
       : {}),
     ...(body.tags !== undefined ? { tags: stringArrayValue(body.tags) } : {}),
     ...(body.rewardRule !== undefined ? { rewardRule: nullableStringValue(body.rewardRule) } : {}),
+    ...(body.rewardPerItem !== undefined ? { rewardPerItem: nullableNumberValue(body.rewardPerItem) } : {}),
+    ...(body.perUserLimit !== undefined ? { perUserLimit: nullableIntegerValue(body.perUserLimit) } : {}),
     ...(body.quota !== undefined ? { quota: numberValue(body.quota) } : {}),
     ...(body.deadline !== undefined ? { deadline: stringValue(body.deadline) || null } : {}),
     ...(body.distributionStrategy !== undefined
@@ -117,7 +134,7 @@ const normalizeUpdateTaskBody = (body: UpdateTaskDto): UpdateTaskInput => {
       ? { aiPreReviewEnabled: booleanValue(body.aiPreReviewEnabled) }
       : {}),
     ...(body.aiRuleName !== undefined ? { aiRuleName: nullableStringValue(body.aiRuleName) } : {}),
-    ...(body.templateId !== undefined ? { templateId: stringValue(body.templateId) } : {}),
+    ...(body.templateId !== undefined ? { templateId: stringValue(body.templateId) || null } : {}),
   };
 };
 
@@ -163,6 +180,24 @@ const numberValue = (value: unknown): number | null => {
   const number = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
 
   return Number.isFinite(number) ? number : null;
+};
+
+const nullableNumberValue = (value: unknown): number | null | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return numberValue(value);
+};
+
+const nullableIntegerValue = (value: unknown): number | null | undefined => {
+  const number = nullableNumberValue(value);
+
+  if (number === undefined || number === null) {
+    return number;
+  }
+
+  return Number.isInteger(number) ? number : null;
 };
 
 const booleanValue = (value: unknown): boolean => value === true;

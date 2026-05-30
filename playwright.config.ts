@@ -18,9 +18,23 @@ export default defineConfig({
         viewport: { width: 1920, height: 1080 },
       },
     },
+    {
+      name: 'chromium-2560',
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 2560, height: 1440 },
+      },
+    },
+    {
+      name: 'chromium-3840',
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 3840, height: 2160 },
+      },
+    },
   ],
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: 'http://127.0.0.1:5175',
     trace: 'retain-on-failure',
   },
   webServer: [
@@ -31,10 +45,10 @@ export default defineConfig({
       url: 'http://127.0.0.1:3000/health',
     },
     {
-      command: 'pnpm --dir apps/web exec vite --host 127.0.0.1 --port 5173',
+      command: 'pnpm --dir apps/web exec vite --host 127.0.0.1 --port 5175',
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
-      url: 'http://127.0.0.1:5173/dev/renderer',
+      url: 'http://127.0.0.1:5175/dev/renderer',
     },
   ],
 });

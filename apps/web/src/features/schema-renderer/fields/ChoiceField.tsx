@@ -1,6 +1,6 @@
 import type { EditableFieldProps } from './common';
 import {
-  FieldDescription,
+  FieldLegend,
   getFieldValue,
   getStringArrayValue,
   isDisabledMode,
@@ -21,8 +21,7 @@ export const RadioField = ({
 
   return (
     <fieldset className="schema-field" data-field-type={field.type}>
-      <legend>{field.label}</legend>
-      <FieldDescription field={field} />
+      <FieldLegend field={field} />
       {(field.options ?? []).map((option) => (
         <label key={option.value}>
           <input
@@ -52,8 +51,7 @@ export const MultiChoiceField = ({
 
   return (
     <fieldset className="schema-field" data-field-type={field.type}>
-      <legend>{field.label}</legend>
-      <FieldDescription field={field} />
+      <FieldLegend field={field} />
       {(field.options ?? []).map((option) => {
         const checked = selectedValues.includes(option.value);
 

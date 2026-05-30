@@ -7,12 +7,11 @@ type EmptyStateProps = {
   className?: string;
 };
 
-export const EmptyState = ({ title, description, action, className }: EmptyStateProps) => (
+export const EmptyState = ({ title, action, className }: EmptyStateProps) => (
   <section className={['empty-state', className].filter(Boolean).join(' ')} aria-labelledby={emptyStateTitleId(title)}>
     <span className="empty-state__mark" aria-hidden="true" />
     <div>
       <h2 id={emptyStateTitleId(title)}>{title}</h2>
-      {description ? <p>{description}</p> : null}
     </div>
     {action ? <div className="empty-state__actions">{action}</div> : null}
   </section>

@@ -12,9 +12,15 @@ import {
   type SubmissionStatus,
   type TaskStatus,
 } from '@labelhub/shared';
+import type { CSSProperties } from 'react';
 
 type StatusTone = 'neutral' | 'info' | 'approved' | 'danger' | 'warning';
 type StatusTagSize = 'sm' | 'md';
+type TaskStatusTagStyle = {
+  '--status-dot-color': string;
+  '--status-text-color': string;
+  '--status-bg-color': string;
+};
 type AnyStatus =
   | TaskStatus
   | SubmissionStatus
@@ -71,17 +77,46 @@ const toneByStatus = {
   FAILED: 'danger',
 } satisfies Record<AnyStatus, StatusTone>;
 
+const taskStatusTagStyles = {
+  DRAFT: {
+    '--status-dot-color': '#94A3B8',
+    '--status-text-color': '#64748B',
+    '--status-bg-color': '#F1F5F9',
+  },
+  PUBLISHED: {
+    '--status-dot-color': '#306DF8',
+    '--status-text-color': '#1D4ED8',
+    '--status-bg-color': '#EAF1FF',
+  },
+  PAUSED: {
+    '--status-dot-color': '#D97706',
+    '--status-text-color': '#92400E',
+    '--status-bg-color': '#FFF7E6',
+  },
+  ENDED: {
+    '--status-dot-color': '#00A676',
+    '--status-text-color': '#007F5F',
+    '--status-bg-color': '#E6F7F1',
+  },
+} satisfies Record<TaskStatus, TaskStatusTagStyle>;
+
 export const StatusTag = (props: StatusTagProps) => {
   const label = getStatusLabel(props);
   const tone = toneByStatus[props.status];
   const size = props.size ?? 'md';
+  const isTaskStatus = props.group === 'task';
+  const taskStatusStyle = isTaskStatus
+    ? (taskStatusTagStyles[props.status] as CSSProperties)
+    : undefined;
 
   return (
     <span
-      className={`status-tag status-tag--${tone} status-tag--${size}`}
+      className={`status-tag status-tag--${tone} status-tag--${size}${isTaskStatus ? ' status-tag--task' : ''}`}
       data-status={props.status}
       data-tone={tone}
+      style={taskStatusStyle}
     >
+      {isTaskStatus ? <span className="status-tag__dot" aria-hidden="true" /> : null}
       {label}
     </span>
   );

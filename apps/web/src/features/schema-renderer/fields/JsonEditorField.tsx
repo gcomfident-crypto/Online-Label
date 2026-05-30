@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { ToastViewport, useToastController } from '../../../components/ToastViewport';
 import type { EditableFieldProps } from './common';
-import { FieldDescription, getFieldValue, isDisabledMode } from './common';
+import { FieldTitleRow, getFieldValue, isDisabledMode } from './common';
 
 const NO_PENDING_EMITTED_VALUE = Symbol('NO_PENDING_EMITTED_VALUE');
 
@@ -49,6 +50,7 @@ export const JsonEditorField = ({
   const [draftValue, setDraftValue] = useState(() => getJsonEditorValue(fieldValue));
   const [error, setError] = useState<string | null>(null);
   const lastDraftRef = useRef(draftValue);
+  const { clearToasts, dismissToast, messages, showErrorToast } = useToastController();
   const pendingEmittedValueRef = useRef<unknown | typeof NO_PENDING_EMITTED_VALUE>(
     NO_PENDING_EMITTED_VALUE,
   );
@@ -61,6 +63,7 @@ export const JsonEditorField = ({
 
     pendingEmittedValueRef.current = NO_PENDING_EMITTED_VALUE;
     setError(null);
+    clearToasts();
 
     const nextDraftValue = getJsonEditorValue(fieldValue);
 
@@ -72,8 +75,8 @@ export const JsonEditorField = ({
 
   return (
     <label className="schema-field" data-field-type={field.type}>
-      <span>{field.label}</span>
-      <FieldDescription field={field} />
+      <ToastViewport messages={messages} onDismiss={dismissToast} />
+      <FieldTitleRow field={field} />
       <textarea
         aria-label={field.label}
         disabled={isDisabledMode(mode, disabled)}
@@ -87,16 +90,19 @@ export const JsonEditorField = ({
           lastDraftRef.current = nextDraftValue;
 
           if (!parsedValue.ok) {
+            if (!error) {
+              showErrorToast('JSON 格式不合法。');
+            }
             setError('JSON 格式不合法。');
             return;
           }
 
           setError(null);
+          clearToasts();
           pendingEmittedValueRef.current = parsedValue.value;
           onFieldChange(field, parsedValue.value);
         }}
       />
-      {error ? <small role="alert">{error}</small> : null}
       <small>JSON 将在校验阶段检查。</small>
     </label>
   );

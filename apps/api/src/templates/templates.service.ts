@@ -52,6 +52,10 @@ export type PublishTemplateResult = {
   compatibilityReport: TemplateCompatibilityReport;
 };
 
+export type DeleteTemplateResult = {
+  id: string;
+};
+
 type TemplatesPrismaClient = {
   taskTemplate: {
     create: (args: { data: Record<string, unknown> }) => Promise<TemplateRecord>;
@@ -61,6 +65,10 @@ type TemplatesPrismaClient = {
       where: { id: string };
       data: Record<string, unknown>;
     }) => Promise<TemplateRecord>;
+    delete: (args: { where: { id: string } }) => Promise<TemplateRecord>;
+  };
+  task: {
+    count: (args: { where: { templateId: string } }) => Promise<number>;
   };
 };
 
@@ -201,6 +209,24 @@ export class TemplatesService {
       template: toTemplateDto(template),
       compatibilityReport,
     };
+  }
+
+  async deleteTemplate(templateId: string): Promise<DeleteTemplateResult> {
+    await this.findTemplateOrThrow(templateId);
+    const usageCount = await this.prisma.task.count({ where: { templateId } });
+
+    if (usageCount > 0) {
+      throw new ConflictException({
+        code: 'TEMPLATE_IN_USE',
+        message: '该模板已被任务引用，暂时无法删除。',
+      });
+    }
+
+    const deletedTemplate = await this.prisma.taskTemplate.delete({
+      where: { id: templateId },
+    });
+
+    return { id: deletedTemplate.id };
   }
 
   private async findTemplateOrThrow(templateId: string): Promise<TemplateRecord> {

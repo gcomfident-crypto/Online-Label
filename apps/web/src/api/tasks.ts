@@ -1,6 +1,26 @@
-import type { TaskStatus } from '@labelhub/shared';
+import type { DatasetKind, TaskStatus } from '@labelhub/shared';
+import type { DatasetImportSummaryDto } from './datasets';
+import { requestApi } from './request';
 
 export type DistributionStrategy = 'FIRST_COME_FIRST_SERVE' | 'ASSIGNMENT' | 'QUOTA_RACE';
+
+export type TaskWorkflowProgressEventType =
+  | 'published'
+  | 'claimed'
+  | 'submitted'
+  | 'ai_review_submitted'
+  | 'ai_review_rejected'
+  | 'ai_review_passed'
+  | 'reviewer_final';
+
+export type TaskWorkflowProgressEvent = {
+  id: string;
+  type: TaskWorkflowProgressEventType;
+  actorName?: string | null;
+  itemCount?: number | null;
+  createdAt?: string | null;
+  status?: 'completed' | 'current' | 'pending' | 'warning';
+};
 
 export type TaskDto = {
   id: string;
@@ -9,6 +29,8 @@ export type TaskDto = {
   richTextInstruction: string | null;
   tags: string[];
   rewardRule: string | null;
+  rewardPerItem: number | null;
+  perUserLimit: number | null;
   quota: number | null;
   deadline: string | null;
   distributionStrategy: DistributionStrategy;
@@ -19,21 +41,27 @@ export type TaskDto = {
   template: {
     id: string;
     name: string;
+    datasetKind: DatasetKind;
     schemaVersion: string;
     status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
   };
   createdById: string | null;
   itemCount: number;
+  assignedItemCount?: number;
+  submittedItemCount?: number;
+  completedItemCount: number;
+  exportableItemCount: number;
+  workflowProgress?: TaskWorkflowProgressEvent[];
+  datasetImportSummary?: DatasetImportSummaryDto | null;
   createdAt: string;
   updatedAt: string;
 };
 
 export type TaskFormInput = {
   title: string;
-  description?: string | null;
-  richTextInstruction?: string | null;
   tags?: string[];
-  rewardRule?: string | null;
+  rewardPerItem?: number | null;
+  perUserLimit?: number | null;
   quota?: number | null;
   deadline?: string | null;
   distributionStrategy?: DistributionStrategy;
@@ -51,14 +79,9 @@ export type TaskAuditLogDto = {
   metadata?: unknown;
 };
 
-type ApiEnvelope<TData> = {
-  data: TData;
-  error?: {
-    message?: string;
-  };
+export type DeleteTaskResult = {
+  id: string;
 };
-
-const apiBaseUrl = (): string => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
 
 export async function listTasks(params: { ownerId?: string; status?: TaskStatus } = {}): Promise<TaskDto[]> {
   const searchParams = new URLSearchParams();
@@ -80,7 +103,7 @@ export async function getTask(taskId: string): Promise<TaskDto> {
   return requestTaskApi<TaskDto>(`/tasks/${taskId}`, { method: 'GET' });
 }
 
-export async function createTask(input: TaskFormInput & { actorId?: string }): Promise<TaskDto> {
+export async function createTask(input: TaskFormInput & { actorId: string }): Promise<TaskDto> {
   return requestTaskApi<TaskDto>('/tasks', {
     method: 'POST',
     body: JSON.stringify(input),
@@ -104,23 +127,14 @@ export async function updateTaskStatus(
   });
 }
 
+export async function deleteTask(taskId: string): Promise<DeleteTaskResult> {
+  return requestTaskApi<DeleteTaskResult>(`/tasks/${taskId}`, { method: 'DELETE' });
+}
+
 export async function listTaskAuditLogs(taskId: string): Promise<TaskAuditLogDto[]> {
   return requestTaskApi<TaskAuditLogDto[]>(`/tasks/${taskId}/audit-logs`, { method: 'GET' });
 }
 
 async function requestTaskApi<TData>(path: string, init: RequestInit): Promise<TData> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  const envelope = (await response.json()) as ApiEnvelope<TData>;
-
-  if (!response.ok) {
-    throw new Error(envelope.error?.message ?? '任务接口请求失败，请稍后重试。');
-  }
-
-  return envelope.data;
+  return requestApi<TData>(path, init, '任务接口请求失败，请稍后重试。');
 }

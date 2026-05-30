@@ -1,4 +1,5 @@
 import type { DatasetImportFormat, DatasetKind, DatasetRecord } from '@labelhub/shared';
+import { requestApi } from './request';
 
 export type TaskItemStatus = 'UNASSIGNED' | 'ASSIGNED' | 'COMPLETED';
 
@@ -56,15 +57,6 @@ type ImportTaskItemsZipInput = {
   contentBase64: string;
 };
 
-type ApiEnvelope<TData> = {
-  data: TData;
-  error?: {
-    message?: string;
-  };
-};
-
-const apiBaseUrl = (): string => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
-
 export async function importTaskItems(
   taskId: string,
   input: ImportTaskItemsInput,
@@ -100,18 +92,5 @@ export async function updateTaskItem(
 }
 
 async function requestDatasetApi<TData>(path: string, init: RequestInit): Promise<TData> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  const envelope = (await response.json()) as ApiEnvelope<TData>;
-
-  if (!response.ok) {
-    throw new Error(envelope.error?.message ?? '数据集接口请求失败，请稍后重试。');
-  }
-
-  return envelope.data;
+  return requestApi<TData>(path, init, '数据集接口请求失败，请稍后重试。');
 }

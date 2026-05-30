@@ -48,7 +48,6 @@ export const PageError = ({
   onReset?: () => void;
 }) => (
   <section className="app-error-boundary" role="alert" aria-labelledby="app-error-title">
-    <p className="eyebrow">系统提示</p>
     <h1 id="app-error-title">{title}</h1>
     <p>{description ?? error?.message ?? '页面遇到异常，请重新加载后继续。'}</p>
     <button type="button" onClick={onReset ?? (() => window.location.reload())}>

@@ -1,9 +1,15 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ROLE_HOME_METADATA, USER_ROLE, USER_ROLES } from '@labelhub/shared';
+import exportIconAsset from '../assets/export.svg';
+import missionSquareIconAsset from '../assets/mission_square.svg';
+import modelIconAsset from '../assets/model.svg';
+import personIconAsset from '../assets/person.svg';
+import taskIconAsset from '../assets/task.svg';
+import workbenchIconAsset from '../assets/workbench.svg';
 import { AppRouter } from '../router';
 import { sessionStore } from '../stores/sessionStore';
 
@@ -22,16 +28,55 @@ afterEach(() => {
     sessionStore.clear();
   });
   window.localStorage?.clear();
+  window.sessionStorage?.clear();
 });
 
 describe('Web 壳 smoke test', () => {
-  it('在 /login 渲染四个演示账号入口', () => {
+  it('在 /login 渲染登录表单和 3D 动画展示区', async () => {
+    const user = userEvent.setup();
     renderRoute('/login');
 
-    expect(screen.getByRole('button', { name: /Owner 演示账号/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Labeler 演示账号/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /AI Agent 演示账号/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Reviewer 演示账号/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '登录 LabelHub' })).toBeInTheDocument();
+    expect(screen.getByLabelText('账号')).toBeInTheDocument();
+    expect(screen.getByLabelText('密码')).toBeInTheDocument();
+    expect(screen.getByLabelText('登录身份')).toBeInTheDocument();
+    expect(screen.getByLabelText('3D 数据流动画')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '登录平台' })).toBeInTheDocument();
+    expect(screen.getByText('记住登录状态')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: '记住登录状态' })).not.toBeChecked();
+
+    await user.click(screen.getByRole('button', { name: '登录平台' }));
+    expect(screen.getByText('请输入账号和密码')).toBeInTheDocument();
+  });
+
+  it('根路径不会复用历史 Agent 会话自动进入 Agent 页面', () => {
+    act(() => {
+      sessionStore.loginAs(USER_ROLE.AI_AGENT);
+    });
+
+    renderRoute('/');
+
+    expect(screen.getByRole('heading', { name: '登录 LabelHub' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'AI Agent 端导航' })).not.toBeInTheDocument();
+  });
+
+  it('浏览器标签标题随当前路径显示所在位置', async () => {
+    renderRoute('/login');
+    await waitFor(() => expect(document.title).toBe('登录 - LabelHub'));
+    cleanup();
+
+    act(() => {
+      sessionStore.loginAs(USER_ROLE.OWNER);
+    });
+    renderRoute('/owner/templates');
+    await waitFor(() => expect(document.title).toBe('任务负责人后台 / 评测模板 - LabelHub'));
+    cleanup();
+
+    act(() => {
+      sessionStore.loginAs(USER_ROLE.LABELER);
+    });
+    renderRoute('/labeler/my-data');
+    await waitFor(() => expect(document.title).toBe('标注员工作台 / 工作台 - LabelHub'));
   });
 
   it('四端 Portal Layout 各自渲染对应导航', async () => {
@@ -39,10 +84,50 @@ describe('Web 壳 smoke test', () => {
       sessionStore.loginAs(USER_ROLE.OWNER);
     });
     const { unmount } = renderRoute('/owner/tasks');
+    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('LabelHub');
+    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('任务负责人后台 / 任务管理');
+    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('张满 · Owner');
+    const currentPath = screen.getByLabelText('当前路径');
+    expect(currentPath.querySelector('.platform-current-path__prefix')).toHaveTextContent('任务负责人后台');
+    expect(currentPath.querySelector('.platform-current-path__leaf')).toHaveTextContent('任务管理');
     expect(screen.getByRole('navigation', { name: 'Owner 端导航' })).toHaveTextContent('任务管理');
-    expect(screen.getByRole('navigation', { name: 'Owner 端导航' })).toHaveTextContent('模板配置');
+    expect(screen.getByRole('navigation', { name: 'Owner 端导航' })).toHaveTextContent('评测模板');
     expect(screen.getByRole('navigation', { name: 'Owner 端导航' })).toHaveTextContent('导出中心');
-    expect(screen.getByText('当前使用 seed 演示数据')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Owner 端导航' })).not.toHaveTextContent('AI规则');
+    expect(
+      Array.from(screen.getByRole('navigation', { name: 'Owner 端导航' }).querySelectorAll('.portal-nav__icon')).map(
+        (node) => Array.from(node.classList).find((className) => className.startsWith('portal-nav__icon--')),
+      ),
+    ).toEqual([
+      'portal-nav__icon--tasks',
+      'portal-nav__icon--templates',
+      'portal-nav__icon--exports',
+    ]);
+    const taskIcon = screen.getByRole('link', { name: '任务管理' }).querySelector('.portal-nav__icon--tasks');
+    expect(taskIcon).toHaveClass('portal-nav__icon--asset');
+    expect(taskIcon?.getAttribute('style')).toContain('url("');
+    expect(taskIcon?.getAttribute('style')).toContain(taskIconAsset);
+    const templateIcon = screen.getByRole('link', { name: '评测模板' }).querySelector('.portal-nav__icon--templates');
+    expect(templateIcon).toHaveClass('portal-nav__icon--asset');
+    expect(templateIcon?.getAttribute('style')).toContain('url("');
+    expect(templateIcon?.getAttribute('style')).toContain(modelIconAsset);
+    const exportIcon = screen.getByRole('link', { name: '导出中心' }).querySelector('.portal-nav__icon--exports');
+    expect(exportIcon).toHaveClass('portal-nav__icon--asset');
+    expect(exportIcon?.getAttribute('style')).toContain('url("');
+    expect(exportIcon?.getAttribute('style')).toContain(exportIconAsset);
+    expect(screen.queryByRole('link', { name: 'AI规则' })).not.toBeInTheDocument();
+    const collapseButton = screen.getByRole('button', { name: '收起侧边栏' });
+    expect(collapseButton).toHaveTextContent('收起');
+    expect(collapseButton.querySelector('.portal-sidebar__toggle-icon')).not.toBeNull();
+    await userEvent.click(collapseButton);
+    expect(document.querySelector('.owner-shell')).toHaveClass('is-sidebar-collapsed');
+    const collapsedNavLabel = screen.getByRole('link', { name: '任务管理' }).querySelector('.portal-nav__label');
+    expect(collapsedNavLabel).toHaveClass('is-hidden');
+    const expandButton = screen.getByRole('button', { name: '展开侧边栏' });
+    expect(expandButton).toBeInTheDocument();
+    expect(expandButton.querySelector('.portal-sidebar__toggle-icon.is-collapsed')).not.toBeNull();
+    expect(expandButton.querySelector('.portal-sidebar__toggle-label')).toHaveClass('is-hidden');
+    expect(screen.queryByText('当前使用 seed 演示数据')).not.toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Labeler 端导航' })).not.toBeInTheDocument();
     unmount();
 
@@ -50,7 +135,22 @@ describe('Web 壳 smoke test', () => {
       sessionStore.loginAs(USER_ROLE.LABELER);
     });
     const labelerView = renderRoute('/labeler/market');
-    expect(screen.getByRole('navigation', { name: 'Labeler 端导航' })).toHaveTextContent('任务广场');
+    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('标注员工作台 / 任务广场');
+    const labelerNav = screen.getByRole('navigation', { name: 'Labeler 端导航' });
+    expect(labelerNav).toHaveTextContent('任务广场');
+    expect(labelerNav).toHaveTextContent('工作台');
+    const marketIcon = within(labelerNav)
+      .getByRole('link', { name: '任务广场' })
+      .querySelector('.portal-nav__icon--market');
+    expect(marketIcon).toHaveClass('portal-nav__icon--asset');
+    expect(marketIcon?.getAttribute('style')).toContain('url("');
+    expect(marketIcon?.getAttribute('style')).toContain(missionSquareIconAsset);
+    const workbenchIcon = within(labelerNav)
+      .getByRole('link', { name: '工作台' })
+      .querySelector('.portal-nav__icon--my-data');
+    expect(workbenchIcon).toHaveClass('portal-nav__icon--asset');
+    expect(workbenchIcon?.getAttribute('style')).toContain('url("');
+    expect(workbenchIcon?.getAttribute('style')).toContain(workbenchIconAsset);
     expect(screen.queryByRole('navigation', { name: 'Owner 端导航' })).not.toBeInTheDocument();
     labelerView.unmount();
 
@@ -58,6 +158,7 @@ describe('Web 壳 smoke test', () => {
       sessionStore.loginAs(USER_ROLE.AI_AGENT);
     });
     const agentView = renderRoute('/agent/ai-review');
+    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('AI 预审后台 / 机审队列');
     expect(screen.getByRole('navigation', { name: 'AI Agent 端导航' })).toHaveTextContent('机审队列');
     expect(screen.queryByRole('navigation', { name: 'Reviewer 端导航' })).not.toBeInTheDocument();
     agentView.unmount();
@@ -67,10 +168,38 @@ describe('Web 壳 smoke test', () => {
     });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ data: [] })));
     renderRoute('/reviewer/reviews');
-    expect(screen.getByRole('navigation', { name: 'Reviewer 端导航' })).toHaveTextContent('复审台');
-    expect(screen.getByRole('navigation', { name: 'Reviewer 端导航' })).toHaveTextContent('终审台');
+    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('审核与质检 / 人工审核 / 审核任务列表');
+    const reviewerNav = screen.getByRole('navigation', { name: 'Reviewer 端导航' });
+    expect(reviewerNav).toHaveTextContent('人工审核');
+    expect(reviewerNav).not.toHaveTextContent('终审');
+    const reviewerIcon = screen.getByRole('link', { name: '人工审核' }).querySelector('.portal-nav__icon--review');
+    expect(reviewerIcon).toHaveClass('portal-nav__icon--asset');
+    expect(reviewerIcon?.getAttribute('style')).toContain('url("');
+    expect(reviewerIcon?.getAttribute('style')).toContain(personIconAsset);
+    expect(document.querySelector('.reviewer-shell .portal-sidebar')).toBeInTheDocument();
+    expect(document.querySelector('.reviewer-shell--flat')).toBeNull();
     expect(screen.queryByRole('navigation', { name: 'AI Agent 端导航' })).not.toBeInTheDocument();
-    expect(await screen.findByText('暂无待复审数据')).toBeInTheDocument();
+    expect(await screen.findByRole('table', { name: '人工审核任务列表' })).toBeInTheDocument();
+  });
+
+  it('Owner 顶栏点击账号头像后在下拉菜单中退出', async () => {
+    const user = userEvent.setup();
+    act(() => {
+      sessionStore.loginAs(USER_ROLE.OWNER);
+    });
+
+    renderRoute('/owner/templates');
+
+    expect(screen.queryByRole('menu', { name: '账号菜单' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '打开账号菜单' }));
+    const menu = screen.getByRole('menu', { name: '账号菜单' });
+    expect(menu).toBeInTheDocument();
+    expect(within(menu).queryByText('Owner 演示账号')).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: '退出' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('menuitem', { name: '退出' }));
+
+    expect(screen.getByRole('heading', { name: '登录 LabelHub' })).toBeInTheDocument();
   });
 });
 
@@ -79,7 +208,7 @@ describe('Web 路由守卫', () => {
     renderRoute('/owner/tasks');
 
     expect(screen.getByRole('heading', { name: '登录 LabelHub' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Owner 演示账号/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '登录平台' })).toBeInTheDocument();
   });
 
   it('开发 Renderer 调试台可直接访问并切换示例', async () => {
@@ -138,15 +267,44 @@ describe('Web 路由守卫', () => {
     const user = userEvent.setup();
     renderRoute('/login');
 
-    await user.click(
-      screen.getByRole('button', {
-        name: new RegExp(`${ROLE_HOME_METADATA[role].displayName.replace(' 端', '')} 演示账号`),
-      }),
-    );
+    await user.type(screen.getByLabelText('账号'), role.toLowerCase());
+    await user.type(screen.getByLabelText('密码'), 'password');
+    await user.click(screen.getByRole('button', { name: '登录平台' }));
 
     expect(
-      screen.getByRole('navigation', { name: `${ROLE_HOME_METADATA[role].displayName}导航` }),
+      await screen.findByRole('navigation', { name: `${ROLE_HOME_METADATA[role].displayName}导航` }),
     ).toBeInTheDocument();
+  });
+
+  it('未勾选记住登录状态时使用当前标签页会话，不写入跨窗口本地会话', async () => {
+    const user = userEvent.setup();
+    renderRoute('/login');
+
+    await user.type(screen.getByLabelText('账号'), 'owner');
+    await user.type(screen.getByLabelText('密码'), 'password');
+    await user.click(screen.getByRole('button', { name: '登录平台' }));
+
+    expect(await screen.findByRole('navigation', { name: 'Owner 端导航' })).toBeInTheDocument();
+    expect(window.localStorage.getItem('labelhub.session.v1')).toBeNull();
+    expect(JSON.parse(window.sessionStorage.getItem('labelhub.session.v1') ?? '{}')).toMatchObject({
+      user: { role: 'OWNER' },
+    });
+  });
+
+  it('勾选记住登录状态时使用跨窗口本地会话', async () => {
+    const user = userEvent.setup();
+    renderRoute('/login');
+
+    await user.type(screen.getByLabelText('账号'), 'labeler');
+    await user.type(screen.getByLabelText('密码'), 'password');
+    await user.click(screen.getByRole('checkbox', { name: '记住登录状态' }));
+    await user.click(screen.getByRole('button', { name: '登录平台' }));
+
+    expect(await screen.findByRole('navigation', { name: 'Labeler 端导航' })).toBeInTheDocument();
+    expect(window.sessionStorage.getItem('labelhub.session.v1')).toBeNull();
+    expect(JSON.parse(window.localStorage.getItem('labelhub.session.v1') ?? '{}')).toMatchObject({
+      user: { role: 'LABELER' },
+    });
   });
 
   it('忽略并清理结构异常的本地会话', async () => {
@@ -183,6 +341,38 @@ describe('Web 路由守卫', () => {
 
     expect(freshSessionStore.getSnapshot()?.user.role).toBe('LABELER');
     expect(window.localStorage.getItem('labelhub.session.v1')).not.toBeNull();
+  });
+
+  it('当前标签页会话优先于跨窗口本地会话，支持同一浏览器多角色并行调试', async () => {
+    vi.resetModules();
+    window.localStorage.setItem(
+      'labelhub.session.v1',
+      JSON.stringify({
+        token: 'mock-token-owner',
+        user: {
+          id: 'demo-owner',
+          name: '张满',
+          role: 'OWNER',
+        },
+      }),
+    );
+    window.sessionStorage.setItem(
+      'labelhub.session.v1',
+      JSON.stringify({
+        token: 'mock-token-reviewer',
+        user: {
+          id: 'demo-reviewer',
+          name: 'Reviewer 演示账号',
+          role: 'REVIEWER',
+        },
+      }),
+    );
+
+    const { sessionStore: freshSessionStore } = await import('../stores/sessionStore');
+
+    expect(freshSessionStore.getSnapshot()?.user.role).toBe('REVIEWER');
+    expect(window.localStorage.getItem('labelhub.session.v1')).not.toBeNull();
+    expect(window.sessionStorage.getItem('labelhub.session.v1')).not.toBeNull();
   });
 });
 

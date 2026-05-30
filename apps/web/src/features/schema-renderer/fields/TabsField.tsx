@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { FieldRenderer } from '../FieldRenderer';
 import type { BaseFieldProps } from './common';
+import { FieldTitleRow } from './common';
 
 export const TabsField = ({
   datasetKind,
@@ -15,6 +16,8 @@ export const TabsField = ({
   disabledFieldKeys,
   validationMessagesByField,
   onFieldChange,
+  activeFieldKey,
+  onActiveFieldChange,
 }: BaseFieldProps) => {
   const tabs = useMemo(() => field.tabs ?? [], [field.tabs]);
   const [activeTabKey, setActiveTabKey] = useState(tabs[0]?.key ?? '');
@@ -39,8 +42,7 @@ export const TabsField = ({
 
   return (
     <section className="schema-field schema-field--tabs" data-field-type={field.type}>
-      <h3>{field.label}</h3>
-      {field.description ? <p>{field.description}</p> : null}
+      <FieldTitleRow field={field} />
       {tabs.length > 0 ? (
         <div className="schema-field__tab-list" role="tablist">
           {tabs.map((tab) => {
@@ -89,6 +91,8 @@ export const TabsField = ({
               disabledFieldKeys={disabledFieldKeys}
               validationMessagesByField={validationMessagesByField}
               onFieldChange={onFieldChange}
+              activeFieldKey={activeFieldKey}
+              onActiveFieldChange={onActiveFieldChange}
             />
           ))}
         </section>

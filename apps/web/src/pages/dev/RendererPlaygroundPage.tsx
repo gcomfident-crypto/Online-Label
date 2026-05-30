@@ -95,9 +95,7 @@ export const RendererPlaygroundPage = () => {
     <main className="playground-page">
       <header className="playground-header">
         <div>
-          <p className="eyebrow">开发调试 / 动态表单</p>
           <h1>Renderer 调试台</h1>
-          <p>切换官方 Schema 示例，检查展示项 ShowItem、字段联动和 LLM 触发组件。</p>
         </div>
         <div className="segmented-control" aria-label="Renderer 模式">
           {MODES.map((item) => (

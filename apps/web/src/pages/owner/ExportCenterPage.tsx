@@ -1,223 +1,426 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type Ref } from 'react';
 
 import type { ExportFormat } from '@labelhub/shared';
 import {
   createExport,
+  getExportDownloadUrl,
   getExportPreview,
-  listExports,
-  retryExport,
-  type ExportFieldMapping,
   type ExportJobDto,
-  type ExportPreviewDto,
+  type ExportFieldMapping,
 } from '../../api/exports';
 import { listTasks, type TaskDto } from '../../api/tasks';
-import { EmptyState } from '../../components/EmptyState';
 import { PageLoading } from '../../components/PageLoading';
-import { ExportConfigDrawer } from '../../features/export/ExportConfigDrawer';
-import { ExportHistoryTable } from '../../features/export/ExportHistoryTable';
+import { TableEmptyState } from '../../components/TableEmptyState';
+import { ToastViewport, useToastController } from '../../components/ToastViewport';
+import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
+import { createTaskDisplayIdMap } from './taskDisplayId';
 
-const OWNER_ID = 'user_owner_001';
+const OWNER_ID = 'user_owner_zhang_man';
+const EXPORT_TASKS_FALLBACK_PAGE_SIZE = 8;
+const EXPORT_TASK_TABLE_ROW_HEIGHT = 66;
+const EXPORT_FORMAT_OPTIONS: Array<{ label: string; value: ExportFormat }> = [
+  { label: 'XLSX', value: 'xlsx' },
+  { label: 'CSV', value: 'csv' },
+  { label: 'JSON', value: 'json' },
+];
 
 export const ExportCenterPage = () => {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
-  const [exports, setExports] = useState<ExportJobDto[]>([]);
-  const [preview, setPreview] = useState<ExportPreviewDto | null>(null);
-  const [fieldMapping, setFieldMapping] = useState<ExportFieldMapping[]>([]);
-  const [selectedTaskId, setSelectedTaskId] = useState('');
-  const [format, setFormat] = useState<ExportFormat>('json');
-  const [includeReviews, setIncludeReviews] = useState(true);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [pendingExportTaskIds, setPendingExportTaskIds] = useState<string[]>([]);
+  const [selectedExportFormat, setSelectedExportFormat] = useState<ExportFormat>('xlsx');
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
+  const [currentExportTaskPage, setCurrentExportTaskPage] = useState(1);
+  const { dismissToast, messages, showErrorToast, showStatusToast } = useToastController();
+  const { containerRef: exportTaskTableContainerRef, pageSize: exportTaskPageSize } = useAdaptiveTablePageSize({
+    fallbackPageSize: EXPORT_TASKS_FALLBACK_PAGE_SIZE,
+    rowHeight: EXPORT_TASK_TABLE_ROW_HEIGHT,
+  });
 
-  const selectedTask = useMemo(
-    () => tasks.find((task) => task.id === selectedTaskId) ?? null,
-    [tasks, selectedTaskId],
+  const exportableTasks = useMemo(
+    () =>
+      [...tasks]
+        .filter((task) => (task.exportableItemCount ?? 0) > 0)
+        .sort((firstTask, secondTask) => secondTask.createdAt.localeCompare(firstTask.createdAt)),
+    [tasks],
   );
-  const summary = useMemo(
-    () => ({
-      queued: exports.filter((job) => job.status === 'QUEUED').length,
-      succeeded: exports.filter((job) => job.status === 'SUCCEEDED').length,
-      failed: exports.filter((job) => job.status === 'FAILED').length,
-      downloadable: exports.filter((job) => job.status === 'SUCCEEDED').length,
-    }),
-    [exports],
+  const exportableItemTotal = useMemo(
+    () => exportableTasks.reduce((total, task) => total + (task.exportableItemCount ?? 0), 0),
+    [exportableTasks],
   );
+  const taskDisplayIdMap = useMemo(() => createTaskDisplayIdMap(tasks), [tasks]);
+  const totalExportTaskPages = Math.max(1, Math.ceil(exportableTasks.length / exportTaskPageSize));
+  const paginatedExportableTasks = useMemo(() => {
+    const startIndex = (currentExportTaskPage - 1) * exportTaskPageSize;
+
+    return exportableTasks.slice(startIndex, startIndex + exportTaskPageSize);
+  }, [currentExportTaskPage, exportTaskPageSize, exportableTasks]);
 
   useEffect(() => {
     void loadInitialData();
   }, []);
 
   useEffect(() => {
-    if (!selectedTaskId) {
-      setPreview(null);
-      return;
-    }
+    setCurrentExportTaskPage((current) => Math.min(current, totalExportTaskPages));
+  }, [totalExportTaskPages]);
 
-    void loadPreview(selectedTaskId, includeReviews, fieldMapping);
-  }, [selectedTaskId, includeReviews, fieldMapping]);
+  useEffect(() => {
+    const exportableTaskIds = new Set(exportableTasks.map((task) => task.id));
+    setSelectedTaskIds((current) => current.filter((taskId) => exportableTaskIds.has(taskId)));
+  }, [exportableTasks]);
 
   const loadInitialData = async () => {
     setIsLoading(true);
     try {
-      const [nextTasks, nextExports] = await Promise.all([listTasks(), listExports()]);
+      const nextTasks = await listTasks();
       setTasks(nextTasks);
-      setExports(nextExports);
-      setSelectedTaskId((current) => current || nextTasks[0]?.id || '');
-      setErrorMessage(null);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '导出中心加载失败。');
+    } catch {
+      setTasks([]);
+      showErrorToast('导出中心加载失败，请稍后重试。');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadPreview = async (
-    taskId: string,
-    nextIncludeReviews: boolean,
-    nextFieldMapping: ExportFieldMapping[],
-  ) => {
-    try {
-      const nextPreview = await getExportPreview({
-        taskId,
-        includeReviews: nextIncludeReviews,
-        fieldMapping: nextFieldMapping.length > 0 ? nextFieldMapping : undefined,
-      });
-      setPreview(nextPreview);
-      setFieldMapping((current) => (current.length > 0 ? current : nextPreview.fieldMapping));
-      setErrorMessage(null);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '导出预览加载失败。');
+  const handleOpenFormatDialog = (taskIds: string[]) => {
+    const exportableTaskIds = new Set(exportableTasks.map((task) => task.id));
+    const nextTaskIds = Array.from(new Set(taskIds)).filter((taskId) => exportableTaskIds.has(taskId));
+
+    if (nextTaskIds.length === 0) {
+      showErrorToast('请选择需要导出的记录。');
+      return;
     }
+
+    setSelectedExportFormat('xlsx');
+    setPendingExportTaskIds(nextTaskIds);
   };
 
-  const refreshExports = async () => {
-    setExports(await listExports());
-  };
-
-  const handleCreate = async () => {
-    if (!selectedTaskId || !preview) {
-      setErrorMessage('请选择任务并等待预览加载完成。');
+  const handleConfirmExport = async () => {
+    if (pendingExportTaskIds.length === 0) {
       return;
     }
 
     setIsBusy(true);
     try {
-      await createExport({
-        taskId: selectedTaskId,
-        requestedById: OWNER_ID,
-        format,
-        includeReviews,
-        fieldMapping: fieldMapping.length > 0 ? fieldMapping : preview.fieldMapping,
-        idempotencyKey: createExportIdempotencyKey(
-          selectedTaskId,
-          format,
-          includeReviews,
-          fieldMapping.length > 0 ? fieldMapping : preview.fieldMapping,
-        ),
-      });
-      setStatusMessage('导出任务已创建。');
-      setErrorMessage(null);
-      await refreshExports();
+      const exportJobs = await Promise.all(
+        pendingExportTaskIds.map((taskId) => createExportForTask(taskId, selectedExportFormat)),
+      );
+      const downloadableJobs = exportJobs.filter((job) => job.status === 'SUCCEEDED');
+      downloadableJobs.forEach(triggerExportDownload);
+      showStatusToast(
+        downloadableJobs.length === exportJobs.length
+          ? downloadableJobs.length > 1
+            ? `已生成 ${downloadableJobs.length} 个导出文件，正在下载。`
+            : '导出文件已生成，正在下载。'
+          : '导出任务已创建。',
+      );
+      setPendingExportTaskIds([]);
+      setSelectedTaskIds([]);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '创建导出任务失败。');
+      showErrorToast(error instanceof Error ? error.message : '创建导出任务失败。');
     } finally {
       setIsBusy(false);
     }
   };
 
-  const handleRetry = async (exportJobId: string) => {
-    setIsBusy(true);
-    try {
-      await retryExport(exportJobId);
-      setStatusMessage('导出任务已重新排队。');
-      setErrorMessage(null);
-      await refreshExports();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '重试导出任务失败。');
-    } finally {
-      setIsBusy(false);
-    }
+  const createExportForTask = async (taskId: string, nextFormat: ExportFormat) => {
+    const preview = await getExportPreview({ taskId, includeReviews: true });
+
+    return createExport({
+      taskId,
+      requestedById: OWNER_ID,
+      format: nextFormat,
+      includeReviews: true,
+      fieldMapping: preview.fieldMapping,
+      idempotencyKey: createExportIdempotencyKey(taskId, nextFormat, true, preview.fieldMapping),
+    });
   };
 
-  const handleTaskChange = (taskId: string) => {
-    setSelectedTaskId(taskId);
-    setFieldMapping([]);
-    setPreview(null);
+  const handleToggleTaskSelection = (taskId: string) => {
+    setSelectedTaskIds((current) =>
+      current.includes(taskId) ? current.filter((selectedTaskId) => selectedTaskId !== taskId) : [...current, taskId],
+    );
+  };
+
+  const handleToggleCurrentPageSelection = () => {
+    const currentPageTaskIds = paginatedExportableTasks.map((task) => task.id);
+    const hasSelectedAllCurrentPageTasks =
+      currentPageTaskIds.length > 0 && currentPageTaskIds.every((taskId) => selectedTaskIds.includes(taskId));
+
+    setSelectedTaskIds((current) => {
+      if (hasSelectedAllCurrentPageTasks) {
+        return current.filter((taskId) => !currentPageTaskIds.includes(taskId));
+      }
+
+      return Array.from(new Set([...current, ...currentPageTaskIds]));
+    });
   };
 
   return (
     <section className="export-center-page" aria-labelledby="export-center-title">
+      <ToastViewport messages={messages} onDismiss={dismissToast} />
       <div className="export-center-header">
         <div>
-          <p className="eyebrow">Owner / 导出中心</p>
           <h1 id="export-center-title">导出中心</h1>
-          <p>导出终审通过数据，保留字段映射和审核记录配置快照。</p>
         </div>
-        <dl>
-          <SummaryMetric label="排队中" value={summary.queued} />
-          <SummaryMetric label="已成功" value={summary.succeeded} />
-          <SummaryMetric label="失败" value={summary.failed} />
-          <SummaryMetric label="可下载" value={summary.downloadable} />
-        </dl>
       </div>
 
-      {statusMessage || errorMessage ? (
-        <div className="task-status-message" role={errorMessage ? 'alert' : undefined} aria-live="polite">
-          {statusMessage ? <span>{statusMessage}</span> : null}
-          {errorMessage ? <span>{errorMessage}</span> : null}
-        </div>
-      ) : null}
-
       {isLoading ? (
-        <PageLoading title="正在加载导出中心" description="正在同步任务、导出历史和预览字段映射。" />
+        <PageLoading title="正在加载导出中心" description="正在同步可导出任务和预览字段映射。" />
       ) : null}
 
-      {!isLoading && tasks.length === 0 ? (
-        <EmptyState title="暂无可导出任务" description="创建并发布任务后，终审通过数据会在这里生成导出任务。" />
-      ) : null}
-
-      {!isLoading && tasks.length > 0 ? (
-        <div className="export-center-layout">
-          <ExportConfigDrawer
-            tasks={tasks}
-            selectedTaskId={selectedTaskId}
-            format={format}
-            includeReviews={includeReviews}
-            fieldMapping={fieldMapping.length > 0 ? fieldMapping : preview?.fieldMapping ?? []}
-            preview={preview}
-            isBusy={isBusy}
-            onTaskChange={handleTaskChange}
-            onFormatChange={setFormat}
-            onIncludeReviewsChange={setIncludeReviews}
-            onFieldMappingChange={setFieldMapping}
-            onCreate={() => void handleCreate()}
-          />
-          <aside className="export-center-side">
-            <section className="export-summary-panel">
-              <span>当前任务</span>
-              <h2>{selectedTask?.title ?? '未选择任务'}</h2>
-              <p>{preview?.totalFinalApproved.toLocaleString() ?? 0} 条终审通过数据可导出。</p>
-            </section>
-            <ExportHistoryTable
-              jobs={exports}
+      {!isLoading ? (
+        <div className="export-center-workspace export-center-workspace--table-only">
+          <section className="export-records-section" aria-label="导出记录">
+            <ExportableTaskTable
+              currentPage={currentExportTaskPage}
+              exportableItemTotal={exportableItemTotal}
               isBusy={isBusy}
-              onRetry={(exportJobId) => void handleRetry(exportJobId)}
+              selectedTaskIds={selectedTaskIds}
+              tablePanelRef={exportTaskTableContainerRef}
+              taskDisplayIdMap={taskDisplayIdMap}
+              tasks={paginatedExportableTasks}
+              totalPages={totalExportTaskPages}
+              onBatchExport={() => handleOpenFormatDialog(selectedTaskIds)}
+              onExportTask={(taskId) => handleOpenFormatDialog([taskId])}
+              onPageChange={setCurrentExportTaskPage}
+              onToggleCurrentPageSelection={handleToggleCurrentPageSelection}
+              onToggleTaskSelection={handleToggleTaskSelection}
             />
-          </aside>
+          </section>
         </div>
       ) : null}
+
+      <ExportFormatDialog
+        format={selectedExportFormat}
+        isBusy={isBusy}
+        isOpen={pendingExportTaskIds.length > 0}
+        taskCount={pendingExportTaskIds.length}
+        onCancel={() => setPendingExportTaskIds([])}
+        onConfirm={() => void handleConfirmExport()}
+        onFormatChange={setSelectedExportFormat}
+      />
     </section>
   );
 };
 
-const SummaryMetric = ({ label, value }: { label: string; value: number }) => (
-  <div>
-    <dt>{label}</dt>
-    <dd>{value.toLocaleString()}</dd>
+type ExportableTaskTableProps = {
+  currentPage: number;
+  exportableItemTotal: number;
+  isBusy: boolean;
+  selectedTaskIds: string[];
+  tablePanelRef?: Ref<HTMLDivElement>;
+  taskDisplayIdMap: Map<string, string>;
+  tasks: TaskDto[];
+  totalPages: number;
+  onBatchExport: () => void;
+  onExportTask: (taskId: string) => void;
+  onPageChange: (page: number) => void;
+  onToggleCurrentPageSelection: () => void;
+  onToggleTaskSelection: (taskId: string) => void;
+};
+
+const ExportableTaskTable = ({
+  currentPage,
+  exportableItemTotal,
+  isBusy,
+  selectedTaskIds,
+  tablePanelRef,
+  taskDisplayIdMap,
+  tasks,
+  totalPages,
+  onBatchExport,
+  onExportTask,
+  onPageChange,
+  onToggleCurrentPageSelection,
+  onToggleTaskSelection,
+}: ExportableTaskTableProps) => {
+  const hasSelectedAllCurrentPageTasks =
+    tasks.length > 0 && tasks.every((task) => selectedTaskIds.includes(task.id));
+
+  return (
+    <div className="task-table-panel export-task-table-panel" ref={tablePanelRef}>
+      <div className="labeler-list-panel-heading export-table-heading" aria-label="导出记录列表概览">
+        <dl className="task-market-heading-stats export-table-heading__total" aria-label="当前可导出数据总数">
+          <div>
+            <dt>当前可导出</dt>
+            <dd>{exportableItemTotal.toLocaleString()}</dd>
+          </div>
+        </dl>
+        <button
+          type="button"
+          className="primary-action export-batch-action"
+          disabled={selectedTaskIds.length === 0 || isBusy}
+          onClick={onBatchExport}
+        >
+          {selectedTaskIds.length > 0 ? `批量导出 ${selectedTaskIds.length} 项` : '批量导出'}
+        </button>
+      </div>
+      <div className="task-table-scroll" data-adaptive-table-viewport="true">
+        <table className="task-table export-task-table" aria-label="导出记录列表">
+          <colgroup>
+            <col className="export-task-table__col-select" />
+            <col className="export-task-table__col-id" />
+            <col className="export-task-table__col-title" />
+            <col className="export-task-table__col-created" />
+            <col className="export-task-table__col-progress" />
+            <col className="export-task-table__col-template" />
+            <col className="export-task-table__col-actions" />
+          </colgroup>
+        <thead>
+          <tr>
+            <th>
+              <input
+                type="checkbox"
+                aria-label="选择当前页导出记录"
+                checked={hasSelectedAllCurrentPageTasks}
+                disabled={tasks.length === 0}
+                onChange={onToggleCurrentPageSelection}
+              />
+            </th>
+            <th>任务ID</th>
+            <th>任务</th>
+            <th>创建时间</th>
+            <th>已完成/总题目数</th>
+            <th>模板</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tasks.length > 0 ? (
+            tasks.map((task) => {
+              const taskDisplayId = taskDisplayIdMap.get(task.id) ?? task.id;
+
+              return (
+                <tr key={task.id} className={selectedTaskIds.includes(task.id) ? 'is-selected' : undefined}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      aria-label={`选择导出任务 ${taskDisplayId}`}
+                      checked={selectedTaskIds.includes(task.id)}
+                      onChange={() => onToggleTaskSelection(task.id)}
+                    />
+                  </td>
+                  <td className="task-table__id">
+                    <code>{taskDisplayId}</code>
+                  </td>
+                  <td>
+                    <strong>{task.title}</strong>
+                    <small>Owner：张满</small>
+                  </td>
+                  <td>{formatDateTimeMinute(task.createdAt)}</td>
+                  <td>
+                    {(task.exportableItemCount ?? 0).toLocaleString()} / {task.itemCount.toLocaleString()}
+                  </td>
+                  <td>{task.template.name}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="export-row-action"
+                      onClick={() => onExportTask(task.id)}
+                      aria-label={`导出 ${taskDisplayId}`}
+                    >
+                      导出
+                    </button>
+                  </td>
+                </tr>
+              );
+            })
+          ) : (
+            <tr className="task-table__empty-row">
+              <td colSpan={7}>
+                <TableEmptyState title="暂无可导出任务" illustrationAlt="空导出记录列表插画" />
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+    <div className="task-table-pagination" aria-label="可导出任务分页">
+      <button
+        type="button"
+        disabled={currentPage <= 1}
+        onClick={() => onPageChange(currentPage - 1)}
+      >
+        上一页
+      </button>
+      <span aria-label="当前页码">
+        第 {currentPage} / {totalPages} 页
+      </span>
+      <button
+        type="button"
+        disabled={currentPage >= totalPages}
+        onClick={() => onPageChange(currentPage + 1)}
+      >
+        下一页
+      </button>
+    </div>
   </div>
-);
+  );
+};
+
+type ExportFormatDialogProps = {
+  format: ExportFormat;
+  isBusy: boolean;
+  isOpen: boolean;
+  taskCount: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onFormatChange: (format: ExportFormat) => void;
+};
+
+const ExportFormatDialog = ({
+  format,
+  isBusy,
+  isOpen,
+  taskCount,
+  onCancel,
+  onConfirm,
+  onFormatChange,
+}: ExportFormatDialogProps) => {
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <div className="export-format-backdrop" onMouseDown={(event) => event.currentTarget === event.target && onCancel()}>
+      <section
+        className="export-format-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-format-title"
+      >
+        <header>
+          <h2 id="export-format-title">选择导出格式</h2>
+          <p>{taskCount.toLocaleString()} 条导出记录</p>
+        </header>
+        <div className="export-format-options" role="radiogroup" aria-label="导出文件格式">
+          {EXPORT_FORMAT_OPTIONS.map((option) => (
+            <label key={option.value} className={option.value === format ? 'is-selected' : undefined}>
+              <input
+                type="radio"
+                name="export-format"
+                value={option.value}
+                checked={option.value === format}
+                onChange={() => onFormatChange(option.value)}
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+        <footer>
+          <button type="button" className="secondary-action" disabled={isBusy} onClick={onCancel}>
+            取消
+          </button>
+          <button type="button" className="primary-action" disabled={isBusy} onClick={onConfirm}>
+            确认导出
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+};
 
 function createExportIdempotencyKey(
   taskId: string,
@@ -226,6 +429,19 @@ function createExportIdempotencyKey(
   fieldMapping: ExportFieldMapping[],
 ): string {
   return `export:${taskId}:${format}:${includeReviews ? 'reviews' : 'rows'}:${stableHash(JSON.stringify(fieldMapping))}`;
+}
+
+function triggerExportDownload(job: ExportJobDto): void {
+  const link = document.createElement('a');
+  link.href = getExportDownloadUrl(job.id);
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+function formatDateTimeMinute(value: string): string {
+  return value.slice(0, 16).replace('T', ' ');
 }
 
 function stableHash(value: string): string {

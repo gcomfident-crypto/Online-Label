@@ -33,7 +33,7 @@ type TaskDatasetSummary = {
   id: string;
   template: {
     datasetKind: DatasetKind;
-  };
+  } | null;
 };
 
 type ImportItemsInput = {
@@ -52,7 +52,7 @@ type UpdateItemInput = {
   rawDataPatch: DatasetRecord;
 };
 
-type DatasetImportSummary = {
+export type DatasetImportSummary = {
   taskId: string;
   datasetKind: DatasetKind;
   importedCount: number;
@@ -73,6 +73,10 @@ type DatasetsPrismaClient = {
       where: { id: string };
       include?: { template: { select: { datasetKind: true } } };
     }) => Promise<TaskDatasetSummary | null>;
+    update: (args: {
+      where: { id: string };
+      data: { datasetImportSummary: DatasetImportSummary };
+    }) => Promise<unknown>;
   };
   taskItem: {
     count: (args: { where: { taskId: string } }) => Promise<number>;
@@ -100,21 +104,23 @@ export class DatasetsService {
 
     const result = await parseDatasetImport(input);
     const savedItems = await this.saveImportedRecords(taskId, result.records);
+    const summary = toImportSummary(taskId, task.template?.datasetKind ?? input.datasetKind, result, savedItems);
+    await this.persistDatasetImportSummary(taskId, summary);
 
-    return toImportSummary(taskId, task.template.datasetKind, result, savedItems);
+    return summary;
   }
 
   async importZipItems(taskId: string, input: ImportZipItemsInput): Promise<DatasetImportSummary> {
     const task = await this.findTaskOrThrow(taskId);
     const result = await parseDatasetZipImport(input.content);
-    const matchingRecords = result.records.filter(
-      (record) => record.datasetKind === task.template.datasetKind,
-    );
+    const matchingRecords = task.template
+      ? result.records.filter((record) => record.datasetKind === task.template?.datasetKind)
+      : result.records;
+    const datasetKind = task.template?.datasetKind ?? matchingRecords[0]?.datasetKind ?? 'generic_json';
     const savedItems = await this.saveImportedRecords(taskId, matchingRecords);
-
-    return {
+    const summary = {
       taskId,
-      datasetKind: task.template.datasetKind,
+      datasetKind,
       importedCount: savedItems.length,
       errorCount: result.errors.length,
       skippedFiles: result.skippedFiles,
@@ -130,6 +136,9 @@ export class DatasetsService {
         errorCount: file.errors.length,
       })),
     };
+    await this.persistDatasetImportSummary(taskId, summary);
+
+    return summary;
   }
 
   async listItems(taskId: string): Promise<TaskItemDto[]> {
@@ -219,10 +228,20 @@ export class DatasetsService {
 
     return task;
   }
+
+  private async persistDatasetImportSummary(
+    taskId: string,
+    summary: DatasetImportSummary,
+  ): Promise<void> {
+    await this.prisma.task.update({
+      where: { id: taskId },
+      data: { datasetImportSummary: summary },
+    });
+  }
 }
 
 function assertDatasetKindMatchesTask(task: TaskDatasetSummary, datasetKind: DatasetKind): void {
-  if (task.template.datasetKind === datasetKind) {
+  if (!task.template || task.template.datasetKind === datasetKind) {
     return;
   }
 

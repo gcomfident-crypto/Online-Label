@@ -63,12 +63,12 @@ describe('TaskDetailPage', () => {
     );
 
     expect(await screen.findByRole('heading', { name: '商品标题清洗 v3 · 抖音电商' })).toBeInTheDocument();
-    expect(screen.getByText('发布中')).toBeInTheDocument();
+    expect(screen.getByText('进行中')).toBeInTheDocument();
     expect(screen.getByText('商品清洗 · v3 (Schema r12)')).toBeInTheDocument();
 
     const auditRegion = screen.getByRole('region', { name: '审计日志' });
     expect(within(auditRegion).getByText('TASK_PUBLISHED')).toBeInTheDocument();
-    expect(within(auditRegion).getByText('草稿 → 发布中')).toBeInTheDocument();
+    expect(within(auditRegion).getByText('草稿 → 进行中')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/tasks/task_1', expect.objectContaining({ method: 'GET' }));
     expect(fetchMock).toHaveBeenCalledWith(
       '/tasks/task_1/audit-logs',

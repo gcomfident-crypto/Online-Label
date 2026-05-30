@@ -3,7 +3,7 @@ type DemoDataBannerProps = {
 };
 
 export const DemoDataBanner = ({ visible }: DemoDataBannerProps) => {
-  const shouldShow = visible ?? import.meta.env.DEV;
+  const shouldShow = visible ?? false;
 
   if (!shouldShow) {
     return null;

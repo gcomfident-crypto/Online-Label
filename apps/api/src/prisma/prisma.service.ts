@@ -1,8 +1,10 @@
-import 'dotenv/config';
-
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
+
+import { loadWorkspaceEnv } from '../env.ts';
+
+loadWorkspaceEnv();
 
 const DEFAULT_DATABASE_URL =
   'postgresql://labelhub:labelhub_password@localhost:5432/labelhub?schema=public';

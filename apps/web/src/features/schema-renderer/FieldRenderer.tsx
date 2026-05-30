@@ -26,7 +26,6 @@ export const FieldRenderer = (props: FieldRendererProps) => {
     ...props,
     disabled: props.disabledFieldKeys.has(fieldKey),
   };
-  const validationMessages = props.validationMessagesByField.get(fieldKey) ?? [];
   let fieldElement: ReactNode;
 
   switch (props.field.type) {
@@ -73,15 +72,17 @@ export const FieldRenderer = (props: FieldRendererProps) => {
   }
 
   return (
-    <>
+    <div
+      className={
+        props.activeFieldKey === fieldKey
+          ? 'schema-renderer__field-node is-active'
+          : 'schema-renderer__field-node'
+      }
+      data-field-key={fieldKey}
+      onClick={() => props.onActiveFieldChange?.(fieldKey)}
+      onFocusCapture={() => props.onActiveFieldChange?.(fieldKey)}
+    >
       {fieldElement}
-      {validationMessages.length > 0 ? (
-        <ul className="schema-field__errors" role="alert">
-          {validationMessages.map((message) => (
-            <li key={message}>{message}</li>
-          ))}
-        </ul>
-      ) : null}
-    </>
+    </div>
   );
 };

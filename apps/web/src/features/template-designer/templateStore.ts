@@ -22,17 +22,16 @@ export type MaterialSpec = {
 };
 
 export const DESIGNER_MATERIALS: readonly MaterialSpec[] = [
-  { type: 'show_item', label: '展示项 ShowItem', group: '基础物料' },
   { type: 'text', label: '单行输入', group: '基础物料' },
   { type: 'textarea', label: '多行文本', group: '基础物料' },
   { type: 'radio', label: '单选', group: '基础物料' },
   { type: 'checkbox', label: '多选', group: '基础物料' },
   { type: 'tag_select', label: '标签选择', group: '基础物料' },
-  { type: 'rich_text', label: '富文本', group: '高级物料' },
-  { type: 'file_upload', label: '文件上传', group: '高级物料' },
-  { type: 'image_upload', label: '图片上传', group: '高级物料' },
+  { type: 'rich_text', label: '富文本', group: '基础物料' },
+  { type: 'file_upload', label: '文件/图片', group: '基础物料' },
   { type: 'json_editor', label: 'JSON 编辑器', group: '高级物料' },
   { type: 'llm_assist', label: 'LLM 触发组件', group: '高级物料' },
+  { type: 'show_item', label: '展示项 ShowItem', group: '高级物料' },
   { type: 'group', label: '分组容器', group: '布局物料' },
   { type: 'tabs', label: '多 Tab 布局', group: '布局物料' },
 ];
@@ -44,6 +43,7 @@ type TemplateDesignerState = {
   future: LabelHubSchema[];
   resetDesigner: () => void;
   addField: (type: FieldType) => void;
+  addFieldBefore: (type: FieldType, targetFieldKey: string) => void;
   selectField: (fieldKey: string | null) => void;
   updateSelectedField: (patch: Partial<SchemaField>) => void;
   updateSelectedFieldValidation: (
@@ -87,6 +87,19 @@ export const useTemplateDesignerStore = create<TemplateDesignerState>((set, get)
         schema: {
           ...schema,
           fields: [...schema.fields, field],
+        },
+        selectedFieldKey: field.key,
+      };
+    });
+  },
+  addFieldBefore: (type, targetFieldKey) => {
+    commitSchemaChange(set, get, (schema) => {
+      const field = createDefaultField(type, schema);
+
+      return {
+        schema: {
+          ...schema,
+          fields: insertBeforeField(schema.fields, targetFieldKey, field),
         },
         selectedFieldKey: field.key,
       };
@@ -273,7 +286,11 @@ const createDefaultField = (type: FieldType, schema: LabelHubSchema): SchemaFiel
     return { ...base, sourceKey: 'prompt' };
   }
 
-  if (type === 'radio' || type === 'checkbox' || type === 'tag_select') {
+  if (type === 'radio' || type === 'checkbox') {
+    return { ...base, options: [] };
+  }
+
+  if (type === 'tag_select') {
     return {
       ...base,
       options: [
@@ -431,6 +448,31 @@ const insertAfterField = (
   }
 
   return next;
+};
+
+const insertBeforeField = (
+  fields: readonly SchemaField[],
+  fieldKey: string,
+  insertedField: SchemaField,
+): SchemaField[] => {
+  const targetIndex = fields.findIndex((field) => field.key === fieldKey);
+
+  if (targetIndex >= 0) {
+    return [
+      ...fields.slice(0, targetIndex),
+      insertedField,
+      ...fields.slice(targetIndex),
+    ];
+  }
+
+  return fields.map((field) => ({
+    ...field,
+    fields: field.fields ? insertBeforeField(field.fields, fieldKey, insertedField) : undefined,
+    tabs: field.tabs?.map((tab) => ({
+      ...tab,
+      fields: insertBeforeField(tab.fields, fieldKey, insertedField),
+    })),
+  }));
 };
 
 const moveFieldInList = (

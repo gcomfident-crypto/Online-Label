@@ -18,8 +18,8 @@ describe('共享包名入口', () => {
     expect(canAccessRoute('LABELER', '/labeler/tasks')).toBe(true);
     expect(FIELD_TYPES).toContain('llm_assist');
     expect(DATASET_KINDS).toContain('preference_compare');
-    expect(DEFAULT_REVIEW_STAGE_CONFIG).toEqual(['RECHECK', 'FINAL']);
-    expect(Object.values(TASK_STATUS_LABELS)).toContain('发布中');
+    expect(DEFAULT_REVIEW_STAGE_CONFIG).toEqual(['RECHECK']);
+    expect(Object.values(TASK_STATUS_LABELS)).toContain('进行中');
   });
 
   it('支持 Node ESM 解析包名入口', () => {

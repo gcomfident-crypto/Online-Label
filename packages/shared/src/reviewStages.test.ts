@@ -8,16 +8,15 @@ import {
 } from './reviewStages.ts';
 
 describe('审核阶段配置协议', () => {
-  it('默认启用复审和终审，启用初审时补齐三阶段链路', () => {
-    expect(DEFAULT_REVIEW_STAGE_CONFIG).toEqual(['RECHECK', 'FINAL']);
-    expect(FULL_REVIEW_STAGE_CONFIG).toEqual(['INITIAL', 'RECHECK', 'FINAL']);
+  it('默认只启用复审，启用初审时补齐初审和复审链路', () => {
+    expect(DEFAULT_REVIEW_STAGE_CONFIG).toEqual(['RECHECK']);
+    expect(FULL_REVIEW_STAGE_CONFIG).toEqual(['INITIAL', 'RECHECK']);
     expect(REVIEW_STAGE_CONFIG_LABELS).toEqual({
       INITIAL: '初审',
       RECHECK: '复审',
-      FINAL: '终审',
     });
-    expect(normalizeReviewStageConfig(undefined)).toEqual(['RECHECK', 'FINAL']);
-    expect(normalizeReviewStageConfig(['FINAL', 'RECHECK'])).toEqual(['RECHECK', 'FINAL']);
-    expect(normalizeReviewStageConfig(['INITIAL'])).toEqual(['INITIAL', 'RECHECK', 'FINAL']);
+    expect(normalizeReviewStageConfig(undefined)).toEqual(['RECHECK']);
+    expect(normalizeReviewStageConfig(['FINAL', 'RECHECK'])).toEqual(['RECHECK']);
+    expect(normalizeReviewStageConfig(['INITIAL'])).toEqual(['INITIAL', 'RECHECK']);
   });
 });

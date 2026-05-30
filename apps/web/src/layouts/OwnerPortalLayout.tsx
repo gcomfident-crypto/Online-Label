@@ -1,49 +1,60 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
-import { ROLE_HOME_METADATA } from '@labelhub/shared';
+import exportIcon from '../assets/export.svg';
+import modelIcon from '../assets/model.svg';
+import taskIcon from '../assets/task.svg';
 import { DemoDataBanner } from '../components/DemoDataBanner';
-import { sessionStore, useSession } from '../stores/sessionStore';
+import { PortalPageTransitionOutlet } from './PortalPageTransitionOutlet';
+import { PortalSidebar } from './PortalSidebar';
+import { PortalTopbar } from './PortalTopbar';
+
+const OWNER_NAV_ITEMS = [
+  {
+    to: '/owner/tasks',
+    label: '任务管理',
+    parts: ['任', '务', '管', '理'],
+    icon: 'tasks',
+    iconAsset: taskIcon,
+  },
+  {
+    to: '/owner/templates',
+    label: '评测模板',
+    parts: ['评', '测', '模', '板'],
+    icon: 'templates',
+    iconAsset: modelIcon,
+  },
+  {
+    to: '/owner/exports',
+    label: '导出中心',
+    parts: ['导', '出', '中', '心'],
+    icon: 'exports',
+    iconAsset: exportIcon,
+  },
+];
 
 export const OwnerPortalLayout = () => {
-  const navigate = useNavigate();
-  const session = useSession();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   return (
-    <div className="portal-shell owner-shell">
-      <aside className="portal-sidebar">
-        <div className="portal-brand">
-          <span className="brand-mark">LH</span>
-          <div>
-            <strong>Owner 工作区</strong>
-            <small>{ROLE_HOME_METADATA.OWNER.routePrefix}</small>
-          </div>
-        </div>
-        <nav className="portal-nav" aria-label="Owner 端导航">
-          <NavLink to="/owner/tasks">任务管理</NavLink>
-          <NavLink to="/owner/templates">模板配置</NavLink>
-          <NavLink to="/owner/ai-rules">AI 规则</NavLink>
-          <NavLink to="/owner/exports">导出中心</NavLink>
-        </nav>
-      </aside>
+    <div
+      className={
+        isSidebarCollapsed ? 'portal-shell owner-shell is-sidebar-collapsed' : 'portal-shell owner-shell'
+      }
+    >
+      <PortalTopbar
+        navLabel="Owner 端导航"
+        userRoleLabel="Owner"
+        links={[]}
+      />
+      <PortalSidebar
+        isCollapsed={isSidebarCollapsed}
+        items={OWNER_NAV_ITEMS}
+        navLabel="Owner 端导航"
+        onToggle={() => setIsSidebarCollapsed((current) => !current)}
+      />
       <main className="portal-main">
-        <header className="portal-topbar">
-          <div>
-            <p className="eyebrow">Owner 端</p>
-            <strong>{session?.user.name}</strong>
-          </div>
-          <button
-            className="ghost-button"
-            type="button"
-            onClick={() => {
-              sessionStore.clear();
-              navigate('/login', { replace: true });
-            }}
-          >
-            退出登录
-          </button>
-        </header>
         <DemoDataBanner />
-        <Outlet />
+        <PortalPageTransitionOutlet />
       </main>
     </div>
   );

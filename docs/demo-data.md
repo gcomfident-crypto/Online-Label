@@ -20,7 +20,7 @@ pnpm demo:reset
 
 - 4 个演示用户：Owner、Labeler、Reviewer、AI Agent。
 - 2 个已发布官方模板：问答质量模板、偏好对比模板。
-- 2 个发布中任务：`qa_quality` 30 条题目、`preference_compare` 12 条题目。
+- 2 个进行中任务：`qa_quality` 30 条题目、`preference_compare` 12 条题目。
 - 3 条提交记录：问答质量第 1 轮打回、第 2 轮终审通过、偏好对比待人工复审。
 - 2 条 AI 预审任务：一次 mock 通过、一次 mock 转人工兜底。
 - 1 条人工打回记录、1 条终审通过记录、1 条示例导出记录。

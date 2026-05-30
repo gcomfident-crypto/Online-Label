@@ -1,6 +1,8 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { EXPORT_FORMATS, type DatasetKind, type ExportFormat } from '@labelhub/shared';
-import { basename } from 'node:path';
+import ExcelJS from 'exceljs';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { basename, join } from 'node:path';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
 import { normalizeIdempotencyKey } from '../common/idempotency/idempotency-key.ts';
@@ -138,6 +140,7 @@ export class ExportsService {
     private readonly prisma: ExportsPrismaClient,
     @Inject(ExportMappingService)
     private readonly mappingService: ExportMappingService,
+    private readonly outputDir = 'storage/exports',
   ) {}
 
   async createExport(input: CreateExportInput): Promise<ExportJobDto> {
@@ -150,7 +153,7 @@ export class ExportsService {
           where: { idempotencyKey },
         });
         if (existingJob) {
-          return toExportJobDto(existingJob);
+          return toExportJobDto(await this.completeExportJob(client, existingJob));
         }
       }
 
@@ -173,7 +176,7 @@ export class ExportsService {
         },
       });
 
-      return toExportJobDto(job);
+      return toExportJobDto(await this.completeExportJob(client, job));
     });
   }
 
@@ -271,6 +274,52 @@ export class ExportsService {
 
     return job;
   }
+
+  private async completeExportJob(
+    client: ExportsPrismaClient,
+    job: ExportJobRecord,
+  ): Promise<ExportJobRecord> {
+    if (job.status === 'SUCCEEDED' && job.filePath) {
+      return job;
+    }
+
+    try {
+      const task = await this.findTaskOrThrow(job.taskId, client);
+      const fieldMapping = this.mappingService.normalizeMapping(job.fieldMapping, task.template.datasetKind);
+      const sources = collectFinalApprovedSources(task);
+      const rows = this.mappingService.buildRows(sources, fieldMapping, job.includeReviews);
+      const filePath = await writeExportFile({
+        exportJobId: job.id,
+        fieldMapping,
+        format: job.format,
+        outputDir: this.outputDir,
+        rows,
+      });
+
+      return client.exportJob.update({
+        where: { id: job.id },
+        data: {
+          status: 'SUCCEEDED',
+          fieldMapping,
+          filePath,
+          resultUrl: `/exports/${job.id}/download`,
+          errorMessage: null,
+          finishedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      await client.exportJob.update({
+        where: { id: job.id },
+        data: {
+          status: 'FAILED',
+          errorMessage: error instanceof Error ? error.message : '导出文件生成失败。',
+          finishedAt: new Date(),
+        },
+      });
+
+      throw error;
+    }
+  }
 }
 
 function normalizeFormat(value: string): ExportFormat {
@@ -299,20 +348,101 @@ function collectFinalApprovedSources(task: ExportTaskRecord): ExportSourceRow[] 
 
 function buildReviewSnapshot(submission: ExportSubmissionRecord): Record<string, unknown> {
   const aiReview = submission.reviewRecords.find((record) => record.stage === 'AI_PRECHECK' && record.reviewerType === 'AI');
-  const finalReview = submission.reviewRecords.find((record) => record.stage === 'FINAL' && record.reviewerType === 'HUMAN');
+  const humanReview =
+    submission.reviewRecords.find((record) => record.stage === 'RECHECK' && record.reviewerType === 'HUMAN') ??
+    submission.reviewRecords.find((record) => record.stage === 'FINAL' && record.reviewerType === 'HUMAN');
 
   return {
     ai_overall: numericScore(aiReview?.scores.overall),
     ai_decision: aiReview?.decision ?? null,
     ai_comment: aiReview?.comment ?? null,
-    human_verdict: finalReview?.decision ?? null,
-    human_comment: finalReview?.comment ?? null,
+    human_verdict: humanReview?.decision ?? null,
+    human_comment: humanReview?.comment ?? null,
     timeline_summary: submission.auditLogs.map((log) => log.reason).filter(Boolean).join('；'),
   };
 }
 
 function numericScore(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
+}
+
+async function writeExportFile(input: {
+  exportJobId: string;
+  fieldMapping: ExportFieldMapping[];
+  format: ExportFormat;
+  outputDir: string;
+  rows: Array<Record<string, unknown>>;
+}): Promise<string> {
+  await mkdir(input.outputDir, { recursive: true });
+  const filePath = join(input.outputDir, `${input.exportJobId}.${input.format}`);
+
+  if (input.format === 'xlsx') {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Export');
+    const headers = exportHeaders(input.fieldMapping, input.rows);
+    worksheet.columns = headers.map((header) => ({ header, key: header, width: 24 }));
+    worksheet.addRows(input.rows.map((row) => serializeRow(row, headers)));
+    await workbook.xlsx.writeFile(filePath);
+
+    return filePath;
+  }
+
+  const content = serializeExportContent(input.rows, input.fieldMapping, input.format);
+  await writeFile(filePath, content, 'utf8');
+
+  return filePath;
+}
+
+function serializeExportContent(
+  rows: Array<Record<string, unknown>>,
+  fieldMapping: ExportFieldMapping[],
+  format: Exclude<ExportFormat, 'xlsx'>,
+): string {
+  if (format === 'json') {
+    return `${JSON.stringify(rows, null, 2)}\n`;
+  }
+
+  if (format === 'jsonl') {
+    return rows.map((row) => JSON.stringify(row)).join('\n') + (rows.length > 0 ? '\n' : '');
+  }
+
+  const headers = exportHeaders(fieldMapping, rows);
+  return [
+    headers.map(csvCell).join(','),
+    ...rows.map((row) => headers.map((header) => csvCell(row[header])).join(',')),
+  ].join('\n') + '\n';
+}
+
+function exportHeaders(
+  fieldMapping: ExportFieldMapping[],
+  rows: Array<Record<string, unknown>>,
+): string[] {
+  const mappedHeaders = fieldMapping.filter((field) => field.enabled).map((field) => field.target);
+  if (mappedHeaders.length > 0) {
+    return mappedHeaders;
+  }
+
+  return Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
+}
+
+function serializeRow(row: Record<string, unknown>, headers: string[]): Record<string, unknown> {
+  return Object.fromEntries(headers.map((header) => [header, cellValue(row[header])]));
+}
+
+function csvCell(value: unknown): string {
+  const text = String(cellValue(value));
+  return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function cellValue(value: unknown): string | number | boolean {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'string') {
+    return value;
+  }
+
+  return JSON.stringify(value);
 }
 
 function toExportJobDto(job: ExportJobRecord): ExportJobDto {

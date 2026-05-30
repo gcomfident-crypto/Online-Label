@@ -15,7 +15,7 @@ describe('通用页面反馈组件', () => {
     render(<PageLoading title="正在加载任务" description="请稍候，正在同步最新数据。" />);
 
     expect(screen.getByRole('status')).toHaveTextContent('正在加载任务');
-    expect(screen.getByText('请稍候，正在同步最新数据。')).toBeInTheDocument();
+    expect(screen.queryByText('请稍候，正在同步最新数据。')).not.toBeInTheDocument();
   });
 
   it('EmptyState 支持操作按钮区域', async () => {
@@ -35,6 +35,7 @@ describe('通用页面反馈组件', () => {
     );
 
     expect(screen.getByRole('heading', { name: '暂无任务' })).toBeInTheDocument();
+    expect(screen.queryByText('调整筛选条件后再试。')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '清空筛选' }));
     expect(handleClick).toHaveBeenCalledTimes(1);
   });

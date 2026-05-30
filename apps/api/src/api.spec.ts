@@ -264,6 +264,80 @@ describe('LabelHub API shell', () => {
     });
   });
 
+  it('LLM 字段分类接口返回展示字段和需要打标的物料类型', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/llm/template-fields/classify')
+      .send({
+        fileName: 'preference_compare.json',
+        fields: [
+          { sourceKey: 'id', samples: ['P0001'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+          { sourceKey: 'prompt', samples: ['题目'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+          { sourceKey: 'response_a', samples: ['回答 A'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+          { sourceKey: 'response_b', samples: ['回答 B'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+          { sourceKey: 'preferred', samples: ['A'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+          { sourceKey: 'annotator_note', samples: ['需要复核'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+        ],
+        records: [
+          {
+            id: 'P0001',
+            prompt: '题目',
+            response_a: '回答 A',
+            response_b: '回答 B',
+            preferred: 'A',
+            annotator_note: '需要复核',
+          },
+        ],
+      })
+      .expect(201);
+
+    expect(response.body.data).toEqual({
+      layout: 'comparison',
+      displayFields: [
+        { sourceKey: 'id', label: 'id', area: 'meta', format: 'badge' },
+        { sourceKey: 'prompt', label: 'prompt', area: 'primary', format: 'long_text', maxLines: 8 },
+        { sourceKey: 'response_a', label: 'response_a', area: 'content', format: 'long_text', maxLines: 12 },
+        { sourceKey: 'response_b', label: 'response_b', area: 'content', format: 'long_text', maxLines: 12 },
+      ],
+      annotationFields: [
+        {
+          sourceKey: 'preferred',
+          label: 'preferred',
+          type: 'radio',
+          description: '选择preferred结果',
+          options: [
+            { label: 'A', value: 'A' },
+            { label: 'B', value: 'B' },
+          ],
+          required: true,
+        },
+        {
+          sourceKey: 'annotator_note',
+          label: 'annotator_note',
+          type: 'textarea',
+          description: '填写annotator_note说明',
+        },
+      ],
+      provider: 'mock',
+      model: 'mock-field-classifier',
+      reasoning: 'mock provider classified source/context fields for display and reviewer target fields for annotation.',
+    });
+  });
+
+  it('LLM 字段分类接口拒绝没有字段的请求', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/llm/template-fields/classify')
+      .send({ fileName: 'empty.json', fields: [] })
+      .expect(400);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_TEMPLATE_FIELD_CLASSIFICATION_REQUEST',
+        message: '字段分类请求缺少可解析字段。',
+      },
+      requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
+    });
+  });
+
   it('通过 /schema/validate 复用 Schema 联动和校验运行时', async () => {
     const response = await request(app.getHttpServer())
       .post('/schema/validate')

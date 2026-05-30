@@ -1,80 +1,1203 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TemplateDesignerPage } from './TemplateDesignerPage';
-import { useTemplateDesignerStore } from '../../features/template-designer/templateStore';
-import { titleCleanupSampleSchema } from '@labelhub/shared';
+import divideIcon from '../../assets/divide.svg';
+import tabsIcon from '../../assets/tabs.svg';
+import { DesignerCanvas } from '../../features/template-designer/DesignerCanvas';
+import { MaterialDragOverlay } from '../../features/template-designer/MaterialPanel';
+import { DESIGNER_MATERIALS, useTemplateDesignerStore } from '../../features/template-designer/templateStore';
+import { createLabelHubSchema, qaQualitySampleSchema, titleCleanupSampleSchema, type FieldType } from '@labelhub/shared';
+
+const createDomRect = ({
+  height,
+  left = 0,
+  top,
+  width = 360,
+}: {
+  height: number;
+  left?: number;
+  top: number;
+  width?: number;
+}): DOMRect => {
+  const rect = {
+    bottom: top + height,
+    height,
+    left,
+    right: left + width,
+    top,
+    width,
+    x: left,
+    y: top,
+    toJSON: () => rect,
+  };
+
+  return rect as DOMRect;
+};
 
 describe('TemplateDesignerPage', () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     useTemplateDesignerStore.getState().resetDesigner();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ data: [] })));
   });
 
   afterEach(() => {
+    vi.useRealTimers();
+    sessionStorage.clear();
     vi.unstubAllGlobals();
   });
 
-  it('从商品标题清洗 v3 蓝本进入三栏 Designer 并同步属性修改', async () => {
+  it('从 qa_quality 蓝本进入三栏 Designer 并同步属性修改', async () => {
     const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          data: [
+            createTemplateDto({
+              id: 'template_qa',
+              name: '问答质量模板',
+              schema: qaQualitySampleSchema,
+              status: 'PUBLISHED',
+            }),
+          ],
+        }),
+      ),
+    );
 
     render(<TemplateDesignerPage />);
+    await openTemplateByName(user, '问答质量模板');
 
-    expect(screen.getByRole('heading', { name: '模板搭建器（Designer）' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
     expect(screen.getByText('物料')).toBeInTheDocument();
-    expect(screen.getByText('画布')).toBeInTheDocument();
-    expect(screen.getByText('属性配置')).toBeInTheDocument();
+    const designerCanvas = screen.getByRole('main', { name: '模板编辑区域' });
+    const editTemplateNameButton = within(designerCanvas).getByRole('button', { name: '编辑模板名称' });
+    expect(editTemplateNameButton).toHaveTextContent('问答质量模板');
+    expect(editTemplateNameButton.querySelector('.designer-canvas__template-name-icon')).not.toBeNull();
+    expect(within(designerCanvas).queryByRole('textbox', { name: '模板名称' })).not.toBeInTheDocument();
+    await user.click(editTemplateNameButton);
+    expect(within(designerCanvas).getByRole('textbox', { name: '模板名称' })).toHaveValue('问答质量模板');
+    expect(screen.queryByText(/个顶层字段/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^预览$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '导出 Schema JSON' })).not.toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: '属性配置' })).toBeInTheDocument();
+    const inspector = screen.getByRole('complementary', { name: '右侧配置面板' });
+    expect(within(inspector).queryByRole('tablist', { name: '配置面板视图' })).not.toBeInTheDocument();
+    expect(within(inspector).queryByRole('tab', { name: '属性' })).not.toBeInTheDocument();
+    expect(within(inspector).queryByRole('tab', { name: 'JSON' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Schema JSON' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '使用商品标题清洗 v3' })).not.toBeInTheDocument();
+    expect(screen.queryByText('商品标题清洗 v3')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('对齐图 2 蓝本，包含 ShowItem、清洗标题、类目、关键词和 LLM 触发组件。'),
+    ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '使用商品标题清洗 v3' }));
+    expect(screen.getByRole('button', { name: '选择 题目原始数据' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '选择 一句话总评' }));
+    expect(screen.getByRole('heading', { name: '属性配置' })).toBeInTheDocument();
+    expect(screen.queryByText('属性配置 · summary')).not.toBeInTheDocument();
 
-    expect(screen.getByText('原始商品标题')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '选择 清洗后标题' }));
-    expect(screen.getByText('属性配置 · cleaned_title')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('tab', { name: '校验' }));
     await user.clear(screen.getByLabelText('最大长度'));
     await user.type(screen.getByLabelText('最大长度'), '42');
     fireEvent.change(screen.getByLabelText('正则'), { target: { value: '^[^#]+$' } });
     await user.selectOptions(screen.getByLabelText('自定义函数'), 'valid_json');
 
-    const schemaJson = screen.getByRole('region', { name: 'Schema JSON' });
-    expect(schemaJson).toHaveTextContent('"maxLength": 42');
-    expect(schemaJson).toHaveTextContent('"pattern": "^[^#]+$"');
-    expect(schemaJson).toHaveTextContent('"customValidatorKey": "valid_json"');
+    expect(findDesignerField('summary')?.validation).toMatchObject({
+      maxLength: 42,
+      pattern: '^[^#]+$',
+      customValidatorKey: 'valid_json',
+    });
 
-    await user.click(screen.getByRole('tab', { name: '联动' }));
+    await user.click(screen.getByLabelText('显示字段联动'));
+    expect(screen.getByLabelText('隐藏字段联动')).toBeChecked();
     await user.click(screen.getByRole('button', { name: '新增联动规则' }));
     expect(screen.getByText('条件字段')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '预览' }));
-    const preview = screen.getByRole('region', { name: 'Renderer 预览' });
-    expect(within(preview).getByText('展示项 ShowItem')).toBeInTheDocument();
-    expect(within(preview).getByLabelText('清洗后标题')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Renderer 预览' })).not.toBeInTheDocument();
   });
 
-  it('能从物料面板添加字段并撤销重做', async () => {
+  it('从输入文件创建模板时，画布 ShowItem 使用上传文件样例数据预览', async () => {
     const user = userEvent.setup();
+
+    window.sessionStorage.setItem(
+      'labelhub.templateDraftHandoff',
+      JSON.stringify({
+        name: '自动解析模板 · sample.json',
+        sourceFileName: 'sample.json',
+        schema: createLabelHubSchema({
+          schemaVersion: 'auto-draft',
+          datasetKind: 'generic_json',
+          fields: [
+            {
+              key: 'auto_show_item',
+              type: 'show_item',
+              label: 'sample.json',
+              sourceKeys: ['prompt', 'response_a'],
+              displayConfig: {
+                layout: 'field_list',
+                fields: [
+                  { sourceKey: 'prompt', label: '问题', area: 'primary', format: 'long_text' },
+                  { sourceKey: 'response_a', label: '回答 A', area: 'content', format: 'long_text' },
+                ],
+              },
+            },
+          ],
+        }),
+        previewRecords: [
+          {
+            prompt: '上传文件里的真实问题',
+            response_a: '上传文件里的候选回答 A',
+          },
+        ],
+      }),
+    );
 
     render(<TemplateDesignerPage />);
 
-    await user.click(screen.getByRole('button', { name: '添加单行输入' }));
-    expect(screen.getByRole('button', { name: '选择 单行输入' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '拖拽排序 单行输入' })).toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog', { name: '模板配置' });
+    const canvas = within(dialog).getByRole('main', { name: '模板编辑区域' });
 
-    await user.click(screen.getByRole('button', { name: '撤销' }));
+    expect(within(dialog).queryByText('已根据 sample.json 创建模板草稿。')).not.toBeInTheDocument();
+    expect(within(canvas).queryByText('字段名：auto_show_item')).not.toBeInTheDocument();
+    expect(within(canvas).queryByText('sample.json')).not.toBeInTheDocument();
+    expect(within(canvas).getByText('上传文件里的真实问题')).toBeInTheDocument();
+    expect(within(canvas).getByText('上传文件里的候选回答 A')).toBeInTheDocument();
+    expect(within(canvas).queryByText('用户询问如何判断一段回答是否准确、完整且没有安全风险。')).not.toBeInTheDocument();
+
+    const uploadedPreviewButton = within(canvas).getByRole('button', { name: '预览已上传文件' });
+    expect(uploadedPreviewButton).toHaveClass('designer-canvas__uploaded-preview');
+    expect(uploadedPreviewButton.querySelector('.designer-canvas__uploaded-preview-icon')).not.toBeNull();
+
+    await user.click(uploadedPreviewButton);
+
+    const previewDialog = await screen.findByRole('dialog', { name: '预览已上传文件' });
+    expect(within(previewDialog).getByText('共 1 条样例')).toBeInTheDocument();
+    expect(within(previewDialog).getByRole('columnheader', { name: 'prompt' })).toBeInTheDocument();
+    expect(within(previewDialog).getByText('上传文件里的真实问题')).toBeInTheDocument();
+  });
+
+  it('从输入文件待分类草稿进入时，用 Toast 提示分析进度并在完成后打开模板配置', async () => {
+    let resolveClassification: (response: Response) => void = () => {};
+    const classificationResponse = new Promise<Response>((resolve) => {
+      resolveClassification = resolve;
+    });
+    const fetchMock = vi.fn((url: RequestInfo | URL) => {
+      if (String(url) === '/llm/template-fields/classify') {
+        return classificationResponse;
+      }
+
+      return Promise.resolve(jsonResponse({ data: [] }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    window.sessionStorage.setItem(
+      'labelhub.templateDraftHandoff',
+      JSON.stringify({
+        name: '自动解析模板 · pending.json',
+        sourceFileName: 'pending.json',
+        schema: createLabelHubSchema({
+          schemaVersion: 'auto-draft',
+          datasetKind: 'generic_json',
+          fields: [],
+        }),
+        previewRecords: [
+          {
+            prompt: '真实问题：为什么会延迟跳转？',
+            response_a: '真实回答 A',
+            dimension: '',
+          },
+        ],
+        autoClassificationRequest: {
+          fileName: 'pending.json',
+          fields: [
+            { sourceKey: 'prompt', samples: ['真实问题：为什么会延迟跳转？'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+            { sourceKey: 'response_a', samples: ['真实回答 A'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+            { sourceKey: 'dimension', samples: [], valueTypes: [], filledCount: 0, totalCount: 1 },
+          ],
+          records: [
+            {
+              prompt: '真实问题：为什么会延迟跳转？',
+              response_a: '真实回答 A',
+              dimension: '',
+            },
+          ],
+        },
+      }),
+    );
+
+    render(<TemplateDesignerPage />);
+
+    const loadingToast = await screen.findByRole('status');
+    expect(loadingToast).toHaveTextContent('正在分析输入文件并创建模板');
+    expect(loadingToast.closest('.toast')).toHaveClass('toast--info', 'toast--brand-blue');
+    expect(loadingToast.closest('.template-manager-page')).toBeNull();
+    expect(document.querySelector('.template-manager-auto-loading')).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/llm/template-fields/classify',
+      expect.objectContaining({ method: 'POST' }),
+    );
+
+    resolveClassification(
+      jsonResponse({
+        data: {
+          layout: 'field_list',
+          displayFields: [
+            { sourceKey: 'prompt', label: '问题', area: 'primary', format: 'long_text', maxLines: 8 },
+            { sourceKey: 'response_a', label: '回答 A', area: 'content', format: 'long_text', maxLines: 12 },
+          ],
+          annotationFields: [
+            {
+              sourceKey: 'dimension',
+              label: '评测维度',
+              type: 'checkbox',
+              description: '选择适用的评测维度',
+              options: [
+                { label: '准确性', value: 'accuracy' },
+                { label: '完整性', value: 'completeness' },
+              ],
+            },
+          ],
+          provider: 'deepseek',
+          model: 'deepseek-chat',
+        },
+      }),
+    );
+
+    const dialog = await screen.findByRole('dialog', { name: '模板配置' });
+    const canvas = within(dialog).getByRole('main', { name: '模板编辑区域' });
+    expect(within(canvas).getByText('真实问题：为什么会延迟跳转？')).toBeInTheDocument();
+    expect(within(canvas).getByText('真实回答 A')).toBeInTheDocument();
+    const dimensionCard = within(canvas).getByRole('button', { name: '选择 评测维度' });
+    expect(within(dimensionCard).getByText('多选 - 评测维度')).toBeInTheDocument();
+    expect(dimensionCard.querySelector('.designer-field-card__required-mark')).toHaveTextContent('*');
+    const description = within(dimensionCard).getByText('选择适用的评测维度');
+    expect(description).toHaveClass('designer-field-card__description');
+  });
+
+  it('输入文件字段分类失败时，在评测模板页面展示错误并不打开错误模板', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: RequestInfo | URL) => {
+        if (String(url) === '/llm/template-fields/classify') {
+          return Promise.resolve(new Response('', { status: 500 }));
+        }
+
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }),
+    );
+    window.sessionStorage.setItem(
+      'labelhub.templateDraftHandoff',
+      JSON.stringify({
+        name: '自动解析模板 · failed.json',
+        sourceFileName: 'failed.json',
+        schema: createLabelHubSchema({
+          schemaVersion: 'auto-draft',
+          datasetKind: 'generic_json',
+          fields: [],
+        }),
+        previewRecords: [{ prompt: '失败样例' }],
+        autoClassificationRequest: {
+          fileName: 'failed.json',
+          fields: [
+            { sourceKey: 'prompt', samples: ['失败样例'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+          ],
+          records: [{ prompt: '失败样例' }],
+        },
+      }),
+    );
+
+    render(<TemplateDesignerPage />);
+
+    const toast = await screen.findByRole('alert');
+    expect(toast).toHaveClass('toast');
+    expect(toast).toHaveTextContent('字段分类接口请求失败，请稍后重试');
+    expect(toast).not.toHaveTextContent('HTTP 500');
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+  });
+
+  it('用户在右侧修改 ShowItem 字段显示名时，画布立即更新且保留上传样例值', async () => {
+    const user = userEvent.setup();
+
+    window.sessionStorage.setItem(
+      'labelhub.templateDraftHandoff',
+      JSON.stringify({
+        name: '自动解析模板 · show-item-edit.json',
+        sourceFileName: 'show-item-edit.json',
+        schema: createLabelHubSchema({
+          schemaVersion: 'auto-draft',
+          datasetKind: 'generic_json',
+          fields: [
+            {
+              key: 'auto_show_item',
+              type: 'show_item',
+              label: 'show-item-edit.json',
+              sourceKeys: ['prompt', 'response_a'],
+              displayConfig: {
+                layout: 'field_list',
+                fields: [
+                  { sourceKey: 'prompt', label: '问题', area: 'primary', format: 'long_text' },
+                  { sourceKey: 'response_a', label: '回答 A', area: 'content', format: 'long_text' },
+                ],
+              },
+            },
+          ],
+        }),
+        previewRecords: [
+          {
+            prompt: '上传样例：人工保留的问题文本',
+            response_a: '上传样例：人工保留的候选回答',
+          },
+        ],
+      }),
+    );
+
+    render(<TemplateDesignerPage />);
+
+    const dialog = await screen.findByRole('dialog', { name: '模板配置' });
+    const canvas = within(dialog).getByRole('main', { name: '模板编辑区域' });
+    const properties = within(dialog).getByRole('complementary', { name: '属性配置' });
+
+    expect(within(canvas).getByText('问题')).toBeInTheDocument();
+    expect(within(canvas).queryByText('字段名：auto_show_item')).not.toBeInTheDocument();
+    expect(within(canvas).queryByText('show-item-edit.json')).not.toBeInTheDocument();
+    expect(within(canvas).getByText('上传样例：人工保留的问题文本')).toBeInTheDocument();
+
+    await user.clear(within(properties).getByLabelText('展示字段 1 显示名'));
+    await user.type(within(properties).getByLabelText('展示字段 1 显示名'), '用户问题');
+
+    expect(within(canvas).getByText('用户问题')).toBeInTheDocument();
+    expect(within(canvas).getByText('上传样例：人工保留的问题文本')).toBeInTheDocument();
+    expect(within(canvas).getByText('上传样例：人工保留的候选回答')).toBeInTheDocument();
+    expect(within(canvas).queryByText('用户询问如何判断一段回答是否准确、完整且没有安全风险。')).not.toBeInTheDocument();
+  });
+
+  it('从输入文件创建模板后再打开普通模板会重置画布 ShowItem 预览数据', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          data: [
+            createTemplateDto({
+              id: 'template_qa',
+              name: '问答质量模板',
+              schema: qaQualitySampleSchema,
+              status: 'PUBLISHED',
+            }),
+          ],
+        }),
+      ),
+    );
+
+    window.sessionStorage.setItem(
+      'labelhub.templateDraftHandoff',
+      JSON.stringify({
+        name: '自动解析模板 · reset-source.json',
+        sourceFileName: 'reset-source.json',
+        schema: createLabelHubSchema({
+          schemaVersion: 'auto-draft',
+          datasetKind: 'generic_json',
+          fields: [
+            {
+              key: 'auto_show_item',
+              type: 'show_item',
+              label: 'reset-source.json',
+              sourceKeys: ['prompt'],
+              displayConfig: {
+                layout: 'field_list',
+                fields: [{ sourceKey: 'prompt', label: '问题', area: 'primary', format: 'long_text' }],
+              },
+            },
+          ],
+        }),
+        previewRecords: [{ prompt: '上传样例：不应污染普通模板' }],
+      }),
+    );
+
+    render(<TemplateDesignerPage />);
+
+    let dialog = await screen.findByRole('dialog', { name: '模板配置' });
+    expect(within(within(dialog).getByRole('main', { name: '模板编辑区域' })).getByText('上传样例：不应污染普通模板')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('template-designer-backdrop'));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument(),
+    );
+
+    await openTemplateByName(user, '问答质量模板');
+    dialog = screen.getByRole('dialog', { name: '模板配置' });
+    const canvas = within(dialog).getByRole('main', { name: '模板编辑区域' });
+
+    expect(within(canvas).queryByText('上传样例：不应污染普通模板')).not.toBeInTheDocument();
+    expect(within(canvas).getByText('用户询问如何判断一段回答是否准确、完整且没有安全风险。')).toBeInTheDocument();
+  });
+
+  it('进入评测模板先显示模板列表，新增或点击列表项打开配置抽屉，关闭后回到列表', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: [
+          createTemplateDto({
+            id: 'template_1',
+            name: '问答质量模板',
+            schema: qaQualitySampleSchema,
+            status: 'PUBLISHED',
+          }),
+        ],
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+
+    expect(screen.queryByRole('heading', { name: '评测模板' })).not.toBeInTheDocument();
+    expect(screen.queryByText('管理标注模板、字段结构与版本配置')).not.toBeInTheDocument();
+    expect(document.querySelector('.template-manager-toolbar')).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('评测模板标题区')).not.toBeInTheDocument();
+    expect(document.querySelector('.template-manager-metrics')).toBeNull();
+    expect(screen.queryByLabelText('本地草稿')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '继续编辑最近草稿' })).not.toBeInTheDocument();
+    const filterBar = screen.getByLabelText('模板筛选栏');
+    expect(within(filterBar).queryByRole('button', { name: '新增模板' })).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('搜索模板名称 / ID / 负责人')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '数据类型筛选' })).toHaveTextContent('全部数据类型');
+    expect(screen.getByRole('button', { name: '状态筛选' })).toHaveTextContent('全部状态');
+    expect(document.querySelectorAll('.template-manager-filter-bar .task-filter-select')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: '卡片视图' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '表格视图' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('模板视图切换')).not.toBeInTheDocument();
+    const templateTable = screen.getByRole('table', { name: '模板列表' });
+    expect(templateTable).toBeInTheDocument();
+    const templateListPanel = templateTable.closest('.template-manager-list');
+    expect(templateListPanel).not.toBeNull();
+    expect(templateListPanel).toHaveClass('task-table-panel', 'export-task-table-panel', 'template-manager-table-panel');
+    expect(templateTable).toHaveClass('task-table', 'template-manager-table');
+    expect(templateTable.closest('.task-table-scroll')).toHaveClass('template-manager-table-scroll');
+    const metrics = within(templateListPanel as HTMLElement).getByLabelText('模板总数');
+    const templateListTitle = (templateListPanel as HTMLElement).querySelector('.labeler-list-panel-heading__title');
+    expect(templateListTitle).toBeNull();
+    expect(within(templateListPanel as HTMLElement).queryByRole('heading', { name: '模板列表' })).not.toBeInTheDocument();
+    expect(within(metrics).getByText('模板总数')).toBeInTheDocument();
+    expect(metrics).toHaveClass('export-table-heading__total');
+    expect(within(templateListPanel as HTMLElement).queryByText('按创建时间排序')).not.toBeInTheDocument();
+    expect(within(templateListPanel as HTMLElement).getByRole('button', { name: '新增模板' })).toHaveClass(
+      'primary-action',
+      'template-manager-list-heading__create',
+    );
+    expect(within(metrics).queryByText('官方模板')).not.toBeInTheDocument();
+    expect(within(metrics).queryByText('字段总数')).not.toBeInTheDocument();
+    expect(templateTable.querySelectorAll('colgroup col')).toHaveLength(9);
+    expect(templateTable.querySelector('.template-manager-table__col-name')).not.toBeNull();
+    expect(templateTable.querySelector('.template-manager-table__col-status')).not.toBeNull();
+    expect(screen.getByLabelText('模板列表分页')).toHaveClass('task-table-pagination');
+    expect(screen.queryByRole('list', { name: '模板资产卡片列表' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /打开模板 问答质量模板/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /打开官方模板/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '预览 问答质量模板' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '编辑 问答质量模板' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '复制 问答质量模板' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '删除 问答质量模板' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: '更多操作 问答质量模板' })).not.toBeInTheDocument();
+    expect(screen.getByText('2026-05-21 00:00')).toBeInTheDocument();
+    expect(screen.queryByText('暂无自定义模板')).not.toBeInTheDocument();
+    expect(screen.queryByText('暂无模板')).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('搜索模板'), 'template_1');
+    expect(screen.getByRole('button', { name: /打开模板 问答质量模板/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /打开官方模板/ })).not.toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText('搜索模板'));
+    await user.type(screen.getByLabelText('搜索模板'), '系统内置');
+    expect(screen.queryByRole('button', { name: /打开官方模板/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /打开模板 问答质量模板/ })).not.toBeInTheDocument();
+    expect(screen.getByText('暂无模板')).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText('搜索模板'));
+    await user.click(screen.getByRole('button', { name: '数据类型筛选' }));
+    await user.click(screen.getByRole('option', { name: '问答质量' }));
+    expect(screen.getByRole('button', { name: /打开模板 问答质量模板/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /打开官方模板/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '状态筛选' }));
+    await user.click(screen.getByRole('option', { name: '自定义模板' }));
+    expect(screen.getByRole('button', { name: /打开模板 问答质量模板/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /打开官方模板/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '数据类型筛选' }));
+    await user.click(screen.getByRole('option', { name: '全部数据类型' }));
+    await user.click(screen.getByRole('button', { name: '状态筛选' }));
+    await user.click(screen.getByRole('option', { name: '全部状态' }));
+    expect(screen.getByRole('table', { name: '模板列表' })).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: '模板资产卡片列表' })).not.toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText('搜索模板'));
+    const selectionSpy = vi
+      .spyOn(window, 'getSelection')
+      .mockReturnValue({ toString: () => 'M-001' } as Selection);
+    await user.click(screen.getByText('M-001'));
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+    selectionSpy.mockRestore();
+
+    await user.click(screen.getByText('M-001'));
+    expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
+    expect(document.querySelector('.template-designer-drawer-shell')?.parentElement).toBe(document.body);
+    expect(screen.getByRole('button', { name: '选择 题目原始数据' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '关闭模板配置' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('dialog', { name: '模板配置' }));
+    expect(screen.getByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('template-designer-backdrop'));
+    expect(screen.getByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
+    expect(document.querySelector('.template-designer-drawer-shell')).toHaveClass('is-closing');
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /打开模板 问答质量模板/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '新增模板' }));
+    expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '选择 题目原始数据' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '使用 qa_quality' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '使用 preference_compare' })).not.toBeInTheDocument();
+  });
+
+  it('模板列表接口不可用时显示空表格且不展示代理 500 错误', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 500 })));
+
+    render(<TemplateDesignerPage />);
+
+    await waitFor(() => {
+      expect(screen.queryByText('模板列表加载中...')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('暂无模板')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /打开官方模板/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('模板接口请求失败，请稍后重试。（HTTP 500）。')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('模板列表每行提供复制和删除按钮，复制生成草稿，删除移除自定义模板', async () => {
+    const user = userEvent.setup();
+    const customTemplate = createTemplateDto({
+      id: 'template_custom_1',
+      name: '自定义问答模板',
+      schema: qaQualitySampleSchema,
+      status: 'PUBLISHED',
+    });
+    const copiedTemplate = createTemplateDto({
+      ...customTemplate,
+      id: 'template_copy_1',
+      name: '自定义问答模板 副本',
+      status: 'DRAFT',
+      version: 0,
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({ data: [customTemplate] });
+      }
+
+      if (path === '/templates' && method === 'POST') {
+        return jsonResponse({ data: copiedTemplate });
+      }
+
+      if (path === '/templates/template_custom_1' && method === 'DELETE') {
+        return jsonResponse({ data: { id: 'template_custom_1' } });
+      }
+
+      return jsonResponse({ data: {} });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+
+    const templateTable = await screen.findByRole('table', { name: '模板列表' });
+    expect(within(templateTable).getByRole('button', { name: '复制 自定义问答模板' })).toBeInTheDocument();
+    const customDeleteButton = within(templateTable).getByRole('button', { name: '删除 自定义问答模板' });
+    expect(customDeleteButton).toBeEnabled();
+    expect(customDeleteButton).toHaveClass('template-manager-row-action--delete');
+    expect(customDeleteButton.querySelector('path')).toHaveAttribute('fill', 'currentColor');
+
+    await user.click(within(templateTable).getByRole('button', { name: '复制 自定义问答模板' }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/templates',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"name":"自定义问答模板 副本"'),
+      }),
+    );
+    expect(await screen.findByText('模板已复制为草稿')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /打开模板 自定义问答模板 副本/ })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '删除 自定义问答模板' }));
+
+    expect(fetchMock).toHaveBeenCalledWith('/templates/template_custom_1', expect.objectContaining({ method: 'DELETE' }));
+    const deleteToastText = await screen.findByText('模板已删除');
+    expect(deleteToastText.closest('.toast')).toHaveClass('toast--info', 'toast--delete-success');
+    expect(deleteToastText.closest('.toast-stack')).toHaveClass('toast-stack--banner');
+    expect(document.querySelector('.template-manager-list-status')).toBeNull();
+    expect(screen.queryByRole('button', { name: /打开模板 自定义问答模板$/ })).not.toBeInTheDocument();
+  });
+
+  it('物料面板点击不新增字段，字段只能通过拖拽流程进入画布', async () => {
+    const user = userEvent.setup();
+
+    render(<TemplateDesignerPage />);
+    await openNewTemplate(user);
+    const dialog = screen.getByRole('dialog', { name: '模板配置' });
+    expect(within(dialog).getByText('0 个字段')).toBeInTheDocument();
+    expect(within(dialog).queryByText('0 个顶层字段')).not.toBeInTheDocument();
+
+    const textMaterial = screen.getByLabelText('单行输入');
+    expect(screen.queryByText('基础物料')).not.toBeInTheDocument();
+    expect(screen.queryByText('高级物料')).not.toBeInTheDocument();
+    expect(screen.queryByText('布局物料')).not.toBeInTheDocument();
+    expect(screen.getByText('布局')).toHaveClass('designer-materials__group-title');
+    const materialLabels = [...document.querySelectorAll('.designer-material > span:last-child')].map((node) =>
+      node.textContent,
+    );
+    expect(materialLabels.slice(0, 10)).toEqual([
+      '单行输入',
+      '多行文本',
+      '单选',
+      '多选',
+      '标签选择',
+      '富文本',
+      '文件/图片',
+      'JSON 编辑器',
+      'LLM 触发组件',
+      '展示项 ShowItem',
+    ]);
+    const textMaterialShell = textMaterial.closest('.designer-material-shell');
+    expect(textMaterialShell).not.toBeNull();
+    expect(within(textMaterial).getByText('单行输入')).toBeInTheDocument();
+    expect(within(textMaterial).queryByText('text')).not.toBeInTheDocument();
+    expect(within(textMaterial).getByText('', { selector: '.designer-material__icon' })).toBeInTheDocument();
+    expect(textMaterial.querySelector('svg path')?.getAttribute('d')).toContain('M717.856');
+    expect(screen.getByLabelText('富文本').querySelector('svg path')?.getAttribute('d')).toContain('M106.667');
+    expect(screen.getByLabelText('文件/图片').querySelector('svg path')?.getAttribute('d')).toContain(
+      'M966.382033',
+    );
+    expect(screen.getByLabelText('JSON 编辑器').querySelector('svg path')?.getAttribute('d')).toContain('M355.398');
+    expect(screen.getByLabelText('展示项 ShowItem').querySelector('svg path')?.getAttribute('d')).toContain(
+      'M502.054',
+    );
+    expect(screen.getByLabelText('分组容器').querySelector('img')).toHaveAttribute(
+      'src',
+      divideIcon,
+    );
+    expect(screen.getByLabelText('多 Tab 布局').querySelector('img')).toHaveAttribute(
+      'src',
+      tabsIcon,
+    );
+    expect(within(textMaterialShell as HTMLElement).getByRole('button', { name: '拖拽单行输入' })).toHaveClass(
+      'designer-material__handle',
+    );
+    expect(
+      within(textMaterialShell as HTMLElement)
+        .getByRole('button', { name: '拖拽单行输入' })
+        .querySelectorAll('.designer-material__handle-dot'),
+    ).toHaveLength(6);
+    const materialPanel = screen.getByLabelText('物料');
+    Object.defineProperty(materialPanel, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(materialPanel, 'scrollHeight', { configurable: true, value: 600 });
+    fireEvent.wheel(textMaterial, { deltaY: 120 });
+    expect(materialPanel.scrollTop).toBe(120);
+
+    await user.click(textMaterial);
     expect(screen.queryByRole('button', { name: '选择 单行输入' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '重做' }));
-    expect(screen.getByRole('button', { name: '选择 单行输入' })).toBeInTheDocument();
+    addDesignerField('text');
+    const selectButton = screen.getByRole('button', { name: '选择 单行输入' });
+    expect(selectButton).toBeInTheDocument();
+    const fieldCard = selectButton.closest('.designer-field-card');
+    expect(fieldCard).not.toBeNull();
+    const dragHandle = screen.getByRole('button', { name: '拖拽排序 单行输入' });
+    expect(dragHandle).toHaveAttribute('title', '按住拖动排序');
+    expect(within(dragHandle).getAllByText('', { selector: '.designer-field-card__sort-dot' })).toHaveLength(6);
+    const copyButton = within(fieldCard as HTMLElement).getByRole('button', { name: '复制 单行输入' });
+    expect(copyButton).toHaveClass('template-manager-row-action', 'designer-field-card__copy-button');
+    expect(copyButton).not.toHaveTextContent('复制');
+    expect(copyButton.querySelector('.template-manager-row-action__icon')).not.toBeNull();
+    expect(copyButton.nextElementSibling).toHaveClass('designer-field-card__delete-button');
+    expect(within(fieldCard as HTMLElement).getAllByText('单行输入')).toHaveLength(1);
+    const deleteButton = within(fieldCard as HTMLElement).getByRole('button', { name: '删除 单行输入' });
+    expect(deleteButton).toHaveClass('template-manager-row-action', 'designer-field-card__delete-button');
+    expect(deleteButton).not.toHaveTextContent('×');
+    expect(deleteButton.querySelector('.template-manager-row-action__icon')).not.toBeNull();
+    expect(deleteButton.querySelector('path')).toHaveAttribute('fill', 'currentColor');
+    expect(screen.queryByRole('button', { name: '上移 单行输入' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '下移 单行输入' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: '撤销' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: '重做' })).not.toBeInTheDocument();
+
+    await user.click(
+      within(fieldCard as HTMLElement).getByText((_, node) => node?.textContent === '字段名：text_1'),
+    );
+    expect(screen.getByRole('heading', { name: '属性配置' })).toBeInTheDocument();
+    expect(screen.queryByText('属性配置 · text_1')).not.toBeInTheDocument();
+  });
+
+  it('点击画布卡片内容区域即可切换右侧属性配置', async () => {
+    const user = userEvent.setup();
+
+    render(<TemplateDesignerPage />);
+    await openNewTemplate(user);
+
+    addDesignerField('text');
+    addDesignerField('textarea');
+    expect(screen.getByRole('heading', { name: '属性配置' })).toBeInTheDocument();
+    expect(screen.queryByText('属性配置 · textarea_2')).not.toBeInTheDocument();
+
+    const textCard = screen.getByRole('button', { name: '选择 单行输入' });
+    await user.click(within(textCard).getByText((_, node) => node?.textContent === '字段名：text_1'));
+
+    expect(screen.getByRole('heading', { name: '属性配置' })).toBeInTheDocument();
+    expect(screen.queryByText('属性配置 · text_1')).not.toBeInTheDocument();
+  });
+
+  it('左侧物料拖入已有字段时在目标位置渲染同尺寸占位预览', () => {
+    const schema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [
+        { key: 'text_1', fieldKey: 'text_1', type: 'text', label: '单行输入' },
+        { key: 'textarea_2', fieldKey: 'textarea_2', type: 'textarea', label: '多行文本' },
+      ],
+    });
+    const { container } = render(
+      <DesignerCanvas
+        schema={schema}
+        selectedFieldKey={null}
+        materialDropPreview={{ targetFieldKey: 'textarea_2', type: 'checkbox' }}
+        onSelectField={() => undefined}
+        onDuplicateField={() => undefined}
+        onRemoveField={() => undefined}
+      />,
+    );
+
+    expect(
+      Array.from(container.querySelectorAll('.designer-canvas__fields > .designer-field-card .designer-field-card__type-label')).map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(['单行输入', '多选', '多行文本']);
+    const preview = container.querySelector('.designer-field-card--drop-preview');
+
+    expect(preview).not.toBeNull();
+    expect(preview?.nextElementSibling).toHaveAttribute('aria-label', '选择 多行文本');
+  });
+
+  it('模板名称使用标题式内联编辑并支持 Enter 提交和 Esc 取消', async () => {
+    const user = userEvent.setup();
+    const schema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [],
+    });
+
+    const TemplateNameHarness = () => {
+      const [name, setName] = useState('初始模板');
+
+      return (
+        <DesignerCanvas
+          schema={schema}
+          templateName={name}
+          selectedFieldKey={null}
+          onTemplateNameChange={setName}
+          onSelectField={() => undefined}
+          onDuplicateField={() => undefined}
+          onRemoveField={() => undefined}
+        />
+      );
+    };
+
+    render(<TemplateNameHarness />);
+
+    const canvas = screen.getByRole('main', { name: '模板编辑区域' });
+    const editButton = within(canvas).getByRole('button', { name: '编辑模板名称' });
+    expect(editButton).toHaveTextContent('初始模板');
+    expect(editButton.querySelector('.designer-canvas__template-name-icon')).not.toBeNull();
+    expect(within(canvas).queryByRole('textbox', { name: '模板名称' })).not.toBeInTheDocument();
+
+    await user.click(editButton);
+    const input = within(canvas).getByRole('textbox', { name: '模板名称' });
+    expect(input).toHaveValue('初始模板');
+    await user.clear(input);
+    await user.type(input, '确认后的模板');
+    await user.keyboard('{Enter}');
+    expect(within(canvas).queryByRole('textbox', { name: '模板名称' })).not.toBeInTheDocument();
+    expect(within(canvas).getByRole('button', { name: '编辑模板名称' })).toHaveTextContent('确认后的模板');
+
+    await user.click(within(canvas).getByRole('button', { name: '编辑模板名称' }));
+    const cancelInput = within(canvas).getByRole('textbox', { name: '模板名称' });
+    await user.clear(cancelInput);
+    await user.type(cancelInput, '不应保存的模板名');
+    await user.keyboard('{Escape}');
+    expect(within(canvas).queryByRole('textbox', { name: '模板名称' })).not.toBeInTheDocument();
+    expect(within(canvas).getByRole('button', { name: '编辑模板名称' })).toHaveTextContent('确认后的模板');
+  });
+
+  it('物料移出画布时占位先播放收起动画再移除', () => {
+    vi.useFakeTimers();
+
+    const schema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [
+        { key: 'text_1', fieldKey: 'text_1', type: 'text', label: '单行输入' },
+        { key: 'textarea_2', fieldKey: 'textarea_2', type: 'textarea', label: '多行文本' },
+      ],
+    });
+    const canvasProps = {
+      schema,
+      selectedFieldKey: null,
+      onSelectField: () => undefined,
+      onDuplicateField: () => undefined,
+      onRemoveField: () => undefined,
+    };
+    const { container, rerender } = render(
+      <DesignerCanvas
+        {...canvasProps}
+        materialDropPreview={{ targetFieldKey: 'textarea_2', type: 'checkbox' }}
+      />,
+    );
+
+    expect(container.querySelector('.designer-field-card--drop-preview')).not.toBeNull();
+
+    rerender(<DesignerCanvas {...canvasProps} materialDropPreview={null} />);
+
+    expect(container.querySelector('.designer-field-card--drop-preview.is-exiting')).not.toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(359);
+    });
+    expect(container.querySelector('.designer-field-card--drop-preview.is-exiting')).not.toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(container.querySelector('.designer-field-card--drop-preview')).toBeNull();
+  });
+
+  it('画布高亮只由指针进入画布的状态控制', () => {
+    const schema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [],
+    });
+    const { rerender } = render(
+      <DesignerCanvas
+        schema={schema}
+        selectedFieldKey={null}
+        isDropHighlighted={false}
+        onSelectField={() => undefined}
+        onDuplicateField={() => undefined}
+        onRemoveField={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('main', { name: '模板编辑区域' })).not.toHaveClass('is-over');
+
+    rerender(
+      <DesignerCanvas
+        schema={schema}
+        selectedFieldKey={null}
+        isDropHighlighted
+        onSelectField={() => undefined}
+        onDuplicateField={() => undefined}
+        onRemoveField={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('main', { name: '模板编辑区域' })).toHaveClass('is-over');
+  });
+
+  it('拖拽物料浮层保留左侧拖拽按钮位置，避免光标和浮层错位', () => {
+    const textMaterial = DESIGNER_MATERIALS.find((material) => material.type === 'text');
+    expect(textMaterial).toBeDefined();
+
+    render(<MaterialDragOverlay material={textMaterial!} isExpanded={false} expandedWidth={null} />);
+
+    const overlay = document.querySelector('.designer-material-drag-overlay');
+    expect(overlay).not.toBeNull();
+    expect(overlay?.querySelector('.designer-material-drag-overlay__handle')).not.toBeNull();
+    expect(overlay?.querySelectorAll('.designer-material__handle-dot')).toHaveLength(6);
+    expect(overlay?.querySelector('.designer-material-drag-overlay__body')).toHaveTextContent('单行输入');
+  });
+
+  it('拖拽物料松手后新增字段先播放落位过渡动画', () => {
+    const schema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [
+        { key: 'checkbox_3', fieldKey: 'checkbox_3', type: 'checkbox', label: '多选' },
+      ],
+    });
+    render(
+      <DesignerCanvas
+        schema={schema}
+        selectedFieldKey="checkbox_3"
+        committingFieldKey="checkbox_3"
+        onSelectField={() => undefined}
+        onDuplicateField={() => undefined}
+        onRemoveField={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '选择 多选' })).toHaveClass('is-drop-committing');
+  });
+
+  it('点击画布删除按钮后先播放收起动画再移除字段', () => {
+    vi.useFakeTimers();
+
+    const schema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [
+        { key: 'text_1', fieldKey: 'text_1', type: 'text', label: '单行输入' },
+      ],
+    });
+    const onRemoveField = vi.fn();
+
+    render(
+      <DesignerCanvas
+        schema={schema}
+        selectedFieldKey={null}
+        onSelectField={() => undefined}
+        onDuplicateField={() => undefined}
+        onRemoveField={onRemoveField}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '删除 单行输入' }));
+
+    expect(screen.getByRole('button', { name: '选择 单行输入' })).toHaveClass('is-removing');
+    expect(onRemoveField).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(319);
+    });
+    expect(onRemoveField).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(onRemoveField).toHaveBeenCalledWith('text_1');
+  });
+
+  it('删除字段后剩余画布卡片使用 transform 过渡到新位置', () => {
+    vi.useFakeTimers();
+
+    const layoutRects = new Map([
+      ['text_1', createDomRect({ top: 0, height: 72 })],
+      ['textarea_2', createDomRect({ top: 82, height: 72 })],
+    ]);
+    const animateMock = vi.fn(function (
+      this: HTMLElement,
+      keyframes: Keyframe[] | PropertyIndexedKeyframes | null,
+      options?: number | KeyframeAnimationOptions,
+    ) {
+      void keyframes;
+      void options;
+
+      return {
+        cancel: vi.fn(),
+        finished: Promise.resolve(),
+      } as unknown as Animation;
+    });
+    const originalAnimate = HTMLElement.prototype.animate;
+
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      value: animateMock,
+    });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const fieldKey = this.getAttribute('data-designer-field-key');
+      return fieldKey && layoutRects.has(fieldKey)
+        ? layoutRects.get(fieldKey)!
+        : createDomRect({ top: 0, height: 72 });
+    });
+
+    const schema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [
+        { key: 'text_1', fieldKey: 'text_1', type: 'text', label: '单行输入' },
+        { key: 'textarea_2', fieldKey: 'textarea_2', type: 'textarea', label: '多行文本' },
+      ],
+    });
+    const onRemoveField = vi.fn();
+    const StatefulCanvas = () => {
+      const [currentSchema, setCurrentSchema] = useState(schema);
+
+      return (
+        <DesignerCanvas
+          schema={currentSchema}
+          selectedFieldKey={null}
+          onSelectField={() => undefined}
+          onDuplicateField={() => undefined}
+          onRemoveField={(fieldKey) => {
+            onRemoveField(fieldKey);
+            setCurrentSchema(
+              createLabelHubSchema({
+                schemaVersion: 'draft',
+                datasetKind: 'generic_json',
+                fields: currentSchema.fields.filter((field) => field.key !== fieldKey),
+              }),
+            );
+          }}
+        />
+      );
+    };
+
+    try {
+      render(<StatefulCanvas />);
+
+      fireEvent.click(screen.getByRole('button', { name: '删除 单行输入' }));
+      layoutRects.set('textarea_2', createDomRect({ top: 0, height: 72 }));
+
+      act(() => {
+        vi.advanceTimersByTime(320);
+      });
+
+      expect(animateMock).toHaveBeenCalledWith(
+        [{ transform: 'translate(0px, 82px)' }, { transform: 'translate(0, 0)' }],
+        expect.objectContaining({
+          duration: 360,
+          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        }),
+      );
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'animate', {
+        configurable: true,
+        value: originalAnimate,
+      });
+    }
+  });
+
+  it('选择字段时不会把抽屉入场动画留下的横向坐标变化误判为卡片位移', () => {
+    const layoutRects = new Map([
+      ['text_1', createDomRect({ left: 44, top: 0, height: 72 })],
+      ['textarea_2', createDomRect({ left: 44, top: 82, height: 72 })],
+    ]);
+    const animateMock = vi.fn(function (
+      this: HTMLElement,
+      keyframes: Keyframe[] | PropertyIndexedKeyframes | null,
+      options?: number | KeyframeAnimationOptions,
+    ) {
+      void keyframes;
+      void options;
+
+      return {
+        cancel: vi.fn(),
+        finished: Promise.resolve(),
+      } as unknown as Animation;
+    });
+    const originalAnimate = HTMLElement.prototype.animate;
+
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      value: animateMock,
+    });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const fieldKey = this.getAttribute('data-designer-field-key');
+      return fieldKey && layoutRects.has(fieldKey)
+        ? layoutRects.get(fieldKey)!
+        : createDomRect({ top: 0, height: 72 });
+    });
+
+    const schema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [
+        { key: 'text_1', fieldKey: 'text_1', type: 'text', label: '单行输入' },
+        { key: 'textarea_2', fieldKey: 'textarea_2', type: 'textarea', label: '多行文本' },
+      ],
+    });
+    const StatefulCanvas = () => {
+      const [selectedFieldKey, setSelectedFieldKey] = useState<string | null>(null);
+
+      return (
+        <DesignerCanvas
+          schema={schema}
+          selectedFieldKey={selectedFieldKey}
+          onSelectField={setSelectedFieldKey}
+          onDuplicateField={() => undefined}
+          onRemoveField={() => undefined}
+        />
+      );
+    };
+
+    try {
+      render(<StatefulCanvas />);
+
+      layoutRects.set('text_1', createDomRect({ left: 0, top: 0, height: 72 }));
+      layoutRects.set('textarea_2', createDomRect({ left: 0, top: 82, height: 72 }));
+      fireEvent.click(screen.getByRole('button', { name: '选择 单行输入' }));
+
+      expect(animateMock).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'animate', {
+        configurable: true,
+        value: originalAnimate,
+      });
+    }
+  });
+
+  it('单选和多选字段不预置选项，并通过气泡添加自定义选项', async () => {
+    const user = userEvent.setup();
+
+    render(<TemplateDesignerPage />);
+    await openNewTemplate(user);
+
+    addDesignerField('radio');
+
+    expect(screen.queryByText('选项 A')).not.toBeInTheDocument();
+    expect(screen.queryByText('选项 B')).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue(/选项 A/)).not.toBeInTheDocument();
+
+    const properties = screen.getByRole('complementary', { name: '属性配置' });
+    await user.click(within(properties).getByRole('button', { name: '新增选项' }));
+    await user.type(within(properties).getByLabelText('新选项'), '通过{Enter}');
+
+    const canvas = screen.getByRole('main', { name: '模板编辑区域' });
+    expect(within(canvas).getByText('通过')).toBeInTheDocument();
+
+    addDesignerField('checkbox');
+    expect(screen.queryByText('选项 A')).not.toBeInTheDocument();
+    await user.click(within(properties).getByRole('button', { name: '新增选项' }));
+    await user.type(within(properties).getByLabelText('新选项'), '风险{Enter}');
+
+    expect(within(canvas).getByText('风险')).toBeInTheDocument();
+    const optionLabels = useTemplateDesignerStore
+      .getState()
+      .schema.fields.flatMap((field) => field.options?.map((option) => option.label) ?? []);
+    expect(optionLabels).toContain('通过');
+    expect(optionLabels).toContain('风险');
+    expect(optionLabels).not.toContain('选项 A');
   });
 
   it('能配置上传字段的数量、大小和允许类型', async () => {
     const user = userEvent.setup();
 
     render(<TemplateDesignerPage />);
+    await openNewTemplate(user);
 
-    await user.click(screen.getByRole('button', { name: '添加图片上传' }));
+    addDesignerField('image_upload');
 
     await user.clear(screen.getByLabelText('文件数量'));
     await user.type(screen.getByLabelText('文件数量'), '2');
@@ -84,26 +1207,77 @@ describe('TemplateDesignerPage', () => {
       target: { value: 'image/png\nimage/jpeg' },
     });
 
-    const schemaJson = screen.getByRole('region', { name: 'Schema JSON' });
-    expect(schemaJson).toHaveTextContent('"maxFiles": 2');
-    expect(schemaJson).toHaveTextContent('"maxSizeMb": 8');
-    expect(schemaJson).toHaveTextContent('"image/png"');
-    expect(schemaJson).toHaveTextContent('"image/jpeg"');
+    expect(findDesignerField('image_upload_1')?.fileConstraints).toMatchObject({
+      maxFiles: 2,
+      maxSizeMb: 8,
+      acceptedMimeTypes: ['image/png', 'image/jpeg'],
+    });
+  });
+
+  it('保存草稿后自动收起模板配置抽屉', async () => {
+    const user = userEvent.setup();
+    const savedDraftSchema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [
+        {
+          key: 'text_1',
+          type: 'text',
+          label: '单行输入',
+        },
+      ],
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: createTemplateDto({
+            id: 'template_draft_keep_open',
+            name: '单行输入',
+            schema: savedDraftSchema,
+            status: 'DRAFT',
+          }),
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+    await openNewTemplate(user);
+    addDesignerField('text');
+
+    await user.click(screen.getByRole('button', { name: '保存草稿' }));
+
+    expect(await screen.findByText('草稿已保存')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
+    expect(document.querySelector('.template-designer-drawer-shell')).toHaveClass('is-closing');
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument(),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/templates',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"name":"单行输入"'),
+      }),
+    );
   });
 
   it('保存草稿并发布版本时调用模板 API', async () => {
     const user = userEvent.setup();
     const fetchMock = vi
       .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: [] }))
       .mockResolvedValueOnce(
         jsonResponse({
           data: {
             id: 'template_1',
-            name: '商品标题清洗 v3',
+            name: '客服问答质量模板',
             description: null,
-            datasetKind: 'generic_json',
+            datasetKind: 'qa_quality',
             schemaVersion: '1.0.0',
-            schema: titleCleanupSampleSchema,
+            schema: qaQualitySampleSchema,
             status: 'DRAFT',
             version: 0,
             parentTemplateId: null,
@@ -119,11 +1293,11 @@ describe('TemplateDesignerPage', () => {
           data: {
             template: {
               id: 'template_1',
-              name: '商品标题清洗 v3',
+              name: '客服问答质量模板',
               description: null,
-              datasetKind: 'generic_json',
+              datasetKind: 'qa_quality',
               schemaVersion: 'r1',
-              schema: { ...titleCleanupSampleSchema, schemaVersion: 'r1' },
+              schema: { ...qaQualitySampleSchema, schemaVersion: 'r1' },
               status: 'PUBLISHED',
               version: 1,
               parentTemplateId: null,
@@ -146,36 +1320,78 @@ describe('TemplateDesignerPage', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     render(<TemplateDesignerPage />);
+    await openNewTemplate(user);
+    addDesignerField('text');
 
-    await user.click(screen.getByRole('button', { name: '使用商品标题清洗 v3' }));
+    await user.click(screen.getByRole('button', { name: '编辑模板名称' }));
+    const templateNameInput = screen.getByRole('textbox', { name: '模板名称' });
+    expect(templateNameInput).toHaveValue('单行输入');
+    await user.clear(templateNameInput);
+    await user.type(templateNameInput, '客服问答质量模板');
     await user.click(screen.getByRole('button', { name: '保存并发布版本 r1' }));
 
-    expect(await screen.findByText('模板已发布为 r1。')).toBeInTheDocument();
+    expect(await screen.findByText('"客服问答质量模板" 模版已发布为v1')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       '/templates',
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({ method: 'GET' }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
+      '/templates',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"name":"客服问答质量模板"'),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
       '/templates/template_1/publish',
       expect.objectContaining({ method: 'POST' }),
     );
   });
 
-  it('刷新后恢复最近保存的草稿 Schema', async () => {
+  it('刷新后不再展示最近草稿入口', async () => {
     localStorage.setItem(
       'labelhub.templateDesignerDraft',
       JSON.stringify({
         templateId: 'template_1',
         version: 0,
+        schema: qaQualitySampleSchema,
+      }),
+    );
+
+    render(<TemplateDesignerPage />);
+
+    await waitFor(() => {
+      expect(screen.queryByText('模板列表加载中...')).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /打开官方模板/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('本地草稿')).not.toBeInTheDocument();
+    expect(screen.queryByText('问答质量模板')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '继续编辑最近草稿' })).not.toBeInTheDocument();
+  });
+
+  it('不会恢复已删除的商品标题清洗 v3 本地草稿', async () => {
+    localStorage.setItem(
+      'labelhub.templateDesignerDraft',
+      JSON.stringify({
+        templateId: 'template_legacy',
+        version: 0,
+        status: 'DRAFT',
         schema: titleCleanupSampleSchema,
       }),
     );
 
     render(<TemplateDesignerPage />);
 
-    expect(await screen.findByText('原始商品标题')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('模板列表加载中...')).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /打开官方模板/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('商品标题清洗 v3')).not.toBeInTheDocument();
+    expect(screen.queryByText('原始商品标题')).not.toBeInTheDocument();
+    expect(localStorage.getItem('labelhub.templateDesignerDraft')).toBeNull();
   });
 });
 
@@ -184,3 +1400,60 @@ const jsonResponse = (body: unknown): Response =>
     ok: true,
     json: async () => body,
   }) as Response;
+
+const openNewTemplate = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(await screen.findByRole('button', { name: '新增模板' }));
+  expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
+};
+
+const openTemplateByName = async (
+  user: ReturnType<typeof userEvent.setup>,
+  templateName: string,
+) => {
+  await user.click(await screen.findByRole('button', { name: new RegExp(`打开模板 ${templateName}`) }));
+  expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
+};
+
+const addDesignerField = (type: FieldType) => {
+  act(() => {
+    useTemplateDesignerStore.getState().addField(type);
+  });
+};
+
+const findDesignerField = (fieldKey: string) => {
+  return useTemplateDesignerStore
+    .getState()
+    .schema.fields.find((field) => (field.fieldKey ?? field.key) === fieldKey);
+};
+
+const createTemplateDto = ({
+  id = 'template_test',
+  name = '自定义模板',
+  schema = createLabelHubSchema({
+    schemaVersion: 'draft',
+    datasetKind: 'generic_json',
+    fields: [],
+  }),
+  status = 'DRAFT',
+  version = status === 'PUBLISHED' ? 1 : 0,
+}: {
+  id?: string;
+  name?: string;
+  schema?: ReturnType<typeof createLabelHubSchema>;
+  status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  version?: number;
+}) => ({
+  id,
+  name,
+  description: null,
+  datasetKind: schema.datasetKind,
+  schemaVersion: schema.schemaVersion,
+  schema,
+  status,
+  version,
+  parentTemplateId: null,
+  createdById: null,
+  publishedAt: status === 'PUBLISHED' ? '2026-05-21T00:00:00.000Z' : null,
+  createdAt: '2026-05-21T00:00:00.000Z',
+  updatedAt: '2026-05-21T00:00:00.000Z',
+});

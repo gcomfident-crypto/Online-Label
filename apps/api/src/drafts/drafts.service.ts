@@ -9,6 +9,7 @@ type AssignmentStatus =
   | 'SUBMITTED'
   | 'UNDER_RECHECK'
   | 'FINAL_PENDING'
+  | 'FINAL_APPROVED'
   | 'NEEDS_REVISION'
   | 'CANCELLED';
 type TaskItemStatus = 'UNASSIGNED' | 'ASSIGNED' | 'COMPLETED';
@@ -24,7 +25,11 @@ type DraftRecord = {
 };
 
 type ReviewRecordSummary = {
+  stage?: string;
+  reviewerType?: string;
+  assignedReviewerId?: string | null;
   decision: string | null;
+  comment?: string | null;
   scores: Record<string, unknown>;
   createdAt: Date;
 };
@@ -133,7 +138,11 @@ export type WorkbenchDto = {
     schemaVersion: string;
     submittedAt: string;
     reviewRecords: Array<{
+      stage?: string;
+      reviewerType?: string;
+      assignedReviewerId?: string | null;
       decision: string | null;
+      comment?: string | null;
       scores: Record<string, unknown>;
       createdAt: string;
     }>;
@@ -333,7 +342,11 @@ function toWorkbenchDto(assignment: AssignmentWorkbenchRecord): WorkbenchDto {
       schemaVersion: submission.schemaVersion,
       submittedAt: submission.submittedAt.toISOString(),
       reviewRecords: submission.reviewRecords.map((reviewRecord) => ({
+        stage: reviewRecord.stage,
+        reviewerType: reviewRecord.reviewerType,
+        assignedReviewerId: reviewRecord.assignedReviewerId ?? null,
         decision: reviewRecord.decision,
+        comment: reviewRecord.comment,
         scores: reviewRecord.scores,
         createdAt: reviewRecord.createdAt.toISOString(),
       })),
@@ -353,6 +366,7 @@ function resolveRejectionNotice(submissions: SubmissionSummary[]): RejectionNoti
   const reviewRecord = rejectedSubmission.reviewRecords[0];
   const reason =
     (typeof reviewRecord?.scores.reason === 'string' ? reviewRecord.scores.reason : undefined) ??
+    reviewRecord?.comment ??
     reviewRecord?.decision ??
     '上一轮提交需要修改。';
 

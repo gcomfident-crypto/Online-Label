@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
+
+import type { ShowItemDisplayField } from '@labelhub/shared';
 
 import type { BaseFieldProps } from './common';
 import { stringifyDisplayValue } from './common';
@@ -21,6 +23,7 @@ const SOURCE_LABELS: Record<string, string> = {
 
 const MEDIA_TYPES = ['text', 'image', 'video', 'markdown'] as const;
 const MEDIA_CONTROL_KEYS = new Set(['media_type', 'media_url', 'content_markdown']);
+const UPLOADED_DATA_FILE_NAME_PATTERN = /(?:^|[/\\])[^/\\]+\.(?:csv|jsonl?|xlsx?|tsv)$/i;
 
 type MediaType = (typeof MEDIA_TYPES)[number];
 
@@ -57,6 +60,16 @@ const getMediaType = (rawData: Record<string, unknown>): MediaType | null => {
 
 const hasDisplayValue = (value: unknown): boolean => {
   return value !== null && value !== undefined && value !== '';
+};
+
+const isDisplayFieldVisible = (field: ShowItemDisplayField): boolean => field.visible !== false;
+
+const isUploadedDataFileNameLabel = (label: string): boolean => {
+  return UPLOADED_DATA_FILE_NAME_PATTERN.test(label.trim());
+};
+
+const getShowItemDisplayLabel = (label: string): string => {
+  return isUploadedDataFileNameLabel(label) ? '展示项' : label;
 };
 
 const isSafeResourceUrl = (url: string, kind: 'image' | 'link'): boolean => {
@@ -179,6 +192,304 @@ const SourceValue = ({
   );
 };
 
+const ShowItemTable = ({
+  fields,
+  label,
+  rawData,
+}: {
+  fields: readonly ShowItemDisplayField[];
+  label: string;
+  rawData: Record<string, unknown>;
+}) => {
+  const visibleFields = fields.filter((item) => isDisplayFieldVisible(item) && item.sourceKey.trim());
+
+  if (visibleFields.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="schema-field__show-table-wrap">
+      <table className="schema-field__show-table" aria-label={`${label}展示字段`}>
+        <tbody>
+          {visibleFields.map((field, index) => (
+            <tr key={`${field.sourceKey}:${index}`}>
+              <th scope="row">{field.label || getSourceLabel(field.sourceKey)}</th>
+              <td>
+                <ShowItemDisplayValue
+                  field={field.format === 'badge' ? { ...field, format: 'text' } : field}
+                  value={rawData[field.sourceKey]}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+const ShowItemCard = ({
+  fields,
+  label,
+  rawData,
+}: {
+  fields: readonly ShowItemDisplayField[];
+  label: string;
+  rawData: Record<string, unknown>;
+}) => {
+  const visibleFields = fields.filter((item) => isDisplayFieldVisible(item) && item.sourceKey.trim());
+  const primaryField =
+    visibleFields.find((item) => item.area === 'primary') ??
+    visibleFields.find((item) => item.area !== 'meta') ??
+    visibleFields[0];
+
+  if (!primaryField) {
+    return null;
+  }
+
+  const metaFields = visibleFields.filter(
+    (item) => item !== primaryField && item.area === 'meta',
+  );
+  const contentFields = visibleFields.filter(
+    (item) => item !== primaryField && item.area !== 'meta',
+  );
+
+  return (
+    <article className="schema-field__show-card" aria-label={`${label}卡片展示`}>
+      <header className="schema-field__show-card-header">
+        <div className="schema-field__show-card-primary">
+          <span>{primaryField.label || getSourceLabel(primaryField.sourceKey)}</span>
+          <ShowItemDisplayValue field={primaryField} value={rawData[primaryField.sourceKey]} />
+        </div>
+        {metaFields.length > 0 ? (
+          <dl className="schema-field__show-card-meta">
+            {metaFields.map((field, index) => (
+              <div key={`${field.sourceKey}:${index}`}>
+                <dt>{field.label || getSourceLabel(field.sourceKey)}</dt>
+                <dd>
+                  <ShowItemDisplayValue field={field} value={rawData[field.sourceKey]} />
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+      </header>
+      {contentFields.length > 0 ? (
+        <div className="schema-field__show-card-grid">
+          {contentFields.map((field, index) => (
+            <section className="schema-field__show-card-block" key={`${field.sourceKey}:${index}`}>
+              <span>{field.label || getSourceLabel(field.sourceKey)}</span>
+              <ShowItemDisplayValue field={field} value={rawData[field.sourceKey]} />
+            </section>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+};
+
+const ShowItemFieldList = ({
+  fields,
+  label,
+  rawData,
+}: {
+  fields: readonly ShowItemDisplayField[];
+  label: string;
+  rawData: Record<string, unknown>;
+}) => {
+  const visibleFields = fields.filter((item) => isDisplayFieldVisible(item) && item.sourceKey.trim());
+
+  if (visibleFields.length === 0) {
+    return null;
+  }
+
+  return (
+    <dl className="schema-field__show-field-list" aria-label={`${label}字段列表展示`}>
+      {visibleFields.map((field, index) => (
+        <div className="schema-field__show-field-row" key={`${field.sourceKey}:${index}`} role="listitem">
+          <dt>{field.label || getSourceLabel(field.sourceKey)}</dt>
+          <dd>
+            <ShowItemDisplayValue field={field} value={rawData[field.sourceKey]} />
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+};
+
+const ShowItemDisplayValue = ({
+  field,
+  value,
+}: {
+  field: ShowItemDisplayField;
+  value: unknown;
+}) => {
+  const displayValue = formatShowItemValue(value, field.format);
+  const className = [
+    'schema-field__show-value',
+    field.format ? `schema-field__show-value--${field.format}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  if (field.format === 'badge') {
+    return <span className={className}>{displayValue}</span>;
+  }
+
+  if (field.format === 'code' || field.format === 'json') {
+    return (
+      <pre className={className} style={maxLinesStyle(field.maxLines)}>
+        {displayValue}
+      </pre>
+    );
+  }
+
+  return (
+    <span className={className} style={maxLinesStyle(field.maxLines)}>
+      {displayValue}
+    </span>
+  );
+};
+
+const ShowItemComparison = ({
+  fields,
+  label,
+  rawData,
+}: {
+  fields: readonly ShowItemDisplayField[];
+  label: string;
+  rawData: Record<string, unknown>;
+}) => {
+  const visibleFields = fields.filter((item) => isDisplayFieldVisible(item) && item.sourceKey.trim());
+  const promptField =
+    visibleFields.find((field) => field.sourceKey === 'prompt') ??
+    visibleFields.find((field) => field.area === 'primary');
+  const responseAField = visibleFields.find((field) => field.sourceKey === 'response_a');
+  const responseBField = visibleFields.find((field) => field.sourceKey === 'response_b');
+  const modelAField = visibleFields.find((field) => field.sourceKey === 'model_a');
+  const modelBField = visibleFields.find((field) => field.sourceKey === 'model_b');
+  const consumedKeys = new Set(
+    [promptField, responseAField, responseBField, modelAField, modelBField]
+      .map((field) => field?.sourceKey)
+      .filter((key): key is string => Boolean(key)),
+  );
+  const metaFields = visibleFields.filter((field) => field.area === 'meta' && !consumedKeys.has(field.sourceKey));
+  const extraFields = visibleFields.filter((field) => !consumedKeys.has(field.sourceKey) && !metaFields.includes(field));
+
+  return (
+    <article className="schema-field__show-comparison" aria-label={`${label}偏好对比展示`}>
+      {metaFields.length > 0 ? (
+        <div className="schema-field__show-comparison-meta">
+          {metaFields.map((field, index) => (
+            <span key={`${field.sourceKey}:${index}`}>
+              <b>{field.label || getSourceLabel(field.sourceKey)}</b>
+              <ShowItemDisplayValue field={{ ...field, format: field.format ?? 'badge' }} value={rawData[field.sourceKey]} />
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {promptField ? (
+        <section className="schema-field__show-comparison-prompt">
+          <span>{promptField.label || getSourceLabel(promptField.sourceKey)}</span>
+          <ShowItemDisplayValue
+            field={{ ...promptField, format: promptField.format ?? 'long_text', maxLines: promptField.maxLines ?? 8 }}
+            value={rawData[promptField.sourceKey]}
+          />
+        </section>
+      ) : null}
+      <div className="schema-field__compare-grid schema-field__show-comparison-grid">
+        <ShowItemComparisonPanel
+          fallbackTitle="回答 A"
+          modelField={modelAField}
+          rawData={rawData}
+          responseField={responseAField}
+          testId="preference-compare-panel-a"
+        />
+        <ShowItemComparisonPanel
+          fallbackTitle="回答 B"
+          modelField={modelBField}
+          rawData={rawData}
+          responseField={responseBField}
+          testId="preference-compare-panel-b"
+        />
+      </div>
+      {extraFields.length > 0 ? (
+        <dl className="schema-field__show-comparison-extra">
+          {extraFields.map((field, index) => (
+            <div key={`${field.sourceKey}:${index}`}>
+              <dt>{field.label || getSourceLabel(field.sourceKey)}</dt>
+              <dd>
+                <ShowItemDisplayValue field={field} value={rawData[field.sourceKey]} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </article>
+  );
+};
+
+const ShowItemComparisonPanel = ({
+  fallbackTitle,
+  modelField,
+  rawData,
+  responseField,
+  testId,
+}: {
+  fallbackTitle: string;
+  modelField: ShowItemDisplayField | undefined;
+  rawData: Record<string, unknown>;
+  responseField: ShowItemDisplayField | undefined;
+  testId: string;
+}) => {
+  const responseLabel = responseField?.label || fallbackTitle;
+
+  return (
+    <article className="schema-field__compare-panel schema-field__show-comparison-panel" data-testid={testId}>
+      <header>
+        <h4>{responseLabel}</h4>
+        {modelField ? (
+          <small>
+            {modelField.label || getSourceLabel(modelField.sourceKey)}：
+            {stringifyDisplayValue(rawData[modelField.sourceKey])}
+          </small>
+        ) : null}
+      </header>
+      {responseField ? (
+        <ShowItemDisplayValue
+          field={{ ...responseField, format: responseField.format ?? 'long_text', maxLines: responseField.maxLines ?? 12 }}
+          value={rawData[responseField.sourceKey]}
+        />
+      ) : (
+        <span className="schema-field__show-value">暂无内容</span>
+      )}
+    </article>
+  );
+};
+
+const formatShowItemValue = (
+  value: unknown,
+  format: ShowItemDisplayField['format'],
+): string => {
+  if (!hasDisplayValue(value)) {
+    return '';
+  }
+
+  if (format === 'json') {
+    if (typeof value === 'string') {
+      try {
+        return JSON.stringify(JSON.parse(value), null, 2);
+      } catch {
+        return value;
+      }
+    }
+
+    return JSON.stringify(value, null, 2);
+  }
+
+  return stringifyDisplayValue(value);
+};
+
 const resolveMediaRender = (
   sourceKeys: readonly string[],
   rawData: Record<string, unknown>,
@@ -288,8 +599,13 @@ const CompareLayout = ({
   );
 };
 
-export const ShowItemField = ({ field, rawData }: BaseFieldProps) => {
+export const ShowItemField = ({ field, rawData, rendererScope }: BaseFieldProps) => {
+  const displayConfig = field.displayConfig;
+  const displayFields = displayConfig?.fields ?? [];
   const sourceKeys = getSourceKeys(field);
+  const showItemDisplayLabel = getShowItemDisplayLabel(field.label);
+  const shouldRenderTitle =
+    rendererScope !== 'designer-canvas' && !isUploadedDataFileNameLabel(field.label);
   const isPreferenceCompare =
     sourceKeys.includes('response_a') && sourceKeys.includes('response_b');
   const mediaRender = resolveMediaRender(sourceKeys, rawData);
@@ -298,9 +614,11 @@ export const ShowItemField = ({ field, rawData }: BaseFieldProps) => {
   return (
     <section className="schema-field schema-field--show-item" data-field-type={field.type}>
       <div className="schema-field__meta">展示项 ShowItem</div>
-      <h3>{field.label}</h3>
+      {shouldRenderTitle ? <h3>{field.label}</h3> : null}
       {field.description ? <p>{field.description}</p> : null}
-      {isPreferenceCompare ? (
+      {displayFields.length > 0 ? (
+        <ShowItemTable fields={displayFields} label={showItemDisplayLabel} rawData={rawData} />
+      ) : isPreferenceCompare ? (
         <CompareLayout mediaRender={mediaRender} sourceKeys={sourceKeys} rawData={rawData} />
       ) : (
         <>
@@ -319,4 +637,15 @@ export const ShowItemField = ({ field, rawData }: BaseFieldProps) => {
       )}
     </section>
   );
+};
+
+const maxLinesStyle = (maxLines: number | undefined): CSSProperties | undefined => {
+  if (!maxLines || maxLines <= 0) {
+    return undefined;
+  }
+
+  return {
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: maxLines,
+  };
 };

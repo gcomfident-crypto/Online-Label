@@ -1,4 +1,5 @@
 import type { DatasetKind } from '@labelhub/shared';
+import { requestApi } from './request';
 
 export type ReviewQueueItemDto = {
   submissionId: string;
@@ -120,15 +121,6 @@ export type BatchReviewResultDto = {
   submissions: ReviewDetailDto[];
 };
 
-type ApiEnvelope<TData> = {
-  data: TData;
-  error?: {
-    message?: string;
-  };
-};
-
-const apiBaseUrl = (): string => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
-
 export async function listPendingReviews(input: { reviewerId?: string; aiDecision?: string } = {}): Promise<ReviewQueueItemDto[]> {
   const searchParams = new URLSearchParams();
   if (input.reviewerId) {
@@ -152,10 +144,6 @@ export async function listReviewResults(input: { verdict?: string } = {}): Promi
   const suffix = searchParams.size > 0 ? `?${searchParams.toString()}` : '';
 
   return requestReviewApi<ReviewQueueItemDto[]>(`/reviews/results${suffix}`, { method: 'GET' });
-}
-
-export async function listFinalPendingReviews(): Promise<ReviewQueueItemDto[]> {
-  return requestReviewApi<ReviewQueueItemDto[]>('/reviews/final-pending', { method: 'GET' });
 }
 
 export async function listReviewRounds(assignmentId: string): Promise<SubmissionRoundDto[]> {
@@ -213,20 +201,6 @@ export async function reviseAndPassReview(
   });
 }
 
-export async function finalPassReview(submissionId: string, input: { actorId?: string; comment?: string }): Promise<ReviewDetailDto> {
-  return requestReviewApi<ReviewDetailDto>(`/reviews/${submissionId}/final-pass`, {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
-export async function finalRejectReview(submissionId: string, input: { actorId?: string; reason: string }): Promise<ReviewDetailDto> {
-  return requestReviewApi<ReviewDetailDto>(`/reviews/${submissionId}/final-reject`, {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
 export async function batchPassReviews(input: {
   actorId?: string;
   submissionIds: string[];
@@ -261,18 +235,5 @@ export async function assignReviews(input: {
 }
 
 async function requestReviewApi<TData>(path: string, init: RequestInit): Promise<TData> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  const envelope = (await response.json()) as ApiEnvelope<TData>;
-
-  if (!response.ok) {
-    throw new Error(envelope.error?.message ?? '人工复审接口请求失败，请稍后重试。');
-  }
-
-  return envelope.data;
+  return requestApi<TData>(path, init, '人工复审接口请求失败，请稍后重试。');
 }

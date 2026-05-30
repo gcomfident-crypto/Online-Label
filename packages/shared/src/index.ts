@@ -23,6 +23,7 @@ export { canAccessRoute } from './rbac.ts';
 export {
   DATASET_IMPORT_FORMATS,
   DATASET_KINDS,
+  FIELD_AI_REVIEW_ROLES,
   FIELD_LINKAGE_ACTIONS,
   FIELD_TYPES,
   CUSTOM_VALIDATOR_KEYS,
@@ -31,6 +32,8 @@ export {
   type CustomValidatorKey,
   type DatasetImportFormat,
   type DatasetKind,
+  type FieldAiReviewConfig,
+  type FieldAiReviewRole,
   type FieldLinkageAction,
   type FieldLinkageCondition,
   type FieldLinkageRule,
@@ -40,6 +43,8 @@ export {
   type LabelHubSchema,
   type LabelhubSchema,
   type SchemaField,
+  type ShowItemDisplayConfig,
+  type ShowItemDisplayField,
 } from './schema.ts';
 
 export {
@@ -77,6 +82,17 @@ export {
   type DatasetRecord,
   type DatasetRecordValidationResult,
 } from './datasetProfiles.ts';
+
+export {
+  AUTO_TEMPLATE_ANNOTATION_FIELD_TYPES,
+  isAutoTemplateAnnotationFieldType,
+  type AutoTemplateAnnotationField,
+  type AutoTemplateAnnotationFieldType,
+  type AutoTemplateFieldClassificationRequest,
+  type AutoTemplateFieldClassificationResult,
+  type AutoTemplateFieldValueStats,
+  type AutoTemplateSourceField,
+} from './autoTemplateClassification.ts';
 
 export {
   AI_REVIEW_STATUS,

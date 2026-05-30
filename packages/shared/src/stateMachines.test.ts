@@ -21,7 +21,7 @@ describe('任务状态机', () => {
   it('拒绝非法任务状态迁移并抛出中文错误', () => {
     expect(canTransitionTask('ENDED', 'PUBLISHED')).toBe(false);
     expect(() => assertTaskTransition('ENDED', 'PUBLISHED')).toThrow(
-      /任务状态不能从 已结束 流转到 发布中/,
+      /任务状态不能从 已完成 流转到 进行中/,
     );
   });
 });
@@ -31,13 +31,13 @@ describe('提交状态机', () => {
     expect(canTransitionSubmission('NEEDS_REVISION', 'SUBMITTED')).toBe(true);
   });
 
-  it('确保人工复审通过后只能进入待终审，不能直接终审通过', () => {
-    expect(canTransitionSubmission('RECHECK_APPROVED', 'FINAL_PENDING')).toBe(
-      true,
-    );
-    expect(canTransitionSubmission('RECHECK_APPROVED', 'FINAL_APPROVED')).toBe(
-      false,
-    );
+  it('允许关闭 AI 预审后提交直接进入人工复审', () => {
+    expect(canTransitionSubmission('SUBMITTED', 'HUMAN_PENDING')).toBe(true);
+  });
+
+  it('确保人工复审通过后直接完成，不再进入待终审', () => {
+    expect(canTransitionSubmission('RECHECK_REVIEWING', 'FINAL_APPROVED')).toBe(true);
+    expect(canTransitionSubmission('RECHECK_REVIEWING', 'FINAL_PENDING')).toBe(false);
   });
 });
 
@@ -52,35 +52,24 @@ describe('AI 审核状态机', () => {
 });
 
 describe('人工审核状态机', () => {
-  it('覆盖人工复审到终审的后半段链路', () => {
+  it('覆盖人工复审直接完成的后半段链路', () => {
     expect(canTransitionHumanReview('HUMAN_PENDING', 'RECHECK_REVIEWING')).toBe(
       true,
     );
     expect(
       canTransitionHumanReview('RECHECK_REVIEWING', 'RECHECK_APPROVED'),
     ).toBe(true);
-    expect(canTransitionHumanReview('RECHECK_APPROVED', 'FINAL_PENDING')).toBe(
-      true,
-    );
-    expect(canTransitionHumanReview('FINAL_PENDING', 'FINAL_REVIEWING')).toBe(
-      true,
-    );
     expect(
-      canTransitionHumanReview('FINAL_REVIEWING', 'FINAL_APPROVED'),
+      canTransitionHumanReview('RECHECK_REVIEWING', 'FINAL_APPROVED'),
     ).toBe(true);
+    expect(canTransitionHumanReview('RECHECK_APPROVED', 'FINAL_PENDING')).toBe(false);
   });
 
-  it('允许人工复审或终审打回到待修订', () => {
+  it('允许人工复审打回到待修订', () => {
     expect(
       canTransitionHumanReview('RECHECK_REVIEWING', 'RECHECK_REJECTED'),
     ).toBe(true);
     expect(canTransitionHumanReview('RECHECK_REJECTED', 'NEEDS_REVISION')).toBe(
-      true,
-    );
-    expect(canTransitionHumanReview('FINAL_REVIEWING', 'FINAL_REJECTED')).toBe(
-      true,
-    );
-    expect(canTransitionHumanReview('FINAL_REJECTED', 'NEEDS_REVISION')).toBe(
       true,
     );
   });

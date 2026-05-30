@@ -6,13 +6,13 @@ import { ReviewsService } from './reviews.service.ts';
 type AssignmentStatus =
   | 'SUBMITTED'
   | 'UNDER_RECHECK'
-  | 'FINAL_PENDING'
+  | 'FINAL_APPROVED'
   | 'NEEDS_REVISION';
 
 type SubmissionStatus =
   | 'HUMAN_PENDING'
   | 'RECHECK_REVIEWING'
-  | 'FINAL_PENDING'
+  | 'FINAL_APPROVED'
   | 'NEEDS_REVISION';
 
 type ReviewRecord = {
@@ -126,7 +126,7 @@ describe('ReviewsService', () => {
     );
   });
 
-  it('复审通过后进入终审待办，不会直接进入终审通过', async () => {
+  it('复审通过后直接标记完成，Owner 可在导出中读取结果', async () => {
     const { service, db } = createService();
     await service.startReview('submission_1', { actorId: 'reviewer_1' });
 
@@ -135,9 +135,8 @@ describe('ReviewsService', () => {
       comment: '同意 AI 预审结论。',
     });
 
-    expect(detail.submission.status).toBe('FINAL_PENDING');
-    expect(db.assignments[0].status).toBe('FINAL_PENDING');
-    expect(db.submissions[0].status).not.toBe('FINAL_APPROVED');
+    expect(detail.submission.status).toBe('FINAL_APPROVED');
+    expect(db.assignments[0].status).toBe('FINAL_APPROVED');
     expect(db.reviewRecords.at(-1)).toEqual(
       expect.objectContaining({
         submissionId: 'submission_1',
@@ -146,6 +145,13 @@ describe('ReviewsService', () => {
         reviewerId: 'reviewer_1',
         decision: 'recheck_pass',
         comment: '同意 AI 预审结论。',
+      }),
+    );
+    expect(db.auditLogs.at(-1)).toEqual(
+      expect.objectContaining({
+        fromStatus: 'RECHECK_REVIEWING',
+        toStatus: 'FINAL_APPROVED',
+        metadata: { action: 'HUMAN_REVIEW_APPROVED' },
       }),
     );
   });
@@ -172,7 +178,7 @@ describe('ReviewsService', () => {
     );
   });
 
-  it('直接修订并通过会保存 revisedAnswers 快照并进入终审待办', async () => {
+  it('直接修订并通过会保存 revisedAnswers 快照并直接标记完成', async () => {
     const { service, db } = createService();
 
     const detail = await service.reviseAndPass('submission_1', {
@@ -181,7 +187,8 @@ describe('ReviewsService', () => {
       revisedAnswers: { quality: 'pass', reason: '补充后的人工修订理由。' },
     });
 
-    expect(detail.submission.status).toBe('FINAL_PENDING');
+    expect(detail.submission.status).toBe('FINAL_APPROVED');
+    expect(db.assignments[0].status).toBe('FINAL_APPROVED');
     expect(detail.submission.answers).toEqual({ quality: 'pass', reason: '补充后的人工修订理由。' });
     expect(db.reviewRecords.at(-1)?.decision).toBe('revise_pass');
     expect(db.reviewRecords.at(-1)?.revisedAnswers).toEqual({
@@ -206,7 +213,7 @@ describe('ReviewsService', () => {
       comment: '批量同意。',
     });
     expect(passResult.processedCount).toBe(1);
-    expect(db.submissions[0].status).toBe('FINAL_PENDING');
+    expect(db.submissions[0].status).toBe('FINAL_APPROVED');
 
     const rejectResult = await service.batchReject({
       actorId: 'reviewer_2',
@@ -222,7 +229,7 @@ describe('ReviewsService', () => {
 
   it('批量通过遇到部分失败时返回逐条结果', async () => {
     const { service, db } = createService();
-    db.submissions[1].status = 'FINAL_PENDING';
+    db.submissions[1].status = 'FINAL_APPROVED';
 
     const result = await service.batchPass({
       actorId: 'reviewer_2',

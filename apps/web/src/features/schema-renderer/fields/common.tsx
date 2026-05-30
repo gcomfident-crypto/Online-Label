@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import type { FieldOption, SchemaField } from '@labelhub/shared';
 
 import type { FieldRendererProps } from '../types';
@@ -96,13 +98,44 @@ const isNavigableResourceUrl = (value: string): boolean => {
   }
 };
 
-export const optionLabel = (field: SchemaField, option: FieldOption): string => {
-  return `${field.label}：${option.label}`;
+export const optionLabel = (_field: SchemaField, option: FieldOption): string => {
+  return option.label;
 };
 
 export const FieldDescription = ({ field }: { field: SchemaField }) => {
-  return field.description ? <small>{field.description}</small> : null;
+  return field.description ? <small className="schema-field__description">{field.description}</small> : null;
 };
+
+export const FieldTitleRow = ({
+  field,
+  meta,
+}: {
+  field: SchemaField;
+  meta?: ReactNode;
+}) => (
+  <span className="schema-field__title-row">
+    <span className="schema-field__title">{field.label}</span>
+    {field.validation?.required ? (
+      <span className="schema-field__required-mark" aria-hidden="true">
+        *
+      </span>
+    ) : null}
+    <FieldDescription field={field} />
+    {meta ? <span className="schema-field__meta">{meta}</span> : null}
+  </span>
+);
+
+export const FieldLegend = ({ field }: { field: SchemaField }) => (
+  <legend className="schema-field__title-row">
+    <span className="schema-field__title">{field.label}</span>
+    {field.validation?.required ? (
+      <span className="schema-field__required-mark" aria-hidden="true">
+        *
+      </span>
+    ) : null}
+    <FieldDescription field={field} />
+  </legend>
+);
 
 export const FieldCounter = ({
   maxLength,

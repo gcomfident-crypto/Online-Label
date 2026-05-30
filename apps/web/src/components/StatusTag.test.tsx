@@ -8,7 +8,7 @@ describe('StatusTag', () => {
   it('按任务状态显示 shared 中文标签', () => {
     render(<StatusTag group="task" status="PUBLISHED" />);
 
-    const tag = screen.getByText('发布中');
+    const tag = screen.getByText('进行中');
     expect(tag).toHaveAttribute('data-status', 'PUBLISHED');
     expect(tag).toHaveAttribute('data-tone', 'info');
   });
@@ -16,7 +16,7 @@ describe('StatusTag', () => {
   it('按提交状态显示 shared 中文标签', () => {
     render(<StatusTag group="submission" status="FINAL_APPROVED" />);
 
-    const tag = screen.getByText('终审通过');
+    const tag = screen.getByText('已完成');
     expect(tag).toHaveAttribute('data-status', 'FINAL_APPROVED');
     expect(tag).toHaveAttribute('data-tone', 'approved');
   });
@@ -30,7 +30,35 @@ describe('StatusTag', () => {
     );
 
     expect(screen.getByText('已暂停')).toHaveAttribute('data-tone', 'warning');
-    expect(screen.getByText('终审打回')).toHaveAttribute('data-tone', 'danger');
+    expect(screen.getByText('已打回')).toHaveAttribute('data-tone', 'danger');
+  });
+
+  it('任务状态使用浅底色胶囊、圆点和指定配色', () => {
+    render(
+      <>
+        <StatusTag group="task" status="DRAFT" />
+        <StatusTag group="task" status="PUBLISHED" />
+        <StatusTag group="task" status="PAUSED" />
+        <StatusTag group="task" status="ENDED" />
+      </>,
+    );
+
+    const expectedStyles = [
+      ['草稿', '#94A3B8', '#64748B', '#F1F5F9'],
+      ['进行中', '#306DF8', '#1D4ED8', '#EAF1FF'],
+      ['已暂停', '#D97706', '#92400E', '#FFF7E6'],
+      ['已完成', '#00A676', '#007F5F', '#E6F7F1'],
+    ] as const;
+
+    for (const [label, dotColor, textColor, backgroundColor] of expectedStyles) {
+      const tag = screen.getByText(label).closest('.status-tag') as HTMLElement | null;
+
+      expect(tag).toHaveClass('status-tag--task');
+      expect(tag?.querySelector('.status-tag__dot')).not.toBeNull();
+      expect(tag?.style.getPropertyValue('--status-dot-color')).toBe(dotColor);
+      expect(tag?.style.getPropertyValue('--status-text-color')).toBe(textColor);
+      expect(tag?.style.getPropertyValue('--status-bg-color')).toBe(backgroundColor);
+    }
   });
 
   it('为 AI 审核重试状态提供 warning tone', () => {

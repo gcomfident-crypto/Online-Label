@@ -1,15 +1,17 @@
 # LabelHub
 
-LabelHub 是一个面向 AI 数据标注与审核的全栈演示平台。系统围绕统一登录、四端独立 Portal、动态表单、AI 自动预审、人工复审、终审和结果导出构建，默认使用稳定的 mock AI，便于本地验收和答辩演示。
+LabelHub 是一个面向 AI 数据标注与审核的全栈演示平台。系统围绕统一登录、四端独立 Portal、动态模板配置、任务领取与提交、可选 AI 自动预审、人工复审和结果导出构建，默认使用稳定的 mock AI，便于本地验收和答辩演示。
 
 ## 核心能力
 
 - 统一登录入口：`/login`，按角色进入独立工作区。
 - 四端隔离：Owner `/owner/*`、Labeler `/labeler/*`、AI Agent `/agent/*`、Reviewer `/reviewer/*`。
-- 动态表单：Owner 使用 Designer 生成 Schema，Labeler 使用同一份 Schema 在 Renderer 中作答。
-- 官方数据：支持 `qa_quality` 与 `preference_compare` 两类数据，覆盖 JSON、JSONL、Excel 和 zip 导入。
-- 三级审核：标注提交后固定进入 `AI 自动预审 -> 人工复审 -> 终审`，导出中心只读取 `FINAL_APPROVED` 数据。
+- 动态模板：Owner 使用 Designer 生成 Schema，支持文件自动解析模板、ShowItem 表格展示、字段说明、必填标识、选项拖拽排序、字段联动、校验规则、分组容器和多 Tab 容器。
+- 数据导入：支持 `qa_quality`、`preference_compare` 和 `generic_json` 数据，覆盖 JSON、JSONL、CSV、Excel 和 zip 导入。
+- 任务流转：Owner 创建任务，Labeler 在任务广场领取并在工作台批量提交；已领取任务不再显示在任务广场。
+- 审核链路：任务可选择是否启用 AI 预审；启用后进入 AI Agent 队列，未启用时直接进入人工复审。Reviewer 使用真实审核接口处理任务级审核队列，完成后同步任务、标注和导出状态。
 - 工程化 Agent：保留 `MockLlmProvider` 与 DeepSeek 兼容 provider，失败重试、人工兜底、幂等键和审计日志均有覆盖。
+- 统一后台 UI：侧边栏、顶部栏、表格空状态、toast、确认弹窗、图标资源和响应式布局保持一致。
 
 ## 技术栈
 
@@ -40,6 +42,7 @@ docs/
   deployment.md
   demo-data.md
   demo-script.md
+  labelhub-plan/README.md
 submission/
   README.md
 ```
@@ -84,17 +87,19 @@ pnpm exec prisma db seed
 pnpm demo:reset
 ```
 
-该脚本会清空演示表并重建：4 个角色用户、2 个官方模板、2 个发布中任务、`qa_quality` 30 条题目、`preference_compare` 12 条题目、3 条提交、AI 预审记录、人工打回记录、终审通过记录和示例导出记录。
+该脚本会清空演示表并重建 4 个角色用户。官方模板和官方任务已经移除，模板、任务、题目、提交、审核记录和导出记录默认保持为空，便于从页面完整创建并验证真实流程。
 
 6. 启动 Web、API、Worker：
 
 ```bash
-pnpm dev
+pnpm --filter @labelhub/api dev
+pnpm --filter @labelhub/web dev -- --port 5175
+pnpm --filter @labelhub/worker dev
 ```
 
 默认地址：
 
-- Web：`http://localhost:5173`
+- Web：`http://localhost:5175`
 - API：`http://localhost:3000`
 - PostgreSQL：`localhost:5432`
 - Redis：`localhost:6379`
@@ -146,6 +151,7 @@ docker compose config
 - API 文档：[docs/api/openapi.yaml](docs/api/openapi.yaml)
 - 官方数据说明：[docs/demo-data.md](docs/demo-data.md)
 - 演示脚本：[docs/demo-script.md](docs/demo-script.md)
+- 开发计划：[docs/labelhub-plan/README.md](docs/labelhub-plan/README.md)
 - 提交材料：[submission/README.md](submission/README.md)
 
 ## 安全约束

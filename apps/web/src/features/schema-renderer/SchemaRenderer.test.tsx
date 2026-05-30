@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StrictMode, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -46,6 +46,33 @@ describe('SchemaRenderer', () => {
     expect(screen.getByText('请总结这段内容')).toBeInTheDocument();
   });
 
+  it('labeler 查看自动生成的 show_item 时不展示上传文件名', () => {
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'auto_show_item',
+            type: 'show_item',
+            label: 'preference_compare.json',
+            displayConfig: {
+              layout: 'table',
+              fields: [{ sourceKey: 'prompt', label: '问题', format: 'long_text' }],
+            },
+          },
+        ])}
+        rawData={{ prompt: '请比较两个回答的质量。' }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText('preference_compare.json')).not.toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: 'preference_compare.json展示字段' })).not.toBeInTheDocument();
+    expect(screen.getByRole('table', { name: '展示项展示字段' })).toBeInTheDocument();
+    expect(screen.getByText('请比较两个回答的质量。')).toBeInTheDocument();
+  });
+
   it('show_item 单字段为空时保留暂无内容占位', () => {
     render(
       <SchemaRenderer
@@ -60,6 +87,229 @@ describe('SchemaRenderer', () => {
     );
 
     expect(screen.getByText('暂无内容')).toBeInTheDocument();
+  });
+
+  it('show_item 支持按 displayConfig 表格逐行展示字段名和值', () => {
+    const { container } = render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'material',
+            type: 'show_item',
+            label: '评测样本',
+            displayConfig: {
+              layout: 'table',
+              fields: [
+                { sourceKey: 'task_type', label: '任务类型', format: 'badge' },
+                { sourceKey: 'lang', label: '语言', format: 'badge' },
+                { sourceKey: 'prompt', label: '问题', width: 320, maxLines: 2 },
+                { sourceKey: 'response_a', label: '回答 A', width: 360, maxLines: 3 },
+                { sourceKey: 'model_a', label: '模型 A' },
+                { sourceKey: 'response_b', label: '回答 B', width: 360, maxLines: 3 },
+                { sourceKey: 'model_b', label: '模型 B' },
+              ],
+            },
+          },
+        ])}
+        rawData={{
+          task_type: '知识问答',
+          lang: 'zh',
+          prompt: '解释什么是过拟合，并给一个通俗例子。',
+          response_a: '过拟合指模型在训练集表现很好但泛化差。',
+          model_a: 'doubao-pro',
+          response_b: '过拟合就是模型训练得太好了。',
+          model_b: 'baseline-7b',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const table = screen.getByRole('table', { name: '评测样本展示字段' });
+    const rows = within(table).getAllByRole('row');
+    expect(rows).toHaveLength(7);
+    expect(within(rows[0]).getByRole('rowheader', { name: '任务类型' })).toBeInTheDocument();
+    expect(within(rows[0]).getByText('知识问答')).toBeInTheDocument();
+    expect(within(rows[1]).getByRole('rowheader', { name: '语言' })).toBeInTheDocument();
+    expect(within(rows[1]).getByText('zh')).toBeInTheDocument();
+    expect(within(rows[2]).getByRole('rowheader', { name: '问题' })).toBeInTheDocument();
+    expect(within(rows[2]).getByText('解释什么是过拟合，并给一个通俗例子。')).toBeInTheDocument();
+    expect(within(rows[4]).getByRole('rowheader', { name: '模型 A' })).toBeInTheDocument();
+    expect(within(rows[4]).getByText('doubao-pro')).toBeInTheDocument();
+    expect(within(rows[6]).getByRole('rowheader', { name: '模型 B' })).toBeInTheDocument();
+    expect(within(rows[6]).getByText('baseline-7b')).toBeInTheDocument();
+    expect(within(table).queryByText('task_type')).not.toBeInTheDocument();
+    expect(container.querySelector('.schema-field__show-table .schema-field__show-value--badge')).toBeNull();
+  });
+
+  it('show_item 对 displayConfig 非表格布局也统一按表格展示', () => {
+    const { container } = render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'material',
+            type: 'show_item',
+            label: '评测样本',
+            displayConfig: {
+              layout: 'card',
+              fields: [
+                { sourceKey: 'task_type', label: '任务类型', area: 'meta', format: 'badge' },
+                { sourceKey: 'prompt', label: '问题', area: 'primary', maxLines: 2 },
+                { sourceKey: 'response_a', label: '回答 A', area: 'content', format: 'long_text', maxLines: 3 },
+                { sourceKey: 'metadata', label: '元数据', area: 'content', format: 'json' },
+              ],
+            },
+          },
+        ])}
+        rawData={{
+          task_type: '知识问答',
+          prompt: '解释什么是过拟合，并给一个通俗例子。',
+          response_a: '过拟合指模型在训练集表现很好但泛化差。',
+          metadata: { source: 'eval', priority: 2 },
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const table = screen.getByRole('table', { name: '评测样本展示字段' });
+    const rows = within(table).getAllByRole('row');
+    expect(rows).toHaveLength(4);
+    expect(within(rows[0]).getByRole('rowheader', { name: '任务类型' })).toBeInTheDocument();
+    expect(within(rows[0]).getByText('知识问答')).toBeInTheDocument();
+    expect(within(rows[1]).getByRole('rowheader', { name: '问题' })).toBeInTheDocument();
+    expect(within(rows[1]).getByText('解释什么是过拟合，并给一个通俗例子。')).toBeInTheDocument();
+    expect(within(rows[2]).getByRole('rowheader', { name: '回答 A' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('评测样本卡片展示')).not.toBeInTheDocument();
+    expect(container.textContent).toContain('"source": "eval"');
+    expect(container.textContent).toContain('"priority": 2');
+  });
+
+  it('show_item 支持按 displayConfig 字段列表逐行展示题目字段', () => {
+    const { container } = render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'material',
+            type: 'show_item',
+            label: '自动解析题目',
+            displayConfig: {
+              layout: 'field_list',
+              fields: [
+                { sourceKey: 'task_type', label: 'task_type', format: 'badge' },
+                { sourceKey: 'prompt', label: 'prompt', format: 'long_text', maxLines: 3 },
+                { sourceKey: 'metadata', label: 'metadata', format: 'json' },
+              ],
+            },
+          },
+        ])}
+        rawData={{
+          task_type: '知识问答',
+          prompt: '解释什么是过拟合，并给一个通俗例子。',
+          metadata: { source: 'eval', priority: 2 },
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const table = screen.getByRole('table', { name: '自动解析题目展示字段' });
+    const rows = within(table).getAllByRole('row');
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent('task_type');
+    expect(rows[0]).toHaveTextContent('知识问答');
+    expect(rows[1]).toHaveTextContent('prompt');
+    expect(rows[1]).toHaveTextContent('解释什么是过拟合，并给一个通俗例子。');
+    expect(container.textContent).toContain('"source": "eval"');
+    expect(container.textContent).toContain('"priority": 2');
+  });
+
+  it('show_item 自动识别字段缺少值时保持为空，不展示暂无内容占位', () => {
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'material',
+            type: 'show_item',
+            label: '自动解析题目',
+            displayConfig: {
+              layout: 'field_list',
+              fields: [
+                { sourceKey: 'prompt', label: '问题', format: 'long_text' },
+                { sourceKey: 'response_a', label: '回答 A', format: 'long_text' },
+              ],
+            },
+          },
+        ])}
+        rawData={{
+          prompt: '只有问题，没有回答。',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const table = screen.getByRole('table', { name: '自动解析题目展示字段' });
+    expect(within(table).getByText('问题')).toBeInTheDocument();
+    expect(within(table).getByText('回答 A')).toBeInTheDocument();
+    expect(within(table).queryByText('暂无内容')).not.toBeInTheDocument();
+  });
+
+  it('show_item 对偏好对比 displayConfig 也按表格展示并隐藏答案类字段', () => {
+    render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'material',
+            type: 'show_item',
+            label: '偏好对比题目',
+            displayConfig: {
+              layout: 'comparison',
+              fields: [
+                { sourceKey: 'id', label: '题目ID', area: 'meta', format: 'badge' },
+                { sourceKey: 'task_type', label: '任务类型', area: 'meta', format: 'badge' },
+                { sourceKey: 'lang', label: '语言', area: 'meta', format: 'badge' },
+                { sourceKey: 'prompt', label: '问题', area: 'primary', format: 'long_text' },
+                { sourceKey: 'response_a', label: '回答 A', area: 'content', format: 'long_text' },
+                { sourceKey: 'model_a', label: '模型 A', area: 'meta', format: 'badge' },
+                { sourceKey: 'response_b', label: '回答 B', area: 'content', format: 'long_text' },
+                { sourceKey: 'model_b', label: '模型 B', area: 'meta', format: 'badge' },
+                { sourceKey: 'preferred', label: '参考答案', visible: false },
+              ],
+            },
+          },
+        ])}
+        rawData={{
+          id: 'P0001',
+          task_type: '知识问答',
+          lang: 'zh',
+          prompt: '解释什么是过拟合，并给一个通俗例子。',
+          response_a: '过拟合指模型在训练集表现很好但泛化差。',
+          model_a: 'doubao-pro',
+          response_b: '过拟合就是模型训练得太好了。',
+          model_b: 'baseline-7b',
+          preferred: 'A',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const table = screen.getByRole('table', { name: '偏好对比题目展示字段' });
+    const rows = within(table).getAllByRole('row');
+    expect(rows).toHaveLength(8);
+    expect(within(table).getByText('P0001')).toBeInTheDocument();
+    expect(within(table).getByText('知识问答')).toBeInTheDocument();
+    expect(within(table).getByText('解释什么是过拟合，并给一个通俗例子。')).toBeInTheDocument();
+    expect(within(table).getByText('doubao-pro')).toBeInTheDocument();
+    expect(within(table).getByText('baseline-7b')).toBeInTheDocument();
+    expect(screen.queryByTestId('preference-compare-panel-a')).not.toBeInTheDocument();
+    expect(within(table).queryByText('参考答案')).not.toBeInTheDocument();
   });
 
   it('qa_quality 官方示例展示 prompt、model_answer 和 reference', () => {
@@ -498,6 +748,43 @@ describe('SchemaRenderer', () => {
     expect(onChange).toHaveBeenLastCalledWith({ tags: ['clear', 'complete'] });
   });
 
+  it('labeler 侧选项只展示选项文案，并在标题右侧展示说明和必填标识', () => {
+    const { container } = render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'preference_margin',
+            type: 'radio',
+            label: '优劣程度',
+            description: '判断两个回答优劣',
+            validation: { required: true },
+            options: [
+              { label: '明显优于', value: 'clear' },
+              { label: '略优于', value: 'slight' },
+            ],
+          },
+        ])}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('明显优于')).toBeInTheDocument();
+    expect(screen.getByLabelText('略优于')).toBeInTheDocument();
+    expect(screen.queryByText('优劣程度：明显优于')).not.toBeInTheDocument();
+    expect(screen.queryByText('优劣程度：略优于')).not.toBeInTheDocument();
+
+    const titleRow = container.querySelector('[data-field-type="radio"] .schema-field__title-row');
+    expect(titleRow).not.toBeNull();
+    expect(within(titleRow as HTMLElement).getByText('优劣程度')).toBeInTheDocument();
+    expect(within(titleRow as HTMLElement).getByText('*')).toHaveClass('schema-field__required-mark');
+    expect(within(titleRow as HTMLElement).getByText('判断两个回答优劣')).toHaveClass(
+      'schema-field__description',
+    );
+  });
+
   it('review 模式禁用可提交字段且不允许编辑', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
@@ -735,7 +1022,7 @@ describe('SchemaRenderer', () => {
     await user.click(screen.getByRole('button', { name: '生成建议' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'LLM 辅助暂时不可用，请稍后重试。',
+      'LLM 辅助暂时不可用，请稍后重试',
     );
   });
 
@@ -776,7 +1063,7 @@ describe('SchemaRenderer', () => {
     await user.click(screen.getByRole('button', { name: '生成建议' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'LLM 辅助返回目标字段不一致。',
+      'LLM 辅助返回目标字段不一致',
     );
     expect(screen.queryByRole('button', { name: '重新生成' })).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
@@ -823,12 +1110,13 @@ describe('SchemaRenderer', () => {
 
     await user.type(screen.getByLabelText('清洗后标题'), '超长清洗标题'.repeat(8));
     expect(screen.getByText('48 / 35')).toBeInTheDocument();
-    expect(screen.getByText('清洗后标题不能超过 35 个字符。')).toBeInTheDocument();
+    expect(screen.queryByText('清洗后标题不能超过 35 个字符。')).not.toBeInTheDocument();
 
-    await user.click(screen.getByLabelText('主类目：数码配件'));
-    expect(screen.getByText('卖点关键词为必填项。')).toBeInTheDocument();
+    await user.click(screen.getByLabelText('数码配件'));
+    expect(screen.queryByText('卖点关键词为必填项。')).not.toBeInTheDocument();
+    expect(document.querySelector('.schema-field__errors')).toBeNull();
 
-    await user.click(screen.getByLabelText('卖点关键词：降噪'));
+    await user.click(screen.getByLabelText('降噪'));
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
         category: 'electronics',
@@ -948,7 +1236,7 @@ describe('SchemaRenderer', () => {
 
     fireEvent.change(screen.getByLabelText('图片'), { target: { files: [file] } });
 
-    expect(screen.getByRole('alert')).toHaveTextContent('只能上传图片文件。');
+    expect(screen.getByRole('alert')).toHaveTextContent('只能上传图片文件');
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -1061,7 +1349,7 @@ describe('SchemaRenderer', () => {
 
     await user.type(screen.getByLabelText('JSON'), 'x');
 
-    expect(screen.getByRole('alert')).toHaveTextContent('JSON 格式不合法。');
+    expect(screen.getByRole('alert')).toHaveTextContent('JSON 格式不合法');
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -1101,7 +1389,7 @@ describe('SchemaRenderer', () => {
 
     await user.type(input, 'x');
 
-    expect(screen.getByRole('alert')).toHaveTextContent('JSON 格式不合法。');
+    expect(screen.getByRole('alert')).toHaveTextContent('JSON 格式不合法');
 
     await user.click(screen.getByRole('button', { name: '清空 JSON' }));
 
@@ -1139,7 +1427,7 @@ describe('SchemaRenderer', () => {
     await user.type(input, 'x');
 
     expect(input).toHaveValue('x');
-    expect(screen.getByRole('alert')).toHaveTextContent('JSON 格式不合法。');
+    expect(screen.getByRole('alert')).toHaveTextContent('JSON 格式不合法');
 
     await user.click(screen.getByRole('button', { name: '切换空记录' }));
 
@@ -1240,7 +1528,8 @@ describe('SchemaRenderer', () => {
       />,
     );
 
-    expect(screen.getByRole('alert')).toHaveTextContent('摘要为必填项。');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(document.querySelector('.schema-field__errors')).toBeNull();
   });
 
   it('minLength、maxLength 和 pattern 校验生效', () => {
@@ -1762,18 +2051,19 @@ describe('SchemaRenderer', () => {
 
     expect(screen.queryByLabelText('详情')).not.toBeInTheDocument();
 
-    await user.click(screen.getByLabelText('状态：通过'));
+    await user.click(screen.getByLabelText('通过'));
 
     expect(await screen.findByLabelText('详情')).toBeInTheDocument();
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenLastCalledWith({ status: 'approved', score: '5' });
     expect(screen.getByLabelText('分数')).not.toBeDisabled();
 
-    await user.click(screen.getByLabelText('状态：拒绝'));
+    await user.click(screen.getByLabelText('拒绝'));
 
     expect(screen.queryByLabelText('详情')).not.toBeInTheDocument();
     expect(screen.getByLabelText('分数')).toBeDisabled();
-    expect(screen.getByRole('alert')).toHaveTextContent('原因为必填项。');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(document.querySelector('.schema-field__errors')).toBeNull();
   });
 
   it('隐藏字段默认不触发必填，validateWhenHidden 为 true 时仍校验', () => {

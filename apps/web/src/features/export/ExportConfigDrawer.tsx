@@ -2,6 +2,7 @@ import type { ExportFormat } from '@labelhub/shared';
 
 import type { ExportFieldMapping, ExportPreviewDto } from '../../api/exports';
 import type { TaskDto } from '../../api/tasks';
+import { TableEmptyState } from '../../components/TableEmptyState';
 
 type ExportConfigDrawerProps = {
   tasks: TaskDto[];
@@ -190,7 +191,7 @@ const FieldPreviewTable = ({
           </table>
         </div>
       ) : (
-        <p>暂无可预览数据。</p>
+        <TableEmptyState title="暂无可预览数据" illustrationAlt="空导出预览表格插画" />
       )}
     </section>
   );

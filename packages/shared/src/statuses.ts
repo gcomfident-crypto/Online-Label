@@ -12,9 +12,9 @@ export type TaskStatus = (typeof TASK_STATUS)[keyof typeof TASK_STATUS];
 
 export const TASK_STATUS_LABELS = {
   DRAFT: '草稿',
-  PUBLISHED: '发布中',
+  PUBLISHED: '进行中',
   PAUSED: '已暂停',
-  ENDED: '已结束',
+  ENDED: '已完成',
 } as const satisfies Record<TaskStatus, string>;
 
 export const SUBMISSION_STATUS = {
@@ -53,10 +53,10 @@ export const SUBMISSION_STATUS_LABELS = {
   RECHECK_APPROVED: '复审通过',
   RECHECK_REJECTED: '复审打回',
   RECHECK_REVISED_APPROVED: '修订复审通过',
-  FINAL_PENDING: '待终审',
-  FINAL_REVIEWING: '终审中',
-  FINAL_APPROVED: '终审通过',
-  FINAL_REJECTED: '终审打回',
+  FINAL_PENDING: '待完成',
+  FINAL_REVIEWING: '完成确认中',
+  FINAL_APPROVED: '已完成',
+  FINAL_REJECTED: '已打回',
   NEEDS_REVISION: '已打回',
 } as const satisfies Record<SubmissionStatus, string>;
 
@@ -103,10 +103,10 @@ export const HUMAN_REVIEW_STATUS_LABELS = {
   RECHECK_APPROVED: '复审通过',
   RECHECK_REJECTED: '复审打回',
   RECHECK_REVISED_APPROVED: '修订复审通过',
-  FINAL_PENDING: '待终审',
-  FINAL_REVIEWING: '终审中',
-  FINAL_APPROVED: '终审通过',
-  FINAL_REJECTED: '终审打回',
+  FINAL_PENDING: '待完成',
+  FINAL_REVIEWING: '完成确认中',
+  FINAL_APPROVED: '已完成',
+  FINAL_REJECTED: '已打回',
   NEEDS_REVISION: '已打回',
 } as const satisfies Record<HumanReviewStatus, string>;
 
@@ -122,10 +122,10 @@ export type FinalReviewStatus =
   (typeof FINAL_REVIEW_STATUS)[keyof typeof FINAL_REVIEW_STATUS];
 
 export const FINAL_REVIEW_STATUS_LABELS = {
-  FINAL_PENDING: '待终审',
-  FINAL_REVIEWING: '终审中',
-  FINAL_APPROVED: '终审通过',
-  FINAL_REJECTED: '终审打回',
+  FINAL_PENDING: '待完成',
+  FINAL_REVIEWING: '完成确认中',
+  FINAL_APPROVED: '已完成',
+  FINAL_REJECTED: '已打回',
   NEEDS_REVISION: '已打回',
 } as const satisfies Record<FinalReviewStatus, string>;
 

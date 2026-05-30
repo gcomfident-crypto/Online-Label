@@ -19,11 +19,11 @@ describe('StateMachineService', () => {
 
   it('throws simplified Chinese errors for invalid transitions', () => {
     expect(() => service.assertTaskTransition('DRAFT', 'ENDED')).toThrow(
-      '任务状态不能从 草稿 流转到 已结束',
+      '任务状态不能从 草稿 流转到 已完成',
     );
     expect(() =>
       service.assertSubmissionTransition('SUBMITTED', 'FINAL_APPROVED'),
-    ).toThrow('提交状态不能从 已提交 流转到 终审通过');
+    ).toThrow('提交状态不能从 已提交 流转到 已完成');
     expect(() => service.assertExportTransition('SUCCEEDED', 'PROCESSING')).toThrow(
       '导出状态不能从 导出成功 流转到 导出中',
     );

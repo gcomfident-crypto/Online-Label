@@ -1,24 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import type { DatasetKind } from '@labelhub/shared';
 import {
-  getLabelerStats,
-  listLabelerSubmissions,
-  type LabelerStatsDto,
-  type LabelerSubmissionDto,
-} from '../../api/submissions';
-import { EmptyState } from '../../components/EmptyState';
+  listLabelerAssignments,
+  type AssignmentStatus,
+  type LabelerAssignmentDto,
+} from '../../api/assignments';
 import { PageLoading } from '../../components/PageLoading';
+import { TableEmptyState } from '../../components/TableEmptyState';
+import { ToastViewport, useToastController } from '../../components/ToastViewport';
+import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
 
 const LABELER_ID = 'user_labeler_li_lei';
+const MY_DATA_FALLBACK_PAGE_SIZE = 7;
+const MY_DATA_TABLE_ROW_HEIGHT = 66;
 
 const STATUS_OPTIONS = [
   { label: '全部状态', value: '' },
-  { label: 'AI 预审排队中', value: 'AI_QUEUED' },
-  { label: '已通过', value: 'AI_PASSED' },
+  { label: '待标注', value: 'IN_PROGRESS' },
+  { label: '已提交', value: 'SUBMITTED' },
   { label: '待修改', value: 'NEEDS_REVISION' },
-  { label: '终审通过', value: 'FINAL_APPROVED' },
+  { label: '待完成', value: 'FINAL_PENDING' },
 ];
 
 const DATASET_KIND_OPTIONS: Array<{ label: string; value: DatasetKind | 'ALL' }> = [
@@ -29,75 +32,87 @@ const DATASET_KIND_OPTIONS: Array<{ label: string; value: DatasetKind | 'ALL' }>
 ];
 
 export const MyDataPage = () => {
-  const [stats, setStats] = useState<LabelerStatsDto | null>(null);
-  const [submissions, setSubmissions] = useState<LabelerSubmissionDto[]>([]);
+  const navigate = useNavigate();
+  const [assignments, setAssignments] = useState<LabelerAssignmentDto[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [datasetKind, setDatasetKind] = useState<DatasetKind | 'ALL'>('ALL');
   const [itemId, setItemId] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const { dismissToast, messages, showErrorToast } = useToastController();
+  const { containerRef: myDataTableContainerRef, pageSize: myDataPageSize } = useAdaptiveTablePageSize({
+    fallbackPageSize: MY_DATA_FALLBACK_PAGE_SIZE,
+    rowHeight: MY_DATA_TABLE_ROW_HEIGHT,
+  });
 
   useEffect(() => {
     void loadMyData();
   }, []);
 
-  const statusSummary = useMemo(
-    () => ({
-      submitted: stats?.submittedCount ?? 0,
-      approved: stats?.approvedCount ?? 0,
-      rejected: stats?.rejectedCount ?? 0,
-      needsRevision: stats?.needsRevisionCount ?? 0,
-    }),
-    [stats],
-  );
+  const filteredAssignments = useMemo(() => {
+    const keyword = itemId.trim();
+
+    return assignments.filter((assignment) => {
+      if (statusFilter && !matchesStatusFilter(assignment, statusFilter)) {
+        return false;
+      }
+
+      if (datasetKind !== 'ALL' && assignment.datasetKind !== datasetKind) {
+        return false;
+      }
+
+      if (
+        keyword &&
+        !assignment.externalId.includes(keyword) &&
+        !assignment.taskItemId.includes(keyword) &&
+        !assignment.taskTitle.includes(keyword)
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [assignments, datasetKind, itemId, statusFilter]);
+  const taskGroups = useMemo(() => groupAssignmentsByTask(filteredAssignments), [filteredAssignments]);
+  const totalPages = Math.max(1, Math.ceil(taskGroups.length / myDataPageSize));
+  const paginatedTaskGroups = useMemo(() => {
+    const startIndex = (currentPage - 1) * myDataPageSize;
+
+    return taskGroups.slice(startIndex, startIndex + myDataPageSize);
+  }, [currentPage, myDataPageSize, taskGroups]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [datasetKind, itemId, statusFilter]);
 
   const loadMyData = async () => {
     setIsLoading(true);
     try {
-      const [nextStats, nextSubmissions] = await Promise.all([
-        getLabelerStats({ labelerId: LABELER_ID }),
-        listLabelerSubmissions({
-          labelerId: LABELER_ID,
-          status: statusFilter || undefined,
-          datasetKind,
-          itemId: itemId.trim() || undefined,
-        }),
-      ]);
-      setStats(nextStats);
-      setSubmissions(nextSubmissions);
-      setErrorMessage(null);
+      const nextAssignments = await listLabelerAssignments({ labelerId: LABELER_ID });
+      setAssignments(nextAssignments);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '我的数据加载失败。');
+      showErrorToast(error instanceof Error ? error.message : '工作台加载失败。');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <section className="my-data-page" aria-labelledby="my-data-title">
+    <section className="my-data-page labeler-task-workspace" aria-labelledby="my-data-title">
+      <ToastViewport messages={messages} onDismiss={dismissToast} />
       <div className="my-data-header">
         <div>
-          <p className="eyebrow">Labeler / 我的数据</p>
-          <h1 id="my-data-title">我的数据</h1>
-          <p>查看已提交、通过、打回和待修改数据，并返回标注台处理。</p>
-        </div>
-        <div className="my-data-summary">
-          <SummaryCard label="已提交" value={statusSummary.submitted} />
-          <SummaryCard label="通过" value={statusSummary.approved} />
-          <SummaryCard label="打回" value={statusSummary.rejected} />
-          <SummaryCard label="待修改" value={statusSummary.needsRevision} />
+          <h1 id="my-data-title">工作台</h1>
         </div>
       </div>
 
-      {errorMessage ? (
-        <div className="task-status-message" role="alert">
-          {errorMessage}
-        </div>
-      ) : null}
-
       <div className="my-data-filter">
         <select
-          aria-label="提交状态筛选"
+          aria-label="任务状态筛选"
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
         >
@@ -130,62 +145,119 @@ export const MyDataPage = () => {
       </div>
 
       {isLoading ? (
-        <PageLoading title="正在加载我的数据" description="正在同步提交记录、状态和打回信息。" />
-      ) : submissions.length > 0 ? (
-        <div className="my-data-table-scroll">
-          <table className="my-data-table" aria-label="我的数据列表">
-            <thead>
-              <tr>
-                <th>任务</th>
-                <th>题目</th>
-                <th>类型</th>
-                <th>状态</th>
-                <th>轮次</th>
-                <th>提交时间</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {submissions.map((submission) => (
-                <tr key={submission.submissionId}>
-                  <td>{submission.taskTitle}</td>
-                  <td>
-                    <strong>{submission.externalId}</strong>
-                    <small>{submission.taskItemId}</small>
-                  </td>
-                  <td>{DATASET_KIND_LABELS[submission.datasetKind]}</td>
-                  <td>{SUBMISSION_STATUS_LABELS[submission.status] ?? submission.status}</td>
-                  <td>第 {submission.round} 轮</td>
-                  <td>{submission.submittedAt.slice(0, 16).replace('T', ' ')}</td>
-                  <td>
-                    <Link
-                      className="primary-link"
-                      to={`/labeler/tasks/${submission.taskId}/items/${submission.taskItemId}?assignmentId=${submission.assignmentId}`}
-                    >
-                      返回标注台
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <PageLoading title="正在加载工作台" description="正在同步已领取任务。" />
       ) : (
-        <EmptyState
-          title="暂无提交数据"
-          description="提交题目后会在这里查看审核状态、轮次和返回标注台入口。"
-        />
+        <div className="my-data-table-scroll" ref={myDataTableContainerRef}>
+          <div className="labeler-list-panel-heading">
+            <div>
+              <h2>已领取任务列表</h2>
+            </div>
+            <small>{taskGroups.length.toLocaleString()} 条任务</small>
+          </div>
+          <div className="my-data-table-frame" data-adaptive-table-viewport="true">
+            <table className="my-data-table" aria-label="工作台任务列表">
+              <thead>
+                <tr>
+                  <th>任务</th>
+                  <th>类型</th>
+                  <th>已领取题目</th>
+                  <th>进度</th>
+                  <th>最近提交</th>
+                  <th>领取时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody key={currentPage}>
+                {paginatedTaskGroups.length > 0 ? paginatedTaskGroups.map((taskGroup) => (
+                  <tr
+                    key={taskGroup.taskId}
+                    className="my-data-table__row my-data-table__row--task"
+                    tabIndex={0}
+                    onClick={() => navigate(workbenchHref(taskGroup.nextAssignment))}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigate(workbenchHref(taskGroup.nextAssignment));
+                      }
+                    }}
+                  >
+                    <td>
+                      <strong>{taskGroup.taskTitle}</strong>
+                      <small>{taskGroup.templateName} · {taskGroup.schemaVersion}</small>
+                    </td>
+                    <td>{DATASET_KIND_LABELS[taskGroup.datasetKind]}</td>
+                    <td>
+                      <strong>{taskGroup.assignments.length.toLocaleString()} 条</strong>
+                      <small>下一条 {taskGroup.nextAssignment.externalId}</small>
+                    </td>
+                    <td>
+                      <TaskProgressSummary taskGroup={taskGroup} />
+                    </td>
+                    <td>{taskGroup.latestSubmittedAt ? formatDateTime(taskGroup.latestSubmittedAt) : '-'}</td>
+                    <td>{formatClaimedAtRange(taskGroup.assignments)}</td>
+                    <td>
+                      <Link
+                        className="primary-link"
+                        aria-label={`继续标注 ${taskGroup.taskTitle}`}
+                        to={workbenchHref(taskGroup.nextAssignment)}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        继续标注
+                      </Link>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr className="task-table__empty-row">
+                    <td colSpan={7}>
+                      <TableEmptyState
+                        title="暂无领取任务"
+                        description="领取任务后会在这里查看待标注题目、提交进度和返回标注页入口"
+                        illustrationAlt="空工作台任务列表插画"
+                      />
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="task-table-pagination my-data-table-pagination" aria-label="工作台任务列表分页">
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((page) => page - 1)}
+            >
+              上一页
+            </button>
+            <span aria-label="当前页码">
+              第 {currentPage} / {totalPages} 页
+            </span>
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((page) => page + 1)}
+            >
+              下一页
+            </button>
+          </div>
+        </div>
       )}
     </section>
   );
 };
 
-const SummaryCard = ({ label, value }: { label: string; value: number }) => (
-  <article>
-    <span>{label}</span>
-    <strong>{value.toLocaleString()}</strong>
-  </article>
-);
+type LabelerTaskGroup = {
+  taskId: string;
+  taskTitle: string;
+  datasetKind: DatasetKind;
+  templateName: string;
+  schemaVersion: string;
+  assignments: LabelerAssignmentDto[];
+  latestSubmittedAt: string | null;
+  nextAssignment: LabelerAssignmentDto;
+};
+
+const workbenchHref = (assignment: LabelerAssignmentDto): string =>
+  `/labeler/tasks/${assignment.taskId}/items/${assignment.taskItemId}?assignmentId=${assignment.assignmentId}`;
 
 const DATASET_KIND_LABELS: Record<DatasetKind, string> = {
   qa_quality: '问答质量',
@@ -193,10 +265,143 @@ const DATASET_KIND_LABELS: Record<DatasetKind, string> = {
   generic_json: '通用 JSON',
 };
 
-const SUBMISSION_STATUS_LABELS: Record<string, string> = {
-  AI_QUEUED: 'AI 预审排队中',
-  AI_PASSED: '已通过',
+const ASSIGNMENT_STATUS_LABELS: Record<AssignmentStatus, string> = {
+  ASSIGNED: '待标注',
+  IN_PROGRESS: '待标注',
+  SUBMITTED: '已提交',
+  UNDER_RECHECK: '复审中',
+  FINAL_PENDING: '待完成',
+  FINAL_APPROVED: '已完成',
   NEEDS_REVISION: '待修改',
-  FINAL_APPROVED: '终审通过',
-  FINAL_REJECTED: '终审打回',
+  CANCELLED: '已取消',
 };
+
+const TASK_STATUS_ORDER: AssignmentStatus[] = [
+  'NEEDS_REVISION',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'UNDER_RECHECK',
+  'FINAL_PENDING',
+  'FINAL_APPROVED',
+  'SUBMITTED',
+  'CANCELLED',
+];
+
+const formatDateTime = (value: string): string => value.slice(0, 16).replace('T', ' ');
+
+const groupAssignmentsByTask = (assignments: LabelerAssignmentDto[]): LabelerTaskGroup[] => {
+  const groupMap = new Map<string, LabelerAssignmentDto[]>();
+
+  for (const assignment of assignments) {
+    const current = groupMap.get(assignment.taskId) ?? [];
+    current.push(assignment);
+    groupMap.set(assignment.taskId, current);
+  }
+
+  return [...groupMap.values()]
+    .map((groupAssignments) => {
+      const sortedAssignments = [...groupAssignments].sort(compareAssignmentsForDisplay);
+      const firstAssignment = sortedAssignments[0];
+
+      return {
+        taskId: firstAssignment.taskId,
+        taskTitle: firstAssignment.taskTitle,
+        datasetKind: firstAssignment.datasetKind,
+        templateName: firstAssignment.templateName,
+        schemaVersion: firstAssignment.schemaVersion,
+        assignments: sortedAssignments,
+        latestSubmittedAt: latestSubmittedAt(sortedAssignments),
+        nextAssignment: nextAssignmentToLabel(sortedAssignments),
+      };
+    })
+    .sort((first, second) => {
+      const firstClaimedAt = first.assignments[0]?.claimedAt ?? '';
+      const secondClaimedAt = second.assignments[0]?.claimedAt ?? '';
+
+      return secondClaimedAt.localeCompare(firstClaimedAt);
+    });
+};
+
+const TaskProgressSummary = ({ taskGroup }: { taskGroup: LabelerTaskGroup }) => {
+  const counts = countAssignmentsByStatus(taskGroup.assignments);
+  const statusEntries = TASK_STATUS_ORDER
+    .map((status) => ({ status, count: counts.get(status) ?? 0 }))
+    .filter((entry) => entry.count > 0);
+
+  return (
+    <div className="labeler-task-progress-summary">
+      {statusEntries.map((entry) => (
+        <span
+          key={entry.status}
+          className={`labeler-assignment-status labeler-assignment-status--${entry.status.toLowerCase()}`}
+        >
+          {ASSIGNMENT_STATUS_LABELS[entry.status] ?? entry.status}
+          {entry.count > 1 ? ` ${entry.count}` : ''}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+function matchesStatusFilter(assignment: LabelerAssignmentDto, statusFilter: string): boolean {
+  if (statusFilter === 'IN_PROGRESS') {
+    return assignment.status === 'IN_PROGRESS' || assignment.status === 'ASSIGNED';
+  }
+
+  return assignment.status === statusFilter;
+}
+
+function compareAssignmentsForDisplay(first: LabelerAssignmentDto, second: LabelerAssignmentDto): number {
+  return compareAssignmentsByItemOrder(first, second);
+}
+
+function nextAssignmentToLabel(assignments: LabelerAssignmentDto[]): LabelerAssignmentDto {
+  const orderedAssignments = [...assignments].sort(compareAssignmentsByItemOrder);
+
+  return (
+    orderedAssignments.find((assignment) => assignment.status === 'ASSIGNED' || assignment.status === 'IN_PROGRESS') ??
+    orderedAssignments.find((assignment) => assignment.status === 'NEEDS_REVISION') ??
+    orderedAssignments[0]
+  );
+}
+
+function compareAssignmentsByItemOrder(first: LabelerAssignmentDto, second: LabelerAssignmentDto): number {
+  if (first.taskItemSortOrder !== second.taskItemSortOrder) {
+    return first.taskItemSortOrder - second.taskItemSortOrder;
+  }
+
+  return first.externalId.localeCompare(second.externalId, 'zh-CN', { numeric: true });
+}
+
+function latestSubmittedAt(assignments: LabelerAssignmentDto[]): string | null {
+  return assignments.reduce<string | null>((latest, assignment) => {
+    if (!assignment.latestSubmittedAt) {
+      return latest;
+    }
+
+    return !latest || assignment.latestSubmittedAt > latest ? assignment.latestSubmittedAt : latest;
+  }, null);
+}
+
+function countAssignmentsByStatus(assignments: LabelerAssignmentDto[]): Map<AssignmentStatus, number> {
+  return assignments.reduce<Map<AssignmentStatus, number>>((counts, assignment) => {
+    counts.set(assignment.status, (counts.get(assignment.status) ?? 0) + 1);
+    return counts;
+  }, new Map());
+}
+
+function formatClaimedAtRange(assignments: LabelerAssignmentDto[]): string {
+  const claimedAtValues = assignments.map((assignment) => assignment.claimedAt).sort();
+  const firstClaimedAt = claimedAtValues[0];
+  const lastClaimedAt = claimedAtValues[claimedAtValues.length - 1];
+
+  if (!firstClaimedAt) {
+    return '-';
+  }
+
+  if (!lastClaimedAt || firstClaimedAt.slice(0, 16) === lastClaimedAt.slice(0, 16)) {
+    return formatDateTime(firstClaimedAt);
+  }
+
+  return `${formatDateTime(firstClaimedAt)} - ${formatDateTime(lastClaimedAt)}`;
+}

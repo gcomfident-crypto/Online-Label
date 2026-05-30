@@ -12,22 +12,25 @@ describe('TasksController', () => {
       updateStatus: vi.fn().mockResolvedValue({ id: 'task_1', status: 'PUBLISHED' }),
       updateReviewStageConfig: vi.fn().mockResolvedValue({
         id: 'task_1',
-        reviewStageConfig: ['INITIAL', 'RECHECK', 'FINAL'],
+        reviewStageConfig: ['INITIAL', 'RECHECK'],
       }),
+      deleteTask: vi.fn().mockResolvedValue({ id: 'task_1' }),
       listAuditLogs: vi.fn().mockResolvedValue([{ toStatus: 'PUBLISHED' }]),
     };
     const controller = new TasksController(service);
+    const legacyCreateBody = {
+      title: ' 新任务 ',
+      templateId: 'template_1',
+      quota: '30',
+      deadline: '2026-06-01T15:59:00.000Z',
+      tags: ['问答', 7, '质检'],
+      rewardPerItem: '0.30',
+      perUserLimit: '12',
+      monthlyRewardCap: '1500',
+      actorId: 'user_owner_001',
+    };
 
-    await expect(
-      controller.create({
-        title: ' 新任务 ',
-        templateId: 'template_1',
-        quota: '30',
-        deadline: '2026-06-01T15:59:00.000Z',
-        tags: ['问答', 7, '质检'],
-        actorId: 'user_owner_001',
-      }),
-    ).resolves.toEqual({ id: 'task_1', status: 'DRAFT' });
+    await expect(controller.create(legacyCreateBody)).resolves.toEqual({ id: 'task_1', status: 'DRAFT' });
     await expect(controller.list('user_owner_001', 'PUBLISHED')).resolves.toEqual([{ id: 'task_1' }]);
     await expect(controller.get('task_1')).resolves.toEqual({ id: 'task_1' });
     await expect(controller.update('task_1', { title: '新版任务' })).resolves.toEqual({
@@ -48,16 +51,18 @@ describe('TasksController', () => {
       }),
     ).resolves.toEqual({
       id: 'task_1',
-      reviewStageConfig: ['INITIAL', 'RECHECK', 'FINAL'],
+      reviewStageConfig: ['INITIAL', 'RECHECK'],
     });
     await expect(controller.listAuditLogs('task_1')).resolves.toEqual([{ toStatus: 'PUBLISHED' }]);
+    await expect(controller.deleteTask('task_1')).resolves.toEqual({ id: 'task_1' });
 
     expect(service.create).toHaveBeenCalledWith({
       title: '新任务',
       description: undefined,
       richTextInstruction: undefined,
       tags: ['问答', '质检'],
-      rewardRule: undefined,
+      rewardPerItem: 0.3,
+      perUserLimit: 12,
       quota: 30,
       deadline: '2026-06-01T15:59:00.000Z',
       distributionStrategy: 'FIRST_COME_FIRST_SERVE',
@@ -77,8 +82,9 @@ describe('TasksController', () => {
       reason: undefined,
     });
     expect(service.updateReviewStageConfig).toHaveBeenCalledWith('task_1', {
-      reviewStageConfig: ['INITIAL', 'RECHECK', 'FINAL'],
+      reviewStageConfig: ['INITIAL', 'RECHECK'],
       actorId: 'user_owner_001',
     });
+    expect(service.deleteTask).toHaveBeenCalledWith('task_1');
   });
 });

@@ -1,5 +1,5 @@
 import type { LabelHubSchema, TemplateCompatibilityReport } from '@labelhub/shared';
-import type { OfficialTemplateKey } from '../features/template-designer/templateStore';
+import { requestApi } from './request';
 
 export type TemplateDto = {
   id: string;
@@ -16,15 +16,6 @@ export type TemplateDto = {
   createdAt: string;
   updatedAt: string;
 };
-
-type ApiEnvelope<TData> = {
-  data: TData;
-  error?: {
-    message?: string;
-  };
-};
-
-const apiBaseUrl = (): string => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
 
 export async function createTemplateDraft(input: {
   name: string;
@@ -46,20 +37,23 @@ export async function listTemplates(): Promise<TemplateDto[]> {
   return requestTemplateApi<TemplateDto[]>('/templates', { method: 'GET' });
 }
 
-export async function createTemplateFromProfile(profile: OfficialTemplateKey): Promise<TemplateDto> {
-  return requestTemplateApi<TemplateDto>('/templates/from-profile', {
-    method: 'POST',
-    body: JSON.stringify({ profile }),
+export async function deleteTemplate(templateId: string): Promise<{ id: string }> {
+  return requestTemplateApi<{ id: string }>(`/templates/${templateId}`, {
+    method: 'DELETE',
   });
 }
 
 export async function saveTemplateSchema(
   templateId: string,
   schema: LabelHubSchema,
+  input: { name?: string } = {},
 ): Promise<TemplateDto> {
   return requestTemplateApi<TemplateDto>(`/templates/${templateId}`, {
     method: 'PATCH',
-    body: JSON.stringify({ schema }),
+    body: JSON.stringify({
+      schema,
+      ...(input.name !== undefined ? { name: input.name } : {}),
+    }),
   });
 }
 
@@ -82,18 +76,5 @@ async function requestTemplateApi<TData>(
   path: string,
   init: RequestInit,
 ): Promise<TData> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  const envelope = (await response.json()) as ApiEnvelope<TData>;
-
-  if (!response.ok) {
-    throw new Error(envelope.error?.message ?? '模板接口请求失败，请稍后重试。');
-  }
-
-  return envelope.data;
+  return requestApi<TData>(path, init, '模板接口请求失败，请稍后重试。');
 }

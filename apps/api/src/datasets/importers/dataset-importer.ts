@@ -5,7 +5,6 @@ import {
   getDatasetProfile,
   normalizeDatasetRecord,
   shouldSkipImportFile,
-  validateDatasetRecord,
   type DatasetImportFormat,
   type DatasetKind,
   type DatasetProfile,
@@ -133,6 +132,10 @@ async function parseRawRecords(
     return parseJsonlRecords(input);
   }
 
+  if (input.format === 'csv') {
+    return parseCsvRecords(input);
+  }
+
   return parseXlsxRecords(input, profile);
 }
 
@@ -140,13 +143,20 @@ function parseJsonRecords(input: DatasetImportInput): { records: RawRecordWithLo
   try {
     const parsed = JSON.parse(contentToString(input.content)) as unknown;
 
+    if (isDatasetRecord(parsed)) {
+      return {
+        records: [{ record: parsed, rowNumber: 1 }],
+        errors: [],
+      };
+    }
+
     if (!Array.isArray(parsed)) {
       return {
         records: [],
         errors: [
           {
             fileName: input.fileName,
-            message: 'JSON 内容必须是对象数组。',
+            message: 'JSON 内容必须是对象或对象数组。',
           },
         ],
       };
@@ -217,6 +227,85 @@ function parseJsonlRecords(input: DatasetImportInput): { records: RawRecordWithL
   return { records, errors };
 }
 
+function parseCsvRecords(
+  input: DatasetImportInput,
+): { records: RawRecordWithLocation[]; errors: DatasetImportError[] } {
+  const rows = parseCsvRows(contentToString(input.content));
+  const headers = rows[0]?.map((value) => value.trim()) ?? [];
+  const records: RawRecordWithLocation[] = [];
+
+  rows.slice(1).forEach((row, index) => {
+    if (row.every(isBlankCell)) {
+      return;
+    }
+
+    const record: DatasetRecord = {};
+    const columnCount = Math.max(headers.length, row.length);
+
+    for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+      const header = headers[columnIndex]?.trim() || `field_${columnIndex + 1}`;
+      const value = row[columnIndex] ?? '';
+
+      if (!isBlankCell(value)) {
+        record[header] = value.trim();
+      }
+    }
+
+    records.push({ record, rowNumber: index + 2 });
+  });
+
+  return { records, errors: [] };
+}
+
+function parseCsvRows(content: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < content.length; index += 1) {
+    const character = content[index];
+    const nextCharacter = content[index + 1];
+
+    if (character === '"') {
+      if (inQuotes && nextCharacter === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (character === ',' && !inQuotes) {
+      row.push(cell);
+      cell = '';
+      continue;
+    }
+
+    if ((character === '\n' || character === '\r') && !inQuotes) {
+      if (character === '\r' && nextCharacter === '\n') {
+        index += 1;
+      }
+
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = '';
+      continue;
+    }
+
+    cell += character;
+  }
+
+  row.push(cell);
+  rows.push(row);
+
+  return rows.filter((currentRow, index) =>
+    index < rows.length - 1 || currentRow.some((value) => value.trim().length > 0),
+  );
+}
+
 async function parseXlsxRecords(
   input: DatasetImportInput,
   profile: DatasetProfile,
@@ -269,29 +358,12 @@ function normalizeRecords(
   records: RawRecordWithLocation[],
 ): { records: ImportedDatasetRecord[]; errors: DatasetImportError[] } {
   const importedRecords: ImportedDatasetRecord[] = [];
-  const errors: DatasetImportError[] = [];
 
-  for (const recordWithLocation of records) {
+  records.forEach((recordWithLocation, index) => {
     const rawData = normalizeDatasetRecord(profile, recordWithLocation.record);
-    const validation = validateDatasetRecord(profile, rawData);
-    const mediaErrors = validateMediaFields(input.datasetKind, rawData);
-    const missingFields = [...validation.missingFields, ...mediaErrors];
-
-    if (missingFields.length > 0) {
-      errors.push(
-        ...missingFields.map((field) => ({
-          fileName: input.fileName,
-          lineNumber: recordWithLocation.lineNumber,
-          rowNumber: recordWithLocation.rowNumber,
-          field,
-          message: `缺少必填字段：${field}。`,
-        })),
-      );
-      continue;
-    }
 
     importedRecords.push({
-      externalId: String(rawData[profile.primaryKeyField]),
+      externalId: resolveExternalId(input.fileName, profile, rawData, recordWithLocation, index),
       datasetKind: input.datasetKind,
       rawData,
       source: {
@@ -300,31 +372,33 @@ function normalizeRecords(
         rowNumber: recordWithLocation.rowNumber,
       },
     });
-  }
+  });
 
-  return { records: importedRecords, errors };
+  return { records: importedRecords, errors: [] };
 }
 
-function validateMediaFields(datasetKind: DatasetKind, record: DatasetRecord): string[] {
-  if (datasetKind !== 'qa_quality') {
-    return [];
+function resolveExternalId(
+  fileName: string,
+  profile: DatasetProfile,
+  rawData: DatasetRecord,
+  location: RawRecordWithLocation,
+  index: number,
+): string {
+  const primaryValue = rawData[profile.primaryKeyField];
+
+  if (!isBlankCell(primaryValue)) {
+    return String(primaryValue);
   }
 
-  const mediaType = typeof record.media_type === 'string' ? record.media_type.trim() : 'text';
-
-  if (mediaType === 'text' || mediaType.length === 0) {
-    return [];
+  if (location.lineNumber) {
+    return `${fileName}#line-${location.lineNumber}`;
   }
 
-  if (mediaType === 'markdown') {
-    return isBlankCell(record.content_markdown) ? ['content_markdown'] : [];
+  if (location.rowNumber) {
+    return `${fileName}#row-${location.rowNumber}`;
   }
 
-  if (mediaType === 'image' || mediaType === 'video') {
-    return isBlankCell(record.media_url) ? ['media_url'] : [];
-  }
-
-  return [];
+  return `${fileName}#record-${index + 1}`;
 }
 
 function contentToString(content: Buffer | Uint8Array | string): string {
@@ -383,6 +457,10 @@ function inferDatasetFormat(path: string): Exclude<DatasetImportFormat, 'zip'> |
 
   if (normalized.endsWith('.jsonl')) {
     return 'jsonl';
+  }
+
+  if (normalized.endsWith('.csv')) {
+    return 'csv';
   }
 
   if (normalized.endsWith('.xlsx')) {

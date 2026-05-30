@@ -4,13 +4,13 @@
 
 ## 运行组件
 
-| 组件 | 路径或服务 | 职责 |
-| --- | --- | --- |
-| Web | `apps/web` | React Portal、动态表单 Renderer、Designer、四端路由守卫 |
-| API | `apps/api` | 登录、RBAC、任务、导入、提交、审核、导出接口 |
-| Worker | `apps/worker` | AI 预审与导出任务处理入口 |
-| PostgreSQL | `postgres` | Prisma 主数据库 |
-| Redis | `redis` | 队列依赖服务 |
+| 组件       | 路径或服务      | 职责                                                    |
+| ---------- | --------------- | ------------------------------------------------------- |
+| Web        | `apps/web`    | React Portal、动态表单 Renderer、Designer、四端路由守卫 |
+| API        | `apps/api`    | 登录、RBAC、任务、导入、提交、审核、导出接口            |
+| Worker     | `apps/worker` | AI 预审与导出任务处理入口                               |
+| PostgreSQL | `postgres`    | Prisma 主数据库                                         |
+| Redis      | `redis`       | 队列依赖服务                                            |
 
 ## 本地依赖启动
 
@@ -50,25 +50,25 @@ pnpm dev
 
 应用启动后访问：
 
-- Web：`http://localhost:5173`
-- API：`http://localhost:3000`
+- [ ] Web：`http://localhost:5173`
+- [ ] API：`http://localhost:3000`
 
 ## 环境变量
 
-| 变量 | 示例值 | 说明 |
-| --- | --- | --- |
-| `NODE_ENV` | `production` | 运行环境 |
-| `WEB_PORT` | `5173` | Web 本地开发端口 |
-| `VITE_API_BASE_URL` | `https://api.example.com` | Web 调用 API 的基础地址 |
-| `API_PORT` | `3000` | API 服务端口 |
-| `DATABASE_URL` | `postgresql://user:password@host:5432/labelhub?schema=public` | PostgreSQL 连接串 |
-| `REDIS_URL` | `redis://host:6379` | Redis 连接串 |
-| `JWT_SECRET` | `replace_with_strong_secret` | 登录 token 签名占位配置 |
-| `BULLMQ_QUEUE_PREFIX` | `labelhub` | 队列名前缀 |
-| `STORAGE_EXPORTS_DIR` | `storage/exports` | 导出文件目录 |
-| `LLM_PROVIDER` | `mock` 或 `deepseek` | AI provider，默认使用 `mock` 稳定演示 |
-| `LLM_MODEL` | `mock-stable-reviewer` 或 `deepseek-chat` | 模型名称 |
-| `DEEPSEEK_API_KEY` | `replace_with_deepseek_api_key` | DeepSeek 密钥占位值，只允许写入私有环境 |
+| 变量                    | 示例值                                                          | 说明                                    |
+| ----------------------- | --------------------------------------------------------------- | --------------------------------------- |
+| `NODE_ENV`            | `production`                                                  | 运行环境                                |
+| `WEB_PORT`            | `5173`                                                        | Web 本地开发端口                        |
+| `VITE_API_BASE_URL`   | `https://api.example.com`                                     | Web 调用 API 的基础地址                 |
+| `API_PORT`            | `3000`                                                        | API 服务端口                            |
+| `DATABASE_URL`        | `postgresql://user:password@host:5432/labelhub?schema=public` | PostgreSQL 连接串                       |
+| `REDIS_URL`           | `redis://host:6379`                                           | Redis 连接串                            |
+| `JWT_SECRET`          | `replace_with_strong_secret`                                  | 登录 token 签名占位配置                 |
+| `BULLMQ_QUEUE_PREFIX` | `labelhub`                                                    | 队列名前缀                              |
+| `STORAGE_EXPORTS_DIR` | `storage/exports`                                             | 导出文件目录                            |
+| `LLM_PROVIDER`        | `mock` 或 `deepseek`                                        | AI provider，默认使用 `mock` 稳定演示 |
+| `LLM_MODEL`           | `mock-stable-reviewer` 或 `deepseek-chat`                   | 模型名称                                |
+| `DEEPSEEK_API_KEY`    | `replace_with_deepseek_api_key`                               | DeepSeek 密钥占位值，只允许写入私有环境 |
 
 `docs/labelhub-plan/deepseek-api-example.py` 是本机参考示例，`docs/labelhub-plan/env` 是本机密钥文件，不能提交、复制、截图或公开。
 

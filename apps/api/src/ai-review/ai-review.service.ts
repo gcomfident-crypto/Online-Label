@@ -1,7 +1,13 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import type { AiReviewStatus, DatasetKind } from '@labelhub/shared';
+import {
+  assertSubmissionTransition,
+  type AiReviewStatus,
+  type DatasetKind,
+  type SubmissionStatus,
+} from '@labelhub/shared';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
+import { runInTransaction } from '../common/transactions/run-in-transaction.ts';
 
 type AiReviewJobRecord = {
   id: string;
@@ -24,28 +30,45 @@ type AiReviewJobRecord = {
   updatedAt: Date;
   task?: {
     title: string;
+    template?: {
+      schemaVersion: string;
+    } | null;
   };
   submission?: SubmissionSummaryRecord;
 };
 
 type SubmissionSummaryRecord = {
   id: string;
-  status: string;
+  assignmentId?: string;
+  answers?: Record<string, unknown>;
+  schemaVersion?: string;
+  idempotencyKey?: string | null;
+  status: SubmissionStatus | string;
   round: number;
   submittedAt: Date;
   assignment: {
+    id?: string;
+    assigneeId?: string;
+    assignee?: {
+      id: string;
+      name: string;
+    } | null;
     taskItem: {
       id: string;
       externalId: string;
       datasetKind: DatasetKind;
       rawData: Record<string, unknown>;
+      sortOrder?: number;
     };
   };
+  reviewRecords?: ReviewRecord[];
+  auditLogs?: AuditLogRecord[];
 };
 
 type ReviewRecord = {
   id: string;
   ruleId: string | null;
+  submissionId?: string;
   stage: string;
   reviewerType: string;
   scores: Record<string, unknown>;
@@ -60,11 +83,25 @@ type ReviewRecord = {
   createdAt: Date;
 };
 
+type AuditLogRecord = {
+  id: string;
+  fromStatus: string | null;
+  toStatus: string;
+  reason: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: Date;
+};
+
 type SubmissionReviewRecord = SubmissionSummaryRecord & {
   assignmentId: string;
   answers: Record<string, unknown>;
   schemaVersion: string;
+  status: SubmissionStatus | string;
   assignment: SubmissionSummaryRecord['assignment'] & {
+    id: string;
+    taskId: string;
+    taskItemId: string;
+    status?: string;
     task: {
       id: string;
       title: string;
@@ -75,6 +112,18 @@ type SubmissionReviewRecord = SubmissionSummaryRecord & {
   };
   reviewRecords: ReviewRecord[];
   aiReviewJobs: AiReviewJobRecord[];
+  auditLogs?: AuditLogRecord[];
+};
+
+export type CompleteAiReviewJobInput = {
+  actorId?: string;
+  decision: 'pass' | 'reject' | 'manual';
+  scores?: Record<string, unknown>;
+  comment?: string;
+  rawPrompt?: string;
+  rawOutput?: string;
+  structuredOutput?: Record<string, unknown>;
+  modelMetadata?: Record<string, unknown>;
 };
 
 export type AiReviewJobDto = {
@@ -98,6 +147,65 @@ export type AiReviewJobDto = {
   startedAt: string | null;
   finishedAt: string | null;
   updatedAt: string;
+};
+
+export type AiReviewBatchStatus = 'PENDING' | 'PASSED' | 'REJECTED' | 'MANUAL' | 'FAILED';
+export type AiReviewBatchDecision = 'pending' | 'pass' | 'reject' | 'manual' | 'failed';
+
+export type AiReviewLogDto = {
+  id: string;
+  type: 'queue' | 'llm' | 'verdict' | 'audit' | 'error' | 'retry' | 'run';
+  time: string;
+  message: string;
+};
+
+export type AiReviewBatchDto = {
+  batchId: string;
+  displayId: string;
+  taskId: string;
+  taskTitle: string;
+  labelerId: string | null;
+  labelerName: string;
+  submittedAt: string;
+  itemCount: number;
+  externalIds: string[];
+  status: AiReviewBatchStatus;
+  aggregateDecision: AiReviewBatchDecision;
+  aggregateScore: number | null;
+  failureReason: string | null;
+  aiSuggestionLabel: string;
+  templateVersion: string | null;
+  provider: string | null;
+  model: string | null;
+  updatedAt: string;
+};
+
+export type AiReviewBatchItemDto = {
+  index: number;
+  job: AiReviewJobDto;
+  submission: {
+    id: string;
+    assignmentId: string;
+    status: string;
+    round: number;
+    answers: Record<string, unknown>;
+    schemaVersion: string;
+    submittedAt: string;
+  };
+  taskItem: {
+    id: string;
+    externalId: string;
+    datasetKind: DatasetKind;
+    rawData: Record<string, unknown>;
+  };
+  reviewRecord: (Omit<ReviewRecord, 'createdAt'> & { createdAt: string }) | null;
+  decision: AiReviewBatchDecision;
+  overallScore: number | null;
+  logs: AiReviewLogDto[];
+};
+
+export type AiReviewBatchDetailDto = AiReviewBatchDto & {
+  items: AiReviewBatchItemDto[];
 };
 
 export type AiReviewDetailDto = {
@@ -133,21 +241,48 @@ type AiReviewPrismaClient = {
   };
   submission: {
     findUnique: (args: { where: { id: string }; include?: unknown }) => Promise<SubmissionReviewRecord | null>;
+    update: (args: { where: { id: string }; data: Record<string, unknown>; include?: unknown }) => Promise<SubmissionReviewRecord>;
   };
+  assignment: {
+    update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<unknown>;
+  };
+  reviewRecord: {
+    create: (args: { data: Record<string, unknown> }) => Promise<ReviewRecord>;
+  };
+  auditLog: {
+    create: (args: { data: Record<string, unknown> }) => Promise<unknown>;
+  };
+  $transaction: <TResult>(callback: (client: AiReviewPrismaClient) => Promise<TResult>) => Promise<TResult>;
 };
 
 const JOB_INCLUDE = {
   task: {
-    select: {
-      title: true,
+    include: {
+      template: {
+        select: {
+          schemaVersion: true,
+        },
+      },
     },
   },
   submission: {
     include: {
       assignment: {
         include: {
+          assignee: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
           taskItem: true,
         },
+      },
+      reviewRecords: {
+        orderBy: { createdAt: 'desc' },
+      },
+      auditLogs: {
+        orderBy: { createdAt: 'asc' },
       },
     },
   },
@@ -182,6 +317,7 @@ const RETRYABLE_STATUSES = new Set<AiReviewStatus>([
   'FAILED_FINAL',
   'MANUAL_FALLBACK',
 ]);
+const COMPLETABLE_JOB_STATUSES = new Set<AiReviewStatus>(['QUEUED', 'RUNNING']);
 
 @Injectable()
 export class AiReviewService {
@@ -189,6 +325,33 @@ export class AiReviewService {
     @Inject(PrismaService)
     private readonly prisma: AiReviewPrismaClient,
   ) {}
+
+  async listBatches(query: { status?: AiReviewBatchStatus } = {}): Promise<AiReviewBatchDto[]> {
+    const jobs = await this.prisma.aiReviewJob.findMany({
+      include: JOB_INCLUDE,
+      orderBy: [{ updatedAt: 'desc' }, { queuedAt: 'desc' }],
+    });
+    const batches = toBatchDtos(jobs);
+
+    return query.status ? batches.filter((batch) => batch.status === query.status) : batches;
+  }
+
+  async getBatchReview(batchId: string): Promise<AiReviewBatchDetailDto> {
+    const jobs = await this.prisma.aiReviewJob.findMany({
+      include: JOB_INCLUDE,
+      orderBy: [{ queuedAt: 'asc' }, { createdAt: 'asc' }],
+    });
+    const batchJobs = jobs.filter((job) => batchIdForJob(job) === batchId);
+
+    if (batchJobs.length === 0) {
+      throw new NotFoundException({
+        code: 'AI_REVIEW_BATCH_NOT_FOUND',
+        message: 'AI 预审批次不存在或已被删除。',
+      });
+    }
+
+    return toBatchDetailDto(batchJobs);
+  }
 
   async listJobs(query: { status?: AiReviewStatus } = {}): Promise<AiReviewJobDto[]> {
     const jobs = await this.prisma.aiReviewJob.findMany({
@@ -243,8 +406,185 @@ export class AiReviewService {
     return toJobDto(retried);
   }
 
+  async completeJob(jobId: string, input: CompleteAiReviewJobInput): Promise<AiReviewDetailDto> {
+    const decision = normalizeAiDecision(input.decision);
+    const comment = input.comment?.trim() ?? '';
+    if (!decision) {
+      throw new BadRequestException({
+        code: 'AI_REVIEW_DECISION_INVALID',
+        message: 'AI 预审结果必须是 pass、reject 或 manual。',
+      });
+    }
+    if (decision === 'reject' && !comment) {
+      throw new BadRequestException({
+        code: 'AI_REVIEW_REJECT_REASON_REQUIRED',
+        message: 'AI 预审打回必须填写理由。',
+      });
+    }
+
+    return runInTransaction(this.prisma, async (client) => {
+      const job = await this.findCompletableJobOrThrow(client, jobId);
+      const submission = await this.findSubmissionOrThrow(client, job.submissionId);
+      if (!['AI_QUEUED', 'AI_REVIEWING'].includes(submission.status)) {
+        throw new BadRequestException({
+          code: 'SUBMISSION_NOT_AI_REVIEWABLE',
+          message: '只有 AI 预审排队中或预审中的提交可以写入 AI 预审结果。',
+        });
+      }
+
+      const startedAt = new Date();
+      let currentStatus = submission.status as SubmissionStatus;
+      if (currentStatus === 'AI_QUEUED') {
+        assertSubmissionTransition(currentStatus, 'AI_REVIEWING');
+        await client.aiReviewJob.update({
+          where: { id: job.id },
+          data: {
+            status: 'RUNNING',
+            attempts: job.attempts + 1,
+            startedAt: job.startedAt ?? startedAt,
+            logs: [
+              ...toLogArray(job.logs),
+              {
+                level: 'run',
+                message: 'AI 预审开始处理提交。',
+                at: startedAt.toISOString(),
+              },
+            ],
+          },
+        });
+        await client.submission.update({
+          where: { id: submission.id },
+          data: { status: 'AI_REVIEWING' },
+        });
+        await writeAiReviewAudit(client, submission, {
+          actorId: input.actorId,
+          fromStatus: 'AI_QUEUED',
+          toStatus: 'AI_REVIEWING',
+          metadata: { action: 'AI_REVIEW_STARTED', jobId: job.id },
+        });
+        currentStatus = 'AI_REVIEWING';
+      }
+
+      const aiStatus = aiSubmissionStatusForDecision(decision);
+      assertSubmissionTransition(currentStatus, aiStatus);
+      await client.reviewRecord.create({
+        data: {
+          submissionId: submission.id,
+          stage: 'AI_PRECHECK',
+          reviewerType: 'AI',
+          scores: scoresWithReason(input.scores, decision, comment),
+          decision,
+          comment: comment || defaultAiComment(decision),
+          rawPrompt: input.rawPrompt,
+          rawOutput: input.rawOutput,
+          structuredOutput: input.structuredOutput,
+          modelMetadata: input.modelMetadata,
+          retryCount: job.attempts + 1,
+          idempotencyKey: job.idempotencyKey,
+        },
+      });
+      await client.submission.update({
+        where: { id: submission.id },
+        data: { status: aiStatus },
+      });
+      await writeAiReviewAudit(client, submission, {
+        actorId: input.actorId,
+        fromStatus: currentStatus,
+        toStatus: aiStatus,
+        reason: comment || undefined,
+        metadata: { action: aiAuditActionForDecision(decision), jobId: job.id },
+      });
+
+      const finalStatus = decision === 'reject' ? 'NEEDS_REVISION' : 'HUMAN_PENDING';
+      assertSubmissionTransition(aiStatus, finalStatus);
+      await client.submission.update({
+        where: { id: submission.id },
+        data: { status: finalStatus },
+      });
+      if (finalStatus === 'NEEDS_REVISION') {
+        await client.assignment.update({
+          where: { id: submission.assignmentId },
+          data: { status: 'NEEDS_REVISION' },
+        });
+      }
+      await client.aiReviewJob.update({
+        where: { id: job.id },
+        data: {
+          status: decision === 'manual' ? 'MANUAL_FALLBACK' : 'SUCCEEDED',
+          lastError: null,
+          finishedAt: new Date(),
+          logs: [
+            ...toLogArray(job.logs),
+            {
+              level: decision,
+              message: comment || defaultAiComment(decision),
+              at: new Date().toISOString(),
+            },
+          ],
+        },
+      });
+      await writeAiReviewAudit(client, submission, {
+        actorId: input.actorId,
+        fromStatus: aiStatus,
+        toStatus: finalStatus,
+        reason: comment || undefined,
+        metadata: {
+          action: finalStatus === 'NEEDS_REVISION' ? 'AI_REVIEW_TO_REVISION' : 'AI_REVIEW_TO_HUMAN_PENDING',
+          jobId: job.id,
+        },
+      });
+
+      return this.getSubmissionReviewFromClient(client, submission.id);
+    });
+  }
+
   async getSubmissionReview(submissionId: string): Promise<AiReviewDetailDto> {
-    const submission = await this.prisma.submission.findUnique({
+    return this.getSubmissionReviewFromClient(this.prisma, submissionId);
+  }
+
+  private async findCompletableJobOrThrow(client: AiReviewPrismaClient, jobId: string): Promise<AiReviewJobRecord> {
+    const job = await client.aiReviewJob.findUnique({
+      where: { id: jobId },
+      include: JOB_INCLUDE,
+    });
+
+    if (!job) {
+      throw new NotFoundException({
+        code: 'AI_REVIEW_JOB_NOT_FOUND',
+        message: 'AI 预审任务不存在或已被删除。',
+      });
+    }
+    if (!COMPLETABLE_JOB_STATUSES.has(job.status)) {
+      throw new BadRequestException({
+        code: 'AI_REVIEW_JOB_NOT_COMPLETABLE',
+        message: '只有排队中或运行中的 AI 预审任务可以写入预审结果。',
+      });
+    }
+
+    return job;
+  }
+
+  private async findSubmissionOrThrow(client: AiReviewPrismaClient, submissionId: string): Promise<SubmissionReviewRecord> {
+    const submission = await client.submission.findUnique({
+      where: { id: submissionId },
+      include: SUBMISSION_REVIEW_INCLUDE,
+    });
+
+    if (!submission) {
+      throw new NotFoundException({
+        code: 'SUBMISSION_NOT_FOUND',
+        message: '提交记录不存在或已被删除。',
+      });
+    }
+
+    return submission;
+  }
+
+  private async getSubmissionReviewFromClient(
+    client: Pick<AiReviewPrismaClient, 'submission'>,
+    submissionId: string,
+  ): Promise<AiReviewDetailDto> {
+    const submission = await client.submission.findUnique({
       where: { id: submissionId },
       include: SUBMISSION_REVIEW_INCLUDE,
     });
@@ -281,6 +621,411 @@ export class AiReviewService {
       jobs: submission.aiReviewJobs.map(toJobDto),
     };
   }
+}
+
+async function writeAiReviewAudit(
+  client: AiReviewPrismaClient,
+  submission: SubmissionReviewRecord,
+  input: {
+    actorId?: string;
+    fromStatus?: string;
+    toStatus: string;
+    reason?: string;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<void> {
+  await client.auditLog.create({
+    data: {
+      taskId: submission.assignment.task.id,
+      submissionId: submission.id,
+      fromStatus: input.fromStatus,
+      toStatus: input.toStatus,
+      actorId: input.actorId,
+      reason: input.reason,
+      metadata: input.metadata,
+    },
+  });
+}
+
+function normalizeAiDecision(value: unknown): CompleteAiReviewJobInput['decision'] | null {
+  return value === 'pass' || value === 'reject' || value === 'manual' ? value : null;
+}
+
+function aiSubmissionStatusForDecision(decision: CompleteAiReviewJobInput['decision']): SubmissionStatus {
+  if (decision === 'pass') {
+    return 'AI_PASSED';
+  }
+  if (decision === 'manual') {
+    return 'AI_MANUAL';
+  }
+
+  return 'AI_REJECTED';
+}
+
+function aiAuditActionForDecision(decision: CompleteAiReviewJobInput['decision']): string {
+  if (decision === 'pass') {
+    return 'AI_REVIEW_PASSED';
+  }
+  if (decision === 'manual') {
+    return 'AI_REVIEW_MANUAL';
+  }
+
+  return 'AI_REVIEW_REJECTED';
+}
+
+function defaultAiComment(decision: CompleteAiReviewJobInput['decision']): string {
+  if (decision === 'pass') {
+    return 'AI 预审通过，进入人工复审。';
+  }
+  if (decision === 'manual') {
+    return 'AI 预审转人工复核。';
+  }
+
+  return 'AI 预审打回，标注员需要修改。';
+}
+
+function scoresWithReason(
+  scores: Record<string, unknown> | undefined,
+  decision: CompleteAiReviewJobInput['decision'],
+  comment: string,
+): Record<string, unknown> {
+  const normalizedScores = isRecord(scores) ? { ...scores } : {};
+  if (decision === 'reject' && comment && typeof normalizedScores.reason !== 'string') {
+    normalizedScores.reason = comment;
+  }
+
+  return normalizedScores;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function toBatchDtos(jobs: AiReviewJobRecord[]): AiReviewBatchDto[] {
+  const groupedJobs = new Map<string, AiReviewJobRecord[]>();
+  for (const job of jobs) {
+    const batchId = batchIdForJob(job);
+    groupedJobs.set(batchId, [...(groupedJobs.get(batchId) ?? []), job]);
+  }
+
+  return [...groupedJobs.values()]
+    .map(toBatchDto)
+    .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
+}
+
+function toBatchDetailDto(jobs: AiReviewJobRecord[]): AiReviewBatchDetailDto {
+  const sortedJobs = sortBatchJobs(jobs);
+
+  return {
+    ...toBatchDto(sortedJobs),
+    items: sortedJobs.map(toBatchItemDto),
+  };
+}
+
+function toBatchDto(jobs: AiReviewJobRecord[]): AiReviewBatchDto {
+  const sortedJobs = sortBatchJobs(jobs);
+  const firstJob = sortedJobs[0];
+  const firstSubmission = firstJob?.submission;
+  const firstAssignment = firstSubmission?.assignment;
+  const aggregateDecision = aggregateBatchDecision(sortedJobs);
+  const aggregateScore = aggregateBatchScore(sortedJobs);
+  const updatedAt = maxDate(sortedJobs.map((job) => job.updatedAt));
+  const submittedAt = minDate(
+    sortedJobs.map((job) => job.submission?.submittedAt ?? job.queuedAt),
+  );
+  const batchId = firstJob ? batchIdForJob(firstJob) : 'unknown-batch';
+
+  return {
+    batchId,
+    displayId: batchDisplayId(batchId),
+    taskId: firstJob?.taskId ?? '',
+    taskTitle: firstJob?.task?.title ?? '未知任务',
+    labelerId: firstAssignment?.assignee?.id ?? firstAssignment?.assigneeId ?? null,
+    labelerName: firstAssignment?.assignee?.name ?? readableUserName(firstAssignment?.assigneeId),
+    submittedAt: submittedAt.toISOString(),
+    itemCount: sortedJobs.length,
+    externalIds: sortedJobs.map((job) => job.submission?.assignment.taskItem.externalId ?? job.submissionId),
+    status: batchStatusFromDecision(aggregateDecision),
+    aggregateDecision,
+    aggregateScore,
+    failureReason: firstFailureReason(sortedJobs),
+    aiSuggestionLabel: aiSuggestionLabel(aggregateDecision),
+    templateVersion: firstJob?.task?.template?.schemaVersion ?? null,
+    provider: firstJob?.provider ?? null,
+    model: firstJob?.model ?? null,
+    updatedAt: updatedAt.toISOString(),
+  };
+}
+
+function toBatchItemDto(job: AiReviewJobRecord, index: number): AiReviewBatchItemDto {
+  const submission = job.submission;
+  const assignment = submission?.assignment;
+  const taskItem = assignment?.taskItem;
+  const reviewRecord = latestAiReviewRecord(job);
+
+  return {
+    index: index + 1,
+    job: toJobDto(job),
+    submission: {
+      id: submission?.id ?? job.submissionId,
+      assignmentId: submission?.assignmentId ?? assignment?.id ?? '',
+      status: submission?.status ?? 'AI_QUEUED',
+      round: submission?.round ?? job.round,
+      answers: submission?.answers ?? {},
+      schemaVersion: submission?.schemaVersion ?? job.task?.template?.schemaVersion ?? '',
+      submittedAt: (submission?.submittedAt ?? job.queuedAt).toISOString(),
+    },
+    taskItem: {
+      id: taskItem?.id ?? '',
+      externalId: taskItem?.externalId ?? job.submissionId,
+      datasetKind: taskItem?.datasetKind ?? 'generic_json',
+      rawData: taskItem?.rawData ?? {},
+    },
+    reviewRecord: reviewRecord ? toReviewRecordDto(reviewRecord) : null,
+    decision: decisionForJob(job),
+    overallScore: scoreFromRecord(reviewRecord),
+    logs: toBatchItemLogs(job, reviewRecord),
+  };
+}
+
+function batchIdForJob(job: AiReviewJobRecord): string {
+  const submissionKey = job.submission?.idempotencyKey?.trim();
+  const assignmentId = job.submission?.assignmentId ?? job.submission?.assignment.id;
+  if (submissionKey && assignmentId) {
+    const suffix = `:${assignmentId}:${job.round}`;
+    if (submissionKey.endsWith(suffix)) {
+      return submissionKey.slice(0, -suffix.length);
+    }
+
+    return submissionKey;
+  }
+
+  return job.idempotencyKey || job.submissionId || job.id;
+}
+
+function sortBatchJobs(jobs: AiReviewJobRecord[]): AiReviewJobRecord[] {
+  return [...jobs].sort((first, second) => {
+    const firstOrder = first.submission?.assignment.taskItem.sortOrder ?? Number.MAX_SAFE_INTEGER;
+    const secondOrder = second.submission?.assignment.taskItem.sortOrder ?? Number.MAX_SAFE_INTEGER;
+    if (firstOrder !== secondOrder) {
+      return firstOrder - secondOrder;
+    }
+
+    return (first.submission?.assignment.taskItem.externalId ?? first.submissionId)
+      .localeCompare(second.submission?.assignment.taskItem.externalId ?? second.submissionId);
+  });
+}
+
+function aggregateBatchDecision(jobs: AiReviewJobRecord[]): AiReviewBatchDecision {
+  const decisions = jobs.map(decisionForJob);
+  if (decisions.includes('failed')) {
+    return 'failed';
+  }
+  if (decisions.includes('reject')) {
+    return 'reject';
+  }
+  if (decisions.includes('manual')) {
+    return 'manual';
+  }
+  if (decisions.length > 0 && decisions.every((decision) => decision === 'pass')) {
+    return 'pass';
+  }
+
+  return 'pending';
+}
+
+function decisionForJob(job: AiReviewJobRecord): AiReviewBatchDecision {
+  if (job.status === 'FAILED_FINAL' || job.status === 'FAILED_RETRYING') {
+    return 'failed';
+  }
+
+  const reviewDecision = latestAiReviewRecord(job)?.decision;
+  if (reviewDecision === 'reject' || reviewDecision === 'manual' || reviewDecision === 'pass') {
+    return reviewDecision;
+  }
+  if (job.status === 'MANUAL_FALLBACK') {
+    return 'manual';
+  }
+  if (job.status === 'SUCCEEDED') {
+    return 'pass';
+  }
+
+  return 'pending';
+}
+
+function batchStatusFromDecision(decision: AiReviewBatchDecision): AiReviewBatchStatus {
+  if (decision === 'failed') {
+    return 'FAILED';
+  }
+  if (decision === 'reject') {
+    return 'REJECTED';
+  }
+  if (decision === 'manual') {
+    return 'MANUAL';
+  }
+  if (decision === 'pass') {
+    return 'PASSED';
+  }
+
+  return 'PENDING';
+}
+
+function latestAiReviewRecord(job: AiReviewJobRecord): ReviewRecord | null {
+  return job.submission?.reviewRecords?.find((record) => record.stage === 'AI_PRECHECK') ?? null;
+}
+
+function aggregateBatchScore(jobs: AiReviewJobRecord[]): number | null {
+  const scores = jobs
+    .map((job) => scoreFromRecord(latestAiReviewRecord(job)))
+    .filter((score): score is number => typeof score === 'number');
+
+  if (scores.length === 0) {
+    return null;
+  }
+
+  return Math.round(scores.reduce((total, score) => total + score, 0) / scores.length);
+}
+
+function scoreFromRecord(record: ReviewRecord | null): number | null {
+  if (!record) {
+    return null;
+  }
+
+  return numericScore(record.scores.overall)
+    ?? numericScore(record.scores.score)
+    ?? numericScore(record.scores.total)
+    ?? averageNumericScores(record.scores);
+}
+
+function averageNumericScores(scores: Record<string, unknown>): number | null {
+  const values = Object.entries(scores)
+    .filter(([key]) => key !== 'reason')
+    .map(([, value]) => numericScore(value))
+    .filter((value): value is number => typeof value === 'number');
+
+  if (values.length === 0) {
+    return null;
+  }
+
+  return Math.round(values.reduce((total, value) => total + value, 0) / values.length);
+}
+
+function numericScore(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.min(100, Math.round(value)));
+  }
+  if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) {
+    return Math.max(0, Math.min(100, Math.round(Number(value))));
+  }
+
+  return null;
+}
+
+function firstFailureReason(jobs: AiReviewJobRecord[]): string | null {
+  return jobs.find((job) => job.lastError)?.lastError ?? null;
+}
+
+function aiSuggestionLabel(decision: AiReviewBatchDecision): string {
+  if (decision === 'failed') {
+    return '失败';
+  }
+  if (decision === 'reject') {
+    return '建议打回';
+  }
+  if (decision === 'manual') {
+    return '转人工复核';
+  }
+  if (decision === 'pass') {
+    return '建议通过';
+  }
+
+  return '等待预审';
+}
+
+function toBatchItemLogs(job: AiReviewJobRecord, reviewRecord: ReviewRecord | null): AiReviewLogDto[] {
+  const logs: AiReviewLogDto[] = toLogArray(job.logs).map((entry, index) => ({
+    id: `${job.id}:log:${index}`,
+    type: logType(entry.level),
+    time: stringValue(entry.at) ?? job.queuedAt.toISOString(),
+    message: stringValue(entry.message) ?? 'AI 预审日志。',
+  }));
+
+  if (job.startedAt) {
+    logs.push({
+      id: `${job.id}:llm`,
+      type: 'llm',
+      time: job.startedAt.toISOString(),
+      message: `${job.model ?? job.provider ?? '模型'} 开始处理。`,
+    });
+  }
+
+  if (reviewRecord) {
+    logs.push({
+      id: `${job.id}:verdict:${reviewRecord.id}`,
+      type: 'verdict',
+      time: reviewRecord.createdAt.toISOString(),
+      message: `${aiSuggestionLabel(decisionForJob(job))}${reviewRecord.comment ? `：${reviewRecord.comment}` : ''}`,
+    });
+  }
+
+  for (const auditLog of job.submission?.auditLogs ?? []) {
+    logs.push({
+      id: `${job.id}:audit:${auditLog.id}`,
+      type: 'audit',
+      time: auditLog.createdAt.toISOString(),
+      message: `${auditLog.fromStatus ?? '开始'} -> ${auditLog.toStatus}${auditLog.reason ? `：${auditLog.reason}` : ''}`,
+    });
+  }
+
+  return logs.sort((first, second) => first.time.localeCompare(second.time));
+}
+
+function logType(value: unknown): AiReviewLogDto['type'] {
+  if (value === 'queue' || value === 'llm' || value === 'verdict' || value === 'audit' || value === 'error' || value === 'retry' || value === 'run') {
+    return value;
+  }
+  if (value === 'pass' || value === 'reject' || value === 'manual') {
+    return 'verdict';
+  }
+
+  return 'run';
+}
+
+function minDate(values: Date[]): Date {
+  return values.reduce((earliest, value) => (value.getTime() < earliest.getTime() ? value : earliest), values[0] ?? new Date(0));
+}
+
+function maxDate(values: Date[]): Date {
+  return values.reduce((latest, value) => (value.getTime() > latest.getTime() ? value : latest), values[0] ?? new Date(0));
+}
+
+function readableUserName(userId?: string | null): string {
+  if (!userId) {
+    return '未记录';
+  }
+
+  return userId.replace(/^user_/, '').replaceAll('_', ' ');
+}
+
+function batchDisplayId(batchId: string): string {
+  const hash = stableNumberHash(batchId);
+  const group = String(hash % 10000).padStart(4, '0');
+  const serial = String(Math.floor(hash / 10000) % 100000).padStart(5, '0');
+
+  return `SUB-${group}-${serial}`;
+}
+
+function stableNumberHash(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+
+  return Math.abs(hash);
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 function toJobDto(job: AiReviewJobRecord): AiReviewJobDto {

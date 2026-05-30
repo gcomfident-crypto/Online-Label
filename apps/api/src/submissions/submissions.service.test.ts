@@ -10,9 +10,10 @@ type AssignmentStatus =
   | 'SUBMITTED'
   | 'UNDER_RECHECK'
   | 'FINAL_PENDING'
+  | 'FINAL_APPROVED'
   | 'NEEDS_REVISION'
   | 'CANCELLED';
-type SubmissionStatus = 'AI_QUEUED' | 'AI_PASSED' | 'NEEDS_REVISION';
+type SubmissionStatus = 'AI_QUEUED' | 'AI_PASSED' | 'HUMAN_PENDING' | 'NEEDS_REVISION';
 
 type SubmissionRecord = {
   id: string;
@@ -27,15 +28,26 @@ type SubmissionRecord = {
   updatedAt: Date;
 };
 
+type DraftRecord = {
+  id: string;
+  assignmentId: string;
+  answers: Record<string, unknown>;
+  schemaVersion: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 type AssignmentRecord = {
   id: string;
   taskId: string;
   taskItemId: string;
   assigneeId: string;
   status: AssignmentStatus;
+  claimedAt: Date;
   task: {
     id: string;
     title: string;
+    aiPreReviewEnabled: boolean;
     template: {
       id: string;
       name: string;
@@ -49,14 +61,16 @@ type AssignmentRecord = {
     externalId: string;
     datasetKind: 'qa_quality' | 'preference_compare' | 'generic_json';
     rawData: Record<string, unknown>;
+    sortOrder: number;
   };
   submissions: SubmissionRecord[];
+  drafts: DraftRecord[];
 };
 
 type MockSubmissionsPrisma = {
   assignment: {
     findUnique: (args: { where: { id: string } }) => Promise<AssignmentRecord | null>;
-    findMany: () => Promise<AssignmentRecord[]>;
+    findMany: (args?: { where?: Record<string, unknown>; include?: unknown }) => Promise<AssignmentRecord[]>;
     update: (args: { where: { id: string }; data: { status: AssignmentStatus } }) => Promise<AssignmentRecord>;
   };
   taskItem: {
@@ -117,6 +131,40 @@ describe('SubmissionsService', () => {
     ]);
   });
 
+  it('任务未启用 AI 预审时单题提交直接进入人工复审且不创建 AI 任务', async () => {
+    const { service, submissions, assignments, auditLogs, completedItems, aiReviewJobs } = createService({
+      aiPreReviewEnabled: false,
+    });
+
+    const result = await service.submit({
+      assignmentId: 'assignment_1',
+      actorId: 'user_labeler_li_lei',
+      answers: { quality: 'pass', comment: '关闭 AI 后直接复审。' },
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 'submission_1',
+        assignmentId: 'assignment_1',
+        status: 'HUMAN_PENDING',
+        round: 1,
+      }),
+    );
+    expect(submissions).toHaveLength(1);
+    expect(submissions[0].status).toBe('HUMAN_PENDING');
+    expect(assignments[0].status).toBe('SUBMITTED');
+    expect(completedItems).toEqual(['item_qa_1']);
+    expect(auditLogs[0]).toEqual(
+      expect.objectContaining({
+        taskId: 'task_qa',
+        submissionId: 'submission_1',
+        toStatus: 'HUMAN_PENDING',
+        actorId: 'user_labeler_li_lei',
+      }),
+    );
+    expect(aiReviewJobs).toHaveLength(0);
+  });
+
   it('打回后二次提交创建 round=2，不覆盖已有提交', async () => {
     const previousSubmission = createSubmission(new Date('2026-05-21T00:00:00.000Z'), {
       id: 'submission_previous',
@@ -161,6 +209,134 @@ describe('SubmissionsService', () => {
     expect(auditLogs).toHaveLength(0);
     expect(aiReviewJobs).toHaveLength(0);
     expect(completedItems).toHaveLength(0);
+  });
+
+  it('任务级提交会使用当前题答案和其他题草稿批量入队 AI 预审', async () => {
+    const now = new Date('2026-05-21T00:00:00.000Z');
+    const secondAssignment = createAssignment(now, {
+      id: 'assignment_2',
+      taskItemId: 'item_qa_2',
+      sortOrder: 2,
+      externalId: 'qa_2',
+      status: 'IN_PROGRESS',
+      drafts: [
+        createDraft(now, {
+          id: 'draft_2',
+          assignmentId: 'assignment_2',
+          answers: { quality: 'excellent', comment: '第二题已保存草稿。' },
+        }),
+      ],
+    });
+    const { service, submissions, assignments, auditLogs, completedItems, aiReviewJobs } = createService({
+      assignments: [secondAssignment],
+    });
+
+    const result = await service.submitTask({
+      taskId: 'task_qa',
+      labelerId: 'user_labeler_li_lei',
+      actorId: 'user_labeler_li_lei',
+      currentAssignmentId: 'assignment_1',
+      currentAnswers: { quality: 'pass', comment: '当前题答案。' },
+      idempotencyKey: 'task-submit-idem',
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        taskId: 'task_qa',
+        labelerId: 'user_labeler_li_lei',
+        submittedCount: 2,
+      }),
+    );
+    expect(result.submissions.map((submission) => submission.assignmentId)).toEqual([
+      'assignment_1',
+      'assignment_2',
+    ]);
+    expect(submissions).toHaveLength(2);
+    expect(submissions.map((submission) => submission.answers)).toEqual([
+      { quality: 'pass', comment: '当前题答案。' },
+      { quality: 'excellent', comment: '第二题已保存草稿。' },
+    ]);
+    expect(assignments.map((assignment) => assignment.status)).toEqual(['SUBMITTED', 'SUBMITTED']);
+    expect(completedItems).toEqual(['item_qa_1', 'item_qa_2']);
+    expect(auditLogs).toHaveLength(2);
+    expect(aiReviewJobs.map((job) => job.submissionId)).toEqual(['submission_1', 'submission_2']);
+  });
+
+  it('任务未启用 AI 预审时任务级提交批量进入人工复审且不创建 AI 任务', async () => {
+    const now = new Date('2026-05-21T00:00:00.000Z');
+    const secondAssignment = createAssignment(now, {
+      id: 'assignment_2',
+      taskItemId: 'item_qa_2',
+      sortOrder: 2,
+      externalId: 'qa_2',
+      status: 'IN_PROGRESS',
+      aiPreReviewEnabled: false,
+      drafts: [
+        createDraft(now, {
+          id: 'draft_2',
+          assignmentId: 'assignment_2',
+          answers: { quality: 'excellent', comment: '第二题已保存草稿。' },
+        }),
+      ],
+    });
+    const { service, submissions, auditLogs, completedItems, aiReviewJobs } = createService({
+      aiPreReviewEnabled: false,
+      assignments: [secondAssignment],
+    });
+
+    const result = await service.submitTask({
+      taskId: 'task_qa',
+      labelerId: 'user_labeler_li_lei',
+      actorId: 'user_labeler_li_lei',
+      currentAssignmentId: 'assignment_1',
+      currentAnswers: { quality: 'pass', comment: '当前题答案。' },
+      idempotencyKey: 'task-submit-no-ai',
+    });
+
+    expect(result.submissions.map((submission) => submission.status)).toEqual([
+      'HUMAN_PENDING',
+      'HUMAN_PENDING',
+    ]);
+    expect(submissions.map((submission) => submission.status)).toEqual([
+      'HUMAN_PENDING',
+      'HUMAN_PENDING',
+    ]);
+    expect(completedItems).toEqual(['item_qa_1', 'item_qa_2']);
+    expect(auditLogs.map((log) => log.toStatus)).toEqual(['HUMAN_PENDING', 'HUMAN_PENDING']);
+    expect(aiReviewJobs).toHaveLength(0);
+  });
+
+  it('任务级提交遇到未保存草稿的题目时不创建任何 AI 预审任务', async () => {
+    const now = new Date('2026-05-21T00:00:00.000Z');
+    const secondAssignment = createAssignment(now, {
+      id: 'assignment_2',
+      taskItemId: 'item_qa_2',
+      sortOrder: 2,
+      externalId: 'qa_2',
+      status: 'ASSIGNED',
+      drafts: [],
+    });
+    const { service, submissions, auditLogs, completedItems, aiReviewJobs } = createService({
+      assignments: [secondAssignment],
+    });
+
+    await expect(
+      service.submitTask({
+        taskId: 'task_qa',
+        labelerId: 'user_labeler_li_lei',
+        actorId: 'user_labeler_li_lei',
+        currentAssignmentId: 'assignment_1',
+        currentAnswers: { quality: 'pass', comment: '当前题答案。' },
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'TASK_SUBMISSION_DRAFT_MISSING',
+      }),
+    });
+    expect(submissions).toHaveLength(0);
+    expect(auditLogs).toHaveLength(0);
+    expect(completedItems).toHaveLength(0);
+    expect(aiReviewJobs).toHaveLength(0);
   });
 
   it('后端 Schema 校验会阻止缺必填字段提交', async () => {
@@ -232,6 +408,56 @@ describe('SubmissionsService', () => {
     );
   });
 
+  it('查询标注员工作台任务列表时返回已领取但未提交的题目', async () => {
+    const now = new Date('2026-05-21T00:00:00.000Z');
+    const submittedAt = new Date('2026-05-21T08:00:00.000Z');
+    const { service } = createService({
+      assignments: [
+        createAssignment(now, {
+          id: 'assignment_2',
+          taskItemId: 'item_qa_2',
+          sortOrder: 2,
+          externalId: 'qa_2',
+          status: 'ASSIGNED',
+          submissions: [],
+        }),
+      ],
+      submissions: [
+        createSubmission(now, {
+          id: 'submission_qa_1',
+          status: 'AI_QUEUED',
+          round: 1,
+          submittedAt,
+        }),
+      ],
+    });
+
+    await expect(service.listLabelerAssignments({ labelerId: 'user_labeler_li_lei' })).resolves.toEqual([
+      expect.objectContaining({
+        assignmentId: 'assignment_1',
+        taskId: 'task_qa',
+        taskTitle: '问答质量标注',
+        taskItemId: 'item_qa_1',
+        taskItemSortOrder: 1,
+        externalId: 'qa_1',
+        status: 'IN_PROGRESS',
+        latestSubmissionStatus: 'AI_QUEUED',
+        latestSubmittedAt: submittedAt.toISOString(),
+        round: 1,
+      }),
+      expect.objectContaining({
+        assignmentId: 'assignment_2',
+        taskItemId: 'item_qa_2',
+        taskItemSortOrder: 2,
+        externalId: 'qa_2',
+        status: 'ASSIGNED',
+        latestSubmissionStatus: null,
+        latestSubmittedAt: null,
+        round: 0,
+      }),
+    ]);
+  });
+
   it('提交不存在或已取消的领取记录返回明确错误', async () => {
     const { service } = createService({
       assignments: [createAssignment(new Date('2026-05-21T00:00:00.000Z'), { id: 'assignment_cancelled', status: 'CANCELLED' })],
@@ -249,12 +475,16 @@ describe('SubmissionsService', () => {
 function createService(
   overrides: {
     assignments?: AssignmentRecord[];
+    aiPreReviewEnabled?: boolean;
     submissions?: SubmissionRecord[];
   } = {},
 ) {
   const now = new Date('2026-05-21T00:00:00.000Z');
   const assignments: AssignmentRecord[] = [
-    createAssignment(now, { submissions: overrides.submissions ?? [] }),
+    createAssignment(now, {
+      aiPreReviewEnabled: overrides.aiPreReviewEnabled,
+      submissions: overrides.submissions ?? [],
+    }),
     ...(overrides.assignments ?? []),
   ];
   const submissions = assignments.flatMap((assignment) => assignment.submissions);
@@ -265,7 +495,12 @@ function createService(
   const prisma: MockSubmissionsPrisma = {
     assignment: {
       findUnique: async ({ where }) => assignments.find((assignment) => assignment.id === where.id) ?? null,
-      findMany: async () => assignments,
+      findMany: async (args) =>
+        assignments.filter(
+          (assignment) =>
+            (args?.where?.assigneeId === undefined || assignment.assigneeId === args.where.assigneeId) &&
+            (args?.where?.taskId === undefined || assignment.taskId === args.where.taskId),
+        ),
       update: async ({ where, data }) => {
         const assignment = assignments.find((candidate) => candidate.id === where.id);
         if (!assignment) {
@@ -337,9 +572,12 @@ function createAssignment(
     id?: string;
     status?: AssignmentStatus;
     taskItemId?: string;
+    sortOrder?: number;
     externalId?: string;
     datasetKind?: 'qa_quality' | 'preference_compare' | 'generic_json';
+    aiPreReviewEnabled?: boolean;
     submissions?: SubmissionRecord[];
+    drafts?: DraftRecord[];
   } = {},
 ): AssignmentRecord {
   const datasetKind = input.datasetKind ?? 'qa_quality';
@@ -350,9 +588,11 @@ function createAssignment(
     taskItemId: input.taskItemId ?? 'item_qa_1',
     assigneeId: 'user_labeler_li_lei',
     status: input.status ?? 'IN_PROGRESS',
+    claimedAt: now,
     task: {
       id: datasetKind === 'qa_quality' ? 'task_qa' : 'task_preference',
       title: datasetKind === 'qa_quality' ? '问答质量标注' : '偏好对比标注',
+      aiPreReviewEnabled: input.aiPreReviewEnabled ?? true,
       template: {
         id: datasetKind === 'qa_quality' ? 'template_qa' : 'template_preference',
         name: datasetKind === 'qa_quality' ? '问答质量官方模板' : '偏好对比官方模板',
@@ -366,8 +606,10 @@ function createAssignment(
       externalId: input.externalId ?? 'qa_1',
       datasetKind,
       rawData: { prompt: '如何判断回答质量？', model_answer: '检查事实性。' },
+      sortOrder: input.sortOrder ?? 1,
     },
     submissions: input.submissions ?? [],
+    drafts: input.drafts ?? [],
   };
 }
 
@@ -384,6 +626,20 @@ function createSubmission(
     schemaVersion: input.schemaVersion ?? 'r1',
     idempotencyKey: input.idempotencyKey ?? null,
     submittedAt: input.submittedAt ?? now,
+    createdAt: input.createdAt ?? now,
+    updatedAt: input.updatedAt ?? now,
+  };
+}
+
+function createDraft(
+  now: Date,
+  input: Partial<DraftRecord> & { assignmentId: string },
+): DraftRecord {
+  return {
+    id: input.id ?? `draft_${input.assignmentId}`,
+    assignmentId: input.assignmentId,
+    answers: input.answers ?? { quality: 'pass' },
+    schemaVersion: input.schemaVersion ?? 'r1',
     createdAt: input.createdAt ?? now,
     updatedAt: input.updatedAt ?? now,
   };

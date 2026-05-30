@@ -26,6 +26,98 @@ describe('AiReviewService', () => {
     );
   });
 
+  it('按任务提交批次聚合多个 submission 为一条 AI 预审记录', async () => {
+    const batchId = 'task-submit:task_qa:user_labeler_li_lei:assignment_1:1:abc123';
+    const { service } = createService({
+      jobs: [
+        createJobRecord({
+          id: 'job_1',
+          submissionId: 'submission_1',
+          status: 'SUCCEEDED',
+          submission: createSubmissionSummaryRecord({
+            id: 'submission_1',
+            assignmentId: 'assignment_1',
+            idempotencyKey: `${batchId}:assignment_1:1`,
+            externalId: 'qa_1',
+            sortOrder: 1,
+            reviewRecords: [createReviewRecord({ submissionId: 'submission_1', decision: 'pass', scores: { overall: 92 } })],
+          }),
+        }),
+        createJobRecord({
+          id: 'job_2',
+          submissionId: 'submission_2',
+          status: 'SUCCEEDED',
+          submission: createSubmissionSummaryRecord({
+            id: 'submission_2',
+            assignmentId: 'assignment_2',
+            idempotencyKey: `${batchId}:assignment_2:1`,
+            externalId: 'qa_2',
+            sortOrder: 2,
+            reviewRecords: [createReviewRecord({ id: 'record_2', submissionId: 'submission_2', decision: 'pass', scores: { overall: 88 } })],
+          }),
+        }),
+      ],
+    });
+
+    const batches = await service.listBatches();
+    expect(batches).toHaveLength(1);
+    expect(batches[0]).toEqual(
+      expect.objectContaining({
+        batchId,
+        itemCount: 2,
+        taskTitle: '问答质量标注',
+        labelerName: '李雷',
+        aggregateDecision: 'pass',
+        status: 'PASSED',
+        aggregateScore: 90,
+      }),
+    );
+
+    const detail = await service.getBatchReview(batchId);
+    expect(detail.items.map((item) => item.taskItem.externalId)).toEqual(['qa_1', 'qa_2']);
+    expect(detail.items.map((item) => item.index)).toEqual([1, 2]);
+  });
+
+  it('任务级聚合结果按失败、打回、转人工、通过的优先级输出', async () => {
+    const createBatchJob = (input: {
+      assignmentId: string;
+      batchId: string;
+      decision: 'pass' | 'reject' | 'manual' | null;
+      externalId: string;
+      jobId: string;
+      status?: AiReviewJobRecord['status'];
+    }) =>
+      createJobRecord({
+        id: input.jobId,
+        submissionId: `submission_${input.jobId}`,
+        status: input.status ?? 'SUCCEEDED',
+        submission: createSubmissionSummaryRecord({
+          id: `submission_${input.jobId}`,
+          assignmentId: input.assignmentId,
+          idempotencyKey: `${input.batchId}:${input.assignmentId}:1`,
+          externalId: input.externalId,
+          reviewRecords: input.decision
+            ? [createReviewRecord({ id: `record_${input.jobId}`, submissionId: `submission_${input.jobId}`, decision: input.decision })]
+            : [],
+        }),
+      });
+    const { service } = createService({
+      jobs: [
+        createBatchJob({ assignmentId: 'assignment_failed', batchId: 'batch_failed', decision: 'reject', externalId: 'q1', jobId: 'failed', status: 'FAILED_FINAL' }),
+        createBatchJob({ assignmentId: 'assignment_reject', batchId: 'batch_reject', decision: 'reject', externalId: 'q2', jobId: 'reject' }),
+        createBatchJob({ assignmentId: 'assignment_manual', batchId: 'batch_manual', decision: 'manual', externalId: 'q3', jobId: 'manual' }),
+        createBatchJob({ assignmentId: 'assignment_pass', batchId: 'batch_pass', decision: 'pass', externalId: 'q4', jobId: 'pass' }),
+      ],
+    });
+
+    const byBatchId = new Map((await service.listBatches()).map((batch) => [batch.batchId, batch]));
+
+    expect(byBatchId.get('batch_failed')).toMatchObject({ aggregateDecision: 'failed', status: 'FAILED' });
+    expect(byBatchId.get('batch_reject')).toMatchObject({ aggregateDecision: 'reject', status: 'REJECTED' });
+    expect(byBatchId.get('batch_manual')).toMatchObject({ aggregateDecision: 'manual', status: 'MANUAL' });
+    expect(byBatchId.get('batch_pass')).toMatchObject({ aggregateDecision: 'pass', status: 'PASSED' });
+  });
+
   it('失败任务可以重试并重新进入队列', async () => {
     const failedJob = createJobRecord({ status: 'FAILED_FINAL', attempts: 3, lastError: '结构化输出异常' });
     const { service, jobs } = createService({ jobs: [failedJob] });
@@ -70,11 +162,92 @@ describe('AiReviewService', () => {
     );
     expect(detail.jobs).toHaveLength(1);
   });
+
+  it('记录 AI 预审通过时写入审核记录、审计日志并进入人工复审', async () => {
+    const { service, submissions, reviewRecords, auditLogs, jobs } = createService({
+      submission: createSubmissionReviewRecord({ reviewRecords: [] }),
+    });
+
+    const detail = await service.completeJob('job_1', {
+      decision: 'pass',
+      scores: { overall: 91 },
+      comment: 'AI 预审通过，建议进入人工复审。',
+      rawPrompt: '请根据题目和答案判断质量。',
+      rawOutput: '{"verdict":"pass","score":91}',
+      structuredOutput: { verdict: 'pass', score: 91 },
+      modelMetadata: { provider: 'mock', model: 'mock-stable-reviewer' },
+    });
+
+    expect(detail.submission.status).toBe('HUMAN_PENDING');
+    expect(submissions[0].status).toBe('HUMAN_PENDING');
+    expect(jobs[0]).toMatchObject({ status: 'SUCCEEDED', attempts: 1, lastError: null });
+    expect(reviewRecords.at(-1)).toEqual(
+      expect.objectContaining({
+        submissionId: 'submission_1',
+        stage: 'AI_PRECHECK',
+        reviewerType: 'AI',
+        decision: 'pass',
+        comment: 'AI 预审通过，建议进入人工复审。',
+        scores: { overall: 91 },
+        idempotencyKey: 'submission_1:1:ai-review',
+      }),
+    );
+    expect(auditLogs.map(({ fromStatus, toStatus, metadata }) => ({ fromStatus, toStatus, action: metadata?.action }))).toEqual([
+      { fromStatus: 'AI_QUEUED', toStatus: 'AI_REVIEWING', action: 'AI_REVIEW_STARTED' },
+      { fromStatus: 'AI_REVIEWING', toStatus: 'AI_PASSED', action: 'AI_REVIEW_PASSED' },
+      { fromStatus: 'AI_PASSED', toStatus: 'HUMAN_PENDING', action: 'AI_REVIEW_TO_HUMAN_PENDING' },
+    ]);
+  });
+
+  it('记录 AI 预审打回时要求理由并让提交进入待修改', async () => {
+    const { service, submissions, assignments, reviewRecords, auditLogs } = createService({
+      submission: createSubmissionReviewRecord({ reviewRecords: [] }),
+    });
+
+    await expect(
+      service.completeJob('job_1', {
+        decision: 'reject',
+        scores: { overall: 42 },
+        comment: '  ',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    const detail = await service.completeJob('job_1', {
+      decision: 'reject',
+      scores: { overall: 42 },
+      comment: '关键信息缺失，请补充判断依据。',
+      rawPrompt: '请根据题目和答案判断质量。',
+      rawOutput: '{"verdict":"reject","reason":"关键信息缺失"}',
+      structuredOutput: { verdict: 'reject', reason: '关键信息缺失' },
+      modelMetadata: { provider: 'mock', model: 'mock-stable-reviewer' },
+    });
+
+    expect(detail.submission.status).toBe('NEEDS_REVISION');
+    expect(submissions[0].status).toBe('NEEDS_REVISION');
+    expect(assignments[0].status).toBe('NEEDS_REVISION');
+    expect(reviewRecords.at(-1)).toEqual(
+      expect.objectContaining({
+        decision: 'reject',
+        comment: '关键信息缺失，请补充判断依据。',
+        scores: { overall: 42, reason: '关键信息缺失，请补充判断依据。' },
+      }),
+    );
+    expect(auditLogs.at(-1)).toEqual(
+      expect.objectContaining({
+        fromStatus: 'AI_REJECTED',
+        toStatus: 'NEEDS_REVISION',
+        reason: '关键信息缺失，请补充判断依据。',
+      }),
+    );
+  });
 });
 
 function createService(input: { jobs?: AiReviewJobRecord[]; submission?: SubmissionReviewRecord | null } = {}) {
   const jobs = [...(input.jobs ?? [createJobRecord()])];
-  const submission = input.submission === undefined ? createSubmissionReviewRecord() : input.submission;
+  const submissions = input.submission === undefined ? [createSubmissionReviewRecord()] : input.submission ? [input.submission] : [];
+  const reviewRecords = submissions.flatMap((submission) => submission.reviewRecords);
+  const assignments = submissions.map((submission) => submission.assignment);
+  const auditLogs: AuditLogRecord[] = [];
   const prisma = {
     aiReviewJob: {
       findMany: vi.fn(async ({ where }: { where?: { status?: string } } = {}) =>
@@ -89,15 +262,78 @@ function createService(input: { jobs?: AiReviewJobRecord[]; submission?: Submiss
     },
     submission: {
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
-        submission?.id === where.id ? submission : null,
+        submissions.find((submission) => submission.id === where.id) ?? null,
       ),
+      update: vi.fn(async ({ where, data }: { where: { id: string }; data: Partial<SubmissionReviewRecord> }) => {
+        const submission = submissions.find((candidate) => candidate.id === where.id);
+        if (!submission) {
+          throw new Error('submission missing');
+        }
+
+        Object.assign(submission, data, { updatedAt: new Date('2026-05-21T09:00:00.000Z') });
+        return submission;
+      }),
     },
+    assignment: {
+      update: vi.fn(async ({ where, data }: { where: { id: string }; data: Partial<SubmissionAssignmentRecord> }) => {
+        const assignment = assignments.find((candidate) => candidate.id === where.id);
+        if (!assignment) {
+          throw new Error('assignment missing');
+        }
+
+        Object.assign(assignment, data);
+        return assignment;
+      }),
+    },
+    reviewRecord: {
+      create: vi.fn(async ({ data }: { data: Partial<ReviewRecord> }) => {
+        const record = {
+          id: `record_${reviewRecords.length + 1}`,
+          ruleId: null,
+          rawPrompt: null,
+          rawOutput: null,
+          structuredOutput: null,
+          modelMetadata: null,
+          retryCount: 0,
+          idempotencyKey: null,
+          createdAt: new Date('2026-05-21T09:00:00.000Z'),
+          ...data,
+        } as ReviewRecord;
+        reviewRecords.push(record);
+        submissions.find((submission) => submission.id === record.submissionId)?.reviewRecords.unshift(record);
+        return record;
+      }),
+    },
+    auditLog: {
+      create: vi.fn(async ({ data }: { data: Partial<AuditLogRecord> }) => {
+        const auditLog = {
+          id: `audit_${auditLogs.length + 1}`,
+          taskId: null,
+          submissionId: null,
+          fromStatus: null,
+          toStatus: '',
+          actorId: null,
+          reason: null,
+          metadata: null,
+          createdAt: new Date('2026-05-21T09:00:00.000Z'),
+          updatedAt: new Date('2026-05-21T09:00:00.000Z'),
+          ...data,
+        } as AuditLogRecord;
+        auditLogs.push(auditLog);
+        return auditLog;
+      }),
+    },
+    $transaction: vi.fn(async (callback: (client: unknown) => Promise<unknown>) => callback(prisma)),
   };
 
   return {
+    assignments,
+    auditLogs,
     jobs,
     prisma,
-    service: new AiReviewService(prisma),
+    reviewRecords,
+    submissions,
+    service: new AiReviewService(prisma as unknown as ConstructorParameters<typeof AiReviewService>[0]),
   };
 }
 
@@ -126,49 +362,86 @@ type AiReviewJobRecord = {
 
 type SubmissionSummaryRecord = {
   id: string;
+  assignmentId: string;
+  answers: Record<string, unknown>;
+  schemaVersion: string;
+  idempotencyKey: string | null;
   status: string;
   round: number;
   submittedAt: Date;
   assignment: {
+    id: string;
+    assigneeId: string;
+    assignee: {
+      id: string;
+      name: string;
+    };
     taskItem: {
       id: string;
       externalId: string;
       datasetKind: 'qa_quality';
       rawData: Record<string, unknown>;
+      sortOrder: number;
     };
   };
+  reviewRecords: ReviewRecord[];
+  auditLogs: AuditLogRecord[];
+};
+
+type SubmissionAssignmentRecord = SubmissionSummaryRecord['assignment'] & {
+  id: string;
+  taskId: string;
+  taskItemId: string;
+  assigneeId: string;
+  status: 'SUBMITTED' | 'NEEDS_REVISION';
+  task: {
+    id: string;
+    title: string;
+    template: {
+      datasetKind: 'qa_quality';
+    };
+  };
+};
+
+type ReviewRecord = {
+  id: string;
+  submissionId: string;
+  ruleId: string | null;
+  stage: 'AI_PRECHECK';
+  reviewerType: string;
+  scores: Record<string, unknown>;
+  decision: string;
+  comment: string;
+  rawPrompt: string | null;
+  rawOutput: string | null;
+  structuredOutput: Record<string, unknown> | null;
+  modelMetadata: Record<string, unknown> | null;
+  retryCount: number;
+  idempotencyKey: string | null;
+  createdAt: Date;
+};
+
+type AuditLogRecord = {
+  id: string;
+  taskId: string | null;
+  submissionId: string | null;
+  fromStatus: string | null;
+  toStatus: string;
+  actorId: string | null;
+  reason: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 type SubmissionReviewRecord = SubmissionSummaryRecord & {
   assignmentId: string;
   answers: Record<string, unknown>;
   schemaVersion: string;
-  assignment: SubmissionSummaryRecord['assignment'] & {
-    task: {
-      id: string;
-      title: string;
-      template: {
-        datasetKind: 'qa_quality';
-      };
-    };
-  };
-  reviewRecords: Array<{
-    id: string;
-    ruleId: string;
-    stage: 'AI_PRECHECK';
-    reviewerType: string;
-    scores: Record<string, unknown>;
-    decision: string;
-    comment: string;
-    rawPrompt: string;
-    rawOutput: string;
-    structuredOutput: Record<string, unknown>;
-    modelMetadata: Record<string, unknown>;
-    retryCount: number;
-    idempotencyKey: string;
-    createdAt: Date;
-  }>;
+  assignment: SubmissionAssignmentRecord;
+  reviewRecords: ReviewRecord[];
   aiReviewJobs: AiReviewJobRecord[];
+  updatedAt: Date;
 };
 
 function createJobRecord(input: Partial<AiReviewJobRecord> = {}): AiReviewJobRecord {
@@ -199,24 +472,65 @@ function createJobRecord(input: Partial<AiReviewJobRecord> = {}): AiReviewJobRec
   };
 }
 
-function createSubmissionSummaryRecord(): SubmissionSummaryRecord {
+function createSubmissionSummaryRecord(
+  input: Partial<SubmissionSummaryRecord> & {
+    assignmentId?: string;
+    externalId?: string;
+    sortOrder?: number;
+  } = {},
+): SubmissionSummaryRecord {
+  const assignmentId = input.assignmentId ?? 'assignment_1';
+
   return {
-    id: 'submission_1',
-    status: 'AI_QUEUED',
-    round: 1,
-    submittedAt: new Date('2026-05-21T08:00:00.000Z'),
+    id: input.id ?? 'submission_1',
+    assignmentId,
+    answers: input.answers ?? { quality: 'pass' },
+    schemaVersion: input.schemaVersion ?? 'r1',
+    idempotencyKey: input.idempotencyKey ?? null,
+    status: input.status ?? 'AI_QUEUED',
+    round: input.round ?? 1,
+    submittedAt: input.submittedAt ?? new Date('2026-05-21T08:00:00.000Z'),
     assignment: {
+      id: assignmentId,
+      assigneeId: 'user_labeler_li_lei',
+      assignee: {
+        id: 'user_labeler_li_lei',
+        name: '李雷',
+      },
       taskItem: {
-        id: 'item_qa_1',
-        externalId: 'qa_1',
+        id: `item_${input.externalId ?? 'qa_1'}`,
+        externalId: input.externalId ?? 'qa_1',
         datasetKind: 'qa_quality',
         rawData: { prompt: '如何判断回答质量？' },
+        sortOrder: input.sortOrder ?? 1,
       },
     },
+    reviewRecords: input.reviewRecords ?? [],
+    auditLogs: input.auditLogs ?? [],
   };
 }
 
-function createSubmissionReviewRecord(): SubmissionReviewRecord {
+function createReviewRecord(input: Partial<ReviewRecord> = {}): ReviewRecord {
+  return {
+    id: input.id ?? 'record_1',
+    submissionId: input.submissionId ?? 'submission_1',
+    ruleId: input.ruleId ?? 'rule_1',
+    stage: input.stage ?? 'AI_PRECHECK',
+    reviewerType: input.reviewerType ?? 'AI',
+    scores: input.scores ?? { overall: 88 },
+    decision: input.decision ?? 'pass',
+    comment: input.comment ?? '建议通过。',
+    rawPrompt: input.rawPrompt ?? '请根据 prompt 评分。',
+    rawOutput: input.rawOutput ?? '{"verdict":"pass"}',
+    structuredOutput: input.structuredOutput ?? { verdict: 'pass', scores: { overall: 88 } },
+    modelMetadata: input.modelMetadata ?? { provider: 'mock', model: 'mock-stable-reviewer', latencyMs: 1420 },
+    retryCount: input.retryCount ?? 0,
+    idempotencyKey: input.idempotencyKey ?? 'submission_1:1:ai-review',
+    createdAt: input.createdAt ?? new Date('2026-05-21T08:01:00.000Z'),
+  };
+}
+
+function createSubmissionReviewRecord(input: { reviewRecords?: ReviewRecord[] } = {}): SubmissionReviewRecord {
   const summary = createSubmissionSummaryRecord();
   const job = createJobRecord();
 
@@ -227,30 +541,20 @@ function createSubmissionReviewRecord(): SubmissionReviewRecord {
     schemaVersion: 'r1',
     assignment: {
       ...summary.assignment,
+      id: 'assignment_1',
+      taskId: 'task_qa',
+      taskItemId: 'item_qa_1',
+      assigneeId: 'user_labeler_li_lei',
+      status: 'SUBMITTED',
       task: {
         id: 'task_qa',
         title: '问答质量标注',
         template: { datasetKind: 'qa_quality' },
       },
     },
-    reviewRecords: [
-      {
-        id: 'record_1',
-        ruleId: 'rule_1',
-        stage: 'AI_PRECHECK',
-        reviewerType: 'AI',
-        scores: { overall: 88 },
-        decision: 'pass',
-        comment: '建议通过。',
-        rawPrompt: '请根据 prompt 评分。',
-        rawOutput: '{"verdict":"pass"}',
-        structuredOutput: { verdict: 'pass', scores: { overall: 88 } },
-        modelMetadata: { provider: 'mock', model: 'mock-stable-reviewer', latencyMs: 1420 },
-        retryCount: 0,
-        idempotencyKey: 'submission_1:1:ai-review',
-        createdAt: new Date('2026-05-21T08:01:00.000Z'),
-      },
-    ],
+    reviewRecords: input.reviewRecords ?? [createReviewRecord()],
     aiReviewJobs: [job],
+    auditLogs: [],
+    updatedAt: new Date('2026-05-21T08:00:00.000Z'),
   };
 }

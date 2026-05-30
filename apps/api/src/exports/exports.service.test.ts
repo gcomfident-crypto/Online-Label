@@ -1,5 +1,9 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { ExportMappingService } from './export-mapping.service.ts';
 import { ExportsService } from './exports.service.ts';
@@ -22,8 +26,15 @@ type ExportJob = {
   updatedAt: Date;
 };
 
+const outputDirs: string[] = [];
+
 describe('ExportsService', () => {
-  it('创建导出任务时保存字段映射快照并进入 QUEUED', async () => {
+  afterEach(async () => {
+    await Promise.all(outputDirs.map((dir) => rm(dir, { recursive: true, force: true })));
+    outputDirs.length = 0;
+  });
+
+  it('创建导出任务时保存字段映射快照、生成文件并可下载', async () => {
     const { service, db } = createService();
 
     const job = await service.createExport({
@@ -38,11 +49,17 @@ describe('ExportsService', () => {
         taskId: 'task_qa',
         requestedById: 'user_owner_001',
         format: 'csv',
-        status: 'QUEUED',
+        status: 'SUCCEEDED',
         includeReviews: true,
+        filePath: expect.stringMatching(/export_1\.csv$/),
       }),
     );
     expect(db.exportJobs[0].fieldMapping).toEqual(new ExportMappingService().getPreset('qa_quality'));
+    await expect(service.downloadExport(job.id)).resolves.toEqual(
+      expect.objectContaining({
+        fileName: 'export_1.csv',
+      }),
+    );
   });
 
   it('重复创建相同幂等键时返回既有导出任务', async () => {
@@ -58,10 +75,12 @@ describe('ExportsService', () => {
     });
 
     expect(job.id).toBe('export_idempotent');
+    expect(job.status).toBe('SUCCEEDED');
+    expect(job.filePath).toEqual(expect.stringMatching(/export_idempotent\.json$/));
     expect(db.exportJobs).toHaveLength(1);
   });
 
-  it('预览只读取 FINAL_APPROVED 数据，不包含 FINAL_PENDING', async () => {
+  it('预览读取复审通过后完成的数据，不包含未完成数据', async () => {
     const { service } = createService();
 
     const preview = await service.previewTaskExport('task_qa', {
@@ -76,7 +95,7 @@ describe('ExportsService', () => {
         prompt: '如何判断回答质量？',
         relevance_score: 5,
         ai_overall: 92,
-        human_verdict: 'final_pass',
+        human_verdict: 'recheck_pass',
       }),
     );
     expect(JSON.stringify(preview.rows)).not.toContain('qa_pending');
@@ -135,9 +154,12 @@ describe('ExportsService', () => {
 
 function createService() {
   const db = createExportDb();
+  const outputDir = mkdtempSync(join(tmpdir(), 'labelhub-exports-test-'));
+  outputDirs.push(outputDir);
   const service = new ExportsService(
     db.client as ConstructorParameters<typeof ExportsService>[0],
     new ExportMappingService(),
+    outputDir,
   );
 
   return { service, db };
@@ -242,20 +264,20 @@ function createAssignment(id: string, externalId: string, status: string) {
             createdAt: new Date('2026-05-21T09:00:00.000Z'),
           },
           {
-            id: `final_${externalId}`,
-            stage: 'FINAL',
+            id: `recheck_${externalId}`,
+            stage: 'RECHECK',
             reviewerType: 'HUMAN',
             scores: {},
-            decision: 'final_pass',
-            comment: '终审通过。',
+            decision: 'recheck_pass',
+            comment: '复审通过。',
             createdAt: new Date('2026-05-21T09:10:00.000Z'),
           },
         ],
         auditLogs: [
           {
             id: `audit_${externalId}`,
-            label: '终审通过',
-            reason: '终审通过。',
+            label: '复审通过',
+            reason: '复审通过。',
             createdAt: new Date('2026-05-21T09:11:00.000Z'),
           },
         ],

@@ -9,6 +9,7 @@ type AssignmentStatus =
   | 'SUBMITTED'
   | 'UNDER_RECHECK'
   | 'FINAL_PENDING'
+  | 'FINAL_APPROVED'
   | 'NEEDS_REVISION'
   | 'CANCELLED';
 
@@ -61,7 +62,12 @@ type AssignmentRecord = {
     answers: Record<string, unknown>;
     schemaVersion: string;
     submittedAt: Date;
-    reviewRecords: Array<{ decision: string | null; scores: Record<string, unknown>; createdAt: Date }>;
+    reviewRecords: Array<{
+      decision: string | null;
+      comment?: string | null;
+      scores: Record<string, unknown>;
+      createdAt: Date;
+    }>;
   }>;
 };
 
@@ -142,6 +148,37 @@ describe('DraftsService', () => {
             status: 'NEEDS_REVISION',
           }),
         ],
+      }),
+    );
+  });
+
+  it('上一轮打回原因优先展示审核记录 comment', async () => {
+    const { service } = createService({
+      submissions: [
+        {
+          id: 'submission_1',
+          status: 'NEEDS_REVISION',
+          round: 1,
+          answers: { quality: 'pass' },
+          schemaVersion: 'r1',
+          submittedAt: new Date('2026-05-21T02:00:00.000Z'),
+          reviewRecords: [
+            {
+              decision: 'reject',
+              comment: '人工复审认为依据不足，请补充说明。',
+              scores: {},
+              createdAt: new Date('2026-05-21T03:00:00.000Z'),
+            },
+          ],
+        },
+      ],
+    });
+
+    await expect(service.getWorkbench('assignment_1')).resolves.toEqual(
+      expect.objectContaining({
+        rejectionNotice: expect.objectContaining({
+          reason: '人工复审认为依据不足，请补充说明。',
+        }),
       }),
     );
   });

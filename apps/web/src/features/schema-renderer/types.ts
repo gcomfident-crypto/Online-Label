@@ -10,6 +10,8 @@ export type SchemaRendererProps = {
   value: Record<string, unknown>;
   mode: SchemaRendererMode;
   onChange: (next: Record<string, unknown>) => void;
+  activeFieldKey?: string | null;
+  onActiveFieldChange?: (fieldKey: string) => void;
 };
 
 export type FieldValueUpdater = (currentValue: unknown) => unknown;
@@ -27,5 +29,7 @@ export type FieldRendererProps = {
   disabledFieldKeys: ReadonlySet<string>;
   validationMessagesByField: ReadonlyMap<string, readonly string[]>;
   onFieldChange: (field: SchemaField, nextValue: FieldNextValue) => void;
+  activeFieldKey?: string | null;
+  onActiveFieldChange?: (fieldKey: string) => void;
   disabled?: boolean;
 };

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 
 import type { DatasetRecord } from '@labelhub/shared';
 import type { TaskItemDto } from '../../../api/datasets';
+import { TableEmptyState } from '../../../components/TableEmptyState';
+import { ToastViewport, useToastController } from '../../../components/ToastViewport';
 
 type DatasetPreviewTableProps = {
   items: TaskItemDto[];
@@ -18,7 +20,7 @@ export const DatasetPreviewTable = ({
 }: DatasetPreviewTableProps) => {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingJson, setEditingJson] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { dismissToast, messages, showErrorToast } = useToastController();
 
   useEffect(() => {
     if (!editingItemId) {
@@ -28,7 +30,6 @@ export const DatasetPreviewTable = ({
 
     const item = items.find((candidate) => candidate.id === editingItemId);
     setEditingJson(item ? JSON.stringify(item.rawData, null, 2) : '');
-    setErrorMessage(null);
   }, [editingItemId, items]);
 
   const saveEditingItem = async () => {
@@ -39,29 +40,32 @@ export const DatasetPreviewTable = ({
     try {
       const parsed = JSON.parse(editingJson) as unknown;
       if (!isDatasetRecord(parsed)) {
-        setErrorMessage('JSON 必须是对象。');
+        showErrorToast('JSON 必须是对象。');
         return;
       }
 
       await onUpdateItem(editingItemId, parsed);
       setEditingItemId(null);
-      setErrorMessage(null);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '题目保存失败。');
+      showErrorToast(error instanceof Error ? error.message : '题目保存失败。');
     }
   };
 
   if (items.length === 0) {
     return (
       <div className="dataset-empty-state">
-        <strong>暂无题目数据</strong>
-        <span>导入 JSON、JSONL、Excel 或官方 zip 后会在这里显示预览。</span>
+        <TableEmptyState
+          title="暂无题目数据"
+          description="导入 JSON、JSONL、Excel 或官方 zip 后会在这里显示预览。"
+          illustrationAlt="空题目预览表格插画"
+        />
       </div>
     );
   }
 
   return (
     <div className="dataset-preview-shell">
+      <ToastViewport messages={messages} onDismiss={dismissToast} />
       <div className="dataset-table-scroll">
         <table className="dataset-preview-table" aria-label="题目预览">
           <thead>
@@ -112,11 +116,9 @@ export const DatasetPreviewTable = ({
 
       {editingItemId ? (
         <div className="dataset-edit-panel" aria-label="编辑题目 JSON">
-          <div>
-            <h2>编辑题目 JSON</h2>
-            <p>保存后会以对象合并方式更新 rawData，已领取题目不可编辑。</p>
-          </div>
-          {errorMessage ? <span role="alert">{errorMessage}</span> : null}
+        <div>
+          <h2>编辑题目 JSON</h2>
+        </div>
           <textarea
             aria-label="题目 JSON"
             value={editingJson}

@@ -6,6 +6,8 @@ export type UpdateTaskDto = {
   richTextInstruction?: unknown;
   tags?: unknown;
   rewardRule?: unknown;
+  rewardPerItem?: unknown;
+  perUserLimit?: unknown;
   quota?: unknown;
   deadline?: unknown;
   distributionStrategy?: unknown;
@@ -20,10 +22,12 @@ export type UpdateTaskInput = {
   richTextInstruction?: string | null;
   tags?: string[];
   rewardRule?: string | null;
+  rewardPerItem?: number | null;
+  perUserLimit?: number | null;
   quota?: number | null;
   deadline?: string | null;
   distributionStrategy?: DistributionStrategy;
   aiPreReviewEnabled?: boolean;
   aiRuleName?: string | null;
-  templateId?: string;
+  templateId?: string | null;
 };

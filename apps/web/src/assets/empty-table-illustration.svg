@@ -1,0 +1,68 @@
+<svg width="320" height="240" viewBox="0 0 320 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Empty table illustration</title>
+  <desc id="desc">A blue and white vector illustration for an empty table state.</desc>
+  <defs>
+    <filter id="softShadow" x="42" y="34" width="236" height="172" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="10"/>
+      <feGaussianBlur stdDeviation="14"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.188 0 0 0 0 0.427 0 0 0 0 0.973 0 0 0 0.16 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
+    </filter>
+    <clipPath id="cardClip">
+      <rect x="72" y="56" width="176" height="116" rx="14"/>
+    </clipPath>
+  </defs>
+
+  <path d="M67 188H253" stroke="#306DF8" stroke-opacity="0.16" stroke-width="8" stroke-linecap="round"/>
+  <path d="M94 204H226" stroke="#306DF8" stroke-opacity="0.08" stroke-width="6" stroke-linecap="round"/>
+
+  <g opacity="0.78">
+    <path d="M58 86C58 81.5817 61.5817 78 66 78H86C90.4183 78 94 81.5817 94 86V106C94 110.418 90.4183 114 86 114H66C61.5817 114 58 110.418 58 106V86Z" fill="#306DF8" fill-opacity="0.08"/>
+    <path d="M230 34C230 29.5817 233.582 26 238 26H250C254.418 26 258 29.5817 258 34V46C258 50.4183 254.418 54 250 54H238C233.582 54 230 50.4183 230 46V34Z" fill="#306DF8" fill-opacity="0.1"/>
+    <path d="M261 121C261 116.582 264.582 113 269 113H282C286.418 113 290 116.582 290 121V134C290 138.418 286.418 142 282 142H269C264.582 142 261 138.418 261 134V121Z" fill="#306DF8" fill-opacity="0.08"/>
+    <path d="M48 144H64" stroke="#306DF8" stroke-opacity="0.28" stroke-width="4" stroke-linecap="round"/>
+    <path d="M56 136V152" stroke="#306DF8" stroke-opacity="0.28" stroke-width="4" stroke-linecap="round"/>
+    <path d="M262 83H278" stroke="#306DF8" stroke-opacity="0.24" stroke-width="4" stroke-linecap="round"/>
+    <path d="M270 75V91" stroke="#306DF8" stroke-opacity="0.24" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="88" cy="45" r="5" fill="#306DF8" fill-opacity="0.22"/>
+    <circle cx="248" cy="177" r="4" fill="#306DF8" fill-opacity="0.18"/>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <rect x="72" y="56" width="176" height="116" rx="14" fill="white"/>
+    <rect x="73.5" y="57.5" width="173" height="113" rx="12.5" stroke="#306DF8" stroke-opacity="0.28" stroke-width="3"/>
+    <g clip-path="url(#cardClip)">
+      <rect x="72" y="56" width="176" height="30" fill="#306DF8"/>
+      <path d="M92 71H112" stroke="white" stroke-width="4" stroke-linecap="round"/>
+      <path d="M128 71H156" stroke="white" stroke-opacity="0.84" stroke-width="4" stroke-linecap="round"/>
+      <path d="M192 71H228" stroke="white" stroke-opacity="0.84" stroke-width="4" stroke-linecap="round"/>
+
+      <path d="M72 114H248" stroke="#306DF8" stroke-opacity="0.14" stroke-width="2"/>
+      <path d="M72 142H248" stroke="#306DF8" stroke-opacity="0.14" stroke-width="2"/>
+      <path d="M118 86V172" stroke="#306DF8" stroke-opacity="0.14" stroke-width="2"/>
+      <path d="M174 86V172" stroke="#306DF8" stroke-opacity="0.14" stroke-width="2"/>
+
+      <path d="M92 102H108" stroke="#306DF8" stroke-opacity="0.35" stroke-width="4" stroke-linecap="round"/>
+      <path d="M134 102H154" stroke="#306DF8" stroke-opacity="0.22" stroke-width="4" stroke-linecap="round"/>
+      <path d="M191 102H224" stroke="#306DF8" stroke-opacity="0.22" stroke-width="4" stroke-linecap="round"/>
+
+      <path d="M92 130H104" stroke="#306DF8" stroke-opacity="0.22" stroke-width="4" stroke-linecap="round"/>
+      <path d="M134 130H158" stroke="#306DF8" stroke-opacity="0.18" stroke-width="4" stroke-linecap="round"/>
+      <path d="M191 130H216" stroke="#306DF8" stroke-opacity="0.18" stroke-width="4" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <g>
+    <circle cx="160" cy="126" r="35" fill="white"/>
+    <circle cx="160" cy="126" r="33" stroke="#306DF8" stroke-opacity="0.18" stroke-width="4"/>
+    <path d="M146 120C146 115.582 149.582 112 154 112H171C175.418 112 179 115.582 179 120V137C179 141.418 175.418 145 171 145H154C149.582 145 146 141.418 146 137V120Z" fill="#306DF8" fill-opacity="0.1"/>
+    <path d="M154 122H171" stroke="#306DF8" stroke-width="4" stroke-linecap="round"/>
+    <path d="M154 132H166" stroke="#306DF8" stroke-opacity="0.72" stroke-width="4" stroke-linecap="round"/>
+    <path d="M181.5 149.5L194 162" stroke="#306DF8" stroke-width="8" stroke-linecap="round"/>
+    <path d="M160 107C170.493 107 179 115.507 179 126" stroke="#306DF8" stroke-width="5" stroke-linecap="round"/>
+  </g>
+</svg>

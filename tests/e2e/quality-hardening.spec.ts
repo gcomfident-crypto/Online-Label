@@ -38,18 +38,15 @@ test('Owner 创建 qa_quality 任务、导入题目并发布', async ({ page }) 
   await page.goto('/owner/tasks');
 
   await page.getByRole('button', { name: '新建任务' }).click();
-  await expect(page.getByText('新任务草稿已创建。')).toBeVisible();
+  await expect(page.getByRole('complementary', { name: '发布任务抽屉' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '关闭发布抽屉' })).toHaveCount(0);
   await expect(page.getByLabel('关联模板')).toHaveValue('问答质量官方模板 (Schema qa-r1)');
-
-  await page.goto('/owner/tasks/task_qa/dataset');
-  await expect(page.getByRole('heading', { name: '题目数据导入' })).toBeVisible();
-  await page.getByLabel('文本内容').fill('{"id":"qa_1","prompt":"如何判断回答质量？","model_answer":"检查事实性。"}');
-  await page.getByRole('button', { name: '导入数据' }).click();
-  await expect(page.getByText('已导入 1 条题目。')).toBeVisible();
-  await expect(page.getByText('成功行数')).toBeVisible();
-
-  await page.goto('/owner/tasks');
-  await page.getByRole('button', { name: '发布 问答质量标注' }).click();
+  await page.getByLabel('任务标题').fill('问答质量标注');
+  await page.getByLabel('题目数据文件').setInputFiles({
+    name: 'qa.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"id":"qa_1","prompt":"如何判断回答质量？","model_answer":"检查事实性。"}'),
+  });
   await page.getByRole('button', { name: '立即发布 →' }).click();
   await expect(page.getByText('任务已发布。')).toBeVisible();
 });
@@ -76,7 +73,7 @@ test('主链路覆盖领取、草稿、提交、AI 转人工、打回、二次�
 
   await setSession(page, 'REVIEWER');
   await page.goto('/reviewer/reviews');
-  await expect(page.getByText('任务：问答质量标注')).toBeVisible();
+  await expect(page.getByRole('table', { name: '待审提交表格' }).getByText('问答质量标注')).toBeVisible();
   await page.getByLabel('人工复审决策').getByLabel('打回理由').fill('事实性依据不足，需要补充说明。');
   await page.getByLabel('人工复审决策').getByRole('button', { name: '打回', exact: true }).click();
   await expect(page.getByText('已打回给标注员。')).toBeVisible();
@@ -92,7 +89,7 @@ test('主链路覆盖领取、草稿、提交、AI 转人工、打回、二次�
   await setSession(page, 'REVIEWER');
   await page.goto('/reviewer/reviews');
   await page.getByLabel('人工复审决策').getByLabel('复审意见').fill('二次提交已满足要求。');
-  await page.getByRole('button', { name: '通过入库' }).click();
+  await page.getByRole('button', { name: '通过 · 入库' }).click();
   await expect(page.getByText('已通过复审，进入终审待办。')).toBeVisible();
 
   await page.goto('/reviewer/final-reviews');
@@ -108,32 +105,38 @@ test('主链路覆盖领取、草稿、提交、AI 转人工、打回、二次�
     await expect(page.getByText('导出任务已创建。')).toBeVisible();
   }
 
-  await expect(page.getByRole('table', { name: '导出历史' })).toContainText('JSON');
-  await expect(page.getByRole('table', { name: '导出历史' })).toContainText('JSONL');
-  await expect(page.getByRole('table', { name: '导出历史' })).toContainText('CSV');
-  await expect(page.getByRole('table', { name: '导出历史' })).toContainText('Excel');
+  await expect(page.getByRole('table', { name: '导出历史' })).toHaveCount(0);
+  await expect(page.getByText('暂无导出任务。')).toHaveCount(0);
 });
 
-test('关键页面双视口截图、中文文案和无横向溢出验收', async ({ page }, testInfo) => {
+test('关键页面四视口截图、中文文案和无横向溢出验收', async ({ page }, testInfo) => {
   const targets = [
-    { name: 'owner-tasks', role: 'OWNER', path: '/owner/tasks', heading: '任务管理' },
-    { name: 'owner-template', role: 'OWNER', path: '/owner/templates', heading: '模板搭建器（Designer）' },
+    { name: 'login', role: null, path: '/login', readyRole: 'heading', readyName: '登录 LabelHub', skipCopyCheck: true },
+    { name: 'owner-tasks', role: 'OWNER', path: '/owner/tasks', readyRole: 'table', readyName: '任务列表' },
+    { name: 'owner-template', role: 'OWNER', path: '/owner/templates', readyRole: 'table', readyName: '模板列表' },
+    { name: 'owner-exports', role: 'OWNER', path: '/owner/exports', readyRole: 'table', readyName: '导出记录列表' },
+    { name: 'agent-ai-review', role: 'AI_AGENT', path: '/agent/ai-review', readyRole: 'table', readyName: 'Agent 自动预审队列表格' },
+    { name: 'labeler-market', role: 'LABELER', path: '/labeler/market', readyRole: 'table', readyName: '任务广场列表' },
     {
       name: 'labeler-workbench',
       role: 'LABELER',
-      path: '/labeler/tasks/task_qa/items/item_qa_1?assignmentId=assignment_1',
-      heading: '问答质量标注 · 第 1 题',
+      path: '/labeler/my-data',
+      readyRole: 'table',
+      readyName: '工作台任务列表',
     },
-    { name: 'agent-ai-review', role: 'AI_AGENT', path: '/agent/ai-review', heading: 'AI 自动预审队列' },
-    { name: 'reviewer-reviews', role: 'REVIEWER', path: '/reviewer/reviews', heading: '人工复审工作台' },
-    { name: 'owner-exports', role: 'OWNER', path: '/owner/exports', heading: '导出中心' },
   ] as const;
 
   for (const target of targets) {
-    await setSession(page, target.role);
+    if (target.role) {
+      await setSession(page, target.role);
+    } else {
+      await clearSession(page);
+    }
     await page.goto(target.path);
-    await expect(page.getByRole('heading', { name: target.heading })).toBeVisible();
-    await assertNoUnmanagedEnglishCopy(page);
+    await expect(page.getByRole(target.readyRole, { name: target.readyName })).toBeVisible();
+    if (!('skipCopyCheck' in target)) {
+      await assertNoUnmanagedEnglishCopy(page);
+    }
     await assertNoHorizontalOverflow(page);
     await page.screenshot({
       path: testInfo.outputPath(`${testInfo.project.name}-${target.name}.png`),
@@ -148,14 +151,17 @@ async function installQualityMocks(page: Page) {
   await page.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    const path = url.pathname;
+    const path = url.pathname.replace(/^\/api/, '');
     const method = request.method();
 
+    if (path === '/templates' && method === 'GET') {
+      return fulfill(route, [createTemplate()]);
+    }
     if (path === '/tasks' && method === 'GET') {
       return fulfill(route, [state.ownerTask]);
     }
     if (path === '/tasks' && method === 'POST') {
-      state.ownerTask = { ...state.ownerTask, status: 'DRAFT' };
+      state.ownerTask = { ...state.ownerTask, ...parseBody(request.postData()), status: 'DRAFT' };
       return fulfill(route, state.ownerTask);
     }
     if (path === '/tasks/task_qa' && method === 'GET') {
@@ -179,6 +185,9 @@ async function installQualityMocks(page: Page) {
     }
     if (path === '/labeler/tasks' && method === 'GET') {
       return fulfill(route, [createMarketTask(state.claimed)]);
+    }
+    if (path === '/labeler/assignments' && method === 'GET') {
+      return fulfill(route, [createLabelerAssignment()]);
     }
     if (path === '/assignments/claim' && method === 'POST') {
       state.claimed = true;
@@ -278,6 +287,7 @@ function createOwnerTask(status: string) {
     richTextInstruction: '请按官方 qa_quality 模板完成验收。',
     tags: ['问答质量', '官方数据'],
     rewardRule: '0.50 元 / 条',
+    rewardPerItem: 0.5,
     quota: 100,
     deadline: '2026-06-01T15:59:00.000Z',
     distributionStrategy: 'FIRST_COME_FIRST_SERVE',
@@ -288,11 +298,31 @@ function createOwnerTask(status: string) {
     template: {
       id: 'template_qa',
       name: '问答质量官方模板',
+      datasetKind: 'qa_quality',
       schemaVersion: 'qa-r1',
       status: 'PUBLISHED',
     },
     createdById: 'user_owner_zhang_man',
     itemCount: 1,
+    exportableItemCount: 1,
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+}
+
+function createTemplate() {
+  return {
+    id: 'template_qa',
+    name: '问答质量官方模板',
+    description: '评估回答事实性、完整性和安全性。',
+    datasetKind: 'qa_quality',
+    schemaVersion: 'qa-r1',
+    schema: createWorkbenchSchema(),
+    status: 'PUBLISHED',
+    version: 1,
+    parentTemplateId: null,
+    createdById: 'user_owner_zhang_man',
+    publishedAt: NOW,
     createdAt: NOW,
     updatedAt: NOW,
   };
@@ -303,8 +333,12 @@ function createMarketTask(claimed: boolean) {
     id: 'task_qa',
     title: '问答质量标注',
     description: '评估回答事实性、完整性和安全性。',
+    ownerId: 'user_owner_zhang_man',
+    ownerName: '张满',
     tags: ['问答质量', '官方数据'],
     rewardRule: '0.50 元 / 条',
+    rewardPerItem: 0.5,
+    perUserLimit: null,
     quota: 100,
     deadline: '2026-06-01T15:59:00.000Z',
     datasetKind: 'qa_quality',
@@ -312,11 +346,32 @@ function createMarketTask(claimed: boolean) {
     templateName: '问答质量官方模板',
     itemCount: 1,
     assignedCount: claimed ? 1 : 0,
+    claimedByMeCount: claimed ? 1 : 0,
     remainingCount: claimed ? 0 : 1,
     claimedByMe: claimed,
     claimStatus: claimed ? 'claimed' : 'available',
+    previewItems: [createTaskItem()],
     createdAt: NOW,
     updatedAt: NOW,
+  };
+}
+
+function createLabelerAssignment() {
+  return {
+    assignmentId: 'assignment_1',
+    taskId: 'task_qa',
+    taskTitle: '问答质量标注',
+    taskItemId: 'item_qa_1',
+    taskItemSortOrder: 1,
+    externalId: 'qa_1',
+    datasetKind: 'qa_quality',
+    status: 'IN_PROGRESS',
+    claimedAt: NOW,
+    templateName: '问答质量官方模板',
+    schemaVersion: 'qa-r1',
+    latestSubmissionStatus: null,
+    latestSubmittedAt: null,
+    round: 1,
   };
 }
 
@@ -337,6 +392,7 @@ function createWorkbench(state: ReturnType<typeof createQualityState>) {
       richTextInstruction: '请按官方 qa_quality 模板完成验收。',
       tags: ['问答质量'],
       rewardRule: '0.50 元 / 条',
+      rewardPerItem: 0.5,
       quota: 100,
       deadline: '2026-06-01T15:59:00.000Z',
       templateId: 'template_qa',
@@ -728,6 +784,14 @@ async function setSession(page: Page, role: 'OWNER' | 'LABELER' | 'AI_AGENT' | '
     },
     { key: SESSION_KEY, nextRole: role },
   );
+}
+
+async function clearSession(page: Page) {
+  await page.goto('/login');
+  await page.evaluate((key) => {
+    window.localStorage.removeItem(key);
+    window.sessionStorage.removeItem(key);
+  }, SESSION_KEY);
 }
 
 async function assertNoUnmanagedEnglishCopy(page: Page) {

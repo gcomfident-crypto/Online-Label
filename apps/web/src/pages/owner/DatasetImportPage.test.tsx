@@ -95,7 +95,7 @@ describe('DatasetImportPage', () => {
     });
     await user.click(screen.getByRole('button', { name: '导入数据' }));
 
-    expect(await screen.findByText('已导入 1 条题目。')).toBeInTheDocument();
+    expect(await screen.findByText('已导入 1 条题目')).toBeInTheDocument();
     expect(screen.getByRole('table', { name: '题目预览' })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       '/tasks/task_1/items/import',
@@ -135,7 +135,7 @@ describe('DatasetImportPage', () => {
     });
     await user.click(screen.getByRole('button', { name: '批量写入字段' }));
 
-    expect(await screen.findByText('已批量更新 1 条题目。')).toBeInTheDocument();
+    expect(await screen.findByText('已批量更新 1 条题目')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       '/task-items/item_qa_1',
       expect.objectContaining({

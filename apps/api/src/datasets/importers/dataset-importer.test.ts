@@ -8,6 +8,7 @@ describe('Dataset importers', () => {
   it.each([
     ['json', async () => Buffer.from(JSON.stringify(createQaQualityRecords()))],
     ['jsonl', async () => Buffer.from(toJsonl(createQaQualityRecords()))],
+    ['csv', async () => Buffer.from(toCsv(createQaQualityRecords()))],
     ['xlsx', async () => createWorkbookBuffer('标注题目', createQaQualityRecords())],
   ] as const)('导入 qa_quality.%s 得到 30 条有效题目', async (format, contentFactory) => {
     const result = await parseDatasetImport({
@@ -32,6 +33,7 @@ describe('Dataset importers', () => {
   it.each([
     ['json', async () => Buffer.from(JSON.stringify(createPreferenceRecords()))],
     ['jsonl', async () => Buffer.from(toJsonl(createPreferenceRecords()))],
+    ['csv', async () => Buffer.from(toCsv(createPreferenceRecords()))],
     ['xlsx', async () => createWorkbookBuffer('偏好对比', createPreferenceRecords())],
   ] as const)('导入 preference_compare.%s 得到 12 条有效题目', async (format, contentFactory) => {
     const result = await parseDatasetImport({
@@ -47,6 +49,93 @@ describe('Dataset importers', () => {
       dimensions: ['准确性', '安全性'],
       safety_flag: false,
     });
+  });
+
+  it('JSON 单对象按一条题目导入', async () => {
+    const result = await parseDatasetImport({
+      datasetKind: 'generic_json',
+      format: 'json',
+      fileName: 'generic_json.json',
+      content: Buffer.from(JSON.stringify({ id: 'single_1', prompt: '单条题目' })),
+    });
+
+    expect(result.records).toHaveLength(1);
+    expect(result.errors).toEqual([]);
+    expect(result.records[0]).toMatchObject({
+      externalId: 'single_1',
+      rawData: {
+        id: 'single_1',
+        prompt: '单条题目',
+      },
+    });
+  });
+
+  it('CSV 支持带逗号、引号和换行的单元格', async () => {
+    const result = await parseDatasetImport({
+      datasetKind: 'generic_json',
+      format: 'csv',
+      fileName: 'generic_json.csv',
+      content: Buffer.from('id,prompt,note\nC1,"包含,逗号","第一行\n第二行"\nC2,"包含""引号""",普通备注'),
+    });
+
+    expect(result.records).toHaveLength(2);
+    expect(result.errors).toEqual([]);
+    expect(result.records[0]?.rawData).toMatchObject({
+      id: 'C1',
+      prompt: '包含,逗号',
+      note: '第一行\n第二行',
+    });
+    expect(result.records[1]?.rawData).toMatchObject({
+      id: 'C2',
+      prompt: '包含"引号"',
+      note: '普通备注',
+    });
+  });
+
+  it('导入时不再按数据集 profile 阻断缺失业务字段的题目', async () => {
+    const result = await parseDatasetImport({
+      datasetKind: 'qa_quality',
+      format: 'jsonl',
+      fileName: 'preference_compare.jsonl',
+      content: Buffer.from(
+        toJsonl([
+          {
+            id: 'P0001',
+            prompt: '解释什么是过拟合',
+            response_a: '回答 A',
+            response_b: '回答 B',
+          },
+        ]),
+      ),
+    });
+
+    expect(result.records).toHaveLength(1);
+    expect(result.errors).toEqual([]);
+    expect(result.records[0]).toMatchObject({
+      externalId: 'P0001',
+      datasetKind: 'qa_quality',
+      rawData: {
+        prompt: '解释什么是过拟合',
+        response_a: '回答 A',
+        response_b: '回答 B',
+      },
+    });
+  });
+
+  it('导入缺少 id 的题目时用文件位置生成 externalId', async () => {
+    const result = await parseDatasetImport({
+      datasetKind: 'qa_quality',
+      format: 'jsonl',
+      fileName: 'custom.jsonl',
+      content: Buffer.from(toJsonl([{ prompt: '只有题干' }, { prompt: '第二条题干' }])),
+    });
+
+    expect(result.records).toHaveLength(2);
+    expect(result.errors).toEqual([]);
+    expect(result.records.map((record) => record.externalId)).toEqual([
+      'custom.jsonl#line-1',
+      'custom.jsonl#line-2',
+    ]);
   });
 
   it('JSONL 非法行返回具体行号且不写入错误行', async () => {
@@ -120,6 +209,19 @@ function createPreferenceRecords() {
 
 function toJsonl(records: Record<string, unknown>[]): string {
   return records.map((record) => JSON.stringify(record)).join('\n');
+}
+
+function toCsv(records: Record<string, unknown>[]): string {
+  const headers = Object.keys(records[0] ?? {});
+  const rows = records.map((record) => headers.map((header) => csvCell(record[header])).join(','));
+
+  return [headers.join(','), ...rows].join('\n');
+}
+
+function csvCell(value: unknown): string {
+  const text = String(value ?? '');
+
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 async function createWorkbookBuffer(sheetName: string, records: Record<string, unknown>[]): Promise<Buffer> {

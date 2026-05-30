@@ -1,4 +1,5 @@
 import type { DatasetKind } from '@labelhub/shared';
+import { requestApi } from './request';
 
 export type SubmissionDto = {
   id: string;
@@ -10,6 +11,13 @@ export type SubmissionDto = {
   submittedAt: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type TaskSubmissionDto = {
+  taskId: string;
+  labelerId: string;
+  submittedCount: number;
+  submissions: SubmissionDto[];
 };
 
 export type LabelerSubmissionDto = {
@@ -45,15 +53,6 @@ export type LabelerSubmissionQuery = {
   itemId?: string;
 };
 
-type ApiEnvelope<TData> = {
-  data: TData;
-  error?: {
-    message?: string;
-  };
-};
-
-const apiBaseUrl = (): string => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
-
 export async function submitAssignment(input: {
   assignmentId: string;
   actorId?: string;
@@ -61,6 +60,21 @@ export async function submitAssignment(input: {
   idempotencyKey?: string;
 }): Promise<SubmissionDto> {
   return requestSubmissionApi<SubmissionDto>('/submissions', {
+    method: 'POST',
+    headers: input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey } : undefined,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function submitTask(input: {
+  taskId: string;
+  labelerId: string;
+  actorId?: string;
+  currentAssignmentId?: string;
+  currentAnswers?: Record<string, unknown>;
+  idempotencyKey?: string;
+}): Promise<TaskSubmissionDto> {
+  return requestSubmissionApi<TaskSubmissionDto>('/submissions/task', {
     method: 'POST',
     headers: input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey } : undefined,
     body: JSON.stringify(input),
@@ -107,18 +121,5 @@ export async function getLabelerStats(input: {
 }
 
 async function requestSubmissionApi<TData>(path: string, init: RequestInit): Promise<TData> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  const envelope = (await response.json()) as ApiEnvelope<TData>;
-
-  if (!response.ok) {
-    throw new Error(envelope.error?.message ?? '提交接口请求失败，请稍后重试。');
-  }
-
-  return envelope.data;
+  return requestApi<TData>(path, init, '提交接口请求失败，请稍后重试。');
 }

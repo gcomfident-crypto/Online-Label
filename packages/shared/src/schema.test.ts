@@ -44,7 +44,7 @@ describe('动态表单 Schema 协议', () => {
 
   it('固定导入格式、审核阶段和导出格式', () => {
     expect(DATASET_KINDS).toEqual(['qa_quality', 'preference_compare', 'generic_json']);
-    expect(DATASET_IMPORT_FORMATS).toEqual(['json', 'jsonl', 'xlsx', 'zip']);
+    expect(DATASET_IMPORT_FORMATS).toEqual(['json', 'jsonl', 'csv', 'xlsx', 'zip']);
     expect(REVIEW_STAGES).toEqual(['AI_PRECHECK', 'INITIAL', 'RECHECK', 'FINAL']);
     expect(EXPORT_FORMATS).toEqual(['json', 'jsonl', 'csv', 'xlsx']);
   });

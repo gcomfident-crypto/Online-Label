@@ -30,11 +30,11 @@ describe('DebugController', () => {
       {
         getSeedStatus: async () => ({
           users: 4,
-          templates: 2,
-          tasks: 2,
+          templates: 0,
+          tasks: 0,
           taskItems: {
-            qa_quality: 30,
-            preference_compare: 12,
+            qa_quality: 0,
+            preference_compare: 0,
           },
         }),
         listTasks: async () => [],
@@ -46,11 +46,11 @@ describe('DebugController', () => {
 
     await expect(controller.getSeedStatus()).resolves.toEqual({
       users: 4,
-      templates: 2,
-      tasks: 2,
+      templates: 0,
+      tasks: 0,
       taskItems: {
-        qa_quality: 30,
-        preference_compare: 12,
+        qa_quality: 0,
+        preference_compare: 0,
       },
     });
   });
@@ -60,11 +60,11 @@ describe('DebugController', () => {
       {
         getSeedStatus: async () => ({
           users: 4,
-          templates: 2,
-          tasks: 2,
+          templates: 0,
+          tasks: 0,
           taskItems: {
-            qa_quality: 30,
-            preference_compare: 12,
+            qa_quality: 0,
+            preference_compare: 0,
           },
         }),
         listTasks: async () => [],

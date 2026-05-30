@@ -10,13 +10,13 @@ type ReviewerType = 'AI' | 'HUMAN';
 type SubmissionStatus =
   | 'HUMAN_PENDING'
   | 'RECHECK_REVIEWING'
-  | 'FINAL_PENDING'
+  | 'FINAL_APPROVED'
   | 'NEEDS_REVISION'
   | string;
 type AssignmentStatus =
   | 'SUBMITTED'
   | 'UNDER_RECHECK'
-  | 'FINAL_PENDING'
+  | 'FINAL_APPROVED'
   | 'NEEDS_REVISION'
   | string;
 
@@ -341,20 +341,20 @@ export class ReviewsService {
       await createHumanReviewRecord(client, submission, {
         actorId: input.actorId,
         decision: 'recheck_pass',
-        comment: input.comment?.trim() || '复审通过，进入终审待办。',
+        comment: input.comment?.trim() || '复审通过，标注结果已完成。',
       });
       await client.submission.update({
         where: { id: submission.id },
-        data: { status: 'FINAL_PENDING' },
+        data: { status: 'FINAL_APPROVED' },
       });
       await client.assignment.update({
         where: { id: submission.assignmentId },
-        data: { status: 'FINAL_PENDING' },
+        data: { status: 'FINAL_APPROVED' },
       });
       await writeReviewAudit(client, submission, {
         actorId: input.actorId,
         fromStatus: submission.status,
-        toStatus: 'FINAL_PENDING',
+        toStatus: 'FINAL_APPROVED',
         reason: input.comment,
         metadata: { action: 'HUMAN_REVIEW_APPROVED' },
       });
@@ -412,24 +412,24 @@ export class ReviewsService {
       await createHumanReviewRecord(client, submission, {
         actorId: input.actorId,
         decision: 'revise_pass',
-        comment: input.comment?.trim() || '已直接修订并进入终审待办。',
+        comment: input.comment?.trim() || '已直接修订并完成入库。',
         revisedAnswers: input.revisedAnswers,
       });
       await client.submission.update({
         where: { id: submission.id },
         data: {
-          status: 'FINAL_PENDING',
+          status: 'FINAL_APPROVED',
           answers: input.revisedAnswers,
         },
       });
       await client.assignment.update({
         where: { id: submission.assignmentId },
-        data: { status: 'FINAL_PENDING' },
+        data: { status: 'FINAL_APPROVED' },
       });
       await writeReviewAudit(client, submission, {
         actorId: input.actorId,
         fromStatus: submission.status,
-        toStatus: 'FINAL_PENDING',
+        toStatus: 'FINAL_APPROVED',
         reason: input.comment,
         metadata: {
           action: 'HUMAN_REVIEW_REVISED_APPROVED',
@@ -452,7 +452,7 @@ export class ReviewsService {
         this.prisma,
         result.submissions.map((submission) => submission.submission.id),
         input.actorId,
-        'FINAL_PENDING',
+        'FINAL_APPROVED',
         'HUMAN_REVIEW_BULK_APPROVED',
         input.comment,
       );

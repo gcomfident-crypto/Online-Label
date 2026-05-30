@@ -1,4 +1,5 @@
 import type { AiReviewStatus, DatasetKind } from '@labelhub/shared';
+import { requestApi } from './request';
 
 export type AiReviewJobDto = {
   id: string;
@@ -23,6 +24,37 @@ export type AiReviewJobDto = {
   updatedAt: string;
 };
 
+export type AiReviewBatchStatus = 'PENDING' | 'PASSED' | 'REJECTED' | 'MANUAL' | 'FAILED';
+export type AiReviewBatchDecision = 'pending' | 'pass' | 'reject' | 'manual' | 'failed';
+
+export type AiReviewLogDto = {
+  id: string;
+  type: 'queue' | 'llm' | 'verdict' | 'audit' | 'error' | 'retry' | 'run';
+  time: string;
+  message: string;
+};
+
+export type AiReviewBatchDto = {
+  batchId: string;
+  displayId: string;
+  taskId: string;
+  taskTitle: string;
+  labelerId: string | null;
+  labelerName: string;
+  submittedAt: string;
+  itemCount: number;
+  externalIds: string[];
+  status: AiReviewBatchStatus;
+  aggregateDecision: AiReviewBatchDecision;
+  aggregateScore: number | null;
+  failureReason: string | null;
+  aiSuggestionLabel: string;
+  templateVersion: string | null;
+  provider: string | null;
+  model: string | null;
+  updatedAt: string;
+};
+
 export type AiReviewRecordDto = {
   id: string;
   ruleId: string | null;
@@ -38,6 +70,34 @@ export type AiReviewRecordDto = {
   retryCount: number;
   idempotencyKey: string | null;
   createdAt: string;
+};
+
+export type AiReviewBatchItemDto = {
+  index: number;
+  job: AiReviewJobDto;
+  submission: {
+    id: string;
+    assignmentId: string;
+    status: string;
+    round: number;
+    answers: Record<string, unknown>;
+    schemaVersion: string;
+    submittedAt: string;
+  };
+  taskItem: {
+    id: string;
+    externalId: string;
+    datasetKind: DatasetKind;
+    rawData: Record<string, unknown>;
+  };
+  reviewRecord: AiReviewRecordDto | null;
+  decision: AiReviewBatchDecision;
+  overallScore: number | null;
+  logs: AiReviewLogDto[];
+};
+
+export type AiReviewBatchDetailDto = AiReviewBatchDto & {
+  items: AiReviewBatchItemDto[];
 };
 
 export type AiReviewDetailDto = {
@@ -65,14 +125,22 @@ export type AiReviewDetailDto = {
   jobs: AiReviewJobDto[];
 };
 
-type ApiEnvelope<TData> = {
-  data: TData;
-  error?: {
-    message?: string;
-  };
-};
+export async function listAiReviewBatches(input: { status?: AiReviewBatchStatus } = {}): Promise<AiReviewBatchDto[]> {
+  const searchParams = new URLSearchParams();
+  if (input.status) {
+    searchParams.set('status', input.status);
+  }
 
-const apiBaseUrl = (): string => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
+  const suffix = searchParams.size > 0 ? `?${searchParams.toString()}` : '';
+
+  return requestAiReviewApi<AiReviewBatchDto[]>(`/ai-review/batches${suffix}`, { method: 'GET' });
+}
+
+export async function getAiReviewBatch(batchId: string): Promise<AiReviewBatchDetailDto> {
+  return requestAiReviewApi<AiReviewBatchDetailDto>(`/ai-review/batches/${encodeURIComponent(batchId)}`, {
+    method: 'GET',
+  });
+}
 
 export async function listAiReviewJobs(input: { status?: AiReviewStatus } = {}): Promise<AiReviewJobDto[]> {
   const searchParams = new URLSearchParams();
@@ -94,18 +162,5 @@ export async function getSubmissionAiReview(submissionId: string): Promise<AiRev
 }
 
 async function requestAiReviewApi<TData>(path: string, init: RequestInit): Promise<TData> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  const envelope = (await response.json()) as ApiEnvelope<TData>;
-
-  if (!response.ok) {
-    throw new Error(envelope.error?.message ?? 'AI 预审接口请求失败，请稍后重试。');
-  }
-
-  return envelope.data;
+  return requestApi<TData>(path, init, 'AI 预审接口请求失败，请稍后重试。');
 }

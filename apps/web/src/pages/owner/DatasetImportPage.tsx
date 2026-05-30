@@ -17,11 +17,13 @@ import {
   type TaskItemDto,
 } from '../../api/datasets';
 import { getTask, type TaskDto } from '../../api/tasks';
+import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { DatasetPreviewTable } from './components/DatasetPreviewTable';
 
 const FORMAT_LABELS: Record<DatasetImportFormat, string> = {
   json: 'JSON',
   jsonl: 'JSONL',
+  csv: 'CSV',
   xlsx: 'Excel',
   zip: '官方 zip',
 };
@@ -45,15 +47,14 @@ export const DatasetImportPage = () => {
   const [importSummary, setImportSummary] = useState<DatasetImportSummaryDto | null>(null);
   const [bulkField, setBulkField] = useState('');
   const [bulkValue, setBulkValue] = useState('');
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
+  const { dismissToast, messages, showErrorToast, showStatusToast } = useToastController();
 
   useEffect(() => {
     if (!taskId) {
-      setErrorMessage('缺少任务 ID，无法加载题目数据。');
+      showErrorToast('缺少任务 ID，无法加载题目数据。');
       setIsLoading(false);
       return;
     }
@@ -81,9 +82,8 @@ export const DatasetImportPage = () => {
       setTask(nextTask);
       setItems(nextItems);
       setDatasetKind(resolveDatasetKind(nextTask.template.name));
-      setErrorMessage(null);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '题目数据加载失败。');
+      showErrorToast(error instanceof Error ? error.message : '题目数据加载失败。');
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +101,7 @@ export const DatasetImportPage = () => {
 
   const handleImport = async () => {
     if (!taskId) {
-      setErrorMessage('缺少任务 ID，无法导入。');
+      showErrorToast('缺少任务 ID，无法导入。');
       return;
     }
 
@@ -124,10 +124,9 @@ export const DatasetImportPage = () => {
 
       setImportSummary(summary);
       await reloadItems();
-      setStatusMessage(`已导入 ${summary.importedCount.toLocaleString()} 条题目。`);
-      setErrorMessage(null);
+      showStatusToast(`已导入 ${summary.importedCount.toLocaleString()} 条题目。`);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '题目导入失败。');
+      showErrorToast(error instanceof Error ? error.message : '题目导入失败。');
     } finally {
       setIsImporting(false);
     }
@@ -136,13 +135,12 @@ export const DatasetImportPage = () => {
   const updateItem = async (itemId: string, patch: DatasetRecord) => {
     const updatedItem = await updateTaskItem(itemId, patch);
     setItems((current) => current.map((item) => (item.id === updatedItem.id ? updatedItem : item)));
-    setStatusMessage('题目已保存。');
-    setErrorMessage(null);
+    showStatusToast('题目已保存。');
   };
 
   const handleBulkEdit = async () => {
     if (!bulkField.trim()) {
-      setErrorMessage('请填写批量字段名。');
+      showErrorToast('请填写批量字段名。');
       return;
     }
 
@@ -156,10 +154,9 @@ export const DatasetImportPage = () => {
         current.map((item) => updatedItems.find((updated) => updated.id === item.id) ?? item),
       );
       setSelectedIds(new Set());
-      setStatusMessage(`已批量更新 ${updatedItems.length.toLocaleString()} 条题目。`);
-      setErrorMessage(null);
+      showStatusToast(`已批量更新 ${updatedItems.length.toLocaleString()} 条题目。`);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '批量编辑失败。');
+      showErrorToast(error instanceof Error ? error.message : '批量编辑失败。');
     } finally {
       setIsBulkSaving(false);
     }
@@ -181,21 +178,19 @@ export const DatasetImportPage = () => {
     return (
       <section className="dataset-import-page" aria-labelledby="dataset-import-title">
         <h1 id="dataset-import-title">数据导入</h1>
-        <p>正在加载任务题目。</p>
       </section>
     );
   }
 
   return (
     <section className="dataset-import-page" aria-labelledby="dataset-import-title">
+      <ToastViewport messages={messages} onDismiss={dismissToast} />
       <div className="dataset-import-header">
         <div>
           <Link className="primary-link" to={task ? `/owner/tasks/${task.id}` : '/owner/tasks'}>
             返回任务详情
           </Link>
-          <p className="eyebrow">Owner / 数据导入</p>
           <h1 id="dataset-import-title">题目数据导入</h1>
-          <p>{task ? `${task.title} · ${task.template.name}` : '选择任务后导入官方题目数据。'}</p>
         </div>
         <dl>
           <div>
@@ -212,13 +207,6 @@ export const DatasetImportPage = () => {
           </div>
         </dl>
       </div>
-
-      {statusMessage || errorMessage ? (
-        <div className="task-status-message" aria-live="polite">
-          {statusMessage ? <span>{statusMessage}</span> : null}
-          {errorMessage ? <span role="alert">{errorMessage}</span> : null}
-        </div>
-      ) : null}
 
       <div className="dataset-import-layout">
         <form
@@ -271,11 +259,11 @@ export const DatasetImportPage = () => {
             <input
               aria-label="上传文件"
               type="file"
-              accept=".json,.jsonl,.xlsx,.zip,application/json"
+              accept=".json,.jsonl,.csv,.xlsx,.zip,application/json,text/csv"
               onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
             />
           </label>
-          {format === 'json' || format === 'jsonl' ? (
+          {format === 'json' || format === 'jsonl' || format === 'csv' ? (
             <label>
               文本内容
               <textarea
@@ -357,16 +345,14 @@ export const DatasetImportPage = () => {
                 </section>
               ) : null}
             </>
-          ) : (
-            <p>导入后会显示 profile、行数、字段、跳过文件和错误明细。</p>
-          )}
+          ) : null}
         </section>
       </div>
 
       <section className="dataset-bulk-panel" aria-label="批量编辑">
         <div>
           <h2>题目预览与批量编辑</h2>
-          <p>已选择 {selectedIds.size.toLocaleString()} 条未领取题目。</p>
+          <strong>已选择 {selectedIds.size.toLocaleString()} 条</strong>
         </div>
         <label>
           字段名

@@ -1,5 +1,5 @@
 import type { EditableFieldProps } from './common';
-import { FieldDescription, getFieldValue, getStringValue, isDisabledMode } from './common';
+import { FieldTitleRow, getFieldValue, getStringValue, isDisabledMode } from './common';
 
 export const RichTextField = ({
   field,
@@ -10,9 +10,7 @@ export const RichTextField = ({
 }: EditableFieldProps) => {
   return (
     <label className="schema-field" data-field-type={field.type}>
-      <span>{field.label}</span>
-      <span className="schema-field__meta">富文本</span>
-      <FieldDescription field={field} />
+      <FieldTitleRow field={field} meta="富文本" />
       <textarea
         aria-label={field.label}
         disabled={isDisabledMode(mode, disabled)}

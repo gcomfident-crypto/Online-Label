@@ -9,6 +9,7 @@ type AssignmentStatus =
   | 'SUBMITTED'
   | 'UNDER_RECHECK'
   | 'FINAL_PENDING'
+  | 'FINAL_APPROVED'
   | 'NEEDS_REVISION'
   | 'CANCELLED';
 type TaskItemStatus = 'UNASSIGNED' | 'ASSIGNED' | 'COMPLETED';
@@ -19,6 +20,7 @@ type TaskRecord = {
   description: string | null;
   tags: string[];
   rewardRule: string | null;
+  perUserLimit: number | null;
   quota: number | null;
   deadline: Date | null;
   status: 'DRAFT' | 'PUBLISHED' | 'PAUSED' | 'ENDED';
@@ -27,7 +29,12 @@ type TaskRecord = {
     name: string;
     datasetKind: 'qa_quality' | 'preference_compare' | 'generic_json';
   };
-  items: Array<{ id: string; status: TaskItemStatus }>;
+  createdById: string | null;
+  createdBy: {
+    id: string;
+    name: string;
+  } | null;
+  items: TaskItemRecord[];
   assignments: Array<{ id: string; assigneeId: string; status: AssignmentStatus }>;
   createdAt: Date;
   updatedAt: Date;
@@ -63,33 +70,58 @@ type MockAssignmentsPrisma = {
     findUnique: (args: { where: { id: string } }) => Promise<TaskRecord | null>;
   };
   taskItem: {
-    findFirst: (args: { where: { taskId: string; status: TaskItemStatus } }) => Promise<TaskItemRecord | null>;
+    findMany: (args: {
+      where: { taskId: string; status: TaskItemStatus };
+      orderBy: { sortOrder: 'asc' };
+      take?: number;
+    }) => Promise<TaskItemRecord[]>;
     updateMany: (args: {
       where: { id: string; status: TaskItemStatus };
       data: { status: TaskItemStatus };
     }) => Promise<{ count: number }>;
   };
   assignment: {
-    count: (args: { where: { taskId: string; status?: { not: AssignmentStatus } } }) => Promise<number>;
+    count: (args: {
+      where: {
+        taskId?: string;
+        assigneeId?: string;
+        status?: { not: AssignmentStatus };
+        claimedAt?: { gte: Date; lt: Date };
+      };
+    }) => Promise<number>;
     create: (args: { data: Partial<AssignmentRecord>; include?: unknown }) => Promise<AssignmentRecord>;
   };
   $transaction: <TResult>(callback: (client: MockAssignmentsPrisma) => Promise<TResult>) => Promise<TResult>;
 };
 
 describe('AssignmentsService', () => {
-  it('只把发布中任务展示到任务广场并支持关键词、标签和已领取筛选', async () => {
+  it('只把进行中任务展示到任务广场并支持关键词、标签和已领取筛选', async () => {
     const { service } = createService();
 
     await expect(service.listMarketTasks({ keyword: '问答', labelerId: 'user_labeler_1' })).resolves.toEqual([
       expect.objectContaining({
         id: 'task_qa',
         title: '问答质量标注',
+        ownerId: 'user_owner_zhang_man',
+        ownerName: '张满',
         datasetKind: 'qa_quality',
         itemCount: 2,
         assignedCount: 1,
         remainingCount: 1,
         claimStatus: 'available',
         claimedByMe: false,
+        previewItems: [
+          {
+            id: 'item_qa_1',
+            externalId: 'qa_1',
+            rawData: { prompt: '如何判断回答质量？' },
+          },
+          {
+            id: 'item_qa_2',
+            externalId: 'qa_2',
+            rawData: { prompt: '如何检查事实性？' },
+          },
+        ],
       }),
     ]);
     await expect(service.listMarketTasks({ tag: '偏好', claimStatus: 'claimed', labelerId: 'user_labeler_1' })).resolves.toEqual([
@@ -101,8 +133,15 @@ describe('AssignmentsService', () => {
     ]);
   });
 
-  it('领取任务时在事务中锁定一条未领取题目并创建 assignment', async () => {
+  it('领取任务时在事务中批量锁定整任务剩余题目并创建 assignments', async () => {
     const { service, assignments, items } = createService({
+      tasks: [{ id: 'task_qa', perUserLimit: 1 }],
+      items: [
+        { id: 'item_qa_3', taskId: 'task_qa', externalId: 'qa_3', status: 'UNASSIGNED', sortOrder: 3 },
+        { id: 'item_qa_4', taskId: 'task_qa', externalId: 'qa_4', status: 'UNASSIGNED', sortOrder: 4 },
+        { id: 'item_qa_5', taskId: 'task_qa', externalId: 'qa_5', status: 'UNASSIGNED', sortOrder: 5 },
+        { id: 'item_qa_6', taskId: 'task_qa', externalId: 'qa_6', status: 'UNASSIGNED', sortOrder: 6 },
+      ],
       assignments: [
         {
           id: 'assignment_1',
@@ -125,11 +164,17 @@ describe('AssignmentsService', () => {
         taskItemId: 'item_qa_1',
         labelerId: 'user_labeler_1',
         status: 'ASSIGNED',
-        claimedCount: 2,
+        claimedItemCount: 5,
+        claimedCount: 6,
       }),
     );
     expect(items.find((item) => item.id === 'item_qa_1')?.status).toBe('ASSIGNED');
-    expect(assignments).toHaveLength(2);
+    expect(items.find((item) => item.id === 'item_qa_3')?.status).toBe('ASSIGNED');
+    expect(items.find((item) => item.id === 'item_qa_4')?.status).toBe('ASSIGNED');
+    expect(items.find((item) => item.id === 'item_qa_5')?.status).toBe('ASSIGNED');
+    expect(items.find((item) => item.id === 'item_qa_6')?.status).toBe('ASSIGNED');
+    expect(assignments).toHaveLength(6);
+    expect(assignments.filter((assignment) => assignment.assigneeId === 'user_labeler_1')).toHaveLength(5);
   });
 
   it('并发领取同一题时只创建一个有效 assignment', async () => {
@@ -174,6 +219,77 @@ describe('AssignmentsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('已达到历史单人限额时仍可继续领取整任务剩余题目', async () => {
+    const { service, assignments, items } = createService({
+      tasks: [{ id: 'task_qa', quota: 10, perUserLimit: 1 }],
+      assignments: [
+        {
+          id: 'assignment_1',
+          taskId: 'task_qa',
+          taskItemId: 'item_qa_2',
+          assigneeId: 'user_labeler_1',
+        },
+      ],
+    });
+
+    await expect(service.claim({ taskId: 'task_qa', labelerId: 'user_labeler_1' })).resolves.toMatchObject({
+      taskItemId: 'item_qa_1',
+      claimedItemCount: 1,
+    });
+    expect(assignments.filter((assignment) => assignment.assigneeId === 'user_labeler_1')).toHaveLength(2);
+    expect(items.find((item) => item.id === 'item_qa_1')?.status).toBe('ASSIGNED');
+  });
+
+  it('labeler 当天已领取 100 道题后仍可领取任务剩余题目', async () => {
+    const { service, assignments, items } = createService({
+      tasks: [{ id: 'task_qa', quota: 300, perUserLimit: 200 }],
+      assignments: Array.from({ length: 100 }, (_, index) => ({
+        id: `assignment_today_${index + 1}`,
+        taskId: 'task_qa',
+        taskItemId: 'item_qa_2',
+        assigneeId: 'user_labeler_1',
+        claimedAt: new Date(),
+      })),
+    });
+
+    await expect(service.claim({ taskId: 'task_qa', labelerId: 'user_labeler_1' })).resolves.toMatchObject({
+      taskItemId: 'item_qa_1',
+      claimedItemCount: 1,
+    });
+    expect(assignments.filter((assignment) => assignment.assigneeId === 'user_labeler_1')).toHaveLength(101);
+    expect(items.find((item) => item.id === 'item_qa_1')?.status).toBe('ASSIGNED');
+  });
+
+  it('labeler 当天剩余额度不足时仍领取任务所有剩余题目', async () => {
+    const { service, assignments, items } = createService({
+      tasks: [{ id: 'task_qa', quota: 300, perUserLimit: 200 }],
+      items: [
+        { id: 'item_qa_3', taskId: 'task_qa', externalId: 'qa_3', status: 'UNASSIGNED', sortOrder: 3 },
+        { id: 'item_qa_4', taskId: 'task_qa', externalId: 'qa_4', status: 'UNASSIGNED', sortOrder: 4 },
+        { id: 'item_qa_5', taskId: 'task_qa', externalId: 'qa_5', status: 'UNASSIGNED', sortOrder: 5 },
+      ],
+      assignments: Array.from({ length: 98 }, (_, index) => ({
+        id: `assignment_today_${index + 1}`,
+        taskId: 'task_qa',
+        taskItemId: 'item_qa_2',
+        assigneeId: 'user_labeler_1',
+        claimedAt: new Date(),
+      })),
+    });
+
+    const result = await service.claim({ taskId: 'task_qa', labelerId: 'user_labeler_1' });
+
+    expect(result).toMatchObject({
+      claimedItemCount: 4,
+      claimedCount: 102,
+    });
+    expect(assignments.filter((assignment) => assignment.assigneeId === 'user_labeler_1')).toHaveLength(102);
+    expect(items.find((item) => item.id === 'item_qa_1')?.status).toBe('ASSIGNED');
+    expect(items.find((item) => item.id === 'item_qa_3')?.status).toBe('ASSIGNED');
+    expect(items.find((item) => item.id === 'item_qa_4')?.status).toBe('ASSIGNED');
+    expect(items.find((item) => item.id === 'item_qa_5')?.status).toBe('ASSIGNED');
+  });
+
   it('不存在的任务领取返回 NotFoundException', async () => {
     const { service } = createService();
 
@@ -197,10 +313,26 @@ function createService(
     ...task,
     ...overrides.tasks?.find((override) => override.id === task.id),
   }));
-  const items = itemDefaults.map((item) => ({
-    ...item,
-    ...overrides.items?.find((override) => override.id === item.id),
-  }));
+  const defaultItemIds = new Set(itemDefaults.map((item) => item.id));
+  const items = [
+    ...itemDefaults.map((item) => ({
+      ...item,
+      ...overrides.items?.find((override) => override.id === item.id),
+    })),
+    ...(overrides.items ?? [])
+      .filter((override) => !defaultItemIds.has(override.id))
+      .map((override) =>
+        createTaskItem(now, {
+          id: override.id,
+          taskId: override.taskId ?? 'task_qa',
+          externalId: override.externalId ?? override.id,
+          datasetKind: override.datasetKind ?? 'qa_quality',
+          rawData: override.rawData ?? { prompt: override.id },
+          status: override.status ?? 'UNASSIGNED',
+          sortOrder: override.sortOrder ?? 99,
+        }),
+      ),
+  ];
   const assignments: AssignmentRecord[] =
     overrides.assignments === undefined
       ? [
@@ -226,6 +358,7 @@ function createService(
             taskItemId: assignment.taskItemId ?? 'item_qa_1',
             assigneeId: assignment.assigneeId ?? `user_labeler_${index + 1}`,
             status: assignment.status ?? 'ASSIGNED',
+            claimedAt: assignment.claimedAt,
             taskItem: items.find((item) => item.id === assignment.taskItemId) ?? items[0],
           }),
         );
@@ -237,7 +370,7 @@ function createService(
           ...task,
           items: items
             .filter((item) => item.taskId === task.id)
-            .map((item) => ({ id: item.id, status: item.status })),
+            .sort((first, second) => first.sortOrder - second.sortOrder),
           assignments: assignments
             .filter((assignment) => assignment.taskId === task.id)
             .map((assignment) => ({
@@ -250,12 +383,12 @@ function createService(
       findUnique: async ({ where }) => tasks.find((task) => task.id === where.id) ?? null,
     },
     taskItem: {
-      findFirst: async ({ where }) => {
-        return (
-          items
-            .filter((item) => item.taskId === where.taskId && item.status === where.status)
-            .sort((first, second) => first.sortOrder - second.sortOrder)[0] ?? null
-        );
+      findMany: async ({ where, take }) => {
+        const matches = items
+          .filter((item) => item.taskId === where.taskId && item.status === where.status)
+          .sort((first, second) => first.sortOrder - second.sortOrder);
+
+        return typeof take === 'number' ? matches.slice(0, take) : matches;
       },
       updateMany: async ({ where, data }) => {
         const item = items.find((candidate) => candidate.id === where.id);
@@ -271,8 +404,11 @@ function createService(
       count: async ({ where }) =>
         assignments.filter(
           (assignment) =>
-            assignment.taskId === where.taskId &&
-            (where.status?.not === undefined || assignment.status !== where.status.not),
+            (where.taskId === undefined || assignment.taskId === where.taskId) &&
+            (where.assigneeId === undefined || assignment.assigneeId === where.assigneeId) &&
+            (where.status?.not === undefined || assignment.status !== where.status.not) &&
+            (where.claimedAt === undefined ||
+              (assignment.claimedAt >= where.claimedAt.gte && assignment.claimedAt < where.claimedAt.lt)),
         ).length,
       create: async ({ data }) => {
         const taskItem = items.find((item) => item.id === data.taskItemId);
@@ -311,6 +447,7 @@ function createTaskDefaults(now: Date): TaskRecord[] {
       description: '检查回答是否解决核心诉求。',
       tags: ['问答', '质量'],
       rewardRule: '0.30 元 / 条',
+      perUserLimit: 5,
       quota: 10,
       deadline: new Date('2026-06-01T15:59:00.000Z'),
       status: 'PUBLISHED',
@@ -318,6 +455,11 @@ function createTaskDefaults(now: Date): TaskRecord[] {
         id: 'template_qa',
         name: '问答质量官方模板',
         datasetKind: 'qa_quality',
+      },
+      createdById: 'user_owner_zhang_man',
+      createdBy: {
+        id: 'user_owner_zhang_man',
+        name: '张满',
       },
       items: [],
       assignments: [],
@@ -330,6 +472,7 @@ function createTaskDefaults(now: Date): TaskRecord[] {
       description: '比较两个候选回答。',
       tags: ['偏好', 'A/B'],
       rewardRule: '0.45 元 / 条',
+      perUserLimit: 2,
       quota: 5,
       deadline: new Date('2026-06-05T15:59:00.000Z'),
       status: 'PUBLISHED',
@@ -337,6 +480,11 @@ function createTaskDefaults(now: Date): TaskRecord[] {
         id: 'template_preference',
         name: '偏好对比官方模板',
         datasetKind: 'preference_compare',
+      },
+      createdById: 'user_owner_zhang_man',
+      createdBy: {
+        id: 'user_owner_zhang_man',
+        name: '张满',
       },
       items: [],
       assignments: [
@@ -355,6 +503,7 @@ function createTaskDefaults(now: Date): TaskRecord[] {
       description: '草稿不进入市场。',
       tags: ['草稿'],
       rewardRule: null,
+      perUserLimit: 1,
       quota: 3,
       deadline: new Date('2026-06-10T15:59:00.000Z'),
       status: 'DRAFT',
@@ -362,6 +511,11 @@ function createTaskDefaults(now: Date): TaskRecord[] {
         id: 'template_qa',
         name: '问答质量官方模板',
         datasetKind: 'qa_quality',
+      },
+      createdById: 'user_owner_zhang_man',
+      createdBy: {
+        id: 'user_owner_zhang_man',
+        name: '张满',
       },
       items: [],
       assignments: [],
@@ -373,7 +527,7 @@ function createTaskDefaults(now: Date): TaskRecord[] {
 
 function createItemDefaults(now: Date): TaskItemRecord[] {
   return [
-    {
+    createTaskItem(now, {
       id: 'item_qa_1',
       taskId: 'task_qa',
       externalId: 'qa_1',
@@ -381,10 +535,8 @@ function createItemDefaults(now: Date): TaskItemRecord[] {
       rawData: { prompt: '如何判断回答质量？' },
       status: 'UNASSIGNED',
       sortOrder: 1,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
+    }),
+    createTaskItem(now, {
       id: 'item_qa_2',
       taskId: 'task_qa',
       externalId: 'qa_2',
@@ -392,10 +544,8 @@ function createItemDefaults(now: Date): TaskItemRecord[] {
       rawData: { prompt: '如何检查事实性？' },
       status: 'ASSIGNED',
       sortOrder: 2,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
+    }),
+    createTaskItem(now, {
       id: 'item_preference_1',
       taskId: 'task_preference',
       externalId: 'pref_1',
@@ -403,10 +553,27 @@ function createItemDefaults(now: Date): TaskItemRecord[] {
       rawData: { prompt: '比较 A/B 回答' },
       status: 'UNASSIGNED',
       sortOrder: 1,
-      createdAt: now,
-      updatedAt: now,
-    },
+    }),
   ];
+}
+
+function createTaskItem(
+  now: Date,
+  input: {
+    id: string;
+    taskId: string;
+    externalId: string;
+    datasetKind: 'qa_quality' | 'preference_compare' | 'generic_json';
+    rawData: Record<string, unknown>;
+    status: TaskItemStatus;
+    sortOrder: number;
+  },
+): TaskItemRecord {
+  return {
+    ...input,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 function createAssignment(
@@ -417,6 +584,7 @@ function createAssignment(
     taskItemId: string;
     assigneeId: string;
     status?: AssignmentStatus;
+    claimedAt?: Date;
     taskItem: TaskItemRecord;
   },
 ): AssignmentRecord {
@@ -426,7 +594,7 @@ function createAssignment(
     taskItemId: input.taskItemId,
     assigneeId: input.assigneeId,
     status: input.status ?? 'ASSIGNED',
-    claimedAt: now,
+    claimedAt: input.claimedAt ?? now,
     createdAt: now,
     updatedAt: now,
     taskItem: input.taskItem,

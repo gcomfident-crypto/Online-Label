@@ -44,6 +44,25 @@ describe('useTemplateDesignerStore', () => {
     ]);
   });
 
+  it('支持把左侧物料插入到目标字段位置', () => {
+    const store = useTemplateDesignerStore.getState();
+
+    store.resetDesigner();
+    store.addField('text');
+    store.addField('textarea');
+
+    const [textField, textareaField] = useTemplateDesignerStore.getState().schema.fields;
+
+    store.addFieldBefore('checkbox', textareaField.key);
+
+    expect(useTemplateDesignerStore.getState().schema.fields.map((field) => field.type)).toEqual([
+      'text',
+      'checkbox',
+      'textarea',
+    ]);
+    expect(useTemplateDesignerStore.getState().selectedFieldKey).not.toBe(textField.key);
+  });
+
   it('新增上传物料时带有发布所需的文件限制', () => {
     const store = useTemplateDesignerStore.getState();
 

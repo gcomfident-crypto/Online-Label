@@ -1,7 +1,7 @@
 import type { EditableFieldProps } from './common';
 import {
   FieldCounter,
-  FieldDescription,
+  FieldTitleRow,
   getFieldValue,
   getStringValue,
   isDisabledMode,
@@ -18,8 +18,7 @@ export const TextareaField = ({
 
   return (
     <label className="schema-field" data-field-type={field.type}>
-      <span>{field.label}</span>
-      <FieldDescription field={field} />
+      <FieldTitleRow field={field} />
       <textarea
         aria-label={field.label}
         disabled={isDisabledMode(mode, disabled)}

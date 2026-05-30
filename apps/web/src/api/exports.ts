@@ -1,4 +1,5 @@
 import type { DatasetKind, ExportFormat, ExportStatus } from '@labelhub/shared';
+import { apiBaseUrl, requestApi } from './request';
 
 export type ExportFieldMapping = {
   source: string;
@@ -32,15 +33,6 @@ export type ExportPreviewDto = {
   totalFinalApproved: number;
 };
 
-type ApiEnvelope<TData> = {
-  data: TData;
-  error?: {
-    message?: string;
-  };
-};
-
-const apiBaseUrl = (): string => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
-
 export async function listExports(input: { taskId?: string } = {}): Promise<ExportJobDto[]> {
   const searchParams = new URLSearchParams();
   if (input.taskId) {
@@ -70,6 +62,10 @@ export async function retryExport(exportJobId: string): Promise<ExportJobDto> {
   return requestExportApi<ExportJobDto>(`/exports/${exportJobId}/retry`, { method: 'POST' });
 }
 
+export function getExportDownloadUrl(exportJobId: string): string {
+  return `${apiBaseUrl()}/exports/${encodeURIComponent(exportJobId)}/download`;
+}
+
 export async function getExportPreview(input: {
   taskId: string;
   includeReviews: boolean;
@@ -88,18 +84,5 @@ export async function getExportPreview(input: {
 }
 
 async function requestExportApi<TData>(path: string, init: RequestInit): Promise<TData> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  const envelope = (await response.json()) as ApiEnvelope<TData>;
-
-  if (!response.ok) {
-    throw new Error(envelope.error?.message ?? '导出接口请求失败，请稍后重试。');
-  }
-
-  return envelope.data;
+  return requestApi<TData>(path, init, '导出接口请求失败，请稍后重试。');
 }

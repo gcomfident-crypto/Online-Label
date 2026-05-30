@@ -108,10 +108,30 @@ describe('TemplatesService', () => {
 
     await expect(service.get('missing')).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('删除未被任务使用的模板，并拒绝删除已被任务引用的模板', async () => {
+    const { service, records, taskReferenceCounts } = createService();
+    const unusedTemplate = await service.create({
+      name: '可删除模板',
+      datasetKind: 'generic_json',
+      actorId: 'user_owner_001',
+    });
+    const usedTemplate = await service.create({
+      name: '被任务使用模板',
+      datasetKind: 'generic_json',
+      actorId: 'user_owner_001',
+    });
+    taskReferenceCounts.set(usedTemplate.id, 1);
+
+    await expect(service.deleteTemplate(unusedTemplate.id)).resolves.toEqual({ id: unusedTemplate.id });
+    expect(records.find((record) => record.id === unusedTemplate.id)).toBeUndefined();
+    await expect(service.deleteTemplate(usedTemplate.id)).rejects.toBeInstanceOf(ConflictException);
+  });
 });
 
 function createService() {
   const records: TemplateRecord[] = [];
+  const taskReferenceCounts = new Map<string, number>();
   let sequence = 1;
   const now = new Date('2026-05-21T00:00:00.000Z');
 
@@ -146,11 +166,25 @@ function createService() {
         records[index] = next;
         return next;
       },
+      delete: async ({ where }: { where: { id: string } }) => {
+        const index = records.findIndex((record) => record.id === where.id);
+        if (index < 0) {
+          throw new Error('模板不存在。');
+        }
+
+        const [deleted] = records.splice(index, 1);
+        return deleted;
+      },
+    },
+    task: {
+      count: async ({ where }: { where: { templateId: string } }) =>
+        taskReferenceCounts.get(where.templateId) ?? 0,
     },
   };
 
   return {
     records,
+    taskReferenceCounts,
     service: new TemplatesService(prisma),
   };
 }

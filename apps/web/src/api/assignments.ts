@@ -1,12 +1,14 @@
 import type { DatasetKind } from '@labelhub/shared';
+import { requestApi } from './request';
 
-export type MarketClaimStatus = 'available' | 'claimed' | 'full' | 'expired';
+export type MarketClaimStatus = 'available' | 'claimed' | 'limited' | 'full' | 'expired';
 export type AssignmentStatus =
   | 'ASSIGNED'
   | 'IN_PROGRESS'
   | 'SUBMITTED'
   | 'UNDER_RECHECK'
   | 'FINAL_PENDING'
+  | 'FINAL_APPROVED'
   | 'NEEDS_REVISION'
   | 'CANCELLED';
 
@@ -14,8 +16,11 @@ export type MarketTaskDto = {
   id: string;
   title: string;
   description: string | null;
+  ownerId: string | null;
+  ownerName: string | null;
   tags: string[];
   rewardRule: string | null;
+  perUserLimit: number | null;
   quota: number | null;
   deadline: string | null;
   datasetKind: DatasetKind;
@@ -23,9 +28,15 @@ export type MarketTaskDto = {
   templateName: string;
   itemCount: number;
   assignedCount: number;
+  claimedByMeCount: number;
   remainingCount: number;
   claimedByMe: boolean;
   claimStatus: MarketClaimStatus;
+  previewItems: Array<{
+    id: string;
+    externalId: string;
+    rawData: Record<string, unknown>;
+  }>;
   createdAt: string;
   updatedAt: string;
 };
@@ -37,6 +48,7 @@ export type ClaimAssignmentDto = {
   labelerId: string;
   status: AssignmentStatus;
   claimedAt: string;
+  claimedItemCount: number;
   claimedCount: number;
   taskItem: {
     id: string;
@@ -46,21 +58,29 @@ export type ClaimAssignmentDto = {
   };
 };
 
+export type LabelerAssignmentDto = {
+  assignmentId: string;
+  taskId: string;
+  taskTitle: string;
+  taskItemId: string;
+  taskItemSortOrder: number;
+  externalId: string;
+  datasetKind: DatasetKind;
+  status: AssignmentStatus;
+  claimedAt: string;
+  templateName: string;
+  schemaVersion: string;
+  latestSubmissionStatus: string | null;
+  latestSubmittedAt: string | null;
+  round: number;
+};
+
 type MarketTaskQuery = {
   keyword?: string;
   tag?: string;
   claimStatus?: MarketClaimStatus | 'ALL';
   labelerId?: string;
 };
-
-type ApiEnvelope<TData> = {
-  data: TData;
-  error?: {
-    message?: string;
-  };
-};
-
-const apiBaseUrl = (): string => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
 
 export async function listMarketTasks(query: MarketTaskQuery = {}): Promise<MarketTaskDto[]> {
   const searchParams = new URLSearchParams();
@@ -96,19 +116,22 @@ export async function claimAssignment(input: {
   });
 }
 
-async function requestAssignmentApi<TData>(path: string, init: RequestInit): Promise<TData> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  const envelope = (await response.json()) as ApiEnvelope<TData>;
+export async function listLabelerAssignments(input: {
+  labelerId: string;
+  taskId?: string;
+}): Promise<LabelerAssignmentDto[]> {
+  const searchParams = new URLSearchParams();
+  searchParams.set('labelerId', input.labelerId);
 
-  if (!response.ok) {
-    throw new Error(envelope.error?.message ?? '领取任务接口请求失败，请稍后重试。');
+  if (input.taskId) {
+    searchParams.set('taskId', input.taskId);
   }
 
-  return envelope.data;
+  return requestAssignmentApi<LabelerAssignmentDto[]>(`/labeler/assignments?${searchParams.toString()}`, {
+    method: 'GET',
+  });
+}
+
+async function requestAssignmentApi<TData>(path: string, init: RequestInit): Promise<TData> {
+  return requestApi<TData>(path, init, '领取任务接口请求失败，请稍后重试。');
 }

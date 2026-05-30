@@ -1,7 +1,7 @@
 export const DATASET_KINDS = ['qa_quality', 'preference_compare', 'generic_json'] as const;
 export type DatasetKind = (typeof DATASET_KINDS)[number];
 
-export const DATASET_IMPORT_FORMATS = ['json', 'jsonl', 'xlsx', 'zip'] as const;
+export const DATASET_IMPORT_FORMATS = ['json', 'jsonl', 'csv', 'xlsx', 'zip'] as const;
 export type DatasetImportFormat = (typeof DATASET_IMPORT_FORMATS)[number];
 
 export const FIELD_TYPES = [
@@ -81,11 +81,43 @@ export type FileConstraints = {
   acceptedMimeTypes?: readonly string[];
 };
 
+export type ShowItemDisplayField = {
+  sourceKey: string;
+  label: string;
+  visible?: boolean;
+  area?: 'primary' | 'meta' | 'content';
+  format?: 'text' | 'long_text' | 'badge' | 'code' | 'json';
+  width?: number;
+  maxLines?: number;
+};
+
+export type ShowItemDisplayConfig = {
+  layout: 'table' | 'card' | 'field_list' | 'comparison';
+  fields: readonly ShowItemDisplayField[];
+};
+
+export const FIELD_AI_REVIEW_ROLES = [
+  'annotation_answer',
+  'source_context',
+  'reference_answer',
+  'supporting_context',
+  'ignore',
+] as const;
+
+export type FieldAiReviewRole = (typeof FIELD_AI_REVIEW_ROLES)[number];
+
+export type FieldAiReviewConfig = {
+  enabled?: boolean;
+  role?: FieldAiReviewRole;
+  requirement?: string;
+};
+
 export type SchemaField = {
   key: string;
   fieldKey?: string;
   sourceKey?: string;
   sourceKeys?: readonly string[];
+  displayConfig?: ShowItemDisplayConfig;
   targetFieldKey?: string;
   promptTemplate?: string;
   type: FieldType;
@@ -94,6 +126,7 @@ export type SchemaField = {
   placeholder?: string;
   options?: readonly FieldOption[];
   fileConstraints?: FileConstraints;
+  aiReview?: FieldAiReviewConfig;
   required?: boolean;
   validation?: FieldValidation;
   validateWhenHidden?: boolean;

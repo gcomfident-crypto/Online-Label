@@ -38,6 +38,7 @@ enum AssignmentStatus {
   SUBMITTED
   UNDER_RECHECK
   FINAL_PENDING
+  FINAL_APPROVED
   NEEDS_REVISION
   CANCELLED
 }
@@ -152,15 +153,19 @@ model Task {
   richTextInstruction  String?
   tags                 String[]             @default([])
   rewardRule           String?
+  rewardPerItem        Float?
+  monthlyRewardCap     Float?
+  perUserLimit         Int?
   quota                Int?
   deadline             DateTime?
   distributionStrategy DistributionStrategy @default(FIRST_COME_FIRST_SERVE)
   aiPreReviewEnabled   Boolean              @default(false)
   aiRuleName           String?
-  reviewStageConfig    ReviewStage[]        @default([RECHECK, FINAL])
+  reviewStageConfig    ReviewStage[]        @default([RECHECK])
+  datasetImportSummary Json?
   status               TaskStatus           @default(DRAFT)
-  templateId           String
-  template             TaskTemplate         @relation(fields: [templateId], references: [id])
+  templateId           String?
+  template             TaskTemplate?        @relation(fields: [templateId], references: [id])
   createdById          String?
   createdBy            User?                @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
   items                TaskItem[]

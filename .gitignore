@@ -2,6 +2,7 @@
 
 # 依赖与构建产物
 node_modules/
+.pnpm-store/
 dist/
 build/
 coverage/
@@ -12,6 +13,12 @@ test-results/
 .env
 env
 docs/labelhub-plan/env
+/deepseek-api-example.py
+/docs/superpowers/
 
 # 本地导出文件
 storage/exports/
+apps/api/storage/
+
+# 本地原始数据文件
+datasets/

@@ -69,6 +69,7 @@ describe('Prisma schema', () => {
   it('uses JSON for templates, task data, answers, review traces, and metadata', () => {
     expect(modelBlock('TaskTemplate')).toMatch(/\bschema\s+Json\b/);
     expect(modelBlock('TaskItem')).toMatch(/\brawData\s+Json\b/);
+    expect(modelBlock('Task')).toMatch(/\bdatasetImportSummary\s+Json\?/);
     expect(modelBlock('Draft')).toMatch(/\banswers\s+Json\b/);
     expect(modelBlock('Submission')).toMatch(/\banswers\s+Json\b/);
     expect(modelBlock('ReviewRecord')).toMatch(/\bscores\s+Json\b/);
@@ -100,14 +101,20 @@ describe('Prisma schema', () => {
     expect(modelBlock('Task')).toMatch(/\brichTextInstruction\s+String\?/);
     expect(modelBlock('Task')).toMatch(/\btags\s+String\[\]\s+@default\(\[\]\)/);
     expect(modelBlock('Task')).toMatch(/\brewardRule\s+String\?/);
+    expect(modelBlock('Task')).toMatch(/\brewardPerItem\s+Float\?/);
+    expect(modelBlock('Task')).toMatch(/\bmonthlyRewardCap\s+Float\?/);
     expect(modelBlock('Task')).toMatch(/\bquota\s+Int\?/);
     expect(modelBlock('Task')).toMatch(/\bdeadline\s+DateTime\?/);
+    expect(modelBlock('Task')).toMatch(/\btemplateId\s+String\?/);
+    expect(modelBlock('Task')).toMatch(
+      /\btemplate\s+TaskTemplate\?\s+@relation\(fields: \[templateId\], references: \[id\]\)/,
+    );
     expect(modelBlock('Task')).toMatch(
       /\bdistributionStrategy\s+DistributionStrategy\s+@default\(FIRST_COME_FIRST_SERVE\)/,
     );
     expect(modelBlock('Task')).toMatch(/\baiPreReviewEnabled\s+Boolean\s+@default\(false\)/);
     expect(modelBlock('Task')).toMatch(/\baiRuleName\s+String\?/);
-    expect(modelBlock('Task')).toMatch(/\breviewStageConfig\s+ReviewStage\[\]\s+@default\(\[RECHECK, FINAL\]\)/);
+    expect(modelBlock('Task')).toMatch(/\breviewStageConfig\s+ReviewStage\[\]\s+@default\(\[RECHECK\]\)/);
   });
 
   it('keeps dataset identity and submission schema snapshots', () => {
@@ -201,6 +208,7 @@ describe('Prisma schema', () => {
       'SUBMITTED',
       'UNDER_RECHECK',
       'FINAL_PENDING',
+      'FINAL_APPROVED',
       'NEEDS_REVISION',
       'CANCELLED',
     ]);

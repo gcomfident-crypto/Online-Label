@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { SUBMISSION_STATUS_LABELS } from '@labelhub/shared';
 import type { ReviewDetailDto } from '../../api/reviews';
+import { ToastViewport, useToastController } from '../../components/ToastViewport';
 
 type ReviewDecisionPanelProps = {
   detail: ReviewDetailDto;
@@ -23,7 +24,7 @@ export const ReviewDecisionPanel = ({
   const [comment, setComment] = useState('');
   const [reason, setReason] = useState('');
   const [revisedAnswersText, setRevisedAnswersText] = useState(() => stringifyJson(detail.submission.answers));
-  const [localError, setLocalError] = useState<string | null>(null);
+  const { dismissToast, messages, showErrorToast } = useToastController();
   const isReviewing = detail.submission.status === 'RECHECK_REVIEWING';
   const isReviewable = detail.submission.status === 'HUMAN_PENDING' || detail.submission.status === 'RECHECK_REVIEWING';
 
@@ -31,26 +32,25 @@ export const ReviewDecisionPanel = ({
     setComment('');
     setReason('');
     setRevisedAnswersText(stringifyJson(detail.submission.answers));
-    setLocalError(null);
   }, [detail.submission.id, detail.submission.answers]);
 
   const handleRevise = () => {
     try {
       const parsed = JSON.parse(revisedAnswersText) as unknown;
       if (!isRecord(parsed)) {
-        setLocalError('修订后的答案必须是 JSON 对象。');
+        showErrorToast('修订后的答案必须是 JSON 对象。');
         return;
       }
 
-      setLocalError(null);
       onReviseAndPass({ comment: comment.trim(), revisedAnswers: parsed });
     } catch {
-      setLocalError('修订后的答案不是合法 JSON。');
+      showErrorToast('修订后的答案不是合法 JSON。');
     }
   };
 
   return (
     <section className="review-panel review-decision-panel" aria-label="人工复审决策">
+      <ToastViewport messages={messages} onDismiss={dismissToast} />
       <header className="review-panel__heading">
         <div>
           <span>人工复审</span>
@@ -58,17 +58,12 @@ export const ReviewDecisionPanel = ({
         </div>
         <small>{statusLabel(detail.submission.status)}</small>
       </header>
-      {localError ? (
-        <div className="task-status-message" role="alert">
-          {localError}
-        </div>
-      ) : null}
       <label>
         复审意见
         <textarea
           rows={3}
           value={comment}
-          placeholder="写给终审或留作审计记录"
+          placeholder="留作复审审计记录"
           onChange={(event) => setComment(event.target.value)}
         />
       </label>
@@ -106,7 +101,7 @@ export const ReviewDecisionPanel = ({
           onClick={() => onPass(comment.trim())}
           disabled={isBusy || !isReviewable}
         >
-          通过入库
+          通过 · 入库
         </button>
       </div>
     </section>

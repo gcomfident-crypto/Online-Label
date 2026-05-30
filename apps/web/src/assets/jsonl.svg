@@ -1,0 +1,4 @@
+<svg class="bi bi-filetype-jsonl" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <path fill="#D79602" fill-rule="evenodd" d="M14 4.5V11h-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5zM9.5 3A1.5 1.5 0 0 0 11 4.5h2z"/>
+  <text x="8" y="15.2" fill="#D79602" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="5.4" font-weight="800" letter-spacing="0" text-anchor="middle" textLength="15" lengthAdjust="spacingAndGlyphs">JSONL</text>
+</svg>

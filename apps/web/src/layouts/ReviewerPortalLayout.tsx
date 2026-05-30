@@ -1,47 +1,40 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
-import { ROLE_HOME_METADATA } from '@labelhub/shared';
+import personIcon from '../assets/person.svg';
 import { DemoDataBanner } from '../components/DemoDataBanner';
-import { sessionStore, useSession } from '../stores/sessionStore';
+import { PortalPageTransitionOutlet } from './PortalPageTransitionOutlet';
+import { PortalSidebar } from './PortalSidebar';
+import { PortalTopbar } from './PortalTopbar';
+
+const REVIEWER_NAV_ITEMS = [
+  {
+    to: '/reviewer/reviews',
+    label: '人工审核',
+    parts: ['人', '工', '审', '核'],
+    icon: 'review',
+    iconAsset: personIcon,
+  },
+];
 
 export const ReviewerPortalLayout = () => {
-  const navigate = useNavigate();
-  const session = useSession();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   return (
-    <div className="portal-shell reviewer-shell">
-      <aside className="portal-sidebar">
-        <div className="portal-brand">
-          <span className="brand-mark">LH</span>
-          <div>
-            <strong>Reviewer 工作区</strong>
-            <small>{ROLE_HOME_METADATA.REVIEWER.routePrefix}</small>
-          </div>
-        </div>
-        <nav className="portal-nav" aria-label="Reviewer 端导航">
-          <NavLink to="/reviewer/reviews">复审台</NavLink>
-          <NavLink to="/reviewer/final-reviews">终审台</NavLink>
-        </nav>
-      </aside>
+    <div className={isSidebarCollapsed ? 'portal-shell reviewer-shell is-sidebar-collapsed' : 'portal-shell reviewer-shell'}>
+      <PortalTopbar
+        navLabel="Reviewer 端导航"
+        userRoleLabel="Reviewer"
+        links={[]}
+      />
+      <PortalSidebar
+        isCollapsed={isSidebarCollapsed}
+        items={REVIEWER_NAV_ITEMS}
+        navLabel="Reviewer 端导航"
+        onToggle={() => setIsSidebarCollapsed((current) => !current)}
+      />
       <main className="portal-main">
-        <header className="portal-topbar">
-          <div>
-            <p className="eyebrow">Reviewer 端</p>
-            <strong>{session?.user.name}</strong>
-          </div>
-          <button
-            className="ghost-button"
-            type="button"
-            onClick={() => {
-              sessionStore.clear();
-              navigate('/login', { replace: true });
-            }}
-          >
-            退出登录
-          </button>
-        </header>
         <DemoDataBanner />
-        <Outlet />
+        <PortalPageTransitionOutlet />
       </main>
     </div>
   );

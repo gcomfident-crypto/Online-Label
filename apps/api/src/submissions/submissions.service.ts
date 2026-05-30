@@ -12,6 +12,7 @@ type AssignmentStatus =
   | 'SUBMITTED'
   | 'UNDER_RECHECK'
   | 'FINAL_PENDING'
+  | 'FINAL_APPROVED'
   | 'NEEDS_REVISION'
   | 'CANCELLED';
 type SubmissionStatus = string;
@@ -29,15 +30,26 @@ type SubmissionRecord = {
   updatedAt: Date;
 };
 
+type DraftRecord = {
+  id: string;
+  assignmentId: string;
+  answers: Record<string, unknown>;
+  schemaVersion: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 type AssignmentRecord = {
   id: string;
   taskId: string;
   taskItemId: string;
   assigneeId: string;
   status: AssignmentStatus;
+  claimedAt: Date;
   task: {
     id: string;
     title: string;
+    aiPreReviewEnabled: boolean;
     template: {
       id: string;
       name: string;
@@ -51,14 +63,25 @@ type AssignmentRecord = {
     externalId: string;
     datasetKind: DatasetKind;
     rawData: Record<string, unknown>;
+    sortOrder: number;
   };
   submissions: SubmissionRecord[];
+  drafts: DraftRecord[];
 };
 
 export type SubmitInput = {
   assignmentId: string;
   actorId?: string;
   answers: Record<string, unknown>;
+  idempotencyKey?: string;
+};
+
+export type SubmitTaskInput = {
+  taskId: string;
+  labelerId: string;
+  actorId?: string;
+  currentAssignmentId?: string;
+  currentAnswers?: Record<string, unknown>;
   idempotencyKey?: string;
 };
 
@@ -72,6 +95,13 @@ export type SubmissionDto = {
   submittedAt: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type TaskSubmissionDto = {
+  taskId: string;
+  labelerId: string;
+  submittedCount: number;
+  submissions: SubmissionDto[];
 };
 
 export type LabelerSubmissionQuery = {
@@ -94,6 +124,23 @@ export type LabelerSubmissionDto = {
   round: number;
   answers: Record<string, unknown>;
   submittedAt: string;
+};
+
+export type LabelerAssignmentDto = {
+  assignmentId: string;
+  taskId: string;
+  taskTitle: string;
+  taskItemId: string;
+  taskItemSortOrder: number;
+  externalId: string;
+  datasetKind: DatasetKind;
+  status: AssignmentStatus;
+  claimedAt: string;
+  templateName: string;
+  schemaVersion: string;
+  latestSubmissionStatus: SubmissionStatus | null;
+  latestSubmittedAt: string | null;
+  round: number;
 };
 
 export type LabelerStatsDto = {
@@ -121,7 +168,7 @@ type SubmissionsPrismaClient = {
     create: (args: {
       data: {
         assignmentId: string;
-        status: 'AI_QUEUED';
+        status: 'AI_QUEUED' | 'HUMAN_PENDING';
         round: number;
         answers: Record<string, unknown>;
         schemaVersion: string;
@@ -148,10 +195,19 @@ const ASSIGNMENT_INCLUDE = {
   submissions: {
     orderBy: { round: 'desc' },
   },
+  drafts: {
+    orderBy: { updatedAt: 'desc' },
+    take: 1,
+  },
 } as const;
 
 const APPROVED_STATUSES = new Set(['AI_PASSED', 'FINAL_APPROVED', 'RECHECK_APPROVED']);
 const REJECTED_STATUSES = new Set(['NEEDS_REVISION', 'AI_REJECTED', 'RECHECK_REJECTED', 'FINAL_REJECTED']);
+const TASK_SUBMITTABLE_ASSIGNMENT_STATUSES = new Set<AssignmentStatus>([
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'NEEDS_REVISION',
+]);
 
 @Injectable()
 export class SubmissionsService {
@@ -202,61 +258,100 @@ export class SubmissionsService {
       }
 
       const round = nextRound(assignment.submissions);
-      const submission = await client.submission.create({
-        data: {
-          assignmentId: assignment.id,
-          status: 'AI_QUEUED',
-          round,
-          answers: validation.answers,
-          schemaVersion: assignment.task.template.schemaVersion,
-          ...(idempotencyKey ? { idempotencyKey } : {}),
-        },
-      });
-
-      await client.assignment.update({
-        where: { id: assignment.id },
-        data: { status: 'SUBMITTED' },
-      });
-      await client.taskItem.update({
-        where: { id: assignment.taskItemId },
-        data: { status: 'COMPLETED' },
-      });
-      await client.auditLog.create({
-        data: {
-          taskId: assignment.taskId,
-          submissionId: submission.id,
-          toStatus: 'AI_QUEUED',
-          actorId: input.actorId,
-          metadata: {
-            action: 'SUBMISSION_CREATED',
-            assignmentId: assignment.id,
-            round,
-          },
-        },
-      });
-      await client.aiReviewJob.create({
-        data: {
-          submissionId: submission.id,
-          taskId: assignment.taskId,
-          round,
-          idempotencyKey: aiReviewIdempotencyKey(submission.id, round),
-          status: 'QUEUED',
-          attempts: 0,
-          maxAttempts: 3,
-          structuredOutputMode: 'function_calling',
-          provider: 'mock',
-          model: 'mock-stable-reviewer',
-          logs: [
-            {
-              level: 'queue',
-              message: '提交已进入 AI 自动预审队列。',
-              at: submission.createdAt.toISOString(),
-            },
-          ],
-        },
+      const submission = await this.createSubmittedSubmission(client, {
+        assignment,
+        answers: validation.answers,
+        actorId: input.actorId,
+        round,
+        idempotencyKey,
       });
 
       return toSubmissionDto(submission);
+    });
+  }
+
+  async submitTask(input: SubmitTaskInput): Promise<TaskSubmissionDto> {
+    if (!input.taskId || !input.labelerId) {
+      throw new BadRequestException({
+        code: 'TASK_SUBMISSION_INPUT_INVALID',
+        message: '提交任务请求缺少任务或标注员。',
+      });
+    }
+
+    const taskIdempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+
+    return runInTransaction(this.prisma, async (client) => {
+      const assignments = (await client.assignment.findMany({
+        where: {
+          taskId: input.taskId,
+          assigneeId: input.labelerId,
+        },
+        include: ASSIGNMENT_INCLUDE,
+      }))
+        .filter((assignment) => TASK_SUBMITTABLE_ASSIGNMENT_STATUSES.has(assignment.status))
+        .sort(compareAssignmentsByTaskItem);
+
+      if (assignments.length === 0) {
+        throw new NotFoundException({
+          code: 'TASK_ASSIGNMENTS_NOT_FOUND',
+          message: '当前任务没有可提交的领取题目。',
+        });
+      }
+
+      const preparedSubmissions = assignments.map((assignment) => {
+        const answers = resolveTaskSubmissionAnswers(assignment, input);
+        const schema = assignment.task.template.schema as LabelHubSchema;
+        const validation = this.schemaService.validate(schema, answers);
+        if (!validation.valid) {
+          throw new BadRequestException({
+            code: 'SUBMISSION_SCHEMA_INVALID',
+            message: `题目 ${assignment.taskItem.externalId} 的答案未通过 Schema 校验。`,
+            assignmentId: assignment.id,
+            externalId: assignment.taskItem.externalId,
+            errors: validation.errors,
+          });
+        }
+
+        const round = nextRound(assignment.submissions);
+
+        return {
+          assignment,
+          answers: validation.answers,
+          round,
+          idempotencyKey: taskIdempotencyKey
+            ? taskSubmissionIdempotencyKey(taskIdempotencyKey, assignment.id, round)
+            : undefined,
+        };
+      });
+
+      const submissions: SubmissionRecord[] = [];
+      for (const preparedSubmission of preparedSubmissions) {
+        if (preparedSubmission.idempotencyKey) {
+          const existingSubmission = await client.submission.findFirst({
+            where: { idempotencyKey: preparedSubmission.idempotencyKey },
+          });
+          if (existingSubmission) {
+            submissions.push(existingSubmission);
+            continue;
+          }
+        }
+
+        const submission = await this.createSubmittedSubmission(client, {
+          assignment: preparedSubmission.assignment,
+          answers: preparedSubmission.answers,
+          actorId: input.actorId,
+          round: preparedSubmission.round,
+          idempotencyKey: preparedSubmission.idempotencyKey,
+        });
+        submissions.push(submission);
+      }
+
+      return {
+        taskId: input.taskId,
+        labelerId: input.labelerId,
+        submittedCount: submissions.length,
+        submissions: submissions.map(toSubmissionDto),
+      };
     });
   }
 
@@ -266,6 +361,14 @@ export class SubmissionsService {
     return assignments
       .flatMap(toLabelerSubmissionDtos)
       .filter((submission) => matchesLabelerSubmissionQuery(submission, query));
+  }
+
+  async listLabelerAssignments(
+    query: Pick<LabelerSubmissionQuery, 'labelerId' | 'taskId'>,
+  ): Promise<LabelerAssignmentDto[]> {
+    const assignments = await this.findLabelerAssignments(query);
+
+    return assignments.map(toLabelerAssignmentDto);
   }
 
   async getLabelerStats(query: Pick<LabelerSubmissionQuery, 'labelerId' | 'taskId'>): Promise<LabelerStatsDto> {
@@ -314,6 +417,77 @@ export class SubmissionsService {
       include: ASSIGNMENT_INCLUDE,
     });
   }
+
+  private async createSubmittedSubmission(
+    client: SubmissionsPrismaClient,
+    input: {
+      assignment: AssignmentRecord;
+      answers: Record<string, unknown>;
+      actorId?: string;
+      round: number;
+      idempotencyKey?: string;
+    },
+  ): Promise<SubmissionRecord> {
+    const submissionStatus = input.assignment.task.aiPreReviewEnabled ? 'AI_QUEUED' : 'HUMAN_PENDING';
+    const submission = await client.submission.create({
+      data: {
+        assignmentId: input.assignment.id,
+        status: submissionStatus,
+        round: input.round,
+        answers: input.answers,
+        schemaVersion: input.assignment.task.template.schemaVersion,
+        ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
+      },
+    });
+
+    await client.assignment.update({
+      where: { id: input.assignment.id },
+      data: { status: 'SUBMITTED' },
+    });
+    await client.taskItem.update({
+      where: { id: input.assignment.taskItemId },
+      data: { status: 'COMPLETED' },
+    });
+    await client.auditLog.create({
+      data: {
+        taskId: input.assignment.taskId,
+        submissionId: submission.id,
+        toStatus: submissionStatus,
+        actorId: input.actorId,
+        metadata: {
+          action: 'SUBMISSION_CREATED',
+          assignmentId: input.assignment.id,
+          round: input.round,
+        },
+      },
+    });
+
+    if (submissionStatus === 'AI_QUEUED') {
+      await client.aiReviewJob.create({
+        data: {
+          submissionId: submission.id,
+          taskId: input.assignment.taskId,
+          round: input.round,
+          idempotencyKey: aiReviewIdempotencyKey(submission.id, input.round),
+          status: 'QUEUED',
+          attempts: 0,
+          maxAttempts: 3,
+          structuredOutputMode: 'function_calling',
+          provider: 'mock',
+          model: 'mock-stable-reviewer',
+          logs: [
+            {
+              level: 'queue',
+              message: '提交已进入 AI 自动预审队列。',
+              at: submission.createdAt.toISOString(),
+            },
+          ],
+        },
+      });
+    }
+
+    return submission;
+  }
 }
 
 function toSubmissionDto(submission: SubmissionRecord): SubmissionDto {
@@ -346,6 +520,34 @@ function toLabelerSubmissionDtos(assignment: AssignmentRecord): LabelerSubmissio
   }));
 }
 
+function toLabelerAssignmentDto(assignment: AssignmentRecord): LabelerAssignmentDto {
+  const latestSubmission = latestSubmissionByRound(assignment.submissions);
+
+  return {
+    assignmentId: assignment.id,
+    taskId: assignment.taskId,
+    taskTitle: assignment.task.title,
+    taskItemId: assignment.taskItemId,
+    taskItemSortOrder: assignment.taskItem.sortOrder,
+    externalId: assignment.taskItem.externalId,
+    datasetKind: assignment.task.template.datasetKind,
+    status: assignment.status,
+    claimedAt: assignment.claimedAt.toISOString(),
+    templateName: assignment.task.template.name,
+    schemaVersion: assignment.task.template.schemaVersion,
+    latestSubmissionStatus: latestSubmission?.status ?? null,
+    latestSubmittedAt: latestSubmission?.submittedAt.toISOString() ?? null,
+    round: latestSubmission?.round ?? 0,
+  };
+}
+
+function latestSubmissionByRound(submissions: SubmissionRecord[]): SubmissionRecord | null {
+  return submissions.reduce<SubmissionRecord | null>(
+    (latest, submission) => (!latest || submission.round > latest.round ? submission : latest),
+    null,
+  );
+}
+
 function matchesLabelerSubmissionQuery(
   submission: LabelerSubmissionDto,
   query: LabelerSubmissionQuery,
@@ -365,8 +567,41 @@ function matchesLabelerSubmissionQuery(
   return true;
 }
 
+function resolveTaskSubmissionAnswers(
+  assignment: AssignmentRecord,
+  input: SubmitTaskInput,
+): Record<string, unknown> {
+  if (assignment.id === input.currentAssignmentId) {
+    return isRecord(input.currentAnswers) ? input.currentAnswers : {};
+  }
+
+  const draftAnswers = assignment.drafts[0]?.answers;
+  if (isRecord(draftAnswers)) {
+    return draftAnswers;
+  }
+
+  throw new BadRequestException({
+    code: 'TASK_SUBMISSION_DRAFT_MISSING',
+    message: `题目 ${assignment.taskItem.externalId} 尚未保存草稿，不能提交整个任务。`,
+    assignmentId: assignment.id,
+    externalId: assignment.taskItem.externalId,
+  });
+}
+
+function compareAssignmentsByTaskItem(first: AssignmentRecord, second: AssignmentRecord): number {
+  if (first.taskItem.sortOrder !== second.taskItem.sortOrder) {
+    return first.taskItem.sortOrder - second.taskItem.sortOrder;
+  }
+
+  return first.id.localeCompare(second.id);
+}
+
 function nextRound(submissions: SubmissionRecord[]): number {
   return Math.max(0, ...submissions.map((submission) => submission.round)) + 1;
+}
+
+function taskSubmissionIdempotencyKey(baseKey: string, assignmentId: string, round: number): string {
+  return `${baseKey}:${assignmentId}:${round}`.slice(0, 128);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

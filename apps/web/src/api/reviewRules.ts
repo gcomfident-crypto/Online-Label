@@ -1,3 +1,5 @@
+import { requestApi } from './request';
+
 export type ReviewDimensionDto = {
   key: string;
   label: string;
@@ -37,15 +39,6 @@ export type SaveReviewRuleInput = {
   actorId?: string;
 };
 
-type ApiEnvelope<TData> = {
-  data: TData;
-  error?: {
-    message?: string;
-  };
-};
-
-const apiBaseUrl = (): string => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
-
 export async function getReviewRule(taskId: string): Promise<ReviewRuleDto> {
   return requestReviewRuleApi<ReviewRuleDto>(`/tasks/${taskId}/review-rule`, { method: 'GET' });
 }
@@ -61,18 +54,5 @@ export async function saveReviewRule(
 }
 
 async function requestReviewRuleApi<TData>(path: string, init: RequestInit): Promise<TData> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  const envelope = (await response.json()) as ApiEnvelope<TData>;
-
-  if (!response.ok) {
-    throw new Error(envelope.error?.message ?? 'AI 规则接口请求失败，请稍后重试。');
-  }
-
-  return envelope.data;
+  return requestApi<TData>(path, init, 'AI 规则接口请求失败，请稍后重试。');
 }

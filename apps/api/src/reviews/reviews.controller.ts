@@ -12,7 +12,6 @@ import {
   type SubmissionDiffDto,
   type SubmissionRoundDto,
 } from './diff.service.ts';
-import { FinalReviewService } from './final-review.service.ts';
 import {
   type AssignReviewsDto,
   type BatchReviewDto,
@@ -41,8 +40,6 @@ export class ReviewsController {
     >,
     @Inject(ReviewDiffService)
     private readonly reviewDiffService: Pick<ReviewDiffService, 'listRounds' | 'getDiff'>,
-    @Inject(FinalReviewService)
-    private readonly finalReviewService: Pick<FinalReviewService, 'listFinalPending' | 'finalPass' | 'finalReject'>,
   ) {}
 
   @Get('reviews/pending')
@@ -56,11 +53,6 @@ export class ReviewsController {
   @Get('reviews/results')
   listResults(@Query('verdict') verdict?: string): Promise<ReviewQueueItemDto[]> {
     return this.reviewsService.listResults(normalizeResultsQuery(verdict));
-  }
-
-  @Get('reviews/final-pending')
-  listFinalPending(): Promise<ReviewQueueItemDto[]> {
-    return this.finalReviewService.listFinalPending();
   }
 
   @Get('reviews/:assignmentId/rounds')
@@ -140,27 +132,6 @@ export class ReviewsController {
     });
   }
 
-  @Post('reviews/:submissionId/final-pass')
-  finalPass(
-    @Param('submissionId') submissionId: string,
-    @Body() body: ReviewActionDto = {},
-  ): Promise<ReviewDetailDto> {
-    return this.finalReviewService.finalPass(submissionId, {
-      actorId: stringValue(body.actorId),
-      comment: stringValue(body.comment),
-    });
-  }
-
-  @Post('reviews/:submissionId/final-reject')
-  finalReject(
-    @Param('submissionId') submissionId: string,
-    @Body() body: RejectReviewDto = {},
-  ): Promise<ReviewDetailDto> {
-    return this.finalReviewService.finalReject(submissionId, {
-      actorId: stringValue(body.actorId),
-      reason: stringValue(body.reason) ?? '',
-    });
-  }
 }
 
 function normalizePendingQuery(

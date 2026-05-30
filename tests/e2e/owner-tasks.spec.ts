@@ -7,6 +7,7 @@ const baseTask = {
   richTextInstruction: '请保留核心商品信息。',
   tags: ['电商', '文本清洗', '中文'],
   rewardRule: '0.30 元 / 条',
+  rewardPerItem: 0.3,
   quota: 5000,
   deadline: '2026-06-01T15:59:00.000Z',
   distributionStrategy: 'FIRST_COME_FIRST_SERVE',
@@ -17,6 +18,7 @@ const baseTask = {
   template: {
     id: 'template_1',
     name: '商品清洗 · v3',
+    datasetKind: 'qa_quality',
     schemaVersion: 'r12',
     status: 'PUBLISHED',
   },

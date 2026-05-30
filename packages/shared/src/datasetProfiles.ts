@@ -24,7 +24,7 @@ const DATASET_PROFILES = {
     kind: 'qa_quality',
     primaryKeyField: 'id',
     expectedCount: 30,
-    supportedFormats: ['json', 'jsonl', 'xlsx'],
+    supportedFormats: ['json', 'jsonl', 'csv', 'xlsx'],
     excelSheetName: '标注题目',
     requiredFields: ['id', 'prompt', 'model_answer', 'expected_dimensions'],
     arrayFields: ['tags', 'expected_dimensions'],
@@ -34,7 +34,7 @@ const DATASET_PROFILES = {
     kind: 'preference_compare',
     primaryKeyField: 'id',
     expectedCount: 12,
-    supportedFormats: ['json', 'jsonl', 'xlsx'],
+    supportedFormats: ['json', 'jsonl', 'csv', 'xlsx'],
     excelSheetName: '偏好对比',
     requiredFields: ['id', 'prompt', 'response_a', 'response_b'],
     arrayFields: ['dimensions'],
@@ -43,7 +43,7 @@ const DATASET_PROFILES = {
   generic_json: {
     kind: 'generic_json',
     primaryKeyField: 'id',
-    supportedFormats: ['json', 'jsonl'],
+    supportedFormats: ['json', 'jsonl', 'csv', 'xlsx'],
     requiredFields: [],
   },
 } as const satisfies Record<DatasetKind, DatasetProfile>;

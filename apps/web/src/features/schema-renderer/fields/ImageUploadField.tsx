@@ -1,8 +1,9 @@
 import { useState } from 'react';
 
 import type { EditableFieldProps } from './common';
+import { ToastViewport, useToastController } from '../../../components/ToastViewport';
 import {
-  FieldDescription,
+  FieldTitleRow,
   UploadedFilePreview,
   getFieldValue,
   getUploadedFileValue,
@@ -24,13 +25,13 @@ export const ImageUploadField = ({
   onFieldChange,
 }: EditableFieldProps) => {
   const [error, setError] = useState<string | null>(null);
+  const { dismissToast, messages, showErrorToast } = useToastController();
   const uploadedImage = getUploadedFileValue(getFieldValue(field, value));
 
   return (
     <section className="schema-field" data-field-type={field.type}>
-      <span>{field.label}</span>
-      <span className="schema-field__meta">图片</span>
-      <FieldDescription field={field} />
+      <ToastViewport messages={messages} onDismiss={dismissToast} />
+      <FieldTitleRow field={field} meta="图片" />
       {uploadedImage ? <UploadedFilePreview file={uploadedImage} /> : null}
       <input
         accept="image/*"
@@ -42,6 +43,9 @@ export const ImageUploadField = ({
 
           if (file) {
             if (!file.type.startsWith('image/')) {
+              if (!error) {
+                showErrorToast('只能上传图片文件。');
+              }
               setError('只能上传图片文件。');
               return;
             }
@@ -51,7 +55,6 @@ export const ImageUploadField = ({
           }
         }}
       />
-      {error ? <small role="alert">{error}</small> : null}
     </section>
   );
 };
