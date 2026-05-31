@@ -24,18 +24,10 @@ const STATUS_OPTIONS = [
   { label: '待完成', value: 'FINAL_PENDING' },
 ];
 
-const DATASET_KIND_OPTIONS: Array<{ label: string; value: DatasetKind | 'ALL' }> = [
-  { label: '全部类型', value: 'ALL' },
-  { label: '问答质量', value: 'qa_quality' },
-  { label: '偏好对比', value: 'preference_compare' },
-  { label: '通用 JSON', value: 'generic_json' },
-];
-
 export const MyDataPage = () => {
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<LabelerAssignmentDto[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
-  const [datasetKind, setDatasetKind] = useState<DatasetKind | 'ALL'>('ALL');
   const [itemId, setItemId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -57,10 +49,6 @@ export const MyDataPage = () => {
         return false;
       }
 
-      if (datasetKind !== 'ALL' && assignment.datasetKind !== datasetKind) {
-        return false;
-      }
-
       if (
         keyword &&
         !assignment.externalId.includes(keyword) &&
@@ -72,7 +60,7 @@ export const MyDataPage = () => {
 
       return true;
     });
-  }, [assignments, datasetKind, itemId, statusFilter]);
+  }, [assignments, itemId, statusFilter]);
   const taskGroups = useMemo(() => groupAssignmentsByTask(filteredAssignments), [filteredAssignments]);
   const totalPages = Math.max(1, Math.ceil(taskGroups.length / myDataPageSize));
   const paginatedTaskGroups = useMemo(() => {
@@ -87,7 +75,7 @@ export const MyDataPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [datasetKind, itemId, statusFilter]);
+  }, [itemId, statusFilter]);
 
   const loadMyData = async () => {
     setIsLoading(true);
@@ -117,17 +105,6 @@ export const MyDataPage = () => {
           onChange={(event) => setStatusFilter(event.target.value)}
         >
           {STATUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="数据集筛选"
-          value={datasetKind}
-          onChange={(event) => setDatasetKind(event.target.value as DatasetKind | 'ALL')}
-        >
-          {DATASET_KIND_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

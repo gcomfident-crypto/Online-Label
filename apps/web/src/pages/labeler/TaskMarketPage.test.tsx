@@ -92,11 +92,18 @@ describe('TaskMarketPage', () => {
     expect(screen.queryByText('演示标注员')).not.toBeInTheDocument();
     expect(screen.queryByText('李雷')).not.toBeInTheDocument();
     expect(document.querySelector('.task-market-header')).toBeNull();
-    expect(screen.getByRole('heading', { name: '待领取任务列表' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '待领取任务列表' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('任务广场任务统计')).not.toBeInTheDocument();
     expect(screen.queryByText('可领取任务')).not.toBeInTheDocument();
     expect(screen.queryByText('我已领取')).not.toBeInTheDocument();
+    expect(screen.queryByText('全部标签')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '筛选' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^已满额/ })).not.toBeInTheDocument();
+    expect(document.querySelector('.task-market-claim-status-grid')).not.toBeNull();
+    expect(document.querySelectorAll('.task-market-claim-status-grid .task-summary-card')).toHaveLength(3);
     expect(document.querySelector('.task-market-table-panel.task-management-table-card')).not.toBeNull();
+    expect(document.querySelector('.task-market-table-panel .task-management-table-toolbar')).not.toBeNull();
+    expect(document.querySelector('.task-market-table-panel .task-market-filter')).not.toBeNull();
     expect(document.querySelector('.task-market-table-panel .task-table-scroll')).not.toBeNull();
     expect(document.querySelector('.task-market-table-frame')).not.toBeNull();
     expect(screen.getByLabelText('任务广场分页')).toBeInTheDocument();
@@ -150,21 +157,34 @@ describe('TaskMarketPage', () => {
 
   it('按关键词和领取状态筛选任务广场', async () => {
     const user = userEvent.setup();
+    const expiredTask = {
+      ...marketTask,
+      id: 'task_expired',
+      title: '偏好对比标注',
+      datasetKind: 'preference_compare',
+      templateName: '偏好对比模板',
+      assignedCount: 30,
+      remainingCount: 0,
+      claimStatus: 'expired',
+    };
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ data: [marketTask] }))
-      .mockResolvedValueOnce(jsonResponse({ data: [] }));
+      .mockResolvedValueOnce(jsonResponse({ data: [marketTask, expiredTask] }));
     vi.stubGlobal('fetch', fetchMock);
 
     renderTaskMarketPage();
 
     await screen.findByText('问答质量标注');
-    await user.type(screen.getByLabelText('搜索任务'), '问答');
-    await user.selectOptions(screen.getByLabelText('领取状态筛选'), 'available');
-    await user.click(screen.getByRole('button', { name: '筛选' }));
+    expect(screen.getByText('偏好对比标注')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('搜索任务'), '偏好');
+    expect(screen.queryByText('问答质量标注')).not.toBeInTheDocument();
+    expect(screen.getByText('偏好对比标注')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^已截止/ }));
 
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      '/labeler/tasks?keyword=%E9%97%AE%E7%AD%94&claimStatus=available&labelerId=user_labeler_li_lei',
+    expect(screen.getByText('偏好对比标注')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/labeler/tasks?labelerId=user_labeler_li_lei',
       expect.objectContaining({ method: 'GET' }),
     );
   });
@@ -236,17 +256,16 @@ describe('TaskMarketPage', () => {
 
     renderTaskMarketPage();
 
-    expect(await screen.findByRole('heading', { name: '待领取任务列表' })).toBeInTheDocument();
-    expect(screen.getByText('0 个任务')).toBeInTheDocument();
+    const emptyTable = await screen.findByRole('table', { name: '任务广场列表' });
+    expect(screen.queryByRole('heading', { name: '待领取任务列表' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('任务广场分页')).toBeInTheDocument();
     expect(screen.getByLabelText('当前页码')).toHaveTextContent('第 1 / 1 页');
-    const table = screen.getByRole('table', { name: '任务广场列表' });
-    expect(within(table).getByRole('img', { name: '空任务广场列表插画' })).toHaveAttribute(
+    expect(within(emptyTable).getByRole('img', { name: '空任务广场列表插画' })).toHaveAttribute(
       'src',
       expect.stringContaining('empty-table-illustration.svg'),
     );
-    expect(within(table).getByText('暂无可领取任务')).toBeInTheDocument();
-    expect(within(table).getByText('调整关键词、标签或领取状态后再试')).toBeInTheDocument();
+    expect(within(emptyTable).getByText('暂无可领取任务')).toBeInTheDocument();
+    expect(within(emptyTable).getByText('调整关键词或领取状态后再试')).toBeInTheDocument();
   });
 
   it('任务广场接口不可用时降级为空表格且不展示代理 500 错误', async () => {
@@ -254,9 +273,8 @@ describe('TaskMarketPage', () => {
 
     renderTaskMarketPage();
 
-    expect(await screen.findByRole('heading', { name: '待领取任务列表' })).toBeInTheDocument();
-    expect(screen.getByText('0 个任务')).toBeInTheDocument();
-    const table = screen.getByRole('table', { name: '任务广场列表' });
+    const table = await screen.findByRole('table', { name: '任务广场列表' });
+    expect(screen.queryByRole('heading', { name: '待领取任务列表' })).not.toBeInTheDocument();
     expect(within(table).getByRole('img', { name: '空任务广场列表插画' })).toHaveAttribute(
       'src',
       expect.stringContaining('empty-table-illustration.svg'),

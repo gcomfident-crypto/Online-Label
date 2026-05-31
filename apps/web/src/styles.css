@@ -10267,8 +10267,7 @@ video.schema-field__show-resource-media {
 .dataset-import-form select,
 .dataset-import-form textarea,
 .dataset-bulk-panel input,
-.task-market-filter input,
-.task-market-filter select {
+.task-market-filter input {
   width: 100%;
   border: 1px solid #b7c7e6;
   border-radius: 8px;
@@ -11083,10 +11082,22 @@ video.schema-field__show-resource-media {
 }
 
 .task-market-filter {
-  display: grid;
-  grid-template-columns: minmax(240px, 1fr) 180px 190px auto;
-  gap: 10px;
-  margin-top: 16px;
+  width: 100%;
+  grid-template-columns: minmax(320px, 1fr);
+  justify-content: end;
+  gap: 0;
+  margin: 0;
+}
+
+.task-market-table-toolbar {
+  grid-template-columns: minmax(560px, 680px) minmax(320px, 520px);
+  justify-content: space-between;
+}
+
+.task-market-claim-status-grid {
+  width: max-content;
+  grid-template-columns: repeat(3, 124.8px);
+  gap: 14px;
 }
 
 .task-market-page {
@@ -11877,7 +11888,7 @@ video.schema-field__show-resource-media {
 
 .my-data-filter {
   display: grid;
-  grid-template-columns: 180px 180px minmax(220px, 1fr) auto;
+  grid-template-columns: 180px minmax(220px, 1fr) auto;
   gap: 10px;
   margin-top: 16px;
 }
@@ -11985,7 +11996,7 @@ video.schema-field__show-resource-media {
 }
 
 .labeler-task-workspace .my-data-filter {
-  grid-template-columns: 138px 138px minmax(220px, 320px) 86px;
+  grid-template-columns: 138px minmax(220px, 320px) 86px;
   align-items: center;
   margin-top: 0;
 }
