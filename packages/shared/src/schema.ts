@@ -112,6 +112,23 @@ export type FieldAiReviewConfig = {
   requirement?: string;
 };
 
+export const AI_REVIEW_PROMPT_SECTION_KEYS = [
+  'persona',
+  'show_item',
+  'answers',
+  'field_requirements',
+  'output_schema',
+] as const;
+
+export type AiReviewPromptSectionKey = (typeof AI_REVIEW_PROMPT_SECTION_KEYS)[number];
+
+export type AiReviewPromptSectionOverrides = Partial<Record<AiReviewPromptSectionKey, string>>;
+
+export type AiReviewPromptConfig = {
+  sectionOverrides?: AiReviewPromptSectionOverrides;
+  fullPromptOverride?: string;
+};
+
 export type SchemaField = {
   key: string;
   fieldKey?: string;
@@ -131,6 +148,8 @@ export type SchemaField = {
   validation?: FieldValidation;
   validateWhenHidden?: boolean;
   linkageRules?: readonly FieldLinkageRule[];
+  layout?: 'auto_rows' | 'single_column' | 'two_columns' | 'three_columns';
+  defaultCollapsed?: boolean;
   fields?: readonly SchemaField[];
   tabs?: readonly {
     key: string;
@@ -144,6 +163,7 @@ export type LabelHubSchema = {
   datasetKind: DatasetKind;
   fields: readonly SchemaField[];
   linkageRules?: readonly FieldLinkageRule[];
+  aiReviewPrompt?: AiReviewPromptConfig;
 };
 
 export type LabelhubSchema = LabelHubSchema;

@@ -22,13 +22,24 @@ export const FieldRenderer = (props: FieldRendererProps) => {
     return null;
   }
 
+  const isRequiredByLinkage = props.requiredFieldKeys.has(fieldKey);
+  const field = isRequiredByLinkage && !props.field.validation?.required
+    ? {
+        ...props.field,
+        validation: {
+          ...(props.field.validation ?? {}),
+          required: true,
+        },
+      }
+    : props.field;
   const fieldProps = {
     ...props,
+    field,
     disabled: props.disabledFieldKeys.has(fieldKey),
   };
   let fieldElement: ReactNode;
 
-  switch (props.field.type) {
+  switch (field.type) {
     case 'show_item':
       fieldElement = <ShowItemField {...fieldProps} />;
       break;

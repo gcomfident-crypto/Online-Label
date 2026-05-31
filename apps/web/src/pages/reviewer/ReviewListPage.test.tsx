@@ -52,7 +52,8 @@ describe('ReviewListPage', () => {
       '操作',
     ].forEach((header) => expect(within(table).getByText(header)).toBeInTheDocument());
     expect(within(table).getByText('真实人工审核任务')).toBeInTheDocument();
-    expect(within(table).getByText(/task_real/)).toBeInTheDocument();
+    expect(within(table).getByText('TASK-01D7PEMK')).toBeInTheDocument();
+    expect(table).not.toHaveTextContent(rawReviewTaskId);
     expect(within(table).getByText('2')).toBeInTheDocument();
     expect(within(table).getAllByText('1')).toHaveLength(2);
     expect(within(table).getByText('0')).toBeInTheDocument();
@@ -86,7 +87,7 @@ describe('ReviewListPage', () => {
 
     const table = await screen.findByRole('table', { name: '人工审核任务列表' });
     expect(table).toHaveClass('task-table', 'manual-review-task-table');
-    expect(table.closest('.task-table-panel')).toHaveClass('manual-review-task-table-panel');
+    expect(table.closest('.task-management-table-card')).toHaveClass('manual-review-task-table-panel');
     expect(table.closest('.task-table-scroll')).toHaveClass('manual-review-task-table-scroll');
 
     const emptyRow = within(table).getByText('当前没有任务哦').closest('tr');
@@ -96,11 +97,13 @@ describe('ReviewListPage', () => {
   });
 });
 
+const rawReviewTaskId = 'cmpsfkanp0001d7pemk';
+
 const reviewQueueItems = [
   {
     submissionId: 'submission_1',
     assignmentId: 'assignment_1',
-    taskId: 'task_real',
+    taskId: rawReviewTaskId,
     taskTitle: '真实人工审核任务',
     taskItemId: 'item_1',
     externalId: 'P0001',
@@ -117,7 +120,7 @@ const reviewQueueItems = [
   {
     submissionId: 'submission_2',
     assignmentId: 'assignment_2',
-    taskId: 'task_real',
+    taskId: rawReviewTaskId,
     taskTitle: '真实人工审核任务',
     taskItemId: 'item_2',
     externalId: 'P0002',
@@ -149,7 +152,7 @@ const reviewDetail = {
     status: 'SUBMITTED',
   },
   task: {
-    id: 'task_real',
+    id: rawReviewTaskId,
     title: '真实人工审核任务',
     datasetKind: 'qa_quality',
     templateName: '问答质量模板',

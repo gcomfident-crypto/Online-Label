@@ -5,11 +5,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ROLE_HOME_METADATA, USER_ROLE, USER_ROLES } from '@labelhub/shared';
 import exportIconAsset from '../assets/export.svg';
+import llmIconAsset from '../assets/llm.svg';
+import logoIconAsset from '../assets/logo.svg';
 import missionSquareIconAsset from '../assets/mission_square.svg';
 import modelIconAsset from '../assets/model.svg';
 import personIconAsset from '../assets/person.svg';
 import taskIconAsset from '../assets/task.svg';
 import workbenchIconAsset from '../assets/workbench.svg';
+import { resolvePortalPageTransitionKey } from '../layouts/PortalPageTransitionOutlet';
 import { AppRouter } from '../router';
 import { sessionStore } from '../stores/sessionStore';
 
@@ -32,6 +35,16 @@ afterEach(() => {
 });
 
 describe('Web 壳 smoke test', () => {
+  it('标注台题目间切换复用页面转场 key，避免整页进入动画闪烁', () => {
+    expect(resolvePortalPageTransitionKey('/labeler/tasks/task_qa/items/item_qa_1')).toBe(
+      '/labeler/tasks/:taskId/items/:itemId',
+    );
+    expect(resolvePortalPageTransitionKey('/labeler/tasks/task_qa/items/item_qa_2')).toBe(
+      '/labeler/tasks/:taskId/items/:itemId',
+    );
+    expect(resolvePortalPageTransitionKey('/labeler/my-data')).toBe('/labeler/my-data');
+  });
+
   it('在 /login 渲染登录表单和 3D 动画展示区', async () => {
     const user = userEvent.setup();
     renderRoute('/login');
@@ -84,7 +97,11 @@ describe('Web 壳 smoke test', () => {
       sessionStore.loginAs(USER_ROLE.OWNER);
     });
     const { unmount } = renderRoute('/owner/tasks');
-    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('LabelHub');
+    const ownerTopbar = screen.getByRole('banner', { name: '平台顶栏' });
+    expect(ownerTopbar).toHaveTextContent('LabelHub');
+    const brandIcon = ownerTopbar.querySelector('.platform-brand__mark');
+    expect(brandIcon?.tagName.toLowerCase()).toBe('img');
+    expect(brandIcon?.getAttribute('src')).toContain(logoIconAsset);
     expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('任务负责人后台 / 任务管理');
     expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('张满 · Owner');
     const currentPath = screen.getByLabelText('当前路径');
@@ -160,6 +177,10 @@ describe('Web 壳 smoke test', () => {
     const agentView = renderRoute('/agent/ai-review');
     expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('AI 预审后台 / 机审队列');
     expect(screen.getByRole('navigation', { name: 'AI Agent 端导航' })).toHaveTextContent('机审队列');
+    const agentReviewIcon = screen.getByRole('link', { name: '机审队列' }).querySelector('.portal-nav__icon--ai-review');
+    expect(agentReviewIcon).toHaveClass('portal-nav__icon--asset');
+    expect(agentReviewIcon?.getAttribute('style')).toContain('url("');
+    expect(agentReviewIcon?.getAttribute('style')).toContain(llmIconAsset);
     expect(screen.queryByRole('navigation', { name: 'Reviewer 端导航' })).not.toBeInTheDocument();
     agentView.unmount();
 
@@ -191,7 +212,10 @@ describe('Web 壳 smoke test', () => {
     renderRoute('/owner/templates');
 
     expect(screen.queryByRole('menu', { name: '账号菜单' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '打开账号菜单' }));
+    const accountButton = screen.getByRole('button', { name: '打开账号菜单' });
+    expect(accountButton.querySelector('.platform-user__chevron')).toBeNull();
+    expect(accountButton).not.toHaveTextContent('▾');
+    await user.click(accountButton);
     const menu = screen.getByRole('menu', { name: '账号菜单' });
     expect(menu).toBeInTheDocument();
     expect(within(menu).queryByText('Owner 演示账号')).not.toBeInTheDocument();

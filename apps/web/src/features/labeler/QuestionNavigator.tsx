@@ -21,15 +21,18 @@ export const QuestionNavigator = ({
   const navigationItems = items && items.length > 0 ? items : Array.from({ length: totalCount }, (_, index) => ({
     index,
     label: index === currentIndex ? workbench.taskItem.externalId : `#${String(index + 1).padStart(3, '0')}`,
-    statusLabel: index === currentIndex ? '进行中' : '待标',
+    statusLabel: index === currentIndex ? '进行中' : '待标注',
   }));
+  const safeTotalCount = Math.max(1, totalCount);
+  const completedCount = navigationItems.filter((item) => isCompletedStatusLabel(item.statusLabel)).length;
+  const completedPercent = Math.min(100, Math.round((completedCount / safeTotalCount) * 100));
 
   return (
     <section className="question-navigator" aria-label="题目导航">
       <div>
         <h2>题目导航</h2>
         <p>
-          {currentIndex + 1} / {totalCount} · 当前题 {workbench.taskItem.externalId}
+          已完成 {completedPercent}% · 当前第 {currentIndex + 1} 题
         </p>
       </div>
       <div className="question-navigator__list">
@@ -41,10 +44,46 @@ export const QuestionNavigator = ({
             onClick={() => onJump(index)}
           >
             <span>{item.label}</span>
-            <small>{item.statusLabel}</small>
+            <small className={`question-navigator__status ${getStatusClassName(item.statusLabel)}`}>
+              <span className="question-navigator__status-text" key={item.statusLabel}>
+                {item.statusLabel}
+              </span>
+            </small>
           </button>
         ))}
       </div>
     </section>
   );
 };
+
+function getStatusClassName(statusLabel: string): string {
+  if (statusLabel === '已完成') {
+    return 'question-navigator__status--complete';
+  }
+
+  if (statusLabel === '草稿') {
+    return 'question-navigator__status--draft';
+  }
+
+  if (statusLabel === '进行中') {
+    return 'question-navigator__status--in-progress';
+  }
+
+  if (statusLabel === '待标注') {
+    return 'question-navigator__status--pending';
+  }
+
+  if (statusLabel === '已提交' || statusLabel === '复审中' || statusLabel === '待完成') {
+    return 'question-navigator__status--submitted';
+  }
+
+  if (statusLabel === '待修改') {
+    return 'question-navigator__status--draft';
+  }
+
+  return '';
+}
+
+function isCompletedStatusLabel(statusLabel: string): boolean {
+  return ['已完成', '已提交', '复审中', '待完成'].includes(statusLabel);
+}

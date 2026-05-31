@@ -26,6 +26,8 @@ export const WorkbenchPage = () => {
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [activeFieldKey, setActiveFieldKey] = useState<string | null>(null);
   const [draftStatus, setDraftStatus] = useState('正在加载草稿。');
+  const [draftStatusRevision, setDraftStatusRevision] = useState(0);
+  const [localQuestionProgress, setLocalQuestionProgress] = useState<Record<string, QuestionProgressState>>({});
   const [fatalErrorMessage, setFatalErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -35,9 +37,10 @@ export const WorkbenchPage = () => {
   const aiReviewPollTimerRef = useRef<number | null>(null);
   const lastSavedSnapshotRef = useRef('');
   const hydratedRef = useRef(false);
+  const loadWorkbenchRequestRef = useRef(0);
   const taskSubmitInFlightRef = useRef(false);
 
-  const localCacheKey = assignmentId ? `labelhub.local-draft.${assignmentId}` : '';
+  const localCacheKey = createLocalDraftCacheKey(assignmentId);
 
   const clearAiReviewPolling = useCallback(() => {
     if (aiReviewPollTimerRef.current !== null) {
@@ -59,6 +62,8 @@ export const WorkbenchPage = () => {
   }, [assignmentId]);
 
   const loadWorkbench = async (id: string) => {
+    const requestId = loadWorkbenchRequestRef.current + 1;
+    loadWorkbenchRequestRef.current = requestId;
     setIsLoading(true);
     try {
       const nextWorkbench = await getAssignmentWorkbench(id);
@@ -66,7 +71,13 @@ export const WorkbenchPage = () => {
         getLabelerStats({ labelerId: LABELER_ID, taskId: nextWorkbench.assignment.taskId }),
         listLabelerAssignments({ labelerId: LABELER_ID, taskId: nextWorkbench.assignment.taskId }),
       ]);
-      const cachedAnswers = readLocalDraft(localCacheKey);
+
+      if (requestId !== loadWorkbenchRequestRef.current) {
+        return;
+      }
+
+      const nextLocalCacheKey = createLocalDraftCacheKey(id);
+      const cachedAnswers = readLocalDraft(nextLocalCacheKey);
       const initialAnswers = cachedAnswers ?? nextWorkbench.draft?.answers ?? {};
       const flattenedFields = getFlattenedSchemaFields(nextWorkbench.task.schema.fields);
       const answerFields = getAnswerFields(flattenedFields);
@@ -90,9 +101,14 @@ export const WorkbenchPage = () => {
       );
       setFatalErrorMessage(null);
     } catch (error) {
+      if (requestId !== loadWorkbenchRequestRef.current) {
+        return;
+      }
       setFatalErrorMessage(error instanceof Error ? error.message : '标注台加载失败。');
     } finally {
-      setIsLoading(false);
+      if (requestId === loadWorkbenchRequestRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -185,6 +201,7 @@ export const WorkbenchPage = () => {
             ? `草稿已自动保存 ${formatTime(draft.updatedAt)}`
             : `草稿已手动保存 ${formatTime(draft.updatedAt)}`,
         );
+        setDraftStatusRevision((current) => current + 1);
         if (source === 'manual') {
           showStatusToast('草稿已保存。');
         }
@@ -211,7 +228,6 @@ export const WorkbenchPage = () => {
       return;
     }
 
-    setDraftStatus('草稿待自动保存。');
     const timer = window.setTimeout(() => {
       void saveDraftNow('auto');
     }, 800);
@@ -241,6 +257,7 @@ export const WorkbenchPage = () => {
     const errors = validateSchemaAnswers(workbench.task.schema, linkageResult.answers, linkageResult);
     if (errors.length > 0) {
       const firstError = errors[0]?.message;
+      setActiveFieldKey(errors[0]?.fieldKey ?? null);
       showErrorToast(
         firstError
           ? `提交前请修正 ${errors.length.toLocaleString()} 项内容：${firstError}`
@@ -339,7 +356,13 @@ export const WorkbenchPage = () => {
     () => [...taskAssignments].sort(compareLabelerAssignments),
     [taskAssignments],
   );
-  const currentAssignmentIndex = useMemo(() => {
+  const isWorkbenchForCurrentRoute = Boolean(
+    workbench &&
+      (workbench.assignment.id === assignmentId || workbench.taskItem.id === itemId),
+  );
+  const navigationAssignmentId = workbench && !isWorkbenchForCurrentRoute ? workbench.assignment.id : assignmentId;
+  const navigationItemId = workbench && !isWorkbenchForCurrentRoute ? workbench.taskItem.id : itemId;
+  const routeAssignmentIndex = useMemo(() => {
     const index = orderedTaskAssignments.findIndex((assignment) =>
       assignment.assignmentId === assignmentId ||
       assignment.taskItemId === itemId,
@@ -352,25 +375,74 @@ export const WorkbenchPage = () => {
     const sortOrderIndex = (workbench?.taskItem.sortOrder ?? 1) - 1;
     return Math.max(0, sortOrderIndex);
   }, [assignmentId, itemId, orderedTaskAssignments, workbench?.taskItem.sortOrder]);
+  const currentAssignmentIndex = useMemo(() => {
+    const index = orderedTaskAssignments.findIndex((assignment) =>
+      assignment.assignmentId === navigationAssignmentId ||
+      assignment.taskItemId === navigationItemId,
+    );
+
+    if (index >= 0) {
+      return index;
+    }
+
+    const sortOrderIndex = (workbench?.taskItem.sortOrder ?? 1) - 1;
+    return Math.max(0, sortOrderIndex);
+  }, [navigationAssignmentId, navigationItemId, orderedTaskAssignments, workbench?.taskItem.sortOrder]);
   const totalCount = useMemo(
     () => Math.max(1, orderedTaskAssignments.length || stats?.totalAssignments || 1),
     [orderedTaskAssignments.length, stats?.totalAssignments],
   );
+  const routeQuestionIndex = Math.min(routeAssignmentIndex, totalCount - 1);
   const currentQuestionIndex = Math.min(currentAssignmentIndex, totalCount - 1);
-  const currentQuestionRequiredComplete = useMemo(
-    () => (workbench ? areRequiredAnswerFieldsComplete(workbench, answers) : false),
+  const currentQuestionProgress = useMemo(
+    () => (workbench ? resolveAnswerProgressState(workbench, answers) : 'empty'),
     [answers, workbench],
   );
+
+  useEffect(() => {
+    if (!workbench || !isWorkbenchForCurrentRoute || !isSubmittableAssignmentStatus(workbench.assignment.status)) {
+      return;
+    }
+
+    setLocalQuestionProgress((current) => {
+      const assignmentKey = workbench.assignment.id;
+      if (current[assignmentKey] === currentQuestionProgress) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [assignmentKey]: currentQuestionProgress,
+      };
+    });
+  }, [
+    currentQuestionProgress,
+    isWorkbenchForCurrentRoute,
+    workbench?.assignment.id,
+    workbench?.assignment.status,
+  ]);
+
   const navigatorItems = useMemo(
     () =>
       orderedTaskAssignments.map((assignment, index) => ({
         label: assignment.externalId,
         statusLabel:
-          index === currentQuestionIndex
-            ? resolveCurrentQuestionStatusLabel(assignment.status, currentQuestionRequiredComplete)
-            : ASSIGNMENT_STATUS_LABELS[assignment.status] ?? assignment.status,
+          index === currentQuestionIndex && isWorkbenchForCurrentRoute
+            ? resolveCurrentQuestionStatusLabel(assignment.status, currentQuestionProgress)
+            : resolveNavigationQuestionStatusLabel(
+                assignment,
+                localQuestionProgress[assignment.assignmentId],
+                workbench?.task.schema,
+              ),
       })),
-    [currentQuestionIndex, currentQuestionRequiredComplete, orderedTaskAssignments],
+    [
+      currentQuestionIndex,
+      currentQuestionProgress,
+      isWorkbenchForCurrentRoute,
+      localQuestionProgress,
+      orderedTaskAssignments,
+      workbench?.task.schema,
+    ],
   );
 
   const navigateToAssignment = useCallback(
@@ -381,24 +453,24 @@ export const WorkbenchPage = () => {
   );
 
   const handlePrevious = useCallback(() => {
-    const previousAssignment = orderedTaskAssignments[currentQuestionIndex - 1];
+    const previousAssignment = orderedTaskAssignments[routeQuestionIndex - 1];
     if (!previousAssignment) {
       showInfoToast('已经是当前任务的第一题。');
       return;
     }
 
     navigateToAssignment(previousAssignment);
-  }, [currentQuestionIndex, navigateToAssignment, orderedTaskAssignments, showInfoToast]);
+  }, [navigateToAssignment, orderedTaskAssignments, routeQuestionIndex, showInfoToast]);
 
   const handleNext = useCallback(() => {
-    const nextAssignment = orderedTaskAssignments[currentQuestionIndex + 1];
+    const nextAssignment = orderedTaskAssignments[routeQuestionIndex + 1];
     if (!nextAssignment) {
       showInfoToast('已经是当前任务的最后一题。');
       return;
     }
 
     navigateToAssignment(nextAssignment);
-  }, [currentQuestionIndex, navigateToAssignment, orderedTaskAssignments, showInfoToast]);
+  }, [navigateToAssignment, orderedTaskAssignments, routeQuestionIndex, showInfoToast]);
 
   const handleJump = useCallback((index: number) => {
     const targetAssignment = orderedTaskAssignments[index];
@@ -471,13 +543,13 @@ export const WorkbenchPage = () => {
     const form = document.querySelector<HTMLElement>('.schema-renderer');
     form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     form
-      ?.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-        'input:not([disabled]), textarea:not([disabled]), select:not([disabled])',
+      ?.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | HTMLElement>(
+        'input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [contenteditable="true"]',
       )
       ?.focus();
   }, []);
 
-  if (isLoading) {
+  if (isLoading && !workbench) {
     return (
       <section className="labeler-workbench-page" aria-labelledby="labeler-workbench-title">
         <h1 id="labeler-workbench-title">标注台</h1>
@@ -512,7 +584,11 @@ export const WorkbenchPage = () => {
           </p>
         </div>
         <div className="workbench-topline__actions">
-          <span className="autosave-indicator">{draftStatus}</span>
+          <span className="autosave-indicator" aria-live="polite">
+            <span className="autosave-indicator__text" key={draftStatusRevision}>
+              {draftStatus}
+            </span>
+          </span>
         </div>
       </div>
 
@@ -548,29 +624,32 @@ export const WorkbenchPage = () => {
               onActiveFieldChange={setActiveFieldKey}
             />
           </div>
+          <div className="workbench-footer-actions annotation-submit-bar">
+            <div className="annotation-submit-bar__navigation" aria-label="切题操作">
+              <button type="button" disabled={routeQuestionIndex <= 0} onClick={handlePrevious}>
+                ← 上一题
+              </button>
+              <button type="button" disabled={routeQuestionIndex >= totalCount - 1} onClick={handleNext}>
+                下一题 →
+              </button>
+            </div>
+            <div className="annotation-submit-bar__actions">
+              <button type="button" disabled={isSaving} onClick={() => void saveDraftNow('manual')}>
+                保存草稿
+              </button>
+              <button
+                className="primary-action"
+                type="button"
+                disabled={isTaskSubmitDisabled}
+                onClick={() => void submitCurrent()}
+              >
+                提交任务
+              </button>
+            </div>
+          </div>
         </main>
 
         <LabelerWorkbenchInfoPanel stats={stats} workbench={workbench} />
-      </div>
-
-      <div className="workbench-footer-actions">
-        <button type="button" disabled={currentQuestionIndex <= 0} onClick={handlePrevious}>
-          ← 上一题
-        </button>
-        <button type="button" disabled={currentQuestionIndex >= totalCount - 1} onClick={handleNext}>
-          下一题 →
-        </button>
-        <button type="button" disabled={isSaving} onClick={() => void saveDraftNow('manual')}>
-          保存草稿
-        </button>
-        <button
-          className="primary-action"
-          type="button"
-          disabled={isTaskSubmitDisabled}
-          onClick={() => void submitCurrent()}
-        >
-          提交任务 →
-        </button>
       </div>
     </section>
   );
@@ -1030,11 +1109,22 @@ function getAnswerFields(fields: readonly SchemaField[]): SchemaField[] {
   );
 }
 
-function areRequiredAnswerFieldsComplete(workbench: WorkbenchDto, answers: Record<string, unknown>): boolean {
-  const linkageResult = applySchemaLinkage(workbench.task.schema, answers);
-  const answerFields = getAnswerFields(getFlattenedSchemaFields(workbench.task.schema.fields));
+type QuestionProgressState = 'empty' | 'draft' | 'complete';
 
-  return answerFields.every((field) => {
+function resolveAnswerProgressState(workbench: WorkbenchDto, answers: Record<string, unknown>): QuestionProgressState {
+  return resolveSchemaAnswerProgressState(workbench.task.schema, answers);
+}
+
+function resolveSchemaAnswerProgressState(
+  schema: WorkbenchDto['task']['schema'],
+  answers: Record<string, unknown>,
+): QuestionProgressState {
+  const linkageResult = applySchemaLinkage(schema, answers);
+  const answerFields = getAnswerFields(getFlattenedSchemaFields(schema.fields));
+  let hasAnyVisibleAnswer = false;
+  let hasMissingRequiredAnswer = false;
+
+  for (const field of answerFields) {
     const fieldKey = getSchemaFieldKey(field);
     const isDisabled = linkageResult.disabledFieldKeys.has(fieldKey);
     const isHidden = linkageResult.hiddenFieldKeys.has(fieldKey) && !field.validateWhenHidden;
@@ -1042,20 +1132,67 @@ function areRequiredAnswerFieldsComplete(workbench: WorkbenchDto, answers: Recor
       field.required || field.validation?.required || linkageResult.requiredFieldKeys.has(fieldKey),
     );
 
-    if (!isRequired || isDisabled || isHidden) {
-      return true;
+    if (isDisabled || isHidden) {
+      continue;
     }
 
-    return !isEmptyAnswerValue(linkageResult.answers[fieldKey]);
-  });
+    if (!isEmptyAnswerValue(linkageResult.answers[fieldKey])) {
+      hasAnyVisibleAnswer = true;
+    }
+
+    if (isRequired && isEmptyAnswerValue(linkageResult.answers[fieldKey])) {
+      hasMissingRequiredAnswer = true;
+    }
+  }
+
+  if (!hasMissingRequiredAnswer) {
+    return 'complete';
+  }
+
+  return hasAnyVisibleAnswer ? 'draft' : 'empty';
 }
 
-function resolveCurrentQuestionStatusLabel(status: AssignmentStatus, requiredComplete: boolean): string {
+function resolveCurrentQuestionStatusLabel(status: AssignmentStatus, progress: QuestionProgressState): string {
   if (isSubmittableAssignmentStatus(status)) {
-    return requiredComplete ? '已完成' : '进行中';
+    if (progress === 'empty') {
+      return ASSIGNMENT_STATUS_LABELS[status] ?? status;
+    }
+
+    return formatQuestionProgressLabel(progress);
   }
 
   return ASSIGNMENT_STATUS_LABELS[status] ?? status;
+}
+
+function resolveNavigationQuestionStatusLabel(
+  assignment: LabelerAssignmentDto,
+  locallyProgress?: QuestionProgressState,
+  schema?: WorkbenchDto['task']['schema'],
+): string {
+  if (locallyProgress && locallyProgress !== 'empty' && isSubmittableAssignmentStatus(assignment.status)) {
+    return formatQuestionProgressLabel(locallyProgress);
+  }
+
+  if (assignment.draftAnswers && schema && isSubmittableAssignmentStatus(assignment.status)) {
+    const draftProgress = resolveSchemaAnswerProgressState(schema, assignment.draftAnswers);
+    if (draftProgress !== 'empty') {
+      return formatQuestionProgressLabel(draftProgress);
+    }
+  }
+
+  return ASSIGNMENT_STATUS_LABELS[assignment.status] ?? assignment.status;
+}
+
+function formatQuestionProgressLabel(progress: QuestionProgressState): string {
+  if (progress === 'complete') {
+    return '已完成';
+  }
+
+  if (progress === 'draft') {
+    return '草稿';
+  }
+
+  return '进行中';
 }
 
 function isEmptyAnswerValue(value: unknown): boolean {
@@ -1116,6 +1253,10 @@ function readLocalDraft(key: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+function createLocalDraftCacheKey(assignmentId: string): string {
+  return assignmentId ? `labelhub.local-draft.${assignmentId}` : '';
 }
 
 function formatTime(value: string): string {

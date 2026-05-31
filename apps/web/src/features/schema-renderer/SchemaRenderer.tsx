@@ -131,6 +131,7 @@ export const SchemaRenderer = ({
           mode={mode}
           hiddenFieldKeys={linkageResult.hiddenFieldKeys}
           disabledFieldKeys={linkageResult.disabledFieldKeys}
+          requiredFieldKeys={linkageResult.requiredFieldKeys}
           validationMessagesByField={validationMessagesByField}
           onFieldChange={handleFieldChange}
           activeFieldKey={activeFieldKey}

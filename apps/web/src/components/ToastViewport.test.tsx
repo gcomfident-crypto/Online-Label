@@ -91,4 +91,36 @@ describe('ToastViewport', () => {
     });
     expect(onDismiss).toHaveBeenCalledWith('saved');
   });
+
+  it('支持不可手动关闭且不会自动消失的加载态提示', () => {
+    vi.useFakeTimers();
+    const onDismiss = vi.fn();
+
+    render(
+      <ToastViewport
+        messages={[
+          {
+            autoDismiss: false,
+            id: 'template-analyzing',
+            isDismissible: false,
+            isLoading: true,
+            text: '正在分析输入文件并创建模板',
+            type: 'info',
+          },
+        ]}
+        onDismiss={onDismiss}
+      />,
+    );
+
+    const toast = screen.getByRole('status');
+    expect(toast).toHaveTextContent('正在分析输入文件并创建模板');
+    expect(toast.querySelector('.toast__spinner')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: '关闭提示' })).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(10000);
+    });
+
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
 });

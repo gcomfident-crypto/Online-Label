@@ -231,11 +231,17 @@ describe('TaskListPage', () => {
     expect(within(summaryRegion as HTMLElement).getByText('已完成')).toBeInTheDocument();
     expect(within(summaryRegion as HTMLElement).getByText('4')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('搜索任务名 / ID / 负责人')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '数据类型筛选' })).not.toBeInTheDocument();
+    expect(screen.queryByText('全部数据类型')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '状态筛选' })).not.toBeInTheDocument();
+    expect(screen.queryByText('全部状态')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '分发策略筛选' })).not.toBeInTheDocument();
-    const filterBar = screen.getByRole('button', { name: '新建任务' }).closest('.task-filter-bar');
+    const tableCard = screen.getByLabelText('任务列表工作区');
+    const filterBar = screen.getByPlaceholderText('搜索任务名 / ID / 负责人').closest('.task-filter-bar');
     expect(filterBar).not.toBeNull();
-    expect(within(filterBar as HTMLElement).getByRole('button', { name: '新建任务' })).toBeInTheDocument();
+    expect(tableCard).toHaveClass('task-management-table-card');
+    expect(screen.getByRole('button', { name: '新建任务' })).toHaveClass('task-filter-bar__create');
+    expect(filterBar).toContainElement(screen.getByRole('button', { name: '新建任务' }));
 
     const table = screen.getByRole('table', { name: '任务列表' });
     const rows = within(table).getAllByRole('row');
@@ -330,6 +336,7 @@ describe('TaskListPage', () => {
     const quotaRewardRow = screen.getByText('单条奖励').closest('.task-publish-form__metrics');
     const drawer = screen.getByRole('complementary', { name: '发布任务抽屉' });
     const progressTimeline = within(drawer).getByRole('region', { name: '当前进度' });
+    expect(progressTimeline.closest('.task-publish-form')).toBeInTheDocument();
     expect(within(progressTimeline).getByRole('heading', { name: '当前进度' })).toBeInTheDocument();
     expect(within(progressTimeline).getByText('草稿').closest('li')).toHaveClass('is-current');
     expect(
@@ -2202,7 +2209,11 @@ describe('TaskListPage', () => {
 
     expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
     await user.click(screen.getByTestId('template-designer-backdrop'));
-    expect(document.querySelector('.template-designer-drawer-shell')).toHaveClass('is-closing');
+    expect(screen.getByText('需要保存成草稿吗？')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '取消' }));
+    await waitFor(() =>
+      expect(document.querySelector('.template-designer-drawer-shell')).toHaveClass('is-closing'),
+    );
 
     const restoredDrawer = await screen.findByRole('complementary', { name: '发布任务抽屉' });
     expect(screen.getByRole('heading', { name: '任务管理' })).toBeInTheDocument();
@@ -2251,6 +2262,8 @@ describe('TaskListPage', () => {
     expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
 
     await user.click(screen.getByTestId('template-designer-backdrop'));
+    expect(screen.getByText('需要保存成草稿吗？')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '取消' }));
     const restoredDrawer = await screen.findByRole('complementary', { name: '发布任务抽屉' });
     expect(restoredDrawer).toBeInTheDocument();
     expect(document.querySelector('.task-publish-drawer-shell')).toHaveClass('is-returning-from-template');

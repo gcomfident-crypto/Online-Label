@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import {
   assertSubmissionTransition,
+  type LabelHubSchema,
   type AiReviewStatus,
   type DatasetKind,
   type SubmissionStatus,
@@ -107,6 +108,7 @@ type SubmissionReviewRecord = SubmissionSummaryRecord & {
       title: string;
       template: {
         datasetKind: DatasetKind;
+        schema?: LabelHubSchema | null;
       };
     };
   };
@@ -222,6 +224,7 @@ export type AiReviewDetailDto = {
     id: string;
     title: string;
     datasetKind: DatasetKind;
+    templateSchema: LabelHubSchema | null;
   };
   taskItem: {
     id: string;
@@ -296,6 +299,7 @@ const SUBMISSION_REVIEW_INCLUDE = {
           template: {
             select: {
               datasetKind: true,
+              schema: true,
             },
           },
         },
@@ -610,6 +614,7 @@ export class AiReviewService {
         id: submission.assignment.task.id,
         title: submission.assignment.task.title,
         datasetKind: submission.assignment.task.template.datasetKind,
+        templateSchema: submission.assignment.task.template.schema ?? null,
       },
       taskItem: {
         id: submission.assignment.taskItem.id,

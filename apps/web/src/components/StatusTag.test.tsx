@@ -44,10 +44,10 @@ describe('StatusTag', () => {
     );
 
     const expectedStyles = [
-      ['草稿', '#94A3B8', '#64748B', '#F1F5F9'],
-      ['进行中', '#306DF8', '#1D4ED8', '#EAF1FF'],
-      ['已暂停', '#D97706', '#92400E', '#FFF7E6'],
-      ['已完成', '#00A676', '#007F5F', '#E6F7F1'],
+      ['草稿', '#64748B', '#64748B', '#F3F4F6'],
+      ['进行中', '#D97706', '#D97706', '#FFF7E6'],
+      ['已暂停', '#DC2626', '#DC2626', '#FEF2F2'],
+      ['已完成', '#0FB86B', '#0FB86B', '#E8F7EF'],
     ] as const;
 
     for (const [label, dotColor, textColor, backgroundColor] of expectedStyles) {

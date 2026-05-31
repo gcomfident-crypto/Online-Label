@@ -27,6 +27,7 @@ export type FieldRendererProps = {
   mode: SchemaRendererMode;
   hiddenFieldKeys: ReadonlySet<string>;
   disabledFieldKeys: ReadonlySet<string>;
+  requiredFieldKeys: ReadonlySet<string>;
   validationMessagesByField: ReadonlyMap<string, readonly string[]>;
   onFieldChange: (field: SchemaField, nextValue: FieldNextValue) => void;
   activeFieldKey?: string | null;

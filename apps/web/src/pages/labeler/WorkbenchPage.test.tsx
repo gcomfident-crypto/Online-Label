@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -271,7 +271,9 @@ describe('WorkbenchPage', () => {
     expect(screen.queryByText(/题目 ID/)).not.toBeInTheDocument();
     const navigationPanel = screen.getByRole('complementary', { name: '题目导航' });
     expect(within(navigationPanel).getByRole('heading', { name: '题目导航' })).toBeInTheDocument();
-    expect(navigationPanel).toHaveTextContent('1 / 2');
+    expect(navigationPanel).toHaveTextContent('已完成 50% · 当前第 1 题');
+    expect(navigationPanel).not.toHaveTextContent('1 / 2');
+    expect(navigationPanel).not.toHaveTextContent('当前题 qa_1');
     expect(navigationPanel).toHaveTextContent('qa_1');
     expect(within(navigationPanel).getByRole('button', { name: /qa_1/ })).toHaveTextContent('已完成');
     expect(within(navigationPanel).queryByRole('button', { name: /上一题/ })).not.toBeInTheDocument();
@@ -296,11 +298,13 @@ describe('WorkbenchPage', () => {
     expect(screen.queryByText('⌘/Ctrl + Enter 提交任务 · ⌘/Ctrl + S 保存 · J/K 切题 · R 报告')).not.toBeInTheDocument();
     expect(screen.getByLabelText('上一轮打回原因')).toHaveTextContent('请补充判断依据。');
     expect(screen.getByLabelText('问答质量材料')).toHaveTextContent('如何判断回答质量？');
+    await user.click(screen.getByLabelText('优秀'));
+    expect(screen.queryByText('草稿待自动保存')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '提交任务 →' }));
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
 
     expect(await screen.findByText('提交任务成功，2 条标注已进入 AI 预审队列')).toBeInTheDocument();
-    const submitButton = screen.getByRole('button', { name: '提交任务 →' });
+    const submitButton = screen.getByRole('button', { name: '提交任务' });
     expect(submitButton).toBeDisabled();
     await user.click(submitButton);
     await user.keyboard('{Control>}Enter{/Control}');
@@ -315,6 +319,206 @@ describe('WorkbenchPage', () => {
       }),
     );
     expect(fetchMock).not.toHaveBeenCalledWith('/submissions', expect.anything());
+  });
+
+  it('题目导航在切题后保留已填写题目的已完成状态', async () => {
+    const user = userEvent.setup();
+    const secondWorkbench = {
+      ...qaWorkbench,
+      assignment: {
+        ...qaWorkbench.assignment,
+        id: 'assignment_2',
+        taskItemId: 'item_qa_2',
+        status: 'ASSIGNED',
+      },
+      taskItem: {
+        ...qaWorkbench.taskItem,
+        id: 'item_qa_2',
+        externalId: 'qa_2',
+        rawData: {
+          ...qaWorkbench.taskItem.rawData,
+          prompt: '第二道题如何判断回答质量？',
+        },
+        sortOrder: 9,
+      },
+      draft: null,
+      rejectionNotice: null,
+      submissionHistory: [],
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/assignments/assignment_1/workbench') {
+        return jsonResponse({ data: qaWorkbench });
+      }
+
+      if (url === '/assignments/assignment_2/workbench') {
+        return jsonResponse({ data: secondWorkbench });
+      }
+
+      if (url.startsWith('/labeler/stats')) {
+        return jsonResponse({ data: { ...stats, totalAssignments: 2 } });
+      }
+
+      if (url.startsWith('/labeler/assignments')) {
+        return jsonResponse({ data: taskAssignments });
+      }
+
+      if (url.startsWith('/drafts/')) {
+        const assignmentIdFromPath = url.split('/')[2] ?? 'assignment_1';
+        return jsonResponse({
+          data: {
+            id: `draft_${assignmentIdFromPath}`,
+            assignmentId: assignmentIdFromPath,
+            answers: { quality: 'excellent' },
+            schemaVersion: 'r1',
+            createdAt: '2026-05-21T00:00:00.000Z',
+            updatedAt: '2026-05-21T08:04:00.000Z',
+          },
+        });
+      }
+
+      return jsonResponse({ data: null });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage();
+
+    const navigationPanel = await screen.findByRole('complementary', { name: '题目导航' });
+    await user.type(screen.getByLabelText('审核意见'), '先补充备注');
+    const firstQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_1/ });
+    expect(firstQuestionButton).toHaveTextContent('草稿');
+    expect(within(firstQuestionButton).getByText('草稿').closest('.question-navigator__status')).toHaveClass(
+      'question-navigator__status--draft',
+    );
+
+    await user.click(screen.getByLabelText('优秀'));
+    expect(within(navigationPanel).getByRole('button', { name: /qa_1/ })).toHaveTextContent('已完成');
+
+    await user.click(screen.getByRole('button', { name: '下一题 →' }));
+    expect(await screen.findByText('第 9 题')).toBeInTheDocument();
+
+    const refreshedNavigationPanel = screen.getByRole('complementary', { name: '题目导航' });
+    const completedQuestionButton = within(refreshedNavigationPanel).getByRole('button', { name: /qa_1/ });
+    const pendingQuestionButton = within(refreshedNavigationPanel).getByRole('button', { name: /qa_2/ });
+    expect(completedQuestionButton).toHaveTextContent('已完成');
+    expect(within(completedQuestionButton).getByText('已完成').closest('.question-navigator__status')).toHaveClass(
+      'question-navigator__status--complete',
+    );
+    expect(pendingQuestionButton).toHaveTextContent('待标注');
+    expect(within(pendingQuestionButton).getByText('待标注').closest('.question-navigator__status')).toHaveClass(
+      'question-navigator__status--pending',
+    );
+  });
+
+  it('题目导航根据非当前题草稿答案直接显示已完成状态', async () => {
+    const assignmentsWithCompletedDraft = taskAssignments.map((assignment) =>
+      assignment.assignmentId === 'assignment_2'
+        ? {
+            ...assignment,
+            status: 'IN_PROGRESS',
+            draftAnswers: { quality: 'excellent' },
+            draftUpdatedAt: '2026-05-21T08:04:00.000Z',
+          }
+        : assignment,
+    );
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/assignments/assignment_1/workbench') {
+        return jsonResponse({ data: qaWorkbench });
+      }
+
+      if (url.startsWith('/labeler/stats')) {
+        return jsonResponse({ data: { ...stats, totalAssignments: 2 } });
+      }
+
+      if (url.startsWith('/labeler/assignments')) {
+        return jsonResponse({ data: assignmentsWithCompletedDraft });
+      }
+
+      return jsonResponse({ data: null });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage();
+
+    const navigationPanel = await screen.findByRole('complementary', { name: '题目导航' });
+    const currentQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_1/ });
+    const completedDraftQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_2/ });
+
+    expect(navigationPanel).toHaveTextContent('已完成 50% · 当前第 1 题');
+    expect(currentQuestionButton).toHaveTextContent('进行中');
+    expect(completedDraftQuestionButton).toHaveTextContent('已完成');
+    expect(
+      within(completedDraftQuestionButton).getByText('已完成').closest('.question-navigator__status'),
+    ).toHaveClass('question-navigator__status--complete');
+  });
+
+  it('点击题目导航切题时保留当前标注台，避免整页加载闪烁', async () => {
+    const user = userEvent.setup();
+    const secondWorkbench = {
+      ...qaWorkbench,
+      assignment: {
+        ...qaWorkbench.assignment,
+        id: 'assignment_2',
+        taskItemId: 'item_qa_2',
+        status: 'ASSIGNED',
+      },
+      taskItem: {
+        ...qaWorkbench.taskItem,
+        id: 'item_qa_2',
+        externalId: 'qa_2',
+        rawData: {
+          ...qaWorkbench.taskItem.rawData,
+          prompt: '第二道题如何判断回答质量？',
+        },
+        sortOrder: 9,
+      },
+      draft: null,
+      rejectionNotice: null,
+      submissionHistory: [],
+    };
+    let resolveSecondWorkbench: (response: Response) => void = () => undefined;
+    const secondWorkbenchResponse = new Promise<Response>((resolve) => {
+      resolveSecondWorkbench = resolve;
+    });
+    const fetchMock = vi.fn((url: string) => {
+      if (url === '/assignments/assignment_1/workbench') {
+        return Promise.resolve(jsonResponse({ data: qaWorkbench }));
+      }
+
+      if (url === '/assignments/assignment_2/workbench') {
+        return secondWorkbenchResponse;
+      }
+
+      if (url.startsWith('/labeler/stats')) {
+        return Promise.resolve(jsonResponse({ data: { ...stats, totalAssignments: 2 } }));
+      }
+
+      if (url.startsWith('/labeler/assignments')) {
+        return Promise.resolve(jsonResponse({ data: taskAssignments }));
+      }
+
+      return Promise.resolve(jsonResponse({ data: null }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage();
+
+    await screen.findByRole('heading', { name: /问答质量标注/ });
+    expect(screen.getByText('第 8 题')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /qa_2/ }));
+    await waitFor(() => {
+      expect(screen.getByTestId('location-path')).toHaveTextContent(
+        '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
+      );
+    });
+
+    expect(screen.queryByText('正在加载题目')).not.toBeInTheDocument();
+    expect(screen.getByText('第 8 题')).toBeInTheDocument();
+
+    resolveSecondWorkbench(jsonResponse({ data: secondWorkbench }));
+
+    expect(await screen.findByText('第 9 题')).toBeInTheDocument();
+    expect(screen.queryByText('正在加载题目')).not.toBeInTheDocument();
   });
 
   it('右侧信息面板展示贡献、本题历史和快捷键，不展示模板属性配置', async () => {
@@ -425,7 +629,7 @@ describe('WorkbenchPage', () => {
     renderWorkbenchPage();
 
     await screen.findByRole('heading', { name: /问答质量标注/ });
-    await user.click(screen.getByRole('button', { name: '提交任务 →' }));
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
 
     expect(await screen.findByText('提交任务成功，1 条标注已提交至人工复审')).toBeInTheDocument();
     await new Promise((resolve) => window.setTimeout(resolve, 450));
@@ -482,7 +686,7 @@ describe('WorkbenchPage', () => {
     renderWorkbenchPage();
 
     await screen.findByRole('heading', { name: /问答质量标注/ });
-    await user.click(screen.getByRole('button', { name: '提交任务 →' }));
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
     expect(await screen.findByText('提交任务成功，1 条标注已进入 AI 预审队列')).toBeInTheDocument();
 
     const report = await screen.findByRole('region', { name: 'AI 预审报告' });
@@ -505,7 +709,7 @@ describe('WorkbenchPage', () => {
     renderWorkbenchPage();
 
     await screen.findByRole('heading', { name: /问答质量标注/ });
-    await user.click(screen.getByRole('button', { name: '提交任务 →' }));
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
 
     const alerts = await screen.findAllByRole('alert');
     const toast = alerts.find((alert) => alert.classList.contains('toast')) as HTMLElement;

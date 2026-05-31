@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
 import {
-  TASK_STATUS_LABELS,
   type DatasetKind,
   type DatasetRecord,
   type LabelHubSchema,
@@ -1001,54 +1000,60 @@ export const TaskListPage = () => {
         </div>
       </div>
 
-      <div className="task-summary-grid">
-        {SUMMARY_FILTERS.map((item) => (
-          <SummaryCard
-            key={item.value}
-            isActive={statusFilter === item.value}
-            label={item.label}
-            value={summary[item.summaryKey].toString()}
-            onClick={() => setStatusFilter(item.value)}
+      <section className="task-management-table-card" aria-label="任务列表工作区">
+        <div className="task-management-table-toolbar">
+          <div className="task-summary-grid">
+            {SUMMARY_FILTERS.map((item) => (
+              <SummaryCard
+                key={item.value}
+                isActive={statusFilter === item.value}
+                label={item.label}
+                status={item.value}
+                value={summary[item.summaryKey].toString()}
+                onClick={() => setStatusFilter(item.value)}
+              />
+            ))}
+          </div>
+
+          <div className="task-filter-bar">
+            <input
+              aria-label="搜索任务"
+              placeholder="搜索任务名 / ID / 负责人"
+              value={searchKeyword}
+              onChange={(event) => setSearchKeyword(event.target.value)}
+            />
+            <button
+              className="primary-action create-action task-filter-bar__create"
+              type="button"
+              disabled={isPreparingNewTask}
+              onClick={() => void handleCreateTask()}
+            >
+              新建任务
+            </button>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <PageLoading title="正在加载任务列表" description="正在同步任务状态、题目数和发布信息。" />
+        ) : (
+          <TaskTable
+            currentPage={currentTaskPage}
+            getTaskDisplayId={(task) => taskDisplayIdMap.get(task.id) ?? task.id}
+            enteringTaskIds={enteringTaskIds}
+            tablePanelRef={taskTableContainerRef}
+            tasks={paginatedTasks}
+            totalPages={totalTaskPages}
+            onOpenTask={openPublishDrawer}
+            onPageChange={setCurrentTaskPage}
+            onPublish={openPublishDrawer}
+            onPause={(task) => void transitionTask(task, 'PAUSED', '任务已暂停。')}
+            onResume={(task) => void transitionTask(task, 'PUBLISHED', '任务已恢复发布。')}
+            onEnd={(task) => void transitionTask(task, 'ENDED', '任务已完成。')}
+            deletingTaskIds={deletingTaskIds}
+            onDelete={(task) => void handleDeleteTask(task)}
           />
-        ))}
-      </div>
-
-      <div className="task-filter-bar">
-        <button
-          className="primary-action create-action task-filter-bar__create"
-          type="button"
-          disabled={isPreparingNewTask}
-          onClick={() => void handleCreateTask()}
-        >
-          新建任务
-        </button>
-        <input
-          placeholder="搜索任务名 / ID / 负责人"
-          value={searchKeyword}
-          onChange={(event) => setSearchKeyword(event.target.value)}
-        />
-      </div>
-
-      {isLoading ? (
-        <PageLoading title="正在加载任务列表" description="正在同步任务状态、题目数和发布信息。" />
-      ) : (
-        <TaskTable
-          currentPage={currentTaskPage}
-          getTaskDisplayId={(task) => taskDisplayIdMap.get(task.id) ?? task.id}
-          enteringTaskIds={enteringTaskIds}
-          tablePanelRef={taskTableContainerRef}
-          tasks={paginatedTasks}
-          totalPages={totalTaskPages}
-          onOpenTask={openPublishDrawer}
-          onPageChange={setCurrentTaskPage}
-          onPublish={openPublishDrawer}
-          onPause={(task) => void transitionTask(task, 'PAUSED', '任务已暂停。')}
-          onResume={(task) => void transitionTask(task, 'PUBLISHED', '任务已恢复发布。')}
-          onEnd={(task) => void transitionTask(task, 'ENDED', '任务已完成。')}
-          deletingTaskIds={deletingTaskIds}
-          onDelete={(task) => void handleDeleteTask(task)}
-        />
-      )}
+        )}
+      </section>
 
       {selectedTask && taskForm
         ? createPortal(
@@ -1150,15 +1155,25 @@ const SummaryCard = ({
   isActive,
   label,
   onClick,
+  status,
   value,
 }: {
   isActive: boolean;
   label: string;
   onClick: () => void;
+  status: TaskStatus | 'ALL';
   value: string;
 }) => (
   <button
-    className={isActive ? 'task-summary-card is-active' : 'task-summary-card'}
+    className={[
+      'task-summary-card',
+      status === 'ALL' ? 'task-summary-card--total' : '',
+      status === 'DRAFT' ? 'task-summary-card--draft' : '',
+      status === 'PUBLISHED' ? 'task-summary-card--running' : '',
+      status === 'PAUSED' ? 'task-summary-card--paused' : '',
+      status === 'ENDED' ? 'task-summary-card--done' : '',
+      isActive ? 'is-active' : '',
+    ].filter(Boolean).join(' ')}
     type="button"
     aria-pressed={isActive}
     onClick={onClick}

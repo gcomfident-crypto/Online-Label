@@ -1,4 +1,4 @@
-import type { AiReviewStatus, DatasetKind } from '@labelhub/shared';
+import type { AiReviewStatus, DatasetKind, LabelHubSchema } from '@labelhub/shared';
 import { requestApi } from './request';
 
 export type AiReviewJobDto = {
@@ -114,6 +114,7 @@ export type AiReviewDetailDto = {
     id: string;
     title: string;
     datasetKind: DatasetKind;
+    templateSchema: LabelHubSchema | null;
   };
   taskItem: {
     id: string;

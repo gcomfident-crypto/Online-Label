@@ -262,8 +262,8 @@ export const PublishDrawer = ({
           />
           <span className="task-ai-toggle__label">启用AI预审</span>
         </label>
+        <TaskProgressTimeline task={task} />
       </div>
-      <TaskProgressTimeline task={task} />
       <div className="task-publish-drawer__footer">
         <div className="task-publish-drawer__actions">
           <button type="button" disabled={isSaving} onClick={onSaveDraft}>

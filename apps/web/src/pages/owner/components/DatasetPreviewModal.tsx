@@ -9,6 +9,7 @@ type DatasetPreviewModalProps = {
   isLoading: boolean;
   errorMessage: string | null;
   onClose: () => void;
+  coverage?: 'drawer' | 'workspace';
   description?: string;
   showItemMeta?: boolean;
   title?: string;
@@ -25,6 +26,7 @@ export const DatasetPreviewModal = ({
   isLoading,
   errorMessage,
   onClose,
+  coverage = 'drawer',
   description,
   showItemMeta = true,
   title = '题目数据预览',
@@ -55,7 +57,7 @@ export const DatasetPreviewModal = ({
 
   return (
     <div
-      className={`task-dataset-preview-overlay ${
+      className={`task-dataset-preview-overlay task-dataset-preview-overlay--${coverage} ${
         isClosing ? 'task-dataset-preview-overlay--closing' : 'task-dataset-preview-overlay--entering'
       }`}
       role="presentation"

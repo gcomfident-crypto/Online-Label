@@ -216,6 +216,186 @@ describe('PropertyPanel', () => {
     expect(screen.getByTestId('designer-ai-review-collapse')).toHaveAttribute('aria-hidden', 'false');
   });
 
+  it('单行输入、多行文本和标签选择支持配置 LLM 提示并引用 ShowItem 字段', () => {
+    const onUpdateField = vi.fn();
+    const schemaFields: SchemaField[] = [
+      {
+        key: 'show_item',
+        type: 'show_item',
+        label: '题目展示',
+        displayConfig: {
+          layout: 'table',
+          fields: [
+            { sourceKey: 'prompt', label: 'Prompt', format: 'long_text' },
+            { sourceKey: 'response_a', label: '回答 A', format: 'text' },
+          ],
+        },
+      },
+      {
+        key: 'title',
+        fieldKey: 'cleaned_title',
+        type: 'text',
+        label: '清洗标题',
+        promptTemplate: '请根据 #prompt 输出清洗标题。',
+      },
+    ];
+
+    const { rerender } = render(
+      <PropertyPanel
+        field={schemaFields[1] ?? null}
+        schemaFields={schemaFields}
+        onAddLinkageRule={vi.fn()}
+        onUpdateField={onUpdateField}
+        onUpdateValidation={vi.fn()}
+      />,
+    );
+
+    const llmSectionTitle = screen.getByText('LLM提示');
+    expect(llmSectionTitle).toBeInTheDocument();
+    expect(
+      llmSectionTitle.compareDocumentPosition(screen.getByText('AI 预审')) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByLabelText('关闭 LLM 提示')).toBeChecked();
+    expect(screen.getByTestId('designer-llm-prompt-collapse')).toHaveAttribute('aria-hidden', 'false');
+    expect(screen.getByLabelText('LLM提示内容')).toHaveValue('请根据 #prompt 输出清洗标题。');
+    expect(screen.getByRole('button', { name: '#Prompt' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '#回答 A' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '#回答 A' }));
+    expect(onUpdateField).toHaveBeenLastCalledWith({ promptTemplate: '请根据 #prompt 输出清洗标题。 #response_a' });
+
+    fireEvent.change(screen.getByLabelText('LLM提示内容'), {
+      target: { value: '请根据 #prompt 输出标签。' },
+    });
+    expect(onUpdateField).toHaveBeenLastCalledWith({ promptTemplate: '请根据 #prompt 输出标签。' });
+
+    fireEvent.click(screen.getByLabelText('关闭 LLM 提示'));
+    expect(onUpdateField).toHaveBeenLastCalledWith({ promptTemplate: undefined });
+
+    rerender(
+      <PropertyPanel
+        field={{
+          key: 'tags',
+          fieldKey: 'tags',
+          type: 'tag_select',
+          label: '标签选择',
+          options: [{ label: '准确性', value: 'accuracy' }],
+        }}
+        schemaFields={schemaFields}
+        onAddLinkageRule={vi.fn()}
+        onUpdateField={onUpdateField}
+        onUpdateValidation={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('LLM提示')).toBeInTheDocument();
+    expect(screen.getByLabelText('启用 LLM 提示')).not.toBeChecked();
+  });
+
+  it('分组容器只配置标题、说明、默认展开和布局列数', () => {
+    const onUpdateField = vi.fn();
+
+    render(
+      <PropertyPanel
+        field={{
+          key: 'group_1',
+          type: 'group',
+          label: '基础信息',
+          description: '先填写上下文',
+          layout: 'single_column',
+          defaultCollapsed: false,
+          fields: [],
+        }}
+        onAddLinkageRule={vi.fn()}
+        onUpdateField={onUpdateField}
+        onUpdateValidation={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: '属性配置' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('字段名')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('必填')).not.toBeInTheDocument();
+    expect(screen.queryByText('AI 预审')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('标题')).toHaveValue('基础信息');
+    expect(screen.getByLabelText('字段说明')).toHaveValue('先填写上下文');
+    expect(screen.getByLabelText('默认展开')).toBeChecked();
+
+    fireEvent.click(screen.getByRole('button', { name: '双列' }));
+    expect(onUpdateField).toHaveBeenLastCalledWith({ layout: 'two_columns' });
+
+    fireEvent.click(screen.getByLabelText('默认展开'));
+    expect(onUpdateField).toHaveBeenLastCalledWith({ defaultCollapsed: true });
+  });
+
+  it('多 Tab 布局支持新增、删除、重命名、排序和切换当前编辑 Tab', () => {
+    const onUpdateField = vi.fn();
+    const onActivateTab = vi.fn();
+    const field: SchemaField = {
+      key: 'tabs_1',
+      type: 'tabs',
+      label: '分步标注',
+      description: '按步骤填写',
+      tabs: [
+        { key: 'tab_1', label: '题目信息', fields: [] },
+        { key: 'tab_2', label: '标注结果', fields: [] },
+      ],
+    };
+
+    render(
+      <PropertyPanel
+        activeTabKey="tab_2"
+        field={field}
+        onActivateTab={onActivateTab}
+        onAddLinkageRule={vi.fn()}
+        onUpdateField={onUpdateField}
+        onUpdateValidation={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText('字段名')).not.toBeInTheDocument();
+    expect(screen.queryByText('AI 预审')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Tab 管理列表')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tab 2 名称')).toHaveValue('标注结果');
+    expect(screen.getByLabelText('Tab 2 名称').closest('.designer-tab-manager__item')).toHaveClass('is-active');
+    expect(screen.queryByRole('group', { name: '布局列数' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '自动' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '三列' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Tab 2 名称'), { target: { value: '人工审核' } });
+    expect(onUpdateField).toHaveBeenLastCalledWith({
+      tabs: [
+        { key: 'tab_1', label: '题目信息', fields: [] },
+        { key: 'tab_2', label: '人工审核', fields: [] },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑 题目信息' }));
+    expect(onActivateTab).toHaveBeenLastCalledWith('tab_1');
+
+    fireEvent.click(screen.getByRole('button', { name: '新增 Tab' }));
+    expect(onUpdateField).toHaveBeenLastCalledWith({
+      tabs: [
+        { key: 'tab_1', label: '题目信息', fields: [] },
+        { key: 'tab_2', label: '标注结果', fields: [] },
+        { key: 'tab_3', label: 'Tab 3', fields: [] },
+      ],
+    });
+    expect(onActivateTab).toHaveBeenLastCalledWith('tab_3');
+
+    fireEvent.click(screen.getByRole('button', { name: '上移 标注结果' }));
+    expect(onUpdateField).toHaveBeenLastCalledWith({
+      tabs: [
+        { key: 'tab_2', label: '标注结果', fields: [] },
+        { key: 'tab_1', label: '题目信息', fields: [] },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '删除 题目信息' }));
+    expect(onUpdateField).toHaveBeenLastCalledWith({
+      tabs: [{ key: 'tab_2', label: '标注结果', fields: [] }],
+    });
+  });
+
   it('ShowItem 使用专属展示配置面板，不显示普通字段的校验和联动配置', () => {
     const onUpdateField = vi.fn();
     const field: SchemaField = {
@@ -260,13 +440,13 @@ describe('PropertyPanel', () => {
     expect(screen.queryByTestId('designer-linkage-collapse')).not.toBeInTheDocument();
     expect(screen.queryByText('问题严重程度')).not.toBeInTheDocument();
     expect(within(editor).queryByRole('button', { name: '表格' })).not.toBeInTheDocument();
-    expect(within(editor).getByLabelText('已识别 2 个')).toBeInTheDocument();
-    expect(within(editor).getByLabelText('默认展示 2 个')).toBeInTheDocument();
-    expect(within(editor).getByLabelText('隐藏 0 个')).toBeInTheDocument();
-    expect(within(editor).getByRole('button', { name: '新增展示字段' })).toHaveClass(
+    expect(within(editor).getByLabelText('总字段 2')).toBeInTheDocument();
+    expect(within(editor).getByLabelText('展示字段 2')).toBeInTheDocument();
+    expect(within(editor).getByLabelText('待标注字段 0')).toBeInTheDocument();
+    expect(within(editor).getByRole('button', { name: '新增字段' })).toHaveClass(
       'designer-show-item-config__add',
     );
-    expect(within(editor).getByRole('button', { name: '新增展示字段' }).querySelector('svg')).not.toBeNull();
+    expect(within(editor).getByRole('button', { name: '新增字段' }).querySelector('svg')).not.toBeNull();
     expect(within(editor).getByLabelText('展示字段 prompt')).toHaveClass('designer-show-item-field');
     const deleteFieldButton = screen.getByRole('button', { name: '删除展示字段 1' });
     expect(deleteFieldButton).toHaveClass('template-manager-row-action', 'designer-show-item-field__delete');
@@ -295,12 +475,6 @@ describe('PropertyPanel', () => {
 
     onUpdateField.mockClear();
     fireEvent.click(screen.getByRole('button', { name: '删除展示字段 1' }));
-    expect(onUpdateField).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: '确认删除展示字段 1' })).toHaveClass(
-      'designer-show-item-field__delete',
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: '确认删除展示字段 1' }));
     expect(onUpdateField).toHaveBeenLastCalledWith({
       displayConfig: {
         layout: 'table',
@@ -310,8 +484,9 @@ describe('PropertyPanel', () => {
       },
       sourceKeys: ['response_a'],
     });
+    expect(screen.queryByRole('button', { name: '确认删除展示字段 1' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '新增展示字段' }));
+    fireEvent.click(screen.getByRole('button', { name: '新增字段' }));
     expect(onUpdateField).toHaveBeenLastCalledWith({
       displayConfig: {
         layout: 'table',
@@ -533,6 +708,14 @@ describe('PropertyPanel', () => {
     render(
       <PropertyPanel
         field={field}
+        schemaFields={[
+          field,
+          { key: 'preferred', fieldKey: 'preferred', sourceKey: 'preferred', type: 'radio', label: '偏好选择' },
+          { key: 'margin', fieldKey: 'margin', sourceKey: 'margin', type: 'text', label: '优劣差距' },
+          { key: 'dimensions', fieldKey: 'dimensions', sourceKey: 'dimensions', type: 'checkbox', label: '评价维度' },
+          { key: 'safety_flag', fieldKey: 'safety_flag', sourceKey: 'safety_flag', type: 'radio', label: '安全标记' },
+          { key: 'annotator_note', fieldKey: 'annotator_note', sourceKey: 'annotator_note', type: 'textarea', label: '标注备注' },
+        ]}
         onAddLinkageRule={vi.fn()}
         onUpdateField={onUpdateField}
         onUpdateValidation={vi.fn()}
@@ -541,9 +724,9 @@ describe('PropertyPanel', () => {
 
     const editor = screen.getByLabelText('ShowItem 展示字段配置');
     expect(within(editor).getByText('题目展示字段')).toBeInTheDocument();
-    expect(within(editor).getByLabelText('已识别 9 个')).toBeInTheDocument();
-    expect(within(editor).getByLabelText('默认展示 8 个')).toBeInTheDocument();
-    expect(within(editor).getByLabelText('隐藏 1 个')).toBeInTheDocument();
+    expect(within(editor).getByLabelText('总字段 13')).toBeInTheDocument();
+    expect(within(editor).getByLabelText('展示字段 8')).toBeInTheDocument();
+    expect(within(editor).getByLabelText('待标注字段 5')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'A/B 对比' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('是否展示 preferred')).not.toBeChecked();
 

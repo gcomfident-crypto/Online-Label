@@ -72,6 +72,8 @@ export type LabelerAssignmentDto = {
   schemaVersion: string;
   latestSubmissionStatus: string | null;
   latestSubmittedAt: string | null;
+  draftAnswers?: Record<string, unknown> | null;
+  draftUpdatedAt?: string | null;
   round: number;
 };
 

@@ -21,6 +21,7 @@ export {
 export { canAccessRoute } from './rbac.ts';
 
 export {
+  AI_REVIEW_PROMPT_SECTION_KEYS,
   DATASET_IMPORT_FORMATS,
   DATASET_KINDS,
   FIELD_AI_REVIEW_ROLES,
@@ -29,6 +30,9 @@ export {
   CUSTOM_VALIDATOR_KEYS,
   createLabelHubSchema,
   isAllowedCustomValidatorKey,
+  type AiReviewPromptConfig,
+  type AiReviewPromptSectionKey,
+  type AiReviewPromptSectionOverrides,
   type CustomValidatorKey,
   type DatasetImportFormat,
   type DatasetKind,
@@ -93,6 +97,14 @@ export {
   type AutoTemplateFieldValueStats,
   type AutoTemplateSourceField,
 } from './autoTemplateClassification.ts';
+
+export {
+  compileAiReviewPrompt,
+  type AiReviewFieldRequirement,
+  type AiReviewPromptSection,
+  type CompiledAiReviewPrompt,
+  type CompileAiReviewPromptInput,
+} from './aiReviewPrompt.ts';
 
 export {
   AI_REVIEW_STATUS,

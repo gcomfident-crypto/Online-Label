@@ -21,6 +21,21 @@ export type MaterialSpec = {
   group: '基础物料' | '高级物料' | '布局物料';
 };
 
+export type DesignerDropTarget =
+  | { kind: 'root'; beforeFieldKey?: string }
+  | { kind: 'group'; groupKey: string; beforeFieldKey?: string }
+  | { kind: 'tab'; tabsKey: string; tabKey: string; beforeFieldKey?: string };
+
+export const DESIGNER_ROOT_DROP_ID = 'designer-canvas';
+const DESIGNER_GROUP_DROP_PREFIX = 'designer-drop-group:';
+const DESIGNER_TAB_DROP_PREFIX = 'designer-drop-tab:';
+
+export const designerGroupDropId = (groupKey: string): string =>
+  `${DESIGNER_GROUP_DROP_PREFIX}${groupKey}`;
+
+export const designerTabDropId = (tabsKey: string, tabKey: string): string =>
+  `${DESIGNER_TAB_DROP_PREFIX}${tabsKey}:${tabKey}`;
+
 export const DESIGNER_MATERIALS: readonly MaterialSpec[] = [
   { type: 'text', label: '单行输入', group: '基础物料' },
   { type: 'textarea', label: '多行文本', group: '基础物料' },
@@ -30,7 +45,6 @@ export const DESIGNER_MATERIALS: readonly MaterialSpec[] = [
   { type: 'rich_text', label: '富文本', group: '基础物料' },
   { type: 'file_upload', label: '文件/图片', group: '基础物料' },
   { type: 'json_editor', label: 'JSON 编辑器', group: '高级物料' },
-  { type: 'llm_assist', label: 'LLM 触发组件', group: '高级物料' },
   { type: 'show_item', label: '展示项 ShowItem', group: '高级物料' },
   { type: 'group', label: '分组容器', group: '布局物料' },
   { type: 'tabs', label: '多 Tab 布局', group: '布局物料' },
@@ -44,6 +58,7 @@ type TemplateDesignerState = {
   resetDesigner: () => void;
   addField: (type: FieldType) => void;
   addFieldBefore: (type: FieldType, targetFieldKey: string) => void;
+  addFieldAtTarget: (type: FieldType, target: DesignerDropTarget) => void;
   selectField: (fieldKey: string | null) => void;
   updateSelectedField: (patch: Partial<SchemaField>) => void;
   updateSelectedFieldValidation: (
@@ -52,8 +67,10 @@ type TemplateDesignerState = {
   addLinkageRuleToSelectedField: () => void;
   removeField: (fieldKey: string) => void;
   duplicateField: (fieldKey: string) => void;
+  updateAiReviewPromptConfig: (config: LabelHubSchema['aiReviewPrompt']) => void;
   moveField: (fieldKey: string, direction: 'up' | 'down') => void;
   reorderField: (fieldKey: string, overFieldKey: string) => void;
+  moveFieldToTarget: (fieldKey: string, target: DesignerDropTarget) => void;
   setSchema: (schema: LabelHubSchema) => void;
   loadOfficialTemplate: (templateKey: OfficialTemplateKey) => void;
   undo: () => void;
@@ -100,6 +117,19 @@ export const useTemplateDesignerStore = create<TemplateDesignerState>((set, get)
         schema: {
           ...schema,
           fields: insertBeforeField(schema.fields, targetFieldKey, field),
+        },
+        selectedFieldKey: field.key,
+      };
+    });
+  },
+  addFieldAtTarget: (type, target) => {
+    commitSchemaChange(set, get, (schema) => {
+      const field = createDefaultField(type, schema);
+
+      return {
+        schema: {
+          ...schema,
+          fields: insertFieldAtTarget(schema.fields, target, field),
         },
         selectedFieldKey: field.key,
       };
@@ -188,6 +218,24 @@ export const useTemplateDesignerStore = create<TemplateDesignerState>((set, get)
       };
     });
   },
+  updateAiReviewPromptConfig: (config) => {
+    commitSchemaChange(set, get, (schema) => {
+      const nextSchema: LabelHubSchema = {
+        ...schema,
+      };
+
+      if (config) {
+        nextSchema.aiReviewPrompt = clone(config);
+      } else {
+        delete nextSchema.aiReviewPrompt;
+      }
+
+      return {
+        schema: nextSchema,
+        selectedFieldKey: get().selectedFieldKey,
+      };
+    });
+  },
   moveField: (fieldKey, direction) => {
     commitSchemaChange(set, get, (schema) => ({
       schema: {
@@ -209,6 +257,30 @@ export const useTemplateDesignerStore = create<TemplateDesignerState>((set, get)
       },
       selectedFieldKey: get().selectedFieldKey,
     }));
+  },
+  moveFieldToTarget: (fieldKey, target) => {
+    commitSchemaChange(set, get, (schema) => {
+      const field = findFieldByKey(schema.fields, fieldKey);
+      const normalizedTarget = normalizeMoveTargetForSameContainer(schema.fields, fieldKey, target);
+
+      if (!field || isInvalidMoveTarget(field, normalizedTarget)) {
+        return { schema, selectedFieldKey: get().selectedFieldKey };
+      }
+
+      const detached = detachFieldFromList(schema.fields, fieldKey);
+
+      if (!detached.field) {
+        return { schema, selectedFieldKey: get().selectedFieldKey };
+      }
+
+      return {
+        schema: {
+          ...schema,
+          fields: insertFieldAtTarget(detached.fields, normalizedTarget, detached.field),
+        },
+        selectedFieldKey: get().selectedFieldKey,
+      };
+    });
   },
   setSchema: (schema) => {
     commitSchemaChange(set, get, () => ({
@@ -301,12 +373,13 @@ const createDefaultField = (type: FieldType, schema: LabelHubSchema): SchemaFiel
   }
 
   if (type === 'group') {
-    return { ...base, fields: [] };
+    return { ...base, fields: [], layout: 'single_column', defaultCollapsed: false };
   }
 
   if (type === 'tabs') {
     return {
       ...base,
+      layout: 'auto_rows',
       tabs: [
         { key: 'tab_1', label: '基础信息', fields: [] },
         { key: 'tab_2', label: '标注', fields: [] },
@@ -425,6 +498,136 @@ const removeFieldFromList = (fields: readonly SchemaField[], fieldKey: string): 
     }));
 };
 
+type DetachFieldResult = {
+  fields: SchemaField[];
+  field: SchemaField | null;
+};
+
+const detachFieldFromList = (
+  fields: readonly SchemaField[],
+  fieldKey: string,
+): DetachFieldResult => {
+  const directIndex = fields.findIndex((field) => field.key === fieldKey);
+
+  if (directIndex >= 0) {
+    return {
+      fields: [
+        ...fields.slice(0, directIndex),
+        ...fields.slice(directIndex + 1),
+      ],
+      field: fields[directIndex],
+    };
+  }
+
+  let removedField: SchemaField | null = null;
+  const nextFields = fields.map((field) => {
+    if (removedField) {
+      return field;
+    }
+
+    if (field.fields) {
+      const next = detachFieldFromList(field.fields, fieldKey);
+
+      if (next.field) {
+        removedField = next.field;
+        return { ...field, fields: next.fields };
+      }
+    }
+
+    if (field.tabs) {
+      const nextTabs = field.tabs.map((tab) => {
+        if (removedField) {
+          return tab;
+        }
+
+        const next = detachFieldFromList(tab.fields, fieldKey);
+
+        if (next.field) {
+          removedField = next.field;
+          return { ...tab, fields: next.fields };
+        }
+
+        return tab;
+      });
+
+      if (removedField) {
+        return { ...field, tabs: nextTabs };
+      }
+    }
+
+    return field;
+  });
+
+  return {
+    fields: nextFields,
+    field: removedField,
+  };
+};
+
+const insertIntoFieldList = (
+  fields: readonly SchemaField[],
+  insertedField: SchemaField,
+  beforeFieldKey?: string,
+): SchemaField[] => {
+  if (!beforeFieldKey) {
+    return [...fields, insertedField];
+  }
+
+  const targetIndex = fields.findIndex((field) => field.key === beforeFieldKey);
+
+  if (targetIndex < 0) {
+    return [...fields, insertedField];
+  }
+
+  return [
+    ...fields.slice(0, targetIndex),
+    insertedField,
+    ...fields.slice(targetIndex),
+  ];
+};
+
+const insertFieldAtTarget = (
+  fields: readonly SchemaField[],
+  target: DesignerDropTarget,
+  insertedField: SchemaField,
+): SchemaField[] => {
+  if (target.kind === 'root') {
+    return insertIntoFieldList(fields, insertedField, target.beforeFieldKey);
+  }
+
+  return fields.map((field) => {
+    if (target.kind === 'group' && field.key === target.groupKey) {
+      return {
+        ...field,
+        fields: insertIntoFieldList(field.fields ?? [], insertedField, target.beforeFieldKey),
+      };
+    }
+
+    if (target.kind === 'tab' && field.key === target.tabsKey) {
+      return {
+        ...field,
+        tabs: (field.tabs ?? []).map((tab) =>
+          tab.key === target.tabKey
+            ? {
+                ...tab,
+                fields: insertIntoFieldList(tab.fields, insertedField, target.beforeFieldKey),
+              }
+            : tab,
+        ),
+      };
+    }
+
+    return {
+      ...field,
+      fields: field.fields ? insertFieldAtTarget(field.fields, target, insertedField) : undefined,
+      tabs: field.tabs?.map((tab) => ({
+        ...tab,
+        fields: insertFieldAtTarget(tab.fields, target, insertedField),
+      })),
+    };
+  });
+};
+
 const insertAfterField = (
   fields: readonly SchemaField[],
   fieldKey: string,
@@ -526,6 +729,181 @@ const reorderFieldInList = (
   }));
 };
 
+const fieldContainsKey = (field: SchemaField, key: string): boolean => {
+  return (
+    field.key === key ||
+    field.fieldKey === key ||
+    Boolean(field.fields?.some((child) => fieldContainsKey(child, key))) ||
+    Boolean(field.tabs?.some((tab) => tab.fields.some((child) => fieldContainsKey(child, key))))
+  );
+};
+
+const isInvalidMoveTarget = (field: SchemaField, target: DesignerDropTarget): boolean => {
+  const targetKeys = [
+    target.beforeFieldKey,
+    target.kind === 'group' ? target.groupKey : undefined,
+    target.kind === 'tab' ? target.tabsKey : undefined,
+  ].filter((value): value is string => typeof value === 'string');
+
+  return targetKeys.some((key) => fieldContainsKey(field, key));
+};
+
+const isSameDropContainer = (
+  left: DesignerDropTarget,
+  right: DesignerDropTarget,
+): boolean => {
+  if (left.kind !== right.kind) {
+    return false;
+  }
+
+  if (left.kind === 'group') {
+    return right.kind === 'group' && left.groupKey === right.groupKey;
+  }
+
+  if (left.kind === 'tab') {
+    return right.kind === 'tab' && left.tabsKey === right.tabsKey && left.tabKey === right.tabKey;
+  }
+
+  return right.kind === 'root';
+};
+
+const findSiblingFieldsForTarget = (
+  fields: readonly SchemaField[],
+  target: DesignerDropTarget,
+): readonly SchemaField[] | null => {
+  if (target.kind === 'root') {
+    return fields;
+  }
+
+  for (const field of fields) {
+    if (target.kind === 'group' && field.key === target.groupKey) {
+      return field.fields ?? [];
+    }
+
+    if (target.kind === 'tab' && field.key === target.tabsKey) {
+      return field.tabs?.find((tab) => tab.key === target.tabKey)?.fields ?? null;
+    }
+
+    const nestedGroup = field.fields ? findSiblingFieldsForTarget(field.fields, target) : null;
+
+    if (nestedGroup) {
+      return nestedGroup;
+    }
+
+    for (const tab of field.tabs ?? []) {
+      const nestedTab = findSiblingFieldsForTarget(tab.fields, target);
+
+      if (nestedTab) {
+        return nestedTab;
+      }
+    }
+  }
+
+  return null;
+};
+
+const normalizeMoveTargetForSameContainer = (
+  fields: readonly SchemaField[],
+  fieldKey: string,
+  target: DesignerDropTarget,
+): DesignerDropTarget => {
+  if (!target.beforeFieldKey) {
+    return target;
+  }
+
+  const sourceTarget = findParentDropTargetForField(fields, fieldKey);
+
+  if (!sourceTarget || !isSameDropContainer(sourceTarget, target)) {
+    return target;
+  }
+
+  const siblings = findSiblingFieldsForTarget(fields, target);
+
+  if (!siblings) {
+    return target;
+  }
+
+  const currentIndex = siblings.findIndex((field) => field.key === fieldKey);
+  const targetIndex = siblings.findIndex((field) => field.key === target.beforeFieldKey);
+
+  if (currentIndex < 0 || targetIndex < 0 || currentIndex >= targetIndex) {
+    return target;
+  }
+
+  return {
+    ...target,
+    beforeFieldKey: siblings[targetIndex + 1]?.key,
+  };
+};
+
+const findParentDropTargetForField = (
+  fields: readonly SchemaField[],
+  fieldKey: string,
+  parent: DesignerDropTarget = { kind: 'root' },
+): DesignerDropTarget | null => {
+  if (fields.some((field) => field.key === fieldKey)) {
+    return { ...parent, beforeFieldKey: fieldKey };
+  }
+
+  for (const field of fields) {
+    const nestedTarget = field.fields
+      ? findParentDropTargetForField(field.fields, fieldKey, {
+          kind: 'group',
+          groupKey: field.key,
+        })
+      : null;
+
+    if (nestedTarget) {
+      return nestedTarget;
+    }
+
+    for (const tab of field.tabs ?? []) {
+      const tabTarget = findParentDropTargetForField(tab.fields, fieldKey, {
+        kind: 'tab',
+        tabsKey: field.key,
+        tabKey: tab.key,
+      });
+
+      if (tabTarget) {
+        return tabTarget;
+      }
+    }
+  }
+
+  return null;
+};
+
+const parseContainerDropTarget = (overId: string): DesignerDropTarget | null => {
+  if (overId === DESIGNER_ROOT_DROP_ID) {
+    return { kind: 'root' };
+  }
+
+  if (overId.startsWith(DESIGNER_GROUP_DROP_PREFIX)) {
+    const groupKey = overId.slice(DESIGNER_GROUP_DROP_PREFIX.length);
+
+    return groupKey ? { kind: 'group', groupKey } : null;
+  }
+
+  if (overId.startsWith(DESIGNER_TAB_DROP_PREFIX)) {
+    const [tabsKey, tabKey] = overId.slice(DESIGNER_TAB_DROP_PREFIX.length).split(':');
+
+    return tabsKey && tabKey ? { kind: 'tab', tabsKey, tabKey } : null;
+  }
+
+  return null;
+};
+
+export const resolveDesignerDropTarget = (
+  schema: LabelHubSchema,
+  overId: string | null | undefined,
+): DesignerDropTarget | null => {
+  if (!overId) {
+    return null;
+  }
+
+  return parseContainerDropTarget(overId) ?? findParentDropTargetForField(schema.fields, overId);
+};
+
 const moveItem = <TItem>(items: readonly TItem[], currentIndex: number, targetIndex: number): TItem[] => {
   const next = [...items];
   const [item] = next.splice(currentIndex, 1);
@@ -581,15 +959,37 @@ const uniqueFieldKey = (type: FieldType, schema: LabelHubSchema): string => {
 };
 
 const withUniqueKeys = (field: SchemaField, schema: LabelHubSchema): SchemaField => {
-  const key = uniqueFieldKey(field.type, schema);
-  const nextFieldKey = field.fieldKey ? key : undefined;
+  const existingKeys = new Set(collectFieldKeys(schema.fields));
+  const nextKey = (type: FieldType): string => {
+    const baseKey = type.replace(/_field$/, '');
+    let index = existingKeys.size + 1;
+    let key = `${baseKey}_${index}`;
 
-  return {
-    ...field,
-    key,
-    fieldKey: nextFieldKey,
-    label: `${field.label}副本`,
+    while (existingKeys.has(key)) {
+      index += 1;
+      key = `${baseKey}_${index}`;
+    }
+
+    existingKeys.add(key);
+    return key;
   };
+  const cloneWithKeys = (currentField: SchemaField, isRoot = false): SchemaField => {
+    const key = nextKey(currentField.type);
+
+    return {
+      ...currentField,
+      key,
+      fieldKey: currentField.fieldKey ? key : undefined,
+      label: isRoot ? `${currentField.label}副本` : currentField.label,
+      fields: currentField.fields?.map((child) => cloneWithKeys(child)),
+      tabs: currentField.tabs?.map((tab) => ({
+        ...tab,
+        fields: tab.fields.map((child) => cloneWithKeys(child)),
+      })),
+    };
+  };
+
+  return cloneWithKeys(field, true);
 };
 
 const collectFieldKeys = (fields: readonly SchemaField[]): string[] => {

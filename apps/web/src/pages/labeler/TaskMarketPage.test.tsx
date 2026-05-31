@@ -96,7 +96,8 @@ describe('TaskMarketPage', () => {
     expect(screen.queryByLabelText('任务广场任务统计')).not.toBeInTheDocument();
     expect(screen.queryByText('可领取任务')).not.toBeInTheDocument();
     expect(screen.queryByText('我已领取')).not.toBeInTheDocument();
-    expect(document.querySelector('.task-market-table-panel .task-table-scroll')).toBeNull();
+    expect(document.querySelector('.task-market-table-panel.task-management-table-card')).not.toBeNull();
+    expect(document.querySelector('.task-market-table-panel .task-table-scroll')).not.toBeNull();
     expect(document.querySelector('.task-market-table-frame')).not.toBeNull();
     expect(screen.getByLabelText('任务广场分页')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '上一页' })).toBeInTheDocument();

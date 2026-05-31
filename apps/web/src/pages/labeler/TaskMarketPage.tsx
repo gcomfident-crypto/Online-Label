@@ -181,7 +181,7 @@ export const TaskMarketPage = () => {
       {isLoading ? (
         <PageLoading title="正在加载任务广场" description="正在获取可领取任务、题目数和标签筛选项。" />
       ) : (
-        <div className="task-table-panel task-market-table-panel" ref={marketTableContainerRef}>
+        <div className="task-management-table-card task-market-table-panel" ref={marketTableContainerRef}>
           <div className="labeler-list-panel-heading" aria-label="待领取任务列表概览">
             <div className="labeler-list-panel-heading__title">
               <h2>待领取任务列表</h2>
@@ -189,7 +189,7 @@ export const TaskMarketPage = () => {
             </div>
             <small>按更新时间倒序</small>
           </div>
-          <div className="task-market-table-frame" data-adaptive-table-viewport="true">
+          <div className="task-table-scroll task-market-table-frame" data-adaptive-table-viewport="true">
             <table className="task-table task-market-table" aria-label="任务广场列表">
               <colgroup>
                 <col className="task-market-table__col-id" />

@@ -5,6 +5,7 @@ import {
   type OnApplicationBootstrap,
   type OnModuleDestroy,
 } from '@nestjs/common';
+import { compileAiReviewPrompt } from '@labelhub/shared';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
 import {
@@ -224,6 +225,20 @@ export class AiReviewProcessorService implements OnApplicationBootstrap, OnModul
 }
 
 function buildPrompt(rule: ReviewRuleRecord, detail: AiReviewDetailDto): string {
+  if (detail.task.templateSchema) {
+    return compileAiReviewPrompt({
+      schema: detail.task.templateSchema,
+      rawData: detail.taskItem.rawData,
+      answers: detail.submission.answers,
+      persona: [
+        rule.promptTemplate,
+        '',
+        '任务级评分维度：',
+        ...normalizedDimensions(rule).map((dimension) => `- ${dimension.label} (${dimension.key})：0-${dimension.maxScore}`),
+      ].join('\n'),
+    }).prompt;
+  }
+
   return [
     rule.promptTemplate,
     '',

@@ -1,12 +1,19 @@
 import { useState } from 'react';
 
+import llmIcon from '../assets/llm.svg';
 import { DemoDataBanner } from '../components/DemoDataBanner';
 import { PortalPageTransitionOutlet } from './PortalPageTransitionOutlet';
 import { PortalSidebar } from './PortalSidebar';
 import { PortalTopbar } from './PortalTopbar';
 
 const AGENT_NAV_ITEMS = [
-  { to: '/agent/ai-review', label: '机审队列', parts: ['机', '审', '队', '列'], icon: 'ai-review' },
+  {
+    to: '/agent/ai-review',
+    label: '机审队列',
+    parts: ['机', '审', '队', '列'],
+    icon: 'ai-review',
+    iconAsset: llmIcon,
+  },
 ];
 
 export const AgentPortalLayout = () => {

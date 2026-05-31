@@ -1,9 +1,8 @@
 import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, rectSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 import {
-  Fragment,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -15,15 +14,36 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { LabelHubSchema, SchemaField } from '@labelhub/shared';
+import {
+  compileAiReviewPrompt,
+  type AiReviewPromptConfig,
+  type AiReviewPromptSectionKey,
+  type AiReviewPromptSectionOverrides,
+  type CompiledAiReviewPrompt,
+  type LabelHubSchema,
+  type SchemaField,
+} from '@labelhub/shared';
 
 import eyeIcon from '../../assets/eye.svg';
+import shotEyesIcon from '../../assets/shoteyes.svg';
+import starIcon from '../../assets/star.svg';
+import { SchemaRenderer } from '../schema-renderer';
 import { ShowItemField } from '../schema-renderer/fields/ShowItemField';
+import {
+  designerGroupDropId,
+  designerTabDropId,
+  type DesignerDropTarget,
+} from './templateStore';
 
 type MaterialDropPreview = {
-  targetFieldKey: string | null;
+  target: DesignerDropTarget | null;
   type: SchemaField['type'];
 };
+
+type DesignerContainerTarget =
+  | { kind: 'root' }
+  | { kind: 'group'; groupKey: string }
+  | { kind: 'tab'; tabsKey: string; tabKey: string };
 
 type DesignerCanvasProps = {
   schema: LabelHubSchema;
@@ -31,10 +51,15 @@ type DesignerCanvasProps = {
   previewRawData?: Record<string, unknown>;
   selectedFieldKey: string | null;
   committingFieldKey?: string | null;
+  isMaterialDropSettling?: boolean;
   isDropHighlighted?: boolean;
   materialDropPreview?: MaterialDropPreview | null;
+  activeTabByFieldKey?: Readonly<Record<string, string>>;
+  onActiveTabChange?: (tabsKey: string, tabKey: string) => void;
   onTemplateNameChange?: (name: string) => void;
   onPreviewUploadedFile?: () => void;
+  onAiPromptConfigChange?: (config: AiReviewPromptConfig | undefined) => void;
+  onTestLlmPrompt?: (field: SchemaField) => Promise<void> | void;
   onSelectField: (fieldKey: string) => void;
   onDuplicateField: (fieldKey: string) => void;
   onRemoveField: (fieldKey: string) => void;
@@ -63,6 +88,10 @@ const isParsedAnnotationField = (field: SchemaField): boolean =>
 const formatFieldTypeTitle = (field: SchemaField): string => {
   const materialName = FIELD_TYPE_LABELS[field.type];
 
+  if (field.type === 'group' || field.type === 'tabs') {
+    return `${materialName} - ${field.label}`;
+  }
+
   return isParsedAnnotationField(field) ? `${materialName} - ${field.label}` : materialName;
 };
 
@@ -86,6 +115,105 @@ const FIELD_REMOVE_ANIMATION_MS = 320;
 const FIELD_LAYOUT_SHIFT_ANIMATION_MS = 360;
 const EMPTY_FIELD_KEY_SET = new Set<string>();
 const EMPTY_VALIDATION_MESSAGES_BY_FIELD = new Map<string, readonly string[]>();
+const EMPTY_CANVAS_PREVIEW_RAW_DATA: Record<string, unknown> = {};
+
+const normalizeAiPromptConfig = (
+  config: AiReviewPromptConfig | undefined,
+): AiReviewPromptConfig | undefined => {
+  const sectionOverrides = Object.entries(config?.sectionOverrides ?? {}).reduce<AiReviewPromptSectionOverrides>(
+    (nextOverrides, [key, value]) => {
+      if (typeof value === 'string' && value.trim().length > 0) {
+        nextOverrides[key as AiReviewPromptSectionKey] = value;
+      }
+
+      return nextOverrides;
+    },
+    {},
+  );
+  const nextConfig: AiReviewPromptConfig = {};
+
+  if (Object.keys(sectionOverrides).length > 0) {
+    nextConfig.sectionOverrides = sectionOverrides;
+  }
+
+  if (config?.fullPromptOverride?.trim()) {
+    nextConfig.fullPromptOverride = config.fullPromptOverride;
+  }
+
+  return nextConfig.sectionOverrides || nextConfig.fullPromptOverride ? nextConfig : undefined;
+};
+
+const rootContainerTarget: DesignerContainerTarget = { kind: 'root' };
+
+const isSameContainerTarget = (
+  left: DesignerDropTarget | null | undefined,
+  right: DesignerContainerTarget,
+): boolean => {
+  if (!left || left.kind !== right.kind) {
+    return false;
+  }
+
+  switch (right.kind) {
+    case 'group':
+      return left.kind === 'group' && left.groupKey === right.groupKey;
+    case 'tab':
+      return left.kind === 'tab' && left.tabsKey === right.tabsKey && left.tabKey === right.tabKey;
+    default:
+      return left.kind === 'root';
+  }
+};
+
+const shouldRenderPreviewBeforeField = (
+  preview: MaterialDropPreview | null,
+  container: DesignerContainerTarget,
+  fieldKey: string,
+): boolean =>
+  Boolean(
+    preview &&
+      preview.target?.beforeFieldKey === fieldKey &&
+      isSameContainerTarget(preview.target, container),
+  );
+
+const shouldRenderAppendPreview = (
+  preview: MaterialDropPreview | null,
+  container: DesignerContainerTarget,
+): boolean =>
+  Boolean(
+    preview &&
+      preview.target &&
+      !preview.target.beforeFieldKey &&
+      isSameContainerTarget(preview.target, container),
+  );
+
+const isContainerDropHighlighted = (
+  preview: MaterialDropPreview | null,
+  container: DesignerContainerTarget,
+): boolean => Boolean(preview && isSameContainerTarget(preview.target, container));
+
+const resolveDropMarkerTypeBeforeField = (
+  preview: MaterialDropPreview | null,
+  container: DesignerContainerTarget,
+  fieldKey: string,
+): SchemaField['type'] | null =>
+  shouldRenderPreviewBeforeField(preview, container, fieldKey) ? preview!.type : null;
+
+const chunkFields = (fields: readonly SchemaField[], size = 3): SchemaField[][] => {
+  const chunks: SchemaField[][] = [];
+
+  for (let index = 0; index < fields.length; index += size) {
+    chunks.push(fields.slice(index, index + size));
+  }
+
+  return chunks;
+};
+
+const autoRowClassBySize = (size: number): string => {
+  if (size >= 3) {
+    return 'designer-field-card__tab-row--3';
+  }
+
+  return size === 2 ? 'designer-field-card__tab-row--2' : 'designer-field-card__tab-row--1';
+};
 
 type FieldLayoutSnapshot = {
   element: HTMLElement;
@@ -124,6 +252,8 @@ const measureTopLevelFieldLayouts = (canvas: HTMLElement | null): Map<string, Fi
   return layouts;
 };
 
+const formatFieldKeySignature = (fieldKeys: readonly string[]): string => fieldKeys.join('\u001f');
+
 const formatTranslate = (x: number, y: number) =>
   `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
 
@@ -141,10 +271,15 @@ export const DesignerCanvas = ({
   previewRawData,
   selectedFieldKey,
   committingFieldKey = null,
+  isMaterialDropSettling = false,
   isDropHighlighted = false,
   materialDropPreview = null,
+  activeTabByFieldKey = {},
+  onActiveTabChange = () => undefined,
   onTemplateNameChange = () => undefined,
   onPreviewUploadedFile,
+  onAiPromptConfigChange = () => undefined,
+  onTestLlmPrompt,
   onSelectField,
   onDuplicateField,
   onRemoveField,
@@ -154,6 +289,7 @@ export const DesignerCanvas = ({
   const canvasRef = useRef<HTMLElement | null>(null);
   const previousDropPreviewRef = useRef<MaterialDropPreview | null>(null);
   const previousFieldLayoutsRef = useRef<Map<string, FieldLayoutSnapshot>>(new Map());
+  const previousFieldKeySignatureRef = useRef<string | null>(null);
   const layoutAnimationsRef = useRef(new Map<string, Animation>());
   const removingFieldTimersRef = useRef(new Map<string, number>());
   const templateNameInputRef = useRef<HTMLInputElement | null>(null);
@@ -163,21 +299,35 @@ export const DesignerCanvas = ({
   const [removingFieldKeys, setRemovingFieldKeys] = useState<ReadonlySet<string>>(() => new Set());
   const [isTemplateNameEditing, setIsTemplateNameEditing] = useState(false);
   const [templateNameDraft, setTemplateNameDraft] = useState(templateName);
+  const [isLabelerPreviewActive, setIsLabelerPreviewActive] = useState(false);
+  const [isAiPromptPreviewActive, setIsAiPromptPreviewActive] = useState(false);
+  const [labelerPreviewAnswers, setLabelerPreviewAnswers] = useState<Record<string, unknown>>({});
+  const [activeLabelerPreviewFieldKey, setActiveLabelerPreviewFieldKey] = useState<string | null>(null);
   const fieldKeys = useMemo(() => schema.fields.map((field) => field.key), [schema.fields]);
-  const canvasPreviewRawData = previewRawData ?? {};
+  const canvasPreviewRawData = previewRawData ?? EMPTY_CANVAS_PREVIEW_RAW_DATA;
+  const compiledAiReviewPrompt = useMemo(
+    () =>
+      compileAiReviewPrompt({
+        schema,
+        rawData: canvasPreviewRawData,
+        answers: labelerPreviewAnswers,
+      }),
+    [canvasPreviewRawData, labelerPreviewAnswers, schema],
+  );
   const activeDropPreview = materialDropPreview ?? exitingDropPreview;
   const isDropPreviewExiting = !materialDropPreview && Boolean(exitingDropPreview);
-  const previewTargetFieldKey = activeDropPreview?.targetFieldKey ?? null;
-  const previewTargetsExistingField = previewTargetFieldKey ? fieldKeys.includes(previewTargetFieldKey) : false;
-  const shouldAppendPreview = Boolean(activeDropPreview && !previewTargetsExistingField);
+  const isResolvingMaterialDropPreview = !materialDropPreview && previousDropPreviewRef.current !== null;
+  const shouldSuspendFieldLayoutMotion =
+    isDropHighlighted ||
+    Boolean(activeDropPreview) ||
+    Boolean(committingFieldKey) ||
+    isMaterialDropSettling ||
+    isResolvingMaterialDropPreview;
+  const shouldAppendPreview = shouldRenderAppendPreview(activeDropPreview, rootContainerTarget);
   const shouldShowUploadedFilePreview = previewRecordCount > 0 && Boolean(onPreviewUploadedFile);
-  const dropPreview = activeDropPreview ? (
-    <DesignerMaterialDropPreview
-      key="material-drop-preview"
-      type={activeDropPreview.type}
-      isExiting={isDropPreviewExiting}
-    />
-  ) : null;
+  const shouldShowLabelerPreview = previewRecordCount > 0;
+  const shouldShowAiPromptPreview = schema.fields.length > 0;
+  const shouldShowUploadedFileToolbar = previewRecordCount > 0;
   const setCanvasNode = (node: HTMLElement | null) => {
     canvasRef.current = node;
     setNodeRef(node);
@@ -212,9 +362,41 @@ export const DesignerCanvas = ({
     }
   }, [isTemplateNameEditing, templateName]);
 
+  useEffect(() => {
+    setLabelerPreviewAnswers({});
+    setActiveLabelerPreviewFieldKey(null);
+  }, [canvasPreviewRawData, schema]);
+
+  useEffect(() => {
+    if (schema.fields.length === 0) {
+      setIsAiPromptPreviewActive(false);
+      setIsLabelerPreviewActive(false);
+    }
+  }, [schema.fields.length]);
+
   useLayoutEffect(() => {
     const nextLayouts = measureTopLevelFieldLayouts(canvasRef.current);
     const previousLayouts = previousFieldLayoutsRef.current;
+    const nextFieldKeySignature = formatFieldKeySignature(fieldKeys);
+    const shouldAnimateStructuralLayoutShift =
+      previousFieldKeySignatureRef.current !== null &&
+      previousFieldKeySignatureRef.current !== nextFieldKeySignature;
+
+    if (shouldSuspendFieldLayoutMotion) {
+      layoutAnimationsRef.current.forEach((animation) => animation.cancel());
+      layoutAnimationsRef.current.clear();
+      previousFieldLayoutsRef.current = nextLayouts;
+      previousFieldKeySignatureRef.current = nextFieldKeySignature;
+      return;
+    }
+
+    if (!shouldAnimateStructuralLayoutShift) {
+      layoutAnimationsRef.current.forEach((animation) => animation.cancel());
+      layoutAnimationsRef.current.clear();
+      previousFieldLayoutsRef.current = nextLayouts;
+      previousFieldKeySignatureRef.current = nextFieldKeySignature;
+      return;
+    }
 
     if (!shouldReduceMotion()) {
       nextLayouts.forEach(({ element, rect }, fieldKey) => {
@@ -260,6 +442,7 @@ export const DesignerCanvas = ({
     }
 
     previousFieldLayoutsRef.current = nextLayouts;
+    previousFieldKeySignatureRef.current = nextFieldKeySignature;
   });
 
   useEffect(() => {
@@ -367,136 +550,310 @@ export const DesignerCanvas = ({
     }
   };
 
+  const toggleLabelerPreview = () => {
+    setIsLabelerPreviewActive((current) => {
+      const next = !current;
+
+      if (next) {
+        setIsAiPromptPreviewActive(false);
+      }
+
+      return next;
+    });
+  };
+
+  const toggleAiPromptPreview = () => {
+    setIsAiPromptPreviewActive((current) => {
+      const next = !current;
+
+      if (next) {
+        setIsLabelerPreviewActive(false);
+      }
+
+      return next;
+    });
+  };
+
+  const handleAiPromptSectionChange = (sectionKey: AiReviewPromptSectionKey, content: string) => {
+    onAiPromptConfigChange(
+      normalizeAiPromptConfig({
+        ...(schema.aiReviewPrompt ?? {}),
+        sectionOverrides: {
+          ...(schema.aiReviewPrompt?.sectionOverrides ?? {}),
+          [sectionKey]: content,
+        },
+      }),
+    );
+  };
+
+  const handleAiPromptFullPromptChange = (content: string) => {
+    const nextConfig: AiReviewPromptConfig = {
+      fullPromptOverride: content,
+    };
+
+    if (schema.aiReviewPrompt?.sectionOverrides) {
+      nextConfig.sectionOverrides = schema.aiReviewPrompt.sectionOverrides;
+    }
+
+    onAiPromptConfigChange(normalizeAiPromptConfig(nextConfig));
+  };
+
   return (
-    <main
-      ref={setCanvasNode}
-      className={isDropHighlighted ? 'designer-canvas is-over' : 'designer-canvas'}
+    <section
+      className={isDropHighlighted ? 'designer-canvas-shell is-over' : 'designer-canvas-shell'}
       aria-label="模板编辑区域"
+      role="main"
     >
-      <div className="designer-canvas__header">
-        <div
-          className={
-            isTemplateNameEditing
-              ? 'designer-canvas__template-name is-editing'
-              : 'designer-canvas__template-name'
-          }
-        >
-          {isTemplateNameEditing ? (
-            <input
-              ref={templateNameInputRef}
-              className="designer-canvas__template-name-input"
-              aria-label="模板名称"
-              type="text"
-              value={templateNameDraft}
-              placeholder="请输入模板名称"
-              onBlur={handleTemplateNameBlur}
-              onChange={(event) => setTemplateNameDraft(event.target.value)}
-              onKeyDown={handleTemplateNameKeyDown}
+      {shouldShowUploadedFileToolbar ? (
+        <div className="designer-canvas__toolbar" aria-label="上传文件操作栏">
+          <div className="designer-canvas__toolbar-group">
+            {shouldShowUploadedFilePreview ? (
+              <button
+                className="designer-canvas__uploaded-preview"
+                type="button"
+                aria-label="预览已上传文件"
+                onClick={onPreviewUploadedFile}
+              >
+                <span>预览已上传文件</span>
+              </button>
+            ) : null}
+          </div>
+          <div className="designer-canvas__toolbar-group designer-canvas__toolbar-group--right">
+            {shouldShowAiPromptPreview ? (
+              <button
+                className={
+                  isAiPromptPreviewActive
+                    ? 'designer-canvas__uploaded-preview designer-canvas__ai-prompt-preview is-active'
+                    : 'designer-canvas__uploaded-preview designer-canvas__ai-prompt-preview'
+                }
+                type="button"
+                aria-label={isAiPromptPreviewActive ? '退出 AI Prompt 预览' : '查看 AI Prompt'}
+                aria-pressed={isAiPromptPreviewActive}
+                onClick={toggleAiPromptPreview}
+              >
+                <span>{isAiPromptPreviewActive ? '退出 Prompt' : '查看 AI Prompt'}</span>
+              </button>
+            ) : null}
+            {shouldShowLabelerPreview ? (
+              <button
+                className={
+                  isLabelerPreviewActive
+                    ? 'designer-canvas__uploaded-preview designer-canvas__labeler-preview is-active'
+                    : 'designer-canvas__uploaded-preview designer-canvas__labeler-preview'
+                }
+                type="button"
+                aria-label={isLabelerPreviewActive ? '退出 Labeler 标注预览' : '预览 Labeler 标注效果'}
+                aria-pressed={isLabelerPreviewActive}
+                onClick={toggleLabelerPreview}
+              >
+                <span>{isLabelerPreviewActive ? '退出预览' : '预览模板'}</span>
+                <img
+                  key={isLabelerPreviewActive ? 'shoteyes' : 'eye'}
+                  className="designer-canvas__uploaded-preview-icon designer-canvas__labeler-preview-icon"
+                  src={isLabelerPreviewActive ? shotEyesIcon : eyeIcon}
+                  data-preview-icon={isLabelerPreviewActive ? 'closed' : 'open'}
+                  alt=""
+                  aria-hidden="true"
+                />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      <div
+        ref={setCanvasNode}
+        className={[
+          'designer-canvas',
+          isDropHighlighted ? 'is-over' : '',
+          isLabelerPreviewActive ? 'is-previewing-labeler' : '',
+          isAiPromptPreviewActive ? 'is-previewing-ai-prompt' : '',
+        ].filter(Boolean).join(' ')}
+        aria-label="模板画布"
+      >
+        <div className="designer-canvas__header">
+          <div
+            className={
+              isTemplateNameEditing
+                ? 'designer-canvas__template-name is-editing'
+                : 'designer-canvas__template-name'
+            }
+          >
+            {isTemplateNameEditing ? (
+              <input
+                ref={templateNameInputRef}
+                className="designer-canvas__template-name-input"
+                aria-label="模板名称"
+                type="text"
+                value={templateNameDraft}
+                placeholder="请输入模板名称"
+                onBlur={handleTemplateNameBlur}
+                onChange={(event) => setTemplateNameDraft(event.target.value)}
+                onKeyDown={handleTemplateNameKeyDown}
+              />
+            ) : (
+              <button
+                type="button"
+                className="designer-canvas__template-name-trigger"
+                aria-label="编辑模板名称"
+                title={templateName}
+                onClick={startTemplateNameEditing}
+              >
+                <span className="designer-canvas__template-name-text">{templateName}</span>
+                <TemplateNameEditIcon />
+              </button>
+            )}
+          </div>
+          <div className="designer-canvas__header-meta">
+            <span>{schema.fields.length} 个字段</span>
+            {shouldShowAiPromptPreview && !shouldShowUploadedFileToolbar ? (
+              <button
+                className={
+                  isAiPromptPreviewActive
+                    ? 'designer-canvas__uploaded-preview designer-canvas__ai-prompt-preview is-active'
+                    : 'designer-canvas__uploaded-preview designer-canvas__ai-prompt-preview'
+                }
+                type="button"
+                aria-label={isAiPromptPreviewActive ? '退出 AI Prompt 预览' : '查看 AI Prompt'}
+                aria-pressed={isAiPromptPreviewActive}
+                onClick={toggleAiPromptPreview}
+              >
+                <span>{isAiPromptPreviewActive ? '退出 Prompt' : '查看 AI Prompt'}</span>
+              </button>
+            ) : null}
+          </div>
+        </div>
+        {isAiPromptPreviewActive ? (
+          <AiPromptPreviewPanel
+            compiledPrompt={compiledAiReviewPrompt}
+            promptConfig={schema.aiReviewPrompt}
+            onFullPromptChange={handleAiPromptFullPromptChange}
+            onSectionChange={handleAiPromptSectionChange}
+          />
+        ) : isLabelerPreviewActive ? (
+          <section
+            className="annotation-canvas-scroll designer-canvas__labeler-preview-surface"
+            aria-label="Labeler 标注预览"
+            role="region"
+          >
+            <SchemaRenderer
+              schema={schema}
+              rawData={canvasPreviewRawData}
+              value={labelerPreviewAnswers}
+              mode="answer"
+              onChange={setLabelerPreviewAnswers}
+              activeFieldKey={activeLabelerPreviewFieldKey}
+              onActiveFieldChange={setActiveLabelerPreviewFieldKey}
             />
-          ) : (
-            <button
-              type="button"
-              className="designer-canvas__template-name-trigger"
-              aria-label="编辑模板名称"
-              title={templateName}
-              onClick={startTemplateNameEditing}
-            >
-              <span className="designer-canvas__template-name-text">{templateName}</span>
-              <TemplateNameEditIcon />
-            </button>
-          )}
-        </div>
-        <div className="designer-canvas__header-meta">
-          {shouldShowUploadedFilePreview ? (
-            <button
-              className="designer-canvas__uploaded-preview"
-              type="button"
-              aria-label="预览已上传文件"
-              onClick={onPreviewUploadedFile}
-            >
-              <span>预览已上传文件</span>
-              <img className="designer-canvas__uploaded-preview-icon" src={eyeIcon} alt="" aria-hidden="true" />
-            </button>
-          ) : null}
-          <span>{schema.fields.length} 个字段</span>
-        </div>
-      </div>
-      {schema.fields.length === 0 && !activeDropPreview ? (
-        <div className="designer-canvas__empty">拖入此处新增字段</div>
-      ) : (
-        <div className="designer-canvas__fields">
-          <SortableContext items={fieldKeys} strategy={verticalListSortingStrategy}>
-            {schema.fields.map((field) => (
-              <Fragment key={field.key}>
-                {previewTargetFieldKey === field.key ? dropPreview : null}
+          </section>
+        ) : schema.fields.length === 0 ? (
+          <div className="designer-canvas__empty">
+            拖入此处新增字段
+            {shouldAppendPreview && activeDropPreview ? (
+              <DesignerDropInsertionMarker
+                type={activeDropPreview.type}
+                isExiting={isDropPreviewExiting}
+                placement="append"
+              />
+            ) : null}
+          </div>
+        ) : (
+          <div className="designer-canvas__fields">
+            <SortableContext items={fieldKeys} strategy={verticalListSortingStrategy}>
+              {schema.fields.map((field) => (
                 <SortableDesignerFieldCard
                   datasetKind={schema.datasetKind}
+                  key={field.key}
                   field={field}
+                  activeTabByFieldKey={activeTabByFieldKey}
+                  dropMarkerType={resolveDropMarkerTypeBeforeField(
+                    activeDropPreview,
+                    rootContainerTarget,
+                    field.key,
+                  )}
                   isDropCommitting={committingFieldKey === field.key}
+                  isDropMarkerExiting={isDropPreviewExiting}
+                  materialDropPreview={activeDropPreview}
+                  suspendLayoutAnimation={shouldSuspendFieldLayoutMotion}
                   removingFieldKeys={removingFieldKeys}
                   selectedFieldKey={selectedFieldKey}
+                  onActiveTabChange={onActiveTabChange}
                   onSelectField={onSelectField}
                   onDuplicateField={onDuplicateField}
                   onRemoveField={handleRemoveField}
+                  onTestLlmPrompt={onTestLlmPrompt}
                   previewRawData={canvasPreviewRawData}
                 />
-              </Fragment>
-            ))}
-            {shouldAppendPreview ? dropPreview : null}
-          </SortableContext>
-        </div>
-      )}
-    </main>
+              ))}
+              {shouldAppendPreview && activeDropPreview ? (
+                <DesignerDropInsertionMarker
+                  type={activeDropPreview.type}
+                  isExiting={isDropPreviewExiting}
+                  placement="append"
+                />
+              ) : null}
+            </SortableContext>
+          </div>
+        )}
+      </div>
+    </section>
   );
 };
 
-const DesignerMaterialDropPreview = ({
+const DesignerDropInsertionMarker = ({
   isExiting,
+  placement,
   type,
 }: {
   isExiting?: boolean;
+  placement: 'append' | 'before';
   type: SchemaField['type'];
 }) => (
-  <article
+  <div
     className={
       isExiting
-        ? 'designer-field-card designer-field-card--drop-preview is-exiting'
-        : 'designer-field-card designer-field-card--drop-preview'
+        ? `designer-drop-insertion-marker designer-drop-insertion-marker--${placement} is-exiting`
+        : `designer-drop-insertion-marker designer-drop-insertion-marker--${placement}`
     }
     aria-hidden="true"
   >
-    <span className="designer-field-card__sort-handle designer-field-card__sort-handle--static">
-      <SortHandleIcon />
-    </span>
-    <div className="designer-field-card__body">
-      <div className="designer-field-card__type-row">
-        <span className="designer-field-card__type-label">{FIELD_TYPE_LABELS[type]}</span>
-      </div>
-      <span className="designer-field-card__preview-line designer-field-card__preview-line--wide" />
-      <span className="designer-field-card__preview-line" />
-    </div>
-  </article>
+    <span className="designer-drop-insertion-marker__line" />
+    <span className="designer-drop-insertion-marker__label">松手添加 {FIELD_TYPE_LABELS[type]}</span>
+  </div>
 );
 
 const SortableDesignerFieldCard = ({
   datasetKind,
   field,
+  activeTabByFieldKey,
+  dropMarkerType,
   isDropCommitting,
+  isDropMarkerExiting,
+  materialDropPreview,
+  suspendLayoutAnimation,
   removingFieldKeys,
   selectedFieldKey,
+  onActiveTabChange,
   onSelectField,
   onDuplicateField,
   onRemoveField,
+  onTestLlmPrompt,
   previewRawData,
 }: {
   datasetKind: LabelHubSchema['datasetKind'];
   field: SchemaField;
+  activeTabByFieldKey: Readonly<Record<string, string>>;
+  dropMarkerType?: SchemaField['type'] | null;
   isDropCommitting?: boolean;
+  isDropMarkerExiting?: boolean;
+  materialDropPreview: MaterialDropPreview | null;
+  suspendLayoutAnimation?: boolean;
   removingFieldKeys: ReadonlySet<string>;
   selectedFieldKey: string | null;
+  onActiveTabChange: (tabsKey: string, tabKey: string) => void;
   onSelectField: (fieldKey: string) => void;
   onDuplicateField: (fieldKey: string) => void;
   onRemoveField: (fieldKey: string) => void;
+  onTestLlmPrompt?: (field: SchemaField) => Promise<void> | void;
   previewRawData: Record<string, unknown>;
 }) => {
   const { attributes, isDragging, listeners, setNodeRef, transform, transition } = useSortable({
@@ -504,12 +861,12 @@ const SortableDesignerFieldCard = ({
     data: { kind: 'field', fieldKey: field.key },
     transition: SORTABLE_FIELD_TRANSITION,
   });
-  const transformTransition =
-    transition ??
-    `transform ${SORTABLE_FIELD_TRANSITION.duration}ms ${SORTABLE_FIELD_TRANSITION.easing}`;
+  const transformTransition = suspendLayoutAnimation
+    ? null
+    : transition ?? `transform ${SORTABLE_FIELD_TRANSITION.duration}ms ${SORTABLE_FIELD_TRANSITION.easing}`;
   const visualTransition = 'box-shadow 180ms ease, border-color 180ms ease, opacity 180ms ease';
   const style: CSSProperties = {
-    transform: CSS.Transform.toString(transform),
+    transform: suspendLayoutAnimation ? undefined : CSS.Transform.toString(transform),
     transition: [transformTransition, visualTransition].filter(Boolean).join(', '),
   };
   const sortHandle = (
@@ -530,18 +887,168 @@ const SortableDesignerFieldCard = ({
     <DesignerFieldCard
       datasetKind={datasetKind}
       field={field}
+      activeTabByFieldKey={activeTabByFieldKey}
+      dropMarkerType={dropMarkerType}
       isDragging={isDragging}
       isDropCommitting={isDropCommitting}
+      isDropMarkerExiting={isDropMarkerExiting}
+      materialDropPreview={materialDropPreview}
+      suspendLayoutAnimation={suspendLayoutAnimation}
       isRemoving={removingFieldKeys.has(field.key)}
       removingFieldKeys={removingFieldKeys}
       selectedFieldKey={selectedFieldKey}
       setNodeRef={setNodeRef}
       sortHandle={sortHandle}
       style={style}
+      onActiveTabChange={onActiveTabChange}
       onSelectField={onSelectField}
       onDuplicateField={onDuplicateField}
       onRemoveField={onRemoveField}
+      onTestLlmPrompt={onTestLlmPrompt}
       previewRawData={previewRawData}
+    />
+  );
+};
+
+const AiPromptPreviewPanel = ({
+  compiledPrompt,
+  promptConfig,
+  onFullPromptChange,
+  onSectionChange,
+}: {
+  compiledPrompt: CompiledAiReviewPrompt;
+  promptConfig?: AiReviewPromptConfig;
+  onFullPromptChange: (content: string) => void;
+  onSectionChange: (sectionKey: AiReviewPromptSectionKey, content: string) => void;
+}) => {
+  const [isFullPromptVisible, setIsFullPromptVisible] = useState(false);
+  const [collapsedSectionKeys, setCollapsedSectionKeys] = useState<ReadonlySet<AiReviewPromptSectionKey>>(
+    () => new Set(),
+  );
+  const fullPromptValue = promptConfig?.fullPromptOverride ?? compiledPrompt.prompt;
+  const toggleSectionCollapse = (sectionKey: AiReviewPromptSectionKey) => {
+    setCollapsedSectionKeys((current) => {
+      const next = new Set(current);
+
+      if (next.has(sectionKey)) {
+        next.delete(sectionKey);
+      } else {
+        next.add(sectionKey);
+      }
+
+      return next;
+    });
+  };
+
+  return (
+    <section className="designer-ai-prompt-preview" aria-label="AI Prompt 预览" role="region">
+      <header className="designer-ai-prompt-preview__header">
+        <div>
+          <span>AI 预审 Prompt</span>
+          <h3>{isFullPromptVisible ? '完整 Prompt' : 'Prompt 组成部分'}</h3>
+        </div>
+        <div className="designer-ai-prompt-preview__header-actions">
+          <button
+            type="button"
+            aria-pressed={isFullPromptVisible}
+            onClick={() => setIsFullPromptVisible((current) => !current)}
+          >
+            {isFullPromptVisible ? '查看分段' : '查看完整 Prompt'}
+          </button>
+        </div>
+      </header>
+      {isFullPromptVisible ? (
+        <article className="designer-ai-prompt-preview__full" aria-label="完整 AI Prompt">
+          <div className="designer-ai-prompt-preview__section-heading">
+            <h4>完整 Prompt</h4>
+            <span>运行时会写入 AI 预审记录</span>
+          </div>
+          <AutoResizePromptTextarea
+            aria-label="编辑完整 AI Prompt"
+            value={fullPromptValue}
+            onChange={onFullPromptChange}
+          />
+        </article>
+      ) : (
+        <div className="designer-ai-prompt-preview__sections" aria-label="Prompt 组成部分">
+          {compiledPrompt.sections.map((section, index) => {
+            const isCollapsed = collapsedSectionKeys.has(section.key);
+            const sectionBodyId = `ai-prompt-section-${section.key}`;
+
+            return (
+              <article
+                key={section.key}
+                className={isCollapsed ? 'is-collapsed' : undefined}
+              >
+                <div className="designer-ai-prompt-preview__section-heading">
+                  <h4>{index + 1}. {section.title}</h4>
+                  <button
+                    type="button"
+                    aria-controls={sectionBodyId}
+                    aria-expanded={!isCollapsed}
+                    onClick={() => toggleSectionCollapse(section.key)}
+                  >
+                    {isCollapsed ? '展开' : '收起'}
+                  </button>
+                </div>
+                <div
+                  id={sectionBodyId}
+                  className="designer-ai-prompt-preview__section-body"
+                  aria-hidden={isCollapsed}
+                >
+                  <div className="designer-ai-prompt-preview__section-body-inner">
+                    <AutoResizePromptTextarea
+                      aria-label={`编辑${section.title}`}
+                      tabIndex={isCollapsed ? -1 : undefined}
+                      value={section.content}
+                      onChange={(value) => onSectionChange(section.key, value)}
+                    />
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+};
+
+const AutoResizePromptTextarea = ({
+  'aria-label': ariaLabel,
+  onChange,
+  tabIndex,
+  value,
+}: {
+  'aria-label': string;
+  onChange: (value: string) => void;
+  tabIndex?: number;
+  value: string;
+}) => {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+
+    if (!textarea) {
+      return;
+    }
+
+    textarea.style.height = 'auto';
+
+    if (textarea.scrollHeight > 0) {
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      aria-label={ariaLabel}
+      rows={1}
+      tabIndex={tabIndex}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
     />
   );
 };
@@ -576,12 +1083,33 @@ export const DesignerFieldDragOverlay = ({ field }: { field: SchemaField }) => {
   const typeTitle = formatFieldTypeTitle(field);
   const isRequired = isRequiredField(field);
   const fieldDescription = formatFieldDescription(field);
+  const hasLlmPrompt = field.promptTemplate !== undefined;
 
   return (
-    <article className="designer-field-card designer-field-card--drag-overlay" aria-hidden="true">
+    <article
+      className={[
+        'designer-field-card',
+        'designer-field-card--drag-overlay',
+        hasLlmPrompt ? 'designer-field-card--has-llm-prompt' : null,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-hidden="true"
+    >
       <span className="designer-field-card__sort-handle designer-field-card__sort-handle--static">
         <SortHandleIcon />
       </span>
+      {hasLlmPrompt ? (
+        <span className="template-manager-row-action designer-field-card__llm-prompt-button">
+          <img
+            className="designer-field-card__llm-prompt-icon"
+            src={starIcon}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+          />
+        </span>
+      ) : null}
       <span className="designer-field-card__copy-button">
         <span className="designer-field-card__copy-icon" />
       </span>
@@ -600,7 +1128,9 @@ export const DesignerFieldDragOverlay = ({ field }: { field: SchemaField }) => {
             <span className="designer-field-card__description">{fieldDescription}</span>
           ) : null}
         </div>
-        {field.type !== 'show_item' ? <small>字段名：{answerKey}</small> : null}
+        {field.type !== 'show_item' && field.type !== 'group' && field.type !== 'tabs' ? (
+          <small>字段名：{answerKey}</small>
+        ) : null}
         {field.placeholder ? <p>{field.placeholder}</p> : null}
         {field.options && field.options.length > 0 ? (
           <div className="designer-field-card__options">
@@ -621,32 +1151,46 @@ export const DesignerFieldDragOverlay = ({ field }: { field: SchemaField }) => {
 const DesignerFieldCard = ({
   datasetKind,
   field,
+  activeTabByFieldKey,
+  dropMarkerType,
   isDragging = false,
   isDropCommitting = false,
+  isDropMarkerExiting = false,
+  materialDropPreview,
+  suspendLayoutAnimation = false,
   isRemoving = false,
   removingFieldKeys,
   selectedFieldKey,
   setNodeRef,
   sortHandle,
   style,
+  onActiveTabChange,
   onSelectField,
   onDuplicateField,
   onRemoveField,
+  onTestLlmPrompt,
   previewRawData,
 }: {
   datasetKind: LabelHubSchema['datasetKind'];
   field: SchemaField;
+  activeTabByFieldKey: Readonly<Record<string, string>>;
+  dropMarkerType?: SchemaField['type'] | null;
   isDragging?: boolean;
   isDropCommitting?: boolean;
+  isDropMarkerExiting?: boolean;
+  materialDropPreview: MaterialDropPreview | null;
+  suspendLayoutAnimation?: boolean;
   isRemoving?: boolean;
   removingFieldKeys: ReadonlySet<string>;
   selectedFieldKey: string | null;
   setNodeRef?: (node: HTMLElement | null) => void;
   sortHandle?: ReactNode;
   style?: CSSProperties;
+  onActiveTabChange: (tabsKey: string, tabKey: string) => void;
   onSelectField: (fieldKey: string) => void;
   onDuplicateField: (fieldKey: string) => void;
   onRemoveField: (fieldKey: string) => void;
+  onTestLlmPrompt?: (field: SchemaField) => Promise<void> | void;
   previewRawData: Record<string, unknown>;
 }) => {
   const selected = selectedFieldKey === field.key;
@@ -654,19 +1198,41 @@ const DesignerFieldCard = ({
   const typeTitle = formatFieldTypeTitle(field);
   const isRequired = isRequiredField(field);
   const fieldDescription = formatFieldDescription(field);
+  const hasLlmPrompt = field.promptTemplate !== undefined;
+  const [isTestingLlmPrompt, setIsTestingLlmPrompt] = useState(false);
+  const groupLayout = field.layout === 'two_columns' ? 'two_columns' : 'single_column';
   const childFieldKeys = useMemo(
     () => (field.fields ?? []).map((child) => child.key),
     [field.fields],
   );
-  const tabFieldKeys = useMemo(
-    () =>
-      Object.fromEntries(
-        (field.tabs ?? []).map((tab) => [tab.key, tab.fields.map((child) => child.key)]),
-      ) as Record<string, string[]>,
-    [field.tabs],
+  const tabs = field.tabs ?? [];
+  const tabsLayout = 'auto_rows';
+  const activeTabKey = activeTabByFieldKey[field.key] ?? tabs[0]?.key ?? '';
+  const activeTab = tabs.find((tab) => tab.key === activeTabKey) ?? tabs[0];
+  const activeTabFieldKeys = useMemo(
+    () => activeTab?.fields.map((child) => child.key) ?? [],
+    [activeTab],
   );
+  const {
+    isOver: isGroupDropOver,
+    setNodeRef: setGroupDropNodeRef,
+  } = useDroppable({
+    id: designerGroupDropId(field.key),
+    disabled: field.type !== 'group',
+  });
+  const {
+    isOver: isTabDropOver,
+    setNodeRef: setTabDropNodeRef,
+  } = useDroppable({
+    id: activeTab ? designerTabDropId(field.key, activeTab.key) : `designer-drop-tab-disabled:${field.key}`,
+    disabled: field.type !== 'tabs' || !activeTab,
+  });
   const className = [
     'designer-field-card',
+    hasLlmPrompt ? 'designer-field-card--has-llm-prompt' : null,
+    field.type === 'group' || field.type === 'tabs' ? 'designer-field-card--container' : null,
+    field.type === 'group' ? 'designer-field-card--group' : null,
+    field.type === 'tabs' ? 'designer-field-card--tabs' : null,
     selected ? 'is-selected' : null,
     isDragging ? 'is-dragging' : null,
     isDropCommitting ? 'is-drop-committing' : null,
@@ -715,6 +1281,44 @@ const DesignerFieldCard = ({
 
     onRemoveField(field.key);
   };
+  const handleTestLlmPrompt = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (isRemoving || isTestingLlmPrompt) {
+      return;
+    }
+
+    setIsTestingLlmPrompt(true);
+
+    try {
+      await onTestLlmPrompt?.(field);
+    } finally {
+      setIsTestingLlmPrompt(false);
+    }
+  };
+  const renderTabChildCard = (child: SchemaField) => (
+    <SortableDesignerFieldCard
+      datasetKind={datasetKind}
+      key={child.key}
+      field={child}
+      activeTabByFieldKey={activeTabByFieldKey}
+      dropMarkerType={resolveDropMarkerTypeBeforeField(
+        materialDropPreview,
+        { kind: 'tab', tabsKey: field.key, tabKey: activeTab?.key ?? '' },
+        child.key,
+      )}
+      isDropMarkerExiting={isDropMarkerExiting}
+      materialDropPreview={materialDropPreview}
+      suspendLayoutAnimation={suspendLayoutAnimation}
+      removingFieldKeys={removingFieldKeys}
+      selectedFieldKey={selectedFieldKey}
+      onActiveTabChange={onActiveTabChange}
+      onSelectField={onSelectField}
+      onDuplicateField={onDuplicateField}
+      onRemoveField={onRemoveField}
+      onTestLlmPrompt={onTestLlmPrompt}
+      previewRawData={previewRawData}
+    />
+  );
 
   return (
     <article
@@ -728,7 +1332,32 @@ const DesignerFieldCard = ({
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
     >
+      {dropMarkerType ? (
+        <DesignerDropInsertionMarker
+          type={dropMarkerType}
+          isExiting={isDropMarkerExiting}
+          placement="before"
+        />
+      ) : null}
       {sortHandle}
+      {hasLlmPrompt ? (
+        <button
+          className="template-manager-row-action designer-field-card__llm-prompt-button"
+          type="button"
+          aria-label={`测试 ${field.label} LLM 提示`}
+          disabled={isRemoving || isTestingLlmPrompt}
+          title="测试 LLM 提示"
+          onClick={handleTestLlmPrompt}
+        >
+          <img
+            className="designer-field-card__llm-prompt-icon"
+            src={starIcon}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+          />
+        </button>
+      ) : null}
       <button
         className="template-manager-row-action designer-field-card__copy-button"
         type="button"
@@ -763,7 +1392,9 @@ const DesignerFieldCard = ({
             <span className="designer-field-card__description">{fieldDescription}</span>
           ) : null}
         </div>
-        {field.type !== 'show_item' ? <small>字段名：{answerKey}</small> : null}
+        {field.type !== 'show_item' && field.type !== 'group' && field.type !== 'tabs' ? (
+          <small>字段名：{answerKey}</small>
+        ) : null}
         {field.placeholder ? <p>{field.placeholder}</p> : null}
         {field.options && field.options.length > 0 ? (
           <div className="designer-field-card__options">
@@ -784,6 +1415,7 @@ const DesignerFieldCard = ({
               mode="answer"
               hiddenFieldKeys={EMPTY_FIELD_KEY_SET}
               disabledFieldKeys={EMPTY_FIELD_KEY_SET}
+              requiredFieldKeys={EMPTY_FIELD_KEY_SET}
               validationMessagesByField={EMPTY_VALIDATION_MESSAGES_BY_FIELD}
               onFieldChange={() => undefined}
               disabled
@@ -794,46 +1426,190 @@ const DesignerFieldCard = ({
           <small>采纳后写入：{field.targetFieldKey ?? '未配置'}</small>
         ) : null}
       </div>
-      {field.fields && field.fields.length > 0 ? (
-        <div className="designer-field-card__children">
-          <SortableContext items={childFieldKeys} strategy={verticalListSortingStrategy}>
-            {field.fields.map((child) => (
+      {field.type === 'group' ? (
+        <div
+          ref={setGroupDropNodeRef}
+          data-designer-drop-target-kind="group"
+          data-designer-group-key={field.key}
+          className={[
+            'designer-field-card__container-shell',
+            'designer-field-card__children',
+            `designer-field-card__container-shell--${groupLayout}`,
+            isGroupDropOver || isContainerDropHighlighted(materialDropPreview, { kind: 'group', groupKey: field.key })
+              ? 'is-over'
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <SortableContext
+            items={childFieldKeys}
+            strategy={groupLayout === 'two_columns' ? rectSortingStrategy : verticalListSortingStrategy}
+          >
+            {(field.fields ?? []).map((child) => (
               <SortableDesignerFieldCard
                 datasetKind={datasetKind}
                 key={child.key}
                 field={child}
+                activeTabByFieldKey={activeTabByFieldKey}
+                dropMarkerType={resolveDropMarkerTypeBeforeField(
+                  materialDropPreview,
+                  { kind: 'group', groupKey: field.key },
+                  child.key,
+                )}
+                isDropMarkerExiting={isDropMarkerExiting}
+                materialDropPreview={materialDropPreview}
+                suspendLayoutAnimation={suspendLayoutAnimation}
                 removingFieldKeys={removingFieldKeys}
                 selectedFieldKey={selectedFieldKey}
+                onActiveTabChange={onActiveTabChange}
                 onSelectField={onSelectField}
                 onDuplicateField={onDuplicateField}
                 onRemoveField={onRemoveField}
+                onTestLlmPrompt={onTestLlmPrompt}
                 previewRawData={previewRawData}
               />
             ))}
+            {shouldRenderAppendPreview(materialDropPreview, { kind: 'group', groupKey: field.key }) ? (
+              <DesignerDropInsertionMarker
+                type={materialDropPreview!.type}
+                isExiting={isDropMarkerExiting}
+                placement="append"
+              />
+            ) : null}
+            {(field.fields ?? []).length === 0 ? (
+              <div className="designer-field-card__drop-empty">拖入字段到此分组</div>
+            ) : null}
           </SortableContext>
         </div>
       ) : null}
-      {field.tabs?.map((tab) => (
-        <section key={tab.key} className="designer-field-card__children">
-          <h4>{tab.label}</h4>
-          <SortableContext items={tabFieldKeys[tab.key] ?? []} strategy={verticalListSortingStrategy}>
-            {tab.fields.map((child) => (
-              <SortableDesignerFieldCard
-                datasetKind={datasetKind}
-                key={child.key}
-                field={child}
-                removingFieldKeys={removingFieldKeys}
-                selectedFieldKey={selectedFieldKey}
-                onSelectField={onSelectField}
-                onDuplicateField={onDuplicateField}
-                onRemoveField={onRemoveField}
-                previewRawData={previewRawData}
-              />
-            ))}
-          </SortableContext>
-        </section>
-      ))}
+      {field.type === 'tabs' ? (
+        <div className="designer-field-card__tabs">
+          <div className="designer-field-card__tab-list" role="tablist" aria-label={`${field.label} Tab 列表`}>
+            {tabs.map((tab) => {
+              return (
+                <DesignerTabButton
+                  key={tab.key}
+                  isActive={tab.key === activeTab?.key}
+                  isHighlighted={isContainerDropHighlighted(materialDropPreview, {
+                    kind: 'tab',
+                    tabsKey: field.key,
+                    tabKey: tab.key,
+                  })}
+                  label={tab.label}
+                  tabsKey={field.key}
+                  tabKey={tab.key}
+                  onClick={() => {
+                    onActiveTabChange(field.key, tab.key);
+                    onSelectField(field.key);
+                  }}
+                />
+              );
+            })}
+          </div>
+          {activeTab ? (
+            <section
+              ref={setTabDropNodeRef}
+              data-designer-drop-target-kind="tab"
+              data-designer-tabs-key={field.key}
+              data-designer-tab-key={activeTab.key}
+              className={[
+                'designer-field-card__container-shell',
+                'designer-field-card__children',
+                'designer-field-card__tab-panel',
+                `designer-field-card__tab-panel--${tabsLayout}`,
+                isTabDropOver ||
+                isContainerDropHighlighted(materialDropPreview, {
+                  kind: 'tab',
+                  tabsKey: field.key,
+                  tabKey: activeTab.key,
+                })
+                  ? 'is-over'
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              role="tabpanel"
+            >
+              <SortableContext
+                items={activeTabFieldKeys}
+                strategy={rectSortingStrategy}
+              >
+                {tabsLayout === 'auto_rows'
+                  ? chunkFields(activeTab.fields).map((row, rowIndex) => (
+                      <div
+                        key={`${activeTab.key}-row-${rowIndex}`}
+                        className={`designer-field-card__tab-row ${autoRowClassBySize(row.length)}`}
+                      >
+                        {row.map(renderTabChildCard)}
+                      </div>
+                    ))
+                  : activeTab.fields.map(renderTabChildCard)}
+                {shouldRenderAppendPreview(materialDropPreview, {
+                  kind: 'tab',
+                  tabsKey: field.key,
+                  tabKey: activeTab.key,
+                }) ? (
+                  <DesignerDropInsertionMarker
+                    type={materialDropPreview!.type}
+                    isExiting={isDropMarkerExiting}
+                    placement="append"
+                  />
+                ) : null}
+                {activeTab.fields.length === 0 ? (
+                  <div className="designer-field-card__drop-empty">拖入字段到当前 Tab</div>
+                ) : null}
+              </SortableContext>
+            </section>
+          ) : null}
+        </div>
+      ) : null}
     </article>
+  );
+};
+
+const DesignerTabButton = ({
+  isActive,
+  isHighlighted,
+  label,
+  tabsKey,
+  tabKey,
+  onClick,
+}: {
+  isActive: boolean;
+  isHighlighted: boolean;
+  label: string;
+  tabsKey: string;
+  tabKey: string;
+  onClick: () => void;
+}) => {
+  const { isOver, setNodeRef } = useDroppable({
+    id: designerTabDropId(tabsKey, tabKey),
+  });
+
+  return (
+    <button
+      ref={setNodeRef}
+      data-designer-drop-target-kind="tab"
+      data-designer-tabs-key={tabsKey}
+      data-designer-tab-key={tabKey}
+      type="button"
+      role="tab"
+      aria-selected={isActive}
+      className={[
+        'designer-field-card__tab-button',
+        isActive ? 'is-active' : null,
+        isOver || isHighlighted ? 'is-over' : null,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+    >
+      {label}
+    </button>
   );
 };
 

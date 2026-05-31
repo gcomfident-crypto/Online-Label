@@ -79,24 +79,24 @@ const toneByStatus = {
 
 const taskStatusTagStyles = {
   DRAFT: {
-    '--status-dot-color': '#94A3B8',
+    '--status-dot-color': '#64748B',
     '--status-text-color': '#64748B',
-    '--status-bg-color': '#F1F5F9',
+    '--status-bg-color': '#F3F4F6',
   },
   PUBLISHED: {
-    '--status-dot-color': '#306DF8',
-    '--status-text-color': '#1D4ED8',
-    '--status-bg-color': '#EAF1FF',
-  },
-  PAUSED: {
     '--status-dot-color': '#D97706',
-    '--status-text-color': '#92400E',
+    '--status-text-color': '#D97706',
     '--status-bg-color': '#FFF7E6',
   },
+  PAUSED: {
+    '--status-dot-color': '#DC2626',
+    '--status-text-color': '#DC2626',
+    '--status-bg-color': '#FEF2F2',
+  },
   ENDED: {
-    '--status-dot-color': '#00A676',
-    '--status-text-color': '#007F5F',
-    '--status-bg-color': '#E6F7F1',
+    '--status-dot-color': '#0FB86B',
+    '--status-text-color': '#0FB86B',
+    '--status-bg-color': '#E8F7EF',
   },
 } satisfies Record<TaskStatus, TaskStatusTagStyle>;
 

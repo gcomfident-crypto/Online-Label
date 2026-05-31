@@ -613,7 +613,7 @@ function buildManualReviewItem(queueItem: ReviewQueueItemDto, detail: ReviewDeta
     issueTags: issueTagsFromScores(scores, aiSuggestion),
     labelerName: formatUserName(detail?.assignment.assigneeId),
     questionInfo: questionInfoFromData(rawData, answers, queueItem),
-    questionId: detail?.taskItem.id ?? queueItem.taskItemId,
+    questionId: subId,
     reviewComment: detail?.humanReview?.comment ?? detail?.aiReview?.comment ?? queueItem.aiComment ?? '',
     round: detail?.submission.round ?? queueItem.round,
     status: detail?.submission.status ?? queueItem.status,

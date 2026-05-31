@@ -147,15 +147,15 @@ export const MyDataPage = () => {
       {isLoading ? (
         <PageLoading title="正在加载工作台" description="正在同步已领取任务。" />
       ) : (
-        <div className="my-data-table-scroll" ref={myDataTableContainerRef}>
+        <div className="task-management-table-card my-data-table-scroll" ref={myDataTableContainerRef}>
           <div className="labeler-list-panel-heading">
             <div>
               <h2>已领取任务列表</h2>
             </div>
             <small>{taskGroups.length.toLocaleString()} 条任务</small>
           </div>
-          <div className="my-data-table-frame" data-adaptive-table-viewport="true">
-            <table className="my-data-table" aria-label="工作台任务列表">
+          <div className="task-table-scroll my-data-table-frame" data-adaptive-table-viewport="true">
+            <table className="task-table my-data-table" aria-label="工作台任务列表">
               <thead>
                 <tr>
                   <th>任务</th>

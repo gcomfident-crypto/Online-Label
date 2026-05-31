@@ -17,6 +17,9 @@ import { CUSTOM_VALIDATOR_OPTIONS } from './templateStore';
 
 type PropertyPanelProps = {
   field: SchemaField | null;
+  schemaFields?: readonly SchemaField[];
+  activeTabKey?: string;
+  onActivateTab?: (tabKey: string) => void;
   onUpdateField: (patch: Partial<SchemaField>) => void;
   onUpdateValidation: (patch: NonNullable<SchemaField['validation']>) => void;
   onAddLinkageRule: () => void;
@@ -37,11 +40,16 @@ const FIELD_DESCRIPTION_MAX_LENGTH = 20;
 
 export const PropertyPanel = ({
   field,
+  schemaFields = [],
+  activeTabKey,
+  onActivateTab = () => undefined,
   onUpdateField,
   onUpdateValidation,
   onAddLinkageRule,
 }: PropertyPanelProps) => {
   const isShowItemField = field?.type === 'show_item';
+  const isGroupField = field?.type === 'group';
+  const isTabsField = field?.type === 'tabs';
   const panelTitle = isShowItemField ? '题目展示字段' : '属性配置';
   const panelClassName = isShowItemField
     ? 'designer-panel designer-properties designer-properties--show-item'
@@ -52,12 +60,36 @@ export const PropertyPanel = ({
       {!field || !isShowItemField ? <h2>{panelTitle}</h2> : null}
       {!field ? null : isShowItemField ? (
         <div className="designer-property-stack designer-property-stack--show-item">
-          <ShowItemDisplayConfigEditor field={field} onUpdateField={onUpdateField} />
+          <ShowItemDisplayConfigEditor field={field} schemaFields={schemaFields} onUpdateField={onUpdateField} />
+        </div>
+      ) : isGroupField ? (
+        <div className="designer-property-stack">
+          <GroupContainerProperties field={field} onUpdateField={onUpdateField} />
+          <LinkageProperties
+            field={field}
+            onAddLinkageRule={onAddLinkageRule}
+            onUpdateField={onUpdateField}
+          />
+        </div>
+      ) : isTabsField ? (
+        <div className="designer-property-stack">
+          <TabsContainerProperties
+            activeTabKey={activeTabKey}
+            field={field}
+            onActivateTab={onActivateTab}
+            onUpdateField={onUpdateField}
+          />
+          <LinkageProperties
+            field={field}
+            onAddLinkageRule={onAddLinkageRule}
+            onUpdateField={onUpdateField}
+          />
         </div>
       ) : (
         <div className="designer-property-stack">
           <BasicProperties
             field={field}
+            schemaFields={schemaFields}
             onUpdateField={onUpdateField}
             onUpdateValidation={onUpdateValidation}
           />
@@ -75,10 +107,12 @@ export const PropertyPanel = ({
 
 const BasicProperties = ({
   field,
+  schemaFields,
   onUpdateField,
   onUpdateValidation,
 }: {
   field: SchemaField;
+  schemaFields: readonly SchemaField[];
   onUpdateField: (patch: Partial<SchemaField>) => void;
   onUpdateValidation: (patch: NonNullable<SchemaField['validation']>) => void;
 }) => {
@@ -185,7 +219,226 @@ const BasicProperties = ({
           </>
         ) : null}
       </div>
+      {supportsLlmPrompt(field) ? (
+        <LlmPromptProperties
+          field={field}
+          schemaFields={schemaFields}
+          onUpdateField={onUpdateField}
+        />
+      ) : null}
       <AiReviewProperties field={field} onUpdateField={onUpdateField} />
+    </>
+  );
+};
+
+const GroupContainerProperties = ({
+  field,
+  onUpdateField,
+}: {
+  field: SchemaField;
+  onUpdateField: (patch: Partial<SchemaField>) => void;
+}) => {
+  const layout = field.layout === 'two_columns' ? 'two_columns' : 'single_column';
+
+  return (
+    <div className="designer-form-grid">
+      <PropertyRow label="标题">
+        <input
+          aria-label="标题"
+          value={field.label}
+          onChange={(event) => onUpdateField({ label: event.target.value })}
+        />
+      </PropertyRow>
+      <PropertyRow label="字段说明">
+        <input
+          aria-label="字段说明"
+          maxLength={FIELD_DESCRIPTION_MAX_LENGTH}
+          placeholder="20字内说明"
+          value={field.description ?? ''}
+          onChange={(event) => onUpdateField({ description: event.target.value })}
+        />
+      </PropertyRow>
+      <PropertyRow label="默认展开">
+        <label className="designer-switch">
+          <input
+            aria-label="默认展开"
+            checked={!field.defaultCollapsed}
+            type="checkbox"
+            onChange={(event) => onUpdateField({ defaultCollapsed: !event.target.checked })}
+          />
+          <span aria-hidden="true" />
+        </label>
+      </PropertyRow>
+      <PropertyRow label="布局列数">
+        <div className="designer-segmented-control" role="group" aria-label="布局列数">
+          <button
+            className={layout === 'single_column' ? 'is-active' : ''}
+            type="button"
+            onClick={() => onUpdateField({ layout: 'single_column' })}
+          >
+            单列
+          </button>
+          <button
+            className={layout === 'two_columns' ? 'is-active' : ''}
+            type="button"
+            onClick={() => onUpdateField({ layout: 'two_columns' })}
+          >
+            双列
+          </button>
+        </div>
+      </PropertyRow>
+    </div>
+  );
+};
+
+const TabsContainerProperties = ({
+  activeTabKey,
+  field,
+  onActivateTab,
+  onUpdateField,
+}: {
+  activeTabKey?: string;
+  field: SchemaField;
+  onActivateTab: (tabKey: string) => void;
+  onUpdateField: (patch: Partial<SchemaField>) => void;
+}) => {
+  const tabs = field.tabs ?? [];
+  const selectedTabKey = activeTabKey && tabs.some((tab) => tab.key === activeTabKey)
+    ? activeTabKey
+    : tabs[0]?.key;
+
+  const commitTabs = (nextTabs: NonNullable<SchemaField['tabs']>) => {
+    onUpdateField({ tabs: nextTabs });
+  };
+  const uniqueTabKey = () => {
+    const existingKeys = new Set(tabs.map((tab) => tab.key));
+    let index = tabs.length + 1;
+    let key = `tab_${index}`;
+
+    while (existingKeys.has(key)) {
+      index += 1;
+      key = `tab_${index}`;
+    }
+
+    return key;
+  };
+  const updateTab = (tabKey: string, label: string) => {
+    commitTabs(tabs.map((tab) => (tab.key === tabKey ? { ...tab, label } : tab)));
+  };
+  const addTab = () => {
+    const key = uniqueTabKey();
+    commitTabs([...tabs, { key, label: `Tab ${tabs.length + 1}`, fields: [] }]);
+    onActivateTab(key);
+  };
+  const removeTab = (tabKey: string) => {
+    if (tabs.length <= 1) {
+      return;
+    }
+
+    const nextTabs = tabs.filter((tab) => tab.key !== tabKey);
+    commitTabs(nextTabs);
+
+    if (selectedTabKey === tabKey && nextTabs[0]) {
+      onActivateTab(nextTabs[0].key);
+    }
+  };
+  const moveTab = (tabKey: string, direction: 'up' | 'down') => {
+    const currentIndex = tabs.findIndex((tab) => tab.key === tabKey);
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= tabs.length) {
+      return;
+    }
+
+    const nextTabs = [...tabs];
+    const [tab] = nextTabs.splice(currentIndex, 1);
+    nextTabs.splice(targetIndex, 0, tab);
+    commitTabs(nextTabs);
+  };
+
+  return (
+    <>
+      <div className="designer-form-grid">
+        <PropertyRow label="标题">
+          <input
+            aria-label="标题"
+            value={field.label}
+            onChange={(event) => onUpdateField({ label: event.target.value })}
+          />
+        </PropertyRow>
+        <PropertyRow label="字段说明">
+          <input
+            aria-label="字段说明"
+            maxLength={FIELD_DESCRIPTION_MAX_LENGTH}
+            placeholder="20字内说明"
+            value={field.description ?? ''}
+            onChange={(event) => onUpdateField({ description: event.target.value })}
+          />
+        </PropertyRow>
+      </div>
+      <section className="designer-tab-manager" aria-label="Tab 管理列表">
+        <div className="designer-tab-manager__header">
+          <h3>Tab 管理</h3>
+          <button className="designer-tab-manager__add" type="button" onClick={addTab}>
+            <PropertyPanelPlusIcon />
+            <span>新增 Tab</span>
+          </button>
+        </div>
+        <div className="designer-tab-manager__list">
+          {tabs.map((tab, index) => {
+            const isActive = tab.key === selectedTabKey;
+
+            return (
+              <article
+                key={tab.key}
+                className={isActive ? 'designer-tab-manager__item is-active' : 'designer-tab-manager__item'}
+              >
+                <button
+                  className="designer-tab-manager__activate"
+                  type="button"
+                  aria-label={`编辑 ${tab.label}`}
+                  onClick={() => onActivateTab(tab.key)}
+                >
+                  编辑
+                </button>
+                <input
+                  aria-label={`Tab ${index + 1} 名称`}
+                  value={tab.label}
+                  onFocus={() => onActivateTab(tab.key)}
+                  onChange={(event) => updateTab(tab.key, event.target.value)}
+                />
+                <div className="designer-tab-manager__actions">
+                  <button
+                    type="button"
+                    aria-label={`上移 ${tab.label}`}
+                    disabled={index === 0}
+                    onClick={() => moveTab(tab.key, 'up')}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`下移 ${tab.label}`}
+                    disabled={index === tabs.length - 1}
+                    onClick={() => moveTab(tab.key, 'down')}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    className="template-manager-row-action template-manager-row-action--delete designer-tab-manager__delete"
+                    type="button"
+                    aria-label={`删除 ${tab.label}`}
+                    disabled={tabs.length <= 1}
+                    onClick={() => removeTab(tab.key)}
+                  >
+                    <PropertyPanelDeleteIcon />
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
     </>
   );
 };
@@ -246,6 +499,86 @@ const AiReviewProperties = ({
               onChange={(event) => updateAiReview({ requirement: event.target.value })}
             />
           </PropertyRow>
+        </div>
+      </PropertyCollapse>
+    </PropertySection>
+  );
+};
+
+type ShowItemReference = {
+  label: string;
+  sourceKey: string;
+};
+
+const LlmPromptProperties = ({
+  field,
+  schemaFields,
+  onUpdateField,
+}: {
+  field: SchemaField;
+  schemaFields: readonly SchemaField[];
+  onUpdateField: (patch: Partial<SchemaField>) => void;
+}) => {
+  const [isExpanded, setIsExpanded] = useState(() => field.promptTemplate !== undefined);
+  const selectedFieldKey = field.fieldKey ?? field.key;
+  const showItemReferences = extractShowItemReferences(schemaFields);
+  const promptTemplate = field.promptTemplate ?? '';
+
+  useEffect(() => {
+    setIsExpanded(field.promptTemplate !== undefined);
+  }, [selectedFieldKey, field.promptTemplate]);
+
+  const toggleLlmPrompt = (enabled: boolean) => {
+    setIsExpanded(enabled);
+    onUpdateField({ promptTemplate: enabled ? promptTemplate : undefined });
+  };
+  const insertShowItemReference = (sourceKey: string) => {
+    const token = `#${sourceKey}`;
+    const separator = promptTemplate && !promptTemplate.endsWith(' ') && !promptTemplate.endsWith('\n') ? ' ' : '';
+
+    onUpdateField({ promptTemplate: `${promptTemplate}${separator}${token}` });
+  };
+
+  return (
+    <PropertySection
+      title="LLM提示"
+      action={
+        <PropertySectionSwitch
+          checked={isExpanded}
+          className="designer-llm-prompt-switch"
+          offLabel="启用 LLM 提示"
+          onChange={toggleLlmPrompt}
+          onLabel="关闭 LLM 提示"
+        />
+      }
+    >
+      <PropertyCollapse
+        className="designer-llm-prompt-collapse"
+        dataTestId="designer-llm-prompt-collapse"
+        expanded={isExpanded}
+      >
+        <div className="designer-form-grid designer-llm-prompt-form">
+          <PropertyRow label="提示词">
+            <textarea
+              aria-label="LLM提示内容"
+              placeholder="例如：请根据 #prompt 和 #response 输出建议答案。"
+              value={promptTemplate}
+              onChange={(event) => onUpdateField({ promptTemplate: event.target.value })}
+            />
+          </PropertyRow>
+          {showItemReferences.length > 0 ? (
+            <div className="designer-llm-prompt-references" aria-label="可引用展示字段">
+              {showItemReferences.map((reference) => (
+                <button
+                  key={reference.sourceKey}
+                  type="button"
+                  onClick={() => insertShowItemReference(reference.sourceKey)}
+                >
+                  #{reference.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </PropertyCollapse>
     </PropertySection>
@@ -343,6 +676,59 @@ const supportsPlaceholder = (field: SchemaField): boolean =>
   field.type === 'rich_text' ||
   field.type === 'json_editor';
 
+const supportsLlmPrompt = (field: SchemaField): boolean =>
+  field.type === 'text' || field.type === 'textarea' || field.type === 'tag_select';
+
+const extractShowItemReferences = (fields: readonly SchemaField[]): ShowItemReference[] => {
+  const references = new Map<string, ShowItemReference>();
+
+  const visit = (fieldList: readonly SchemaField[]) => {
+    for (const field of fieldList) {
+      if (field.type === 'show_item') {
+        normalizeShowItemReferences(field).forEach((reference) => {
+          if (!references.has(reference.sourceKey)) {
+            references.set(reference.sourceKey, reference);
+          }
+        });
+      }
+
+      if (field.fields) {
+        visit(field.fields);
+      }
+
+      if (field.tabs) {
+        field.tabs.forEach((tab) => visit(tab.fields));
+      }
+    }
+  };
+
+  visit(fields);
+
+  return Array.from(references.values());
+};
+
+const normalizeShowItemReferences = (field: SchemaField): ShowItemReference[] => {
+  if (field.displayConfig?.fields) {
+    return field.displayConfig.fields
+      .filter((displayField) => displayField.visible !== false)
+      .map(showItemDisplayFieldToReference);
+  }
+
+  const sourceKeys = field.sourceKeys ?? (field.sourceKey ? [field.sourceKey] : []);
+
+  return sourceKeys.map((sourceKey) => ({
+    label: sourceKey,
+    sourceKey,
+  }));
+};
+
+const showItemDisplayFieldToReference = (
+  displayField: ShowItemDisplayField,
+): ShowItemReference => ({
+  label: displayField.label || displayField.sourceKey,
+  sourceKey: displayField.sourceKey,
+});
+
 const normalizeAiReviewConfig = (field: SchemaField): NormalizedAiReviewConfig => {
   return {
     enabled: Boolean(field.aiReview?.enabled),
@@ -374,13 +760,14 @@ const shouldExpandLinkage = (field: SchemaField): boolean => Boolean(field.linka
 
 const ShowItemDisplayConfigEditor = ({
   field,
+  schemaFields,
   onUpdateField,
 }: {
   field: SchemaField;
+  schemaFields: readonly SchemaField[];
   onUpdateField: (patch: Partial<SchemaField>) => void;
 }) => {
   const displayConfig = normalizeShowItemDisplayConfig(field);
-  const [confirmingDeleteIndex, setConfirmingDeleteIndex] = useState<number | null>(null);
 
   const commitDisplayConfig = (fields: readonly ShowItemDisplayField[]) => {
     const contentAreaFields = normalizeShowItemContentAreaFields(fields);
@@ -398,7 +785,6 @@ const ShowItemDisplayConfigEditor = ({
   };
 
   const commitFields = (fields: readonly ShowItemDisplayField[]) => {
-    setConfirmingDeleteIndex(null);
     commitDisplayConfig(fields);
   };
 
@@ -419,14 +805,10 @@ const ShowItemDisplayConfigEditor = ({
   };
 
   const visibleFieldCount = displayConfig.fields.filter(isShowItemDisplayFieldVisible).length;
-  const hiddenFieldCount = displayConfig.fields.length - visibleFieldCount;
+  const annotationFieldCount = countAnnotationFields(schemaFields);
+  const totalFieldCount = countUniqueSourceFields(displayConfig.fields, schemaFields);
 
-  const requestRemoveField = (index: number) => {
-    if (confirmingDeleteIndex !== index) {
-      setConfirmingDeleteIndex(index);
-      return;
-    }
-
+  const removeField = (index: number) => {
     commitFields(displayConfig.fields.filter((_, currentIndex) => currentIndex !== index));
   };
 
@@ -443,21 +825,21 @@ const ShowItemDisplayConfigEditor = ({
             onClick={() => commitFields([...displayConfig.fields, { sourceKey: '', label: '', area: 'content' }])}
           >
             <PropertyPanelPlusIcon />
-            <span>新增展示字段</span>
+            <span>新增字段</span>
           </button>
         </div>
         <div className="designer-show-item-stats" aria-label="ShowItem 字段统计">
-          <span aria-label={`已识别 ${displayConfig.fields.length} 个`}>
-            <small>已识别</small>
-            <strong>{displayConfig.fields.length} 个</strong>
+          <span aria-label={`总字段 ${totalFieldCount}`}>
+            <small>总字段</small>
+            <strong>{totalFieldCount}</strong>
           </span>
-          <span aria-label={`默认展示 ${visibleFieldCount} 个`}>
-            <small>默认展示</small>
-            <strong>{visibleFieldCount} 个</strong>
+          <span aria-label={`展示字段 ${visibleFieldCount}`}>
+            <small>展示字段</small>
+            <strong>{visibleFieldCount}</strong>
           </span>
-          <span aria-label={`隐藏 ${hiddenFieldCount} 个`}>
-            <small>隐藏</small>
-            <strong>{hiddenFieldCount} 个</strong>
+          <span aria-label={`待标注字段 ${annotationFieldCount}`}>
+            <small>待标注字段</small>
+            <strong>{annotationFieldCount}</strong>
           </span>
         </div>
       </div>
@@ -467,7 +849,7 @@ const ShowItemDisplayConfigEditor = ({
             aria-label={`展示字段 ${item.sourceKey || `字段 ${index + 1}`}`}
             className={`designer-show-item-field${
               isShowItemDisplayFieldVisible(item) ? '' : ' is-hidden'
-            }${confirmingDeleteIndex === index ? ' is-confirming-delete' : ''}`}
+            }`}
             key={`${item.sourceKey}:${index}`}
           >
             <div className="designer-show-item-field__topline">
@@ -486,15 +868,11 @@ const ShowItemDisplayConfigEditor = ({
                 </code>
               </div>
               <button
-                aria-label={
-                  confirmingDeleteIndex === index
-                    ? `确认删除展示字段 ${index + 1}`
-                    : `删除展示字段 ${index + 1}`
-                }
+                aria-label={`删除展示字段 ${index + 1}`}
                 className="template-manager-row-action designer-show-item-field__delete"
-                title={confirmingDeleteIndex === index ? '再次点击确认删除' : '删除'}
+                title="删除"
                 type="button"
-                onClick={() => requestRemoveField(index)}
+                onClick={() => removeField(index)}
               >
                 <PropertyPanelDeleteIcon />
               </button>
@@ -545,6 +923,48 @@ const PropertyPanelPlusIcon = () => (
 );
 
 const isShowItemDisplayFieldVisible = (field: ShowItemDisplayField): boolean => field.visible !== false;
+
+const countAnnotationFields = (fields: readonly SchemaField[]): number =>
+  collectAnnotationFields(fields).length;
+
+const countUniqueSourceFields = (
+  displayFields: readonly ShowItemDisplayField[],
+  schemaFields: readonly SchemaField[],
+): number => {
+  const sourceKeys = new Set<string>();
+
+  displayFields.forEach((field) => {
+    if (field.sourceKey) {
+      sourceKeys.add(field.sourceKey);
+    }
+  });
+
+  collectAnnotationFields(schemaFields).forEach((field) => {
+    const sourceKey = field.sourceKey ?? field.fieldKey ?? field.key;
+    if (sourceKey) {
+      sourceKeys.add(sourceKey);
+    }
+  });
+
+  return sourceKeys.size;
+};
+
+const collectAnnotationFields = (fields: readonly SchemaField[]): SchemaField[] =>
+  fields.flatMap((field) => {
+    if (field.type === 'group') {
+      return collectAnnotationFields(field.fields ?? []);
+    }
+
+    if (field.type === 'tabs') {
+      return (field.tabs ?? []).flatMap((tab) => collectAnnotationFields(tab.fields ?? []));
+    }
+
+    if (field.type === 'show_item' || field.type === 'llm_assist') {
+      return [];
+    }
+
+    return [field];
+  });
 
 const normalizeShowItemContentAreaFields = (
   fields: readonly ShowItemDisplayField[],

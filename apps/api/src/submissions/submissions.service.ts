@@ -140,6 +140,8 @@ export type LabelerAssignmentDto = {
   schemaVersion: string;
   latestSubmissionStatus: SubmissionStatus | null;
   latestSubmittedAt: string | null;
+  draftAnswers: Record<string, unknown> | null;
+  draftUpdatedAt: string | null;
   round: number;
 };
 
@@ -522,6 +524,7 @@ function toLabelerSubmissionDtos(assignment: AssignmentRecord): LabelerSubmissio
 
 function toLabelerAssignmentDto(assignment: AssignmentRecord): LabelerAssignmentDto {
   const latestSubmission = latestSubmissionByRound(assignment.submissions);
+  const latestDraft = assignment.drafts[0] ?? null;
 
   return {
     assignmentId: assignment.id,
@@ -537,6 +540,8 @@ function toLabelerAssignmentDto(assignment: AssignmentRecord): LabelerAssignment
     schemaVersion: assignment.task.template.schemaVersion,
     latestSubmissionStatus: latestSubmission?.status ?? null,
     latestSubmittedAt: latestSubmission?.submittedAt.toISOString() ?? null,
+    draftAnswers: latestDraft?.answers ?? null,
+    draftUpdatedAt: latestDraft?.updatedAt.toISOString() ?? null,
     round: latestSubmission?.round ?? 0,
   };
 }

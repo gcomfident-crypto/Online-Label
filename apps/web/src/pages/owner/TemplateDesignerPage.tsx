@@ -7,7 +7,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 
 import {
@@ -16,9 +16,11 @@ import {
   type AutoTemplateSourceField,
   type DatasetRecord,
   type LabelHubSchema,
+  type SchemaField,
 } from '@labelhub/shared';
 
 import { classifyTemplateFields } from '../../api/llm';
+import { requestApi } from '../../api/request';
 import type { TaskDto } from '../../api/tasks';
 import type { TaskItemDto } from '../../api/datasets';
 import {
@@ -29,7 +31,6 @@ import {
   saveTemplateSchema,
   type TemplateDto,
 } from '../../api/templates';
-import { FilterSelect } from '../../components/FilterSelect';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import {
   ToastViewport,
@@ -43,8 +44,10 @@ import { MaterialDragOverlay, MaterialPanel } from '../../features/template-desi
 import { PropertyPanel } from '../../features/template-designer/PropertyPanel';
 import {
   DESIGNER_MATERIALS,
+  resolveDesignerDropTarget,
   selectDesignerField,
   useTemplateDesignerStore,
+  type DesignerDropTarget,
   type MaterialSpec,
 } from '../../features/template-designer/templateStore';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
@@ -68,55 +71,79 @@ const DESIGNER_PREVIEW_RAW_DATA = {
   model_b: 'model-b',
 };
 
+type LlmAssistPreviewResult = {
+  datasetKind?: string;
+  targetFieldKey?: string;
+  summary?: string;
+  suggestion?: unknown;
+};
+
+const LLM_ASSIST_PREVIEW_ERROR_MESSAGE = 'LLM 辅助暂时不可用，请稍后重试。';
+
 const DESIGNER_DRAFT_STORAGE_KEY = 'labelhub.templateDesignerDraft';
 const FIELD_DROP_ANIMATION = {
   duration: 520,
   easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
 };
+const CLOSE_CONFIRM_ANIMATION_MS = 220;
 const TEMPLATE_DESIGNER_CLOSE_ANIMATION_MS = 240;
 const TEMPLATE_FALLBACK_PAGE_SIZE = 8;
 const TEMPLATE_TABLE_ROW_HEIGHT = 58;
+const DESIGNER_DROP_TARGET_LOCK_MARGIN = 12;
 
-type TemplateDatasetKey = TemplateDto['datasetKind'];
-type TemplateDatasetFilter = TemplateDatasetKey | 'ALL';
-type TemplateStatusFilter = TemplateDto['status'] | 'ALL' | 'custom';
+type TemplateStatusFilter = TemplateDto['status'] | 'ALL';
+type TemplateSummary = {
+  draft: number;
+  published: number;
+  total: number;
+};
 type TemplateManagerRow = {
   createdAt: string;
-  datasetFilterKey: TemplateDatasetKey;
   datasetKind: string;
   fieldCount: number;
   id: string;
   key: string;
-  kind: 'custom';
   name: string;
   owner: string;
   rawId: string;
   searchValues: string[];
   status: string;
-  statusClassName: string;
-  statusFilterKey: TemplateStatusFilter;
+  statusFilterKey: TemplateDto['status'];
   template?: TemplateDto;
   version: string;
 };
 
-const TEMPLATE_DATASET_FILTER_OPTIONS: Array<{ label: string; value: TemplateDatasetFilter }> = [
-  { label: '全部数据类型', value: 'ALL' },
-  { label: '问答质量', value: 'qa_quality' },
-  { label: '偏好对比', value: 'preference_compare' },
-  { label: '通用 JSON', value: 'generic_json' },
-];
-
-const TEMPLATE_STATUS_FILTER_OPTIONS: Array<{ label: string; value: TemplateStatusFilter }> = [
-  { label: '全部状态', value: 'ALL' },
-  { label: '自定义模板', value: 'custom' },
-  { label: '已发布', value: 'PUBLISHED' },
-  { label: '草稿', value: 'DRAFT' },
-  { label: '已归档', value: 'ARCHIVED' },
+const TEMPLATE_SUMMARY_FILTERS: Array<{
+  label: string;
+  summaryKey: keyof TemplateSummary;
+  value: TemplateStatusFilter;
+}> = [
+  { label: '模板总数', value: 'ALL', summaryKey: 'total' },
+  { label: '草稿', value: 'DRAFT', summaryKey: 'draft' },
+  { label: '已发布', value: 'PUBLISHED', summaryKey: 'published' },
 ];
 
 type TemplateDesignerPageProps = {
   onReturnTo?: (path: string) => void;
 };
+
+const createDesignerDirtySnapshot = ({
+  name,
+  previewRecords,
+  schema,
+  status,
+}: {
+  name: string;
+  previewRecords: readonly DatasetRecord[];
+  schema: LabelHubSchema;
+  status: TemplateDto['status'];
+}): string =>
+  JSON.stringify({
+    name,
+    previewRecords,
+    schema,
+    status,
+  });
 
 const resolveCanvasCardWidth = (): number | null => {
   const fieldCard = document.querySelector(
@@ -156,6 +183,83 @@ const pointerCoordinatesFromActivator = (event: Event): { x: number; y: number }
       x: Number(event.clientX),
       y: Number(event.clientY),
     };
+  }
+
+  return null;
+};
+
+type LockedDesignerDropTarget = {
+  rect: DOMRect;
+  target: DesignerDropTarget;
+};
+
+const isPointInsideRect = (
+  point: { x: number; y: number },
+  rect: DOMRect,
+  margin = 0,
+): boolean => {
+  return (
+    point.x >= rect.left - margin &&
+    point.x <= rect.right + margin &&
+    point.y >= rect.top - margin &&
+    point.y <= rect.bottom + margin
+  );
+};
+
+const resolveDesignerDropTargetElement = (
+  element: Element,
+): LockedDesignerDropTarget | null => {
+  const targetElement = element.closest<HTMLElement>('[data-designer-drop-target-kind]');
+
+  if (!targetElement) {
+    return null;
+  }
+
+  const kind = targetElement.dataset.designerDropTargetKind;
+
+  if (kind === 'group') {
+    const groupKey = targetElement.dataset.designerGroupKey;
+
+    return groupKey
+      ? { target: { kind: 'group', groupKey }, rect: targetElement.getBoundingClientRect() }
+      : null;
+  }
+
+  if (kind === 'tab') {
+    const tabsKey = targetElement.dataset.designerTabsKey;
+    const tabKey = targetElement.dataset.designerTabKey;
+
+    return tabsKey && tabKey
+      ? { target: { kind: 'tab', tabsKey, tabKey }, rect: targetElement.getBoundingClientRect() }
+      : null;
+  }
+
+  return null;
+};
+
+const resolveDesignerDropTargetAtPoint = (
+  point: { x: number; y: number },
+): LockedDesignerDropTarget | null => {
+  if (typeof document.elementsFromPoint !== 'function') {
+    return null;
+  }
+
+  const visitedElements = new Set<Element>();
+
+  for (const element of document.elementsFromPoint(point.x, point.y)) {
+    const targetElement = element.closest<HTMLElement>('[data-designer-drop-target-kind]');
+
+    if (!targetElement || visitedElements.has(targetElement)) {
+      continue;
+    }
+
+    visitedElements.add(targetElement);
+
+    const target = resolveDesignerDropTargetElement(targetElement);
+
+    if (target) {
+      return target;
+    }
   }
 
   return null;
@@ -237,19 +341,22 @@ const createDesignerPreviewItems = (
 export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps = {}) => {
   const [templates, setTemplates] = useState<TemplateDto[]>([]);
   const [templateSearchKeyword, setTemplateSearchKeyword] = useState('');
-  const [templateDatasetFilter, setTemplateDatasetFilter] = useState<TemplateDatasetFilter>('ALL');
   const [templateStatusFilter, setTemplateStatusFilter] = useState<TemplateStatusFilter>('ALL');
   const [currentTemplatePage, setCurrentTemplatePage] = useState(1);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [persistedDraft, setPersistedDraft] = useState<PersistedDesignerDraft | null>(null);
   const [isDesignerOpen, setIsDesignerOpen] = useState(false);
   const [isDesignerClosing, setIsDesignerClosing] = useState(false);
+  const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
+  const [isCloseConfirmClosing, setIsCloseConfirmClosing] = useState(false);
   const [draggingFieldKey, setDraggingFieldKey] = useState<string | null>(null);
   const [draggingMaterialType, setDraggingMaterialType] = useState<MaterialSpec['type'] | null>(null);
   const [isDraggingMaterialOverCanvas, setIsDraggingMaterialOverCanvas] = useState(false);
-  const [materialDropTargetId, setMaterialDropTargetId] = useState<string | null>(null);
+  const [materialDropTarget, setMaterialDropTarget] = useState<DesignerDropTarget | null>(null);
   const [materialOverlayWidth, setMaterialOverlayWidth] = useState<number | null>(null);
   const [committedDropFieldKey, setCommittedDropFieldKey] = useState<string | null>(null);
+  const [isMaterialDropSettling, setIsMaterialDropSettling] = useState(false);
+  const [activeDesignerTabByFieldKey, setActiveDesignerTabByFieldKey] = useState<Record<string, string>>({});
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [templateDraftName, setTemplateDraftName] = useState<string | null>(null);
   const { containerRef: templateTableContainerRef, pageSize: templatePageSize } = useAdaptiveTablePageSize({
@@ -267,24 +374,27 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const [toastMessages, setToastMessages] = useState<ToastMessage[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const dragStartPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const dropTargetLockRef = useRef<LockedDesignerDropTarget | null>(null);
   const commitAnimationTimerRef = useRef<number | null>(null);
   const designerCloseTimerRef = useRef<number | null>(null);
+  const closeConfirmTimerRef = useRef<number | null>(null);
   const didConsumeTemplateDraftHandoffRef = useRef(false);
   const autoClassificationRunRef = useRef(0);
   const toastSequenceRef = useRef(0);
   const isMountedRef = useRef(true);
+  const designerBaselineSnapshotRef = useRef<string | null>(null);
   const {
     schema,
     selectedFieldKey,
-    addField,
-    addFieldBefore,
+    addFieldAtTarget,
     selectField,
     updateSelectedField,
     updateSelectedFieldValidation,
     addLinkageRuleToSelectedField,
     removeField,
     duplicateField,
-    reorderField,
+    updateAiReviewPromptConfig,
+    moveFieldToTarget,
     setSchema,
     resetDesigner,
   } = useTemplateDesignerStore();
@@ -302,6 +412,20 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   );
   const dragOverlayPortalTarget = typeof document === 'undefined' ? null : document.body;
   const currentTemplateName = templateDraftName ?? templateNameFromSchema(schema);
+  const hasDesignerContentChanges = () => {
+    const baselineSnapshot = designerBaselineSnapshotRef.current;
+
+    if (!baselineSnapshot) {
+      return true;
+    }
+
+    return baselineSnapshot !== createDesignerDirtySnapshot({
+      name: currentTemplateName,
+      previewRecords: designerPreviewRecords,
+      schema,
+      status: templateStatus,
+    });
+  };
   const nextVersionName = `r${templateVersion + 1}`;
   const allTemplateRows = useMemo<TemplateManagerRow[]>(
     () =>
@@ -313,12 +437,10 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
         return {
           createdAt: template.createdAt,
-          datasetFilterKey: template.datasetKind,
           datasetKind,
           fieldCount: template.schema.fields.length,
           id: displayId,
           key: template.id,
-          kind: 'custom' as const,
           name: template.name,
           owner,
           rawId: template.id,
@@ -334,7 +456,6 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
             status,
           ],
           status,
-          statusClassName: `template-manager-card__status template-manager-card__status--${template.status.toLowerCase()}`,
           statusFilterKey: template.status,
           template,
           version: template.version > 0 ? `v${template.version}` : 'v0',
@@ -348,19 +469,17 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     return allTemplateRows.filter((template) => {
       const matchesKeyword =
         !keyword || template.searchValues.some((value) => value.toLowerCase().includes(keyword));
-      const matchesDataset =
-        templateDatasetFilter === 'ALL' || template.datasetFilterKey === templateDatasetFilter;
       const matchesStatus =
-        templateStatusFilter === 'ALL' ||
-        template.statusFilterKey === templateStatusFilter ||
-        (templateStatusFilter === 'custom' && template.kind === 'custom');
+        templateStatusFilter === 'ALL' || template.statusFilterKey === templateStatusFilter;
 
-      return matchesKeyword && matchesDataset && matchesStatus;
+      return matchesKeyword && matchesStatus;
     });
-  }, [allTemplateRows, templateDatasetFilter, templateSearchKeyword, templateStatusFilter]);
+  }, [allTemplateRows, templateSearchKeyword, templateStatusFilter]);
   const templateStats = useMemo(
     () => ({
       total: allTemplateRows.length,
+      draft: allTemplateRows.filter((template) => template.statusFilterKey === 'DRAFT').length,
+      published: allTemplateRows.filter((template) => template.statusFilterKey === 'PUBLISHED').length,
     }),
     [allTemplateRows],
   );
@@ -405,7 +524,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
   useEffect(() => {
     setCurrentTemplatePage(1);
-  }, [templateDatasetFilter, templateSearchKeyword, templateStatusFilter]);
+  }, [templateSearchKeyword, templateStatusFilter]);
 
   useEffect(() => {
     setCurrentTemplatePage((current) => Math.min(current, totalTemplatePages));
@@ -423,12 +542,17 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
         window.clearTimeout(designerCloseTimerRef.current);
       }
 
+      if (closeConfirmTimerRef.current) {
+        window.clearTimeout(closeConfirmTimerRef.current);
+      }
+
       isMountedRef.current = false;
     };
   }, []);
 
   const markCommittedDropField = (fieldKey: string | null | undefined) => {
     if (!fieldKey) {
+      setIsMaterialDropSettling(false);
       return;
     }
 
@@ -439,28 +563,43 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setCommittedDropFieldKey(fieldKey);
     commitAnimationTimerRef.current = window.setTimeout(() => {
       setCommittedDropFieldKey(null);
+      setIsMaterialDropSettling(false);
       commitAnimationTimerRef.current = null;
     }, 620);
+  };
+
+  const beginMaterialDropSettling = () => {
+    if (commitAnimationTimerRef.current) {
+      window.clearTimeout(commitAnimationTimerRef.current);
+      commitAnimationTimerRef.current = null;
+    }
+
+    setCommittedDropFieldKey(null);
+    setIsMaterialDropSettling(true);
   };
 
   const resetDragState = () => {
     setDraggingFieldKey(null);
     setDraggingMaterialType(null);
     setIsDraggingMaterialOverCanvas(false);
-    setMaterialDropTargetId(null);
+    setMaterialDropTarget(null);
     setMaterialOverlayWidth(null);
+    dropTargetLockRef.current = null;
     dragStartPointerRef.current = null;
   };
 
-  const showToast = (message: ToastMessage) => {
+  const showToast = (message: ToastMessage): string => {
     toastSequenceRef.current += 1;
+    const toastId = `${message.id}-${toastSequenceRef.current}`;
     setToastMessages((current) => [
       ...current,
       {
         ...message,
-        id: `${message.id}-${toastSequenceRef.current}`,
+        id: toastId,
       },
     ].slice(-4));
+
+    return toastId;
   };
 
   const showStatusToast = (message: string) => {
@@ -475,36 +614,109 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     showToast(createErrorToast(message));
   };
 
+  const handleDesignerLlmPromptTest = async (field: SchemaField) => {
+    const promptTemplate = field.promptTemplate?.trim();
+    const targetFieldKey = field.fieldKey ?? field.key;
+
+    if (!promptTemplate) {
+      showErrorToast('请先填写 LLM 提示内容');
+      return;
+    }
+
+    try {
+      const result = await requestApi<LlmAssistPreviewResult>(
+        '/llm/assist/mock',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            datasetKind: schema.datasetKind,
+            rawData: designerPreviewRawData,
+            answers: {},
+            targetFieldKey,
+            promptTemplate,
+          }),
+        },
+        LLM_ASSIST_PREVIEW_ERROR_MESSAGE,
+      );
+
+      if (!result || typeof result.summary !== 'string') {
+        throw new Error('LLM 辅助返回格式不正确');
+      }
+
+      if (typeof result.targetFieldKey === 'string' && result.targetFieldKey !== targetFieldKey) {
+        throw new Error('LLM 辅助返回目标字段不一致');
+      }
+
+      showInfoToast(result.summary || 'LLM 建议已生成');
+    } catch (error) {
+      showErrorToast(error instanceof Error ? error.message : LLM_ASSIST_PREVIEW_ERROR_MESSAGE);
+    }
+  };
+
   const dismissToast = (id: string) => {
     setToastMessages((current) => current.filter((message) => message.id !== id));
   };
 
-  const resolveMaterialDropProjection = (event: DragMoveEvent | DragOverEvent | DragEndEvent) => {
-    const type = event.active.data.current?.type as MaterialSpec['type'] | undefined;
+  const resolveCurrentDragPointer = (event: DragMoveEvent | DragOverEvent | DragEndEvent) => {
     const startPointer = dragStartPointerRef.current;
 
-    if (!type || !startPointer) {
+    if (!startPointer) {
       return null;
     }
 
-    const currentPointer = {
+    return {
       x: startPointer.x + event.delta.x,
       y: startPointer.y + event.delta.y,
     };
+  };
+
+  const resolveLockedDropTarget = (point: { x: number; y: number }): DesignerDropTarget | null => {
+    const lockedTarget = dropTargetLockRef.current;
+
+    if (
+      lockedTarget &&
+      isPointInsideRect(point, lockedTarget.rect, DESIGNER_DROP_TARGET_LOCK_MARGIN)
+    ) {
+      return lockedTarget.target;
+    }
+
+    dropTargetLockRef.current = null;
+
+    const nextTarget = resolveDesignerDropTargetAtPoint(point);
+
+    if (!nextTarget) {
+      return null;
+    }
+
+    dropTargetLockRef.current = nextTarget;
+
+    return nextTarget.target;
+  };
+
+  const resolveMaterialDropProjection = (event: DragMoveEvent | DragOverEvent | DragEndEvent) => {
+    const type = event.active.data.current?.type as MaterialSpec['type'] | undefined;
+    const currentPointer = resolveCurrentDragPointer(event);
+
+    if (!type || !currentPointer) {
+      return null;
+    }
 
     if (!pointIsInsideDesignerCanvas(currentPointer)) {
       return {
         insideCanvas: false,
-        targetId: null,
+        target: null,
         width: null,
       };
     }
 
     const overId = event.over?.id ? String(event.over.id) : null;
+    const target = resolveLockedDropTarget(currentPointer) ??
+      resolveDesignerDropTarget(schema, overId) ??
+      { kind: 'root' };
 
     return {
       insideCanvas: true,
-      targetId: overId === 'designer-canvas' ? null : overId,
+      target,
       width: resolveCanvasCardWidth(),
     };
   };
@@ -514,13 +726,13 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
     if (!projection?.insideCanvas) {
       setIsDraggingMaterialOverCanvas(false);
-      setMaterialDropTargetId(null);
+      setMaterialDropTarget(null);
       setMaterialOverlayWidth(null);
       return;
     }
 
     setIsDraggingMaterialOverCanvas(true);
-    setMaterialDropTargetId(projection.targetId);
+    setMaterialDropTarget(projection.target);
     setMaterialOverlayWidth(projection.width);
   };
 
@@ -531,7 +743,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setDraggingFieldKey(typeof fieldKey === 'string' ? fieldKey : null);
     setDraggingMaterialType(type ?? null);
     setIsDraggingMaterialOverCanvas(false);
-    setMaterialDropTargetId(null);
+    setMaterialDropTarget(null);
     setMaterialOverlayWidth(null);
     dragStartPointerRef.current = pointerCoordinatesFromActivator(event.activatorEvent);
   };
@@ -554,30 +766,40 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
     if (
       event.active.data.current?.kind === 'field' &&
-      typeof fieldKey === 'string' &&
-      overId &&
-      overId !== 'designer-canvas' &&
-      String(overId) !== fieldKey
+      typeof fieldKey === 'string'
     ) {
-      reorderField(fieldKey, String(overId));
-      return;
-    }
+      const currentPointer = resolveCurrentDragPointer(event);
+      const pointTarget =
+        currentPointer && pointIsInsideDesignerCanvas(currentPointer)
+          ? resolveLockedDropTarget(currentPointer)
+          : null;
+      const target = pointTarget ?? resolveDesignerDropTarget(schema, overId ? String(overId) : null);
 
-    if (type && materialProjection?.insideCanvas && materialProjection.targetId) {
-      addFieldBefore(type, materialProjection.targetId);
-      markCommittedDropField(useTemplateDesignerStore.getState().selectedFieldKey);
+      if (target && target.beforeFieldKey !== fieldKey) {
+        moveFieldToTarget(fieldKey, target);
+      }
       return;
     }
 
     if (type && materialProjection?.insideCanvas) {
-      addField(type);
+      beginMaterialDropSettling();
+      addFieldAtTarget(type, materialProjection.target ?? { kind: 'root' });
       markCommittedDropField(useTemplateDesignerStore.getState().selectedFieldKey);
+      return;
     }
+  };
+
+  const handleDesignerTabChange = (tabsKey: string, tabKey: string) => {
+    setActiveDesignerTabByFieldKey((current) => ({
+      ...current,
+      [tabsKey]: tabKey,
+    }));
   };
 
   const openNewTemplate = () => {
     autoClassificationRunRef.current += 1;
     clearDesignerCloseTimer();
+    designerBaselineSnapshotRef.current = null;
     resetDesigner();
     setTemplateId(null);
     setTemplateDraftName(null);
@@ -594,6 +816,12 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const openExistingTemplate = (template: TemplateDto) => {
     autoClassificationRunRef.current += 1;
     clearDesignerCloseTimer();
+    designerBaselineSnapshotRef.current = createDesignerDirtySnapshot({
+      name: template.name,
+      previewRecords: [],
+      schema: template.schema,
+      status: template.status,
+    });
     setSchema(template.schema);
     setTemplateId(template.id);
     setTemplateDraftName(template.name);
@@ -610,6 +838,12 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const openPersistedDraft = (draft: PersistedDesignerDraft) => {
     autoClassificationRunRef.current += 1;
     clearDesignerCloseTimer();
+    designerBaselineSnapshotRef.current = createDesignerDirtySnapshot({
+      name: draft.name ?? templateNameFromSchema(draft.schema),
+      previewRecords: [],
+      schema: draft.schema,
+      status: draft.status,
+    });
     setSchema(draft.schema);
     setTemplateId(draft.templateId);
     setTemplateDraftName(draft.name ?? templateNameFromSchema(draft.schema));
@@ -641,13 +875,25 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     clearDesignerCloseTimer();
     const runId = autoClassificationRunRef.current + 1;
     autoClassificationRunRef.current = runId;
+    designerBaselineSnapshotRef.current = null;
     setIsDesignerOpen(false);
     setIsDesignerClosing(false);
-    showToast({ ...createInfoToast('正在分析输入文件并创建模板'), className: 'toast--brand-blue' });
+    const loadingToastId = showToast({
+      ...createInfoToast('正在分析输入文件并创建模板'),
+      autoDismiss: false,
+      className: 'toast--brand-blue',
+      isDismissible: false,
+      isLoading: true,
+    });
 
     void classifyTemplateFields(draft.autoClassificationRequest)
       .then((classification) => {
-        if (!isMountedRef.current || autoClassificationRunRef.current !== runId) {
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        if (autoClassificationRunRef.current !== runId) {
+          dismissToast(loadingToastId);
           return;
         }
 
@@ -667,12 +913,19 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
           schema,
           autoClassificationRequest: undefined,
         });
+        dismissToast(loadingToastId);
       })
       .catch((error) => {
-        if (!isMountedRef.current || autoClassificationRunRef.current !== runId) {
+        if (!isMountedRef.current) {
           return;
         }
 
+        if (autoClassificationRunRef.current !== runId) {
+          dismissToast(loadingToastId);
+          return;
+        }
+
+        dismissToast(loadingToastId);
         setIsDesignerOpen(false);
         setIsDesignerClosing(false);
         showErrorToast(error instanceof Error ? error.message : '字段分类接口请求失败，请稍后重试。');
@@ -681,6 +934,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
   const applyTemplateDraftHandoff = (draft: TemplateDraftHandoff) => {
     clearDesignerCloseTimer();
+    designerBaselineSnapshotRef.current = null;
     setSchema(draft.schema);
     selectField(draft.schema.fields[0]?.key ?? null);
     setTemplateId(null);
@@ -719,10 +973,79 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     designerCloseTimerRef.current = null;
   };
 
+  const clearCloseConfirmTimer = () => {
+    if (!closeConfirmTimerRef.current) {
+      return;
+    }
+
+    window.clearTimeout(closeConfirmTimerRef.current);
+    closeConfirmTimerRef.current = null;
+  };
+
+  const closeConfirmWithAnimation = (afterClose?: () => void) => {
+    if (!isCloseConfirmOpen) {
+      afterClose?.();
+      return;
+    }
+
+    clearCloseConfirmTimer();
+    setIsCloseConfirmClosing(true);
+    closeConfirmTimerRef.current = window.setTimeout(() => {
+      closeConfirmTimerRef.current = null;
+      setIsCloseConfirmOpen(false);
+      setIsCloseConfirmClosing(false);
+      afterClose?.();
+    }, CLOSE_CONFIRM_ANIMATION_MS);
+  };
+
+  const requestDesignerClose = () => {
+    if (isDesignerClosing || isCloseConfirmOpen) {
+      return;
+    }
+
+    if (!hasDesignerContentChanges()) {
+      closeDesignerWithAnimation();
+      return;
+    }
+
+    clearCloseConfirmTimer();
+    setIsCloseConfirmOpen(true);
+    setIsCloseConfirmClosing(false);
+  };
+
+  const handleConfirmSaveDraft = async () => {
+    setIsSaving(true);
+
+    try {
+      const savedDraft = await saveDraft();
+
+      if (!savedDraft) {
+        closeConfirmWithAnimation();
+        return;
+      }
+
+      closeConfirmWithAnimation(closeDesignerWithAnimation);
+    } catch (error) {
+      closeConfirmWithAnimation();
+      showErrorToast(error instanceof Error ? error.message : '草稿保存失败，请稍后重试。');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDiscardDraft = () => {
+    closeConfirmWithAnimation(closeDesignerWithAnimation);
+  };
+
   const resetDesignerDrawerState = () => {
     resetDragState();
+    designerBaselineSnapshotRef.current = null;
     setIsDesignerOpen(false);
     setIsDesignerClosing(false);
+    setIsCloseConfirmOpen(false);
+    setIsCloseConfirmClosing(false);
+    setCommittedDropFieldKey(null);
+    setIsMaterialDropSettling(false);
     setTemplateDraftReturnTo(null);
   };
 
@@ -767,7 +1090,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   };
 
   const handleDeleteTemplateRow = async (template: TemplateManagerRow) => {
-    if (template.kind !== 'custom' || !template.template) {
+    if (!template.template) {
       return;
     }
 
@@ -828,6 +1151,12 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setTemplateDraftName(savedTemplate.name);
     setTemplateVersion(savedTemplate.version);
     setTemplateStatus(savedTemplate.status);
+    designerBaselineSnapshotRef.current = createDesignerDirtySnapshot({
+      name: savedTemplate.name,
+      previewRecords: designerPreviewRecords,
+      schema: savedTemplate.schema,
+      status: savedTemplate.status,
+    });
     persistDesignerDraft(savedTemplate);
     setPersistedDraft(toPersistedDesignerDraft(savedTemplate));
     upsertTemplateInList(savedTemplate);
@@ -837,22 +1166,6 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     }
 
     return savedTemplate;
-  };
-
-  const handleSaveDraft = async () => {
-    setIsSaving(true);
-
-    try {
-      const savedDraft = await saveDraft();
-
-      if (savedDraft) {
-        closeDesignerWithAnimation();
-      }
-    } catch (error) {
-      showErrorToast(error instanceof Error ? error.message : '草稿保存失败，请稍后重试。');
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const handlePublish = async () => {
@@ -873,6 +1186,12 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       setTemplateVersion(result.template.version);
       setTemplateStatus(result.template.status);
       setSchema(result.template.schema);
+      designerBaselineSnapshotRef.current = createDesignerDirtySnapshot({
+        name: result.template.name,
+        previewRecords: designerPreviewRecords,
+        schema: result.template.schema,
+        status: result.template.status,
+      });
       persistDesignerDraft(result.template);
       setPersistedDraft(toPersistedDesignerDraft(result.template));
       upsertTemplateInList(result.template);
@@ -903,49 +1222,49 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   };
 
   return (
-    <section className="template-manager-page" aria-label="评测模板">
+    <section className="template-manager-page" aria-labelledby="owner-templates-title">
       <ToastViewport variant="banner" messages={toastMessages} onDismiss={dismissToast} />
 
-      <div className="task-filter-bar template-manager-filter-bar" aria-label="模板筛选栏">
-        <input
-          aria-label="搜索模板"
-          placeholder="搜索模板名称 / ID / 负责人"
-          value={templateSearchKeyword}
-          onChange={(event) => setTemplateSearchKeyword(event.target.value)}
-        />
-        <FilterSelect
-          ariaLabel="数据类型筛选"
-          options={TEMPLATE_DATASET_FILTER_OPTIONS}
-          value={templateDatasetFilter}
-          onChange={setTemplateDatasetFilter}
-        />
-        <FilterSelect
-          ariaLabel="状态筛选"
-          options={TEMPLATE_STATUS_FILTER_OPTIONS}
-          value={templateStatusFilter}
-          onChange={setTemplateStatusFilter}
-        />
+      <div className="task-management-header">
+        <div>
+          <h1 id="owner-templates-title">评测模板</h1>
+        </div>
       </div>
 
       <section
-        className="task-table-panel export-task-table-panel template-manager-list template-manager-table-panel"
+        className="task-management-table-card template-manager-list template-manager-table-panel"
         aria-label="已有模板列表"
         ref={templateTableContainerRef}
       >
-        <div className="labeler-list-panel-heading export-table-heading template-manager-list-heading" aria-label="模板列表概览">
-          <dl className="task-market-heading-stats export-table-heading__total" aria-label="模板总数">
-            <div>
-              <dt>模板总数</dt>
-              <dd>{templateStats.total.toLocaleString()}</dd>
-            </div>
-          </dl>
-          <button
-            type="button"
-            className="primary-action template-manager-list-heading__create"
-            onClick={openNewTemplate}
-          >
-            新增模板
-          </button>
+        <div className="task-management-table-toolbar template-manager-table-toolbar">
+          <div className="task-summary-grid template-summary-grid" aria-label="模板状态筛选">
+            {TEMPLATE_SUMMARY_FILTERS.map((item) => (
+              <TemplateSummaryCard
+                key={item.value}
+                isActive={templateStatusFilter === item.value}
+                label={item.label}
+                status={item.value}
+                value={templateStats[item.summaryKey].toString()}
+                onClick={() => setTemplateStatusFilter(item.value)}
+              />
+            ))}
+          </div>
+
+          <div className="task-filter-bar template-manager-filter-bar" aria-label="模板筛选栏">
+            <input
+              aria-label="搜索模板"
+              placeholder="搜索模板名称 / ID / 负责人"
+              value={templateSearchKeyword}
+              onChange={(event) => setTemplateSearchKeyword(event.target.value)}
+            />
+            <button
+              type="button"
+              className="primary-action create-action task-filter-bar__create template-manager-filter-bar__create"
+              onClick={openNewTemplate}
+            >
+              新增模板
+            </button>
+          </div>
         </div>
         <div className="task-table-scroll template-manager-table-scroll" data-adaptive-table-viewport="true">
           <table className="task-table template-manager-table" aria-label="模板列表">
@@ -955,7 +1274,6 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
               <col className="template-manager-table__col-status" />
               <col className="template-manager-table__col-owner" />
               <col className="template-manager-table__col-created" />
-              <col className="template-manager-table__col-dataset" />
               <col className="template-manager-table__col-version" />
               <col className="template-manager-table__col-fields" />
               <col className="template-manager-table__col-actions" />
@@ -967,7 +1285,6 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                 <th>状态</th>
                 <th>负责人</th>
                 <th>创建时间</th>
-                <th>数据类型</th>
                 <th>版本</th>
                 <th>字段数</th>
                 <th>操作</th>
@@ -993,11 +1310,10 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                     </span>
                   </td>
                   <td>
-                    <span className={template.statusClassName}>{template.status}</span>
+                    <TemplateStatusTag label={template.status} status={template.statusFilterKey} />
                   </td>
                   <td>{template.owner}</td>
                   <td>{formatDateTimeMinute(template.createdAt)}</td>
-                  <td>{template.datasetKind}</td>
                   <td>{template.version}</td>
                   <td>{template.fieldCount ?? '—'}</td>
                   <td>
@@ -1032,14 +1348,14 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
               ))}
               {isLoadingTemplates ? (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={8}>
                     <p className="template-manager-list-message">模板列表加载中...</p>
                   </td>
                 </tr>
               ) : null}
               {!isLoadingTemplates && templateRows.length === 0 ? (
                 <tr className="task-table__empty-row">
-                  <td colSpan={9}>
+                  <td colSpan={8}>
                     <TableEmptyState title="暂无模板" illustrationAlt="空模板列表插画" />
                   </td>
                 </tr>
@@ -1079,7 +1395,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
           data-testid="template-designer-backdrop"
           onClick={(event) => {
             if (event.target === event.currentTarget) {
-              closeDesignerWithAnimation();
+              requestDesignerClose();
             }
           }}
         >
@@ -1094,11 +1410,17 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                 <h1 id="template-designer-title">模板配置</h1>
               </div>
               <div className="template-designer-topbar__actions">
-                <button type="button" disabled={isSaving} onClick={handleSaveDraft}>
-                  保存草稿
-                </button>
                 <button className="primary-action" type="button" disabled={isSaving} onClick={handlePublish}>
                   保存并发布版本 {nextVersionName}
+                </button>
+                <button
+                  aria-label="关闭模板配置"
+                  className="template-designer-drawer__close"
+                  disabled={isSaving}
+                  type="button"
+                  onClick={requestDesignerClose}
+                >
+                  ×
                 </button>
               </div>
             </header>
@@ -1118,22 +1440,34 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                   previewRawData={designerPreviewRawData}
                   selectedFieldKey={selectedFieldKey}
                   committingFieldKey={committedDropFieldKey}
+                  isMaterialDropSettling={isMaterialDropSettling}
                   isDropHighlighted={isDraggingMaterialOverCanvas}
                   materialDropPreview={
                     draggingMaterial && isDraggingMaterialOverCanvas
-                      ? { targetFieldKey: materialDropTargetId, type: draggingMaterial.type }
+                      ? { target: materialDropTarget, type: draggingMaterial.type }
                       : null
                   }
+                  activeTabByFieldKey={activeDesignerTabByFieldKey}
+                  onActiveTabChange={handleDesignerTabChange}
                   onTemplateNameChange={setTemplateDraftName}
                   onPreviewUploadedFile={() => setIsDesignerPreviewOpen(true)}
                   onSelectField={selectField}
                   onDuplicateField={duplicateField}
                   onRemoveField={removeField}
+                  onAiPromptConfigChange={updateAiReviewPromptConfig}
+                  onTestLlmPrompt={handleDesignerLlmPromptTest}
                   previewRecordCount={designerPreviewRecords.length}
                 />
                 <aside className="designer-inspector" aria-label="右侧配置面板">
                   <PropertyPanel
                     field={selectedField}
+                    schemaFields={schema.fields}
+                    activeTabKey={selectedField ? activeDesignerTabByFieldKey[selectedField.key] : undefined}
+                    onActivateTab={(tabKey) => {
+                      if (selectedField?.type === 'tabs') {
+                        handleDesignerTabChange(selectedField.key, tabKey);
+                      }
+                    }}
                     onUpdateField={updateSelectedField}
                     onUpdateValidation={updateSelectedFieldValidation}
                     onAddLinkageRule={addLinkageRuleToSelectedField}
@@ -1156,22 +1490,75 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                 )
                 : null}
             </DndContext>
-            {isDesignerPreviewOpen ? (
-              <DatasetPreviewModal
-                title="预览已上传文件"
-                description={`共 ${designerPreviewRecords.length.toLocaleString()} 条样例`}
-                items={createDesignerPreviewItems(designerPreviewRecords, schema.datasetKind)}
-                isLoading={false}
-                errorMessage={null}
-                showItemMeta={false}
-                onClose={() => setIsDesignerPreviewOpen(false)}
-              />
+            {isCloseConfirmOpen ? (
+              <div
+                className={
+                  isCloseConfirmClosing
+                    ? 'task-close-confirm is-closing'
+                    : 'task-close-confirm'
+                }
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="template-close-confirm-title"
+              >
+                <div
+                  className="task-close-confirm__panel"
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
+                  <div className="task-close-confirm__header">
+                    <h2 id="template-close-confirm-title">需要保存成草稿吗？</h2>
+                    <button
+                      aria-label="关闭保存草稿确认弹窗"
+                      className="task-close-confirm__close"
+                      disabled={isSaving}
+                      type="button"
+                      onClick={() => closeConfirmWithAnimation()}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <p>当前修改尚未发布，关闭后将丢失未保存内容</p>
+                  <div className="task-close-confirm__actions">
+                    <button
+                      className="task-close-confirm__cancel"
+                      type="button"
+                      disabled={isSaving}
+                      onClick={handleDiscardDraft}
+                    >
+                      取消
+                    </button>
+                    <button
+                      className="task-close-confirm__save"
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => void handleConfirmSaveDraft()}
+                    >
+                      保存
+                    </button>
+                  </div>
+                </div>
+              </div>
             ) : null}
           </section>
         </div>
           ,
           document.body,
         )
+        : null}
+      {isDesignerPreviewOpen
+        ? createPortal(
+            <DatasetPreviewModal
+              title="预览已上传文件"
+              description={`共 ${designerPreviewRecords.length.toLocaleString()} 条样例`}
+              items={createDesignerPreviewItems(designerPreviewRecords, schema.datasetKind)}
+              isLoading={false}
+              errorMessage={null}
+              coverage="workspace"
+              showItemMeta={false}
+              onClose={() => setIsDesignerPreviewOpen(false)}
+            />,
+            document.body,
+          )
         : null}
     </section>
   );
@@ -1301,6 +1688,78 @@ const formatDateTimeMinute = (value: string): string => value.slice(0, 16).repla
 const resolveTemplateSchema = (template: TemplateManagerRow): LabelHubSchema => {
   return template.template!.schema;
 };
+
+const TemplateSummaryCard = ({
+  isActive,
+  label,
+  onClick,
+  status,
+  value,
+}: {
+  isActive: boolean;
+  label: string;
+  onClick: () => void;
+  status: TemplateStatusFilter;
+  value: string;
+}) => (
+  <button
+    className={[
+      'task-summary-card',
+      status === 'ALL' ? 'task-summary-card--total' : '',
+      status === 'DRAFT' ? 'task-summary-card--draft' : '',
+      status === 'PUBLISHED' ? 'task-summary-card--done' : '',
+      status === 'ARCHIVED' ? 'task-summary-card--paused' : '',
+      isActive ? 'is-active' : '',
+    ].filter(Boolean).join(' ')}
+    type="button"
+    aria-pressed={isActive}
+    onClick={onClick}
+  >
+    <span>{label}</span>
+    <strong>{value}</strong>
+  </button>
+);
+
+type TemplateStatusTagStyle = {
+  '--status-bg-color': string;
+  '--status-dot-color': string;
+  '--status-text-color': string;
+};
+
+const templateStatusTagStyles = {
+  DRAFT: {
+    '--status-dot-color': '#64748B',
+    '--status-text-color': '#64748B',
+    '--status-bg-color': '#F3F4F6',
+  },
+  PUBLISHED: {
+    '--status-dot-color': '#0FB86B',
+    '--status-text-color': '#0FB86B',
+    '--status-bg-color': '#E8F7EF',
+  },
+  ARCHIVED: {
+    '--status-dot-color': '#D97706',
+    '--status-text-color': '#D97706',
+    '--status-bg-color': '#FFF7E6',
+  },
+} satisfies Record<TemplateDto['status'], TemplateStatusTagStyle>;
+
+const TemplateStatusTag = ({
+  label,
+  status,
+}: {
+  label: string;
+  status: TemplateDto['status'];
+}) => (
+  <span
+    className="status-tag status-tag--sm status-tag--task template-manager-status-tag"
+    data-status={status}
+    style={templateStatusTagStyles[status] as CSSProperties}
+  >
+    <span className="status-tag__dot" aria-hidden="true" />
+    {label}
+  </span>
+);
 
 const cloneTemplateSchemaForDraft = (schema: LabelHubSchema): LabelHubSchema => {
   const clonedSchema = JSON.parse(JSON.stringify(schema)) as LabelHubSchema;

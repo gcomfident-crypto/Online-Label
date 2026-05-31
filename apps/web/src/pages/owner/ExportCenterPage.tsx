@@ -29,6 +29,7 @@ export const ExportCenterPage = () => {
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [pendingExportTaskIds, setPendingExportTaskIds] = useState<string[]>([]);
   const [selectedExportFormat, setSelectedExportFormat] = useState<ExportFormat>('xlsx');
+  const [exportSearchKeyword, setExportSearchKeyword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [currentExportTaskPage, setCurrentExportTaskPage] = useState(1);
@@ -38,18 +39,35 @@ export const ExportCenterPage = () => {
     rowHeight: EXPORT_TASK_TABLE_ROW_HEIGHT,
   });
 
-  const exportableTasks = useMemo(
-    () =>
-      [...tasks]
-        .filter((task) => (task.exportableItemCount ?? 0) > 0)
-        .sort((firstTask, secondTask) => secondTask.createdAt.localeCompare(firstTask.createdAt)),
-    [tasks],
-  );
+  const taskDisplayIdMap = useMemo(() => createTaskDisplayIdMap(tasks), [tasks]);
+  const exportableTasks = useMemo(() => {
+    const keyword = exportSearchKeyword.trim().toLowerCase();
+
+    return [...tasks]
+      .filter((task) => {
+        if ((task.exportableItemCount ?? 0) <= 0) {
+          return false;
+        }
+
+        if (!keyword) {
+          return true;
+        }
+
+        const taskDisplayId = taskDisplayIdMap.get(task.id) ?? task.id;
+
+        return (
+          task.title.toLowerCase().includes(keyword) ||
+          task.id.toLowerCase().includes(keyword) ||
+          taskDisplayId.toLowerCase().includes(keyword) ||
+          task.template.name.toLowerCase().includes(keyword)
+        );
+      })
+      .sort((firstTask, secondTask) => secondTask.createdAt.localeCompare(firstTask.createdAt));
+  }, [exportSearchKeyword, taskDisplayIdMap, tasks]);
   const exportableItemTotal = useMemo(
     () => exportableTasks.reduce((total, task) => total + (task.exportableItemCount ?? 0), 0),
     [exportableTasks],
   );
-  const taskDisplayIdMap = useMemo(() => createTaskDisplayIdMap(tasks), [tasks]);
   const totalExportTaskPages = Math.max(1, Math.ceil(exportableTasks.length / exportTaskPageSize));
   const paginatedExportableTasks = useMemo(() => {
     const startIndex = (currentExportTaskPage - 1) * exportTaskPageSize;
@@ -64,6 +82,10 @@ export const ExportCenterPage = () => {
   useEffect(() => {
     setCurrentExportTaskPage((current) => Math.min(current, totalExportTaskPages));
   }, [totalExportTaskPages]);
+
+  useEffect(() => {
+    setCurrentExportTaskPage(1);
+  }, [exportSearchKeyword]);
 
   useEffect(() => {
     const exportableTaskIds = new Set(exportableTasks.map((task) => task.id));
@@ -176,6 +198,7 @@ export const ExportCenterPage = () => {
             <ExportableTaskTable
               currentPage={currentExportTaskPage}
               exportableItemTotal={exportableItemTotal}
+              exportSearchKeyword={exportSearchKeyword}
               isBusy={isBusy}
               selectedTaskIds={selectedTaskIds}
               tablePanelRef={exportTaskTableContainerRef}
@@ -185,6 +208,7 @@ export const ExportCenterPage = () => {
               onBatchExport={() => handleOpenFormatDialog(selectedTaskIds)}
               onExportTask={(taskId) => handleOpenFormatDialog([taskId])}
               onPageChange={setCurrentExportTaskPage}
+              onSearchChange={setExportSearchKeyword}
               onToggleCurrentPageSelection={handleToggleCurrentPageSelection}
               onToggleTaskSelection={handleToggleTaskSelection}
             />
@@ -208,6 +232,7 @@ export const ExportCenterPage = () => {
 type ExportableTaskTableProps = {
   currentPage: number;
   exportableItemTotal: number;
+  exportSearchKeyword: string;
   isBusy: boolean;
   selectedTaskIds: string[];
   tablePanelRef?: Ref<HTMLDivElement>;
@@ -217,6 +242,7 @@ type ExportableTaskTableProps = {
   onBatchExport: () => void;
   onExportTask: (taskId: string) => void;
   onPageChange: (page: number) => void;
+  onSearchChange: (keyword: string) => void;
   onToggleCurrentPageSelection: () => void;
   onToggleTaskSelection: (taskId: string) => void;
 };
@@ -224,6 +250,7 @@ type ExportableTaskTableProps = {
 const ExportableTaskTable = ({
   currentPage,
   exportableItemTotal,
+  exportSearchKeyword,
   isBusy,
   selectedTaskIds,
   tablePanelRef,
@@ -233,6 +260,7 @@ const ExportableTaskTable = ({
   onBatchExport,
   onExportTask,
   onPageChange,
+  onSearchChange,
   onToggleCurrentPageSelection,
   onToggleTaskSelection,
 }: ExportableTaskTableProps) => {
@@ -240,22 +268,31 @@ const ExportableTaskTable = ({
     tasks.length > 0 && tasks.every((task) => selectedTaskIds.includes(task.id));
 
   return (
-    <div className="task-table-panel export-task-table-panel" ref={tablePanelRef}>
-      <div className="labeler-list-panel-heading export-table-heading" aria-label="导出记录列表概览">
-        <dl className="task-market-heading-stats export-table-heading__total" aria-label="当前可导出数据总数">
-          <div>
-            <dt>当前可导出</dt>
-            <dd>{exportableItemTotal.toLocaleString()}</dd>
+    <div className="task-management-table-card export-task-table-panel" ref={tablePanelRef}>
+      <div className="task-management-table-toolbar export-task-table-toolbar" aria-label="导出记录列表概览">
+        <div className="task-summary-grid export-summary-grid" aria-label="导出数据概览">
+          <div className="task-summary-card task-summary-card--total export-summary-card" aria-label="可导出数据总数">
+            <span>可导出</span>
+            <strong>{exportableItemTotal.toLocaleString()}</strong>
           </div>
-        </dl>
-        <button
-          type="button"
-          className="primary-action export-batch-action"
-          disabled={selectedTaskIds.length === 0 || isBusy}
-          onClick={onBatchExport}
-        >
-          {selectedTaskIds.length > 0 ? `批量导出 ${selectedTaskIds.length} 项` : '批量导出'}
-        </button>
+        </div>
+
+        <div className="task-filter-bar export-task-filter-bar">
+          <input
+            aria-label="搜索导出任务"
+            placeholder="搜索任务名 / ID / 模板"
+            value={exportSearchKeyword}
+            onChange={(event) => onSearchChange(event.target.value)}
+          />
+          <button
+            type="button"
+            className="primary-action create-action task-filter-bar__create export-batch-action"
+            disabled={selectedTaskIds.length === 0 || isBusy}
+            onClick={onBatchExport}
+          >
+            {selectedTaskIds.length > 0 ? `批量导出 ${selectedTaskIds.length} 项` : '批量导出'}
+          </button>
+        </div>
       </div>
       <div className="task-table-scroll" data-adaptive-table-viewport="true">
         <table className="task-table export-task-table" aria-label="导出记录列表">

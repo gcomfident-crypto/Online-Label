@@ -150,11 +150,15 @@ describe('ExportCenterPage', () => {
     const exportableTaskTable = screen.getByRole('table', { name: '导出记录列表' });
     const exportPanel = exportableTaskTable.closest('.export-task-table-panel');
     expect(exportPanel).not.toBeNull();
-    const exportableTotal = within(exportPanel as HTMLElement).getByLabelText('当前可导出数据总数');
-    expect(exportableTotal).toHaveTextContent('当前可导出6');
-    expect(exportableTotal).toHaveClass('export-table-heading__total');
+    expect(exportPanel).toHaveClass('task-management-table-card');
+    const exportableTotal = within(exportPanel as HTMLElement).getByLabelText('可导出数据总数');
+    expect(exportableTotal).toHaveTextContent('可导出6');
+    expect(exportableTotal).toHaveClass('task-summary-card', 'task-summary-card--total');
+    expect(screen.getByPlaceholderText('搜索任务名 / ID / 模板')).toBeInTheDocument();
     expect(within(exportPanel as HTMLElement).queryByRole('heading', { name: '导出记录' })).not.toBeInTheDocument();
     expect((exportPanel as HTMLElement).querySelector('.labeler-list-panel-heading__title')).toBeNull();
+    expect((exportPanel as HTMLElement).querySelector('.labeler-list-panel-heading')).toBeNull();
+    expect((exportPanel as HTMLElement).querySelector('.task-management-table-toolbar')).not.toBeNull();
     expect(document.querySelector('.export-records-toolbar')).toBeNull();
     expect(within(exportableTaskTable).getByRole('checkbox', { name: '选择当前页导出记录' })).toBeInTheDocument();
     expect(within(exportableTaskTable).getByRole('checkbox', { name: '选择导出任务 T-0001' })).toBeInTheDocument();
@@ -166,6 +170,12 @@ describe('ExportCenterPage', () => {
     expect(screen.getByLabelText('可导出任务分页')).toHaveTextContent('第 1 / 1 页');
     expect(screen.queryByRole('table', { name: '导出历史' })).not.toBeInTheDocument();
     expect(screen.queryByText('暂无导出任务。')).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('搜索导出任务'), '问答');
+    expect(within(exportableTaskTable).getByText('问答质量标注')).toBeInTheDocument();
+    expect(within(exportableTaskTable).queryByText('偏好对比评测')).not.toBeInTheDocument();
+    await user.clear(screen.getByLabelText('搜索导出任务'));
+    expect(await within(exportableTaskTable).findByText('偏好对比评测')).toBeInTheDocument();
 
     await user.click(within(exportableTaskTable).getByRole('button', { name: '导出 T-0002' }));
     expect(screen.getByRole('dialog', { name: '选择导出格式' })).toHaveTextContent('1 条导出记录');
@@ -274,7 +284,7 @@ describe('ExportCenterPage', () => {
     );
 
     const exportableTaskTable = await screen.findByRole('table', { name: '导出记录列表' });
-    expect(exportableTaskTable.closest('.task-table-panel')).not.toBeNull();
+    expect(exportableTaskTable.closest('.task-management-table-card')).not.toBeNull();
     expect(within(exportableTaskTable).getByRole('img', { name: '空导出记录列表插画' })).toHaveAttribute(
       'src',
       expect.stringContaining('empty-table-illustration.svg'),

@@ -272,7 +272,7 @@ const AiReviewBatchTable = ({
   };
 
   return (
-    <div className="task-table-panel agent-review-table-panel">
+    <div className="task-management-table-card agent-review-table-panel">
       <div className="task-table-scroll" data-adaptive-table-viewport="true">
         <table className="task-table agent-review-batch-table" aria-label="任务级 AI 预审队列表格">
           <colgroup>

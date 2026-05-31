@@ -419,6 +419,13 @@ describe('SubmissionsService', () => {
           sortOrder: 2,
           externalId: 'qa_2',
           status: 'ASSIGNED',
+          drafts: [
+            createDraft(now, {
+              assignmentId: 'assignment_2',
+              answers: { quality: 'excellent' },
+              updatedAt: new Date('2026-05-21T08:04:00.000Z'),
+            }),
+          ],
           submissions: [],
         }),
       ],
@@ -453,6 +460,8 @@ describe('SubmissionsService', () => {
         status: 'ASSIGNED',
         latestSubmissionStatus: null,
         latestSubmittedAt: null,
+        draftAnswers: { quality: 'excellent' },
+        draftUpdatedAt: '2026-05-21T08:04:00.000Z',
         round: 0,
       }),
     ]);

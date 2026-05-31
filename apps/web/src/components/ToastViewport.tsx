@@ -6,8 +6,11 @@ export type ToastType = 'success' | 'warning' | 'error' | 'info';
 export type ToastMessage = {
   actionHref?: string;
   actionLabel?: string;
+  autoDismiss?: boolean;
   className?: string;
   id: string;
+  isDismissible?: boolean;
+  isLoading?: boolean;
   text: string;
   type: ToastType;
 };
@@ -90,7 +93,12 @@ export const ToastViewport = ({
     }
 
     for (const message of messages) {
-      if (pausedIds.has(message.id) || exitingIds.has(message.id) || timers.current.has(message.id)) {
+      if (
+        message.autoDismiss === false ||
+        pausedIds.has(message.id) ||
+        exitingIds.has(message.id) ||
+        timers.current.has(message.id)
+      ) {
         continue;
       }
 
@@ -155,10 +163,13 @@ export const ToastViewport = ({
               {message.actionLabel}
             </a>
           ) : null}
-          <button className="toast__close" type="button" onClick={() => dismissWithAnimation(message.id)}>
-            <span className="visually-hidden">关闭提示</span>
-            <span aria-hidden="true">×</span>
-          </button>
+          {message.isLoading ? <span className="toast__spinner" aria-hidden="true" /> : null}
+          {message.isDismissible === false ? null : (
+            <button className="toast__close" type="button" onClick={() => dismissWithAnimation(message.id)}>
+              <span className="visually-hidden">关闭提示</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          )}
         </div>
       ))}
     </div>

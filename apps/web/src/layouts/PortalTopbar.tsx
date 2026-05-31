@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
+import logoIcon from '../assets/logo.svg';
 import { sessionStore, useSession } from '../stores/sessionStore';
 import { resolvePagePathTitle } from '../utils/routePathTitle';
 
@@ -27,6 +28,7 @@ export const PortalTopbar = ({
   const userMenuRef = useRef<HTMLDivElement>(null);
   const currentPathTitle = resolvePagePathTitle(pathname);
   const currentPathParts = splitPathTitle(currentPathTitle);
+  const currentPathLeafKey = currentPathTitle;
 
   useEffect(() => {
     if (!isUserMenuOpen) {
@@ -63,7 +65,7 @@ export const PortalTopbar = ({
     <header className="platform-topbar" aria-label="平台顶栏">
       <div className="platform-topbar__left">
         <div className="platform-brand" aria-label="LabelHub">
-          <span className="platform-brand__mark">LH</span>
+          <img className="platform-brand__mark" src={logoIcon} alt="" draggable={false} />
           <strong>LabelHub</strong>
         </div>
         <span className="platform-current-path" aria-label="当前路径">
@@ -71,12 +73,12 @@ export const PortalTopbar = ({
             <>
               <span className="platform-current-path__prefix">{currentPathParts.prefix}</span>
               <span className="platform-current-path__separator"> / </span>
-              <span key={`${pathname}-${currentPathParts.leaf}`} className="platform-current-path__leaf">
+              <span key={currentPathLeafKey} className="platform-current-path__leaf">
                 {currentPathParts.leaf}
               </span>
             </>
           ) : (
-            <span key={`${pathname}-${currentPathParts.leaf}`} className="platform-current-path__leaf">
+            <span key={currentPathLeafKey} className="platform-current-path__leaf">
               {currentPathParts.leaf}
             </span>
           )}
@@ -104,9 +106,6 @@ export const PortalTopbar = ({
             {session?.user.name.slice(0, 1) ?? userRoleLabel.slice(0, 1)}
           </span>
           <span>{session ? `${session.user.name} · ${userRoleLabel}` : '未登录'}</span>
-          <span className="platform-user__chevron" aria-hidden="true">
-            ▾
-          </span>
         </button>
         {isUserMenuOpen ? (
           <div className="platform-user-menu" role="menu" aria-label="账号菜单">

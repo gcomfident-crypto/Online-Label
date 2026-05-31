@@ -312,6 +312,267 @@ describe('SchemaRenderer', () => {
     expect(within(table).queryByText('参考答案')).not.toBeInTheDocument();
   });
 
+  it('group 按布局渲染子字段，并在容器隐藏时跳过子字段校验', () => {
+    const schema = baseSchema([
+      {
+        key: 'mode',
+        fieldKey: 'mode',
+        type: 'radio',
+        label: '是否补充',
+        options: [
+          { label: '需要', value: 'yes' },
+          { label: '不需要', value: 'no' },
+          { label: '禁用', value: 'disabled' },
+        ],
+      },
+      {
+        key: 'extra_group',
+        type: 'group',
+        label: '补充信息',
+        description: '填写必要补充内容',
+        layout: 'two_columns',
+        fields: [
+          {
+            key: 'detail',
+            fieldKey: 'detail',
+            type: 'text',
+            label: '补充说明',
+            validation: { required: true },
+          },
+        ],
+      },
+    ]);
+    schema.linkageRules = [
+      {
+        when: { fieldKey: 'mode', operator: 'equals', value: 'no' },
+        action: 'hide',
+        targetFieldKey: 'extra_group',
+      },
+      {
+        when: { fieldKey: 'mode', operator: 'equals', value: 'disabled' },
+        action: 'disable',
+        targetFieldKey: 'extra_group',
+      },
+    ];
+
+    const { container } = render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{}}
+        value={{ mode: 'yes' }}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('补充信息')).toBeInTheDocument();
+    expect(screen.getByText('填写必要补充内容')).toBeInTheDocument();
+    expect(container.querySelector('.schema-field__group-body--two_columns')).not.toBeNull();
+
+    const hiddenResult = applySchemaLinkage(schema, { mode: 'no' });
+    expect(hiddenResult.hiddenFieldKeys.has('detail')).toBe(true);
+    expect(validateSchemaAnswers(schema, hiddenResult.answers, hiddenResult)).toEqual([]);
+
+    const disabledResult = applySchemaLinkage(schema, { mode: 'disabled' });
+    expect(disabledResult.disabledFieldKeys.has('detail')).toBe(true);
+    expect(validateSchemaAnswers(schema, disabledResult.answers, disabledResult)).toEqual([]);
+  });
+
+  it('group 支持默认折叠，并在子字段有错误时自动展开', async () => {
+    const schema = baseSchema([
+      {
+        key: 'collapsed_group',
+        type: 'group',
+        label: '折叠分组',
+        defaultCollapsed: true,
+        fields: [
+          {
+            key: 'detail',
+            fieldKey: 'detail',
+            type: 'text',
+            label: '说明',
+            validation: { required: true },
+          },
+        ],
+      },
+    ]);
+
+    const { unmount } = render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{}}
+        value={{ detail: '已填写' }}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '展开' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText('说明')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '展开' }));
+    expect(screen.getByLabelText('说明')).toBeInTheDocument();
+
+    unmount();
+    render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByLabelText('说明')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '收起' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('tabs 显示错误数量，并在 activeFieldKey 指向隐藏页字段时自动切换', () => {
+    const schema = baseSchema([
+      {
+        key: 'review_tabs',
+        type: 'tabs',
+        label: '分步标注',
+        layout: 'three_columns',
+        tabs: [
+          {
+            key: 'tab_input',
+            label: '题目信息',
+            fields: [
+              { key: 'summary', fieldKey: 'summary', type: 'text', label: '摘要' },
+              { key: 'source', fieldKey: 'source', type: 'text', label: '来源' },
+              { key: 'context', fieldKey: 'context', type: 'text', label: '上下文' },
+            ],
+          },
+          {
+            key: 'tab_result',
+            label: '标注结果',
+            fields: [
+              {
+                key: 'decision',
+                fieldKey: 'decision',
+                type: 'text',
+                label: '最终结论',
+                validation: { required: true },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    const { container, rerender } = render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const resultTab = screen.getByRole('tab', { name: /标注结果/ });
+    expect(container.querySelector('.schema-field__tab--auto_rows')).not.toBeNull();
+    expect(container.querySelector('.schema-field__tab-row--3')).not.toBeNull();
+    expect(screen.getByLabelText('来源')).toBeInTheDocument();
+    expect(screen.getByLabelText('上下文')).toBeInTheDocument();
+    expect(resultTab).toHaveAttribute('aria-selected', 'false');
+    expect(within(resultTab).getByLabelText('标注结果 有 1 个错误')).toHaveTextContent('1');
+    expect(screen.queryByLabelText('最终结论')).not.toBeInTheDocument();
+
+    rerender(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        activeFieldKey="decision"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('tab', { name: /标注结果/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('最终结论')).toBeInTheDocument();
+  });
+
+  it('tabs 自动行布局按每行最多三个字段自适应列宽', () => {
+    const schema = baseSchema([
+      {
+        key: 'auto_tabs',
+        type: 'tabs',
+        label: '自动布局',
+        layout: 'auto_rows',
+        tabs: [
+          {
+            key: 'tab_input',
+            label: '题目信息',
+            fields: [
+              { key: 'field_a', fieldKey: 'field_a', type: 'text', label: '字段 A' },
+              { key: 'field_b', fieldKey: 'field_b', type: 'text', label: '字段 B' },
+              { key: 'field_c', fieldKey: 'field_c', type: 'text', label: '字段 C' },
+              { key: 'field_d', fieldKey: 'field_d', type: 'text', label: '字段 D' },
+            ],
+          },
+        ],
+      },
+    ]);
+    const { container } = render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{}}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector('.schema-field__tab--auto_rows')).not.toBeNull();
+    expect(container.querySelectorAll('.schema-field__tab-row')).toHaveLength(2);
+    expect(container.querySelector('.schema-field__tab-row--3')).not.toBeNull();
+    expect(container.querySelector('.schema-field__tab-row--1')).not.toBeNull();
+  });
+
+  it('动态必填字段位于容器内时也显示红色星号', () => {
+    const schema = baseSchema([
+      {
+        key: 'need_detail',
+        fieldKey: 'need_detail',
+        type: 'radio',
+        label: '是否需要说明',
+        options: [
+          { label: '需要', value: 'yes' },
+          { label: '不需要', value: 'no' },
+        ],
+      },
+      {
+        key: 'result_group',
+        type: 'group',
+        label: '结果',
+        fields: [
+          { key: 'detail', fieldKey: 'detail', type: 'text', label: '说明' },
+        ],
+      },
+    ]);
+    schema.linkageRules = [
+      {
+        when: { fieldKey: 'need_detail', operator: 'equals', value: 'yes' },
+        action: 'require',
+        targetFieldKey: 'detail',
+      },
+    ];
+
+    const { container } = render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{}}
+        value={{ need_detail: 'yes' }}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector('.schema-field__required-mark')).toHaveTextContent('*');
+  });
+
   it('qa_quality 官方示例展示 prompt、model_answer 和 reference', () => {
     render(
       <SchemaRenderer
@@ -746,6 +1007,8 @@ describe('SchemaRenderer', () => {
     await user.click(screen.getByLabelText('完整'));
 
     expect(onChange).toHaveBeenLastCalledWith({ tags: ['clear', 'complete'] });
+    expect(screen.getByText('清晰')).toHaveClass('schema-choice-bubble__surface');
+    expect(screen.getByText('完整')).toHaveClass('schema-choice-bubble__surface');
   });
 
   it('labeler 侧选项只展示选项文案，并在标题右侧展示说明和必填标识', () => {
@@ -773,6 +1036,8 @@ describe('SchemaRenderer', () => {
 
     expect(screen.getByLabelText('明显优于')).toBeInTheDocument();
     expect(screen.getByLabelText('略优于')).toBeInTheDocument();
+    expect(screen.getByText('明显优于')).toHaveClass('schema-choice-bubble__surface');
+    expect(screen.getByText('略优于')).toHaveClass('schema-choice-bubble__surface');
     expect(screen.queryByText('优劣程度：明显优于')).not.toBeInTheDocument();
     expect(screen.queryByText('优劣程度：略优于')).not.toBeInTheDocument();
 
@@ -989,6 +1254,111 @@ describe('SchemaRenderer', () => {
     );
   });
 
+  it('配置了 LLM 提示的单行输入和标签选择可直接生成并采纳建议', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            datasetKind: 'generic_json',
+            targetFieldKey: 'cleaned_title',
+            summary: '已生成清洗标题。',
+            suggestion: '轻量降噪蓝牙耳机',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            datasetKind: 'generic_json',
+            targetFieldKey: 'quality_tags',
+            summary: '已生成建议标签。',
+            suggestion: ['准确性'],
+          },
+        }),
+      });
+    const schema: LabelHubSchema = baseSchema([
+      {
+        key: 'title',
+        fieldKey: 'cleaned_title',
+        type: 'text',
+        label: '清洗标题',
+        promptTemplate: '请根据 #prompt 输出清洗标题。',
+      },
+      {
+        key: 'tags',
+        fieldKey: 'quality_tags',
+        type: 'tag_select',
+        label: '质量标签',
+        promptTemplate: '请根据 #prompt 输出建议标签。',
+        options: [
+          { label: '准确性', value: 'accuracy' },
+          { label: '完整性', value: 'completeness' },
+        ],
+      },
+    ]);
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <SchemaRenderer
+          schema={schema}
+          rawData={{ prompt: '请清洗蓝牙耳机商品标题。' }}
+          value={answers}
+          mode="answer"
+          onChange={setAnswers}
+        />
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    const titleLlm = screen.getByLabelText('清洗标题 LLM 建议');
+    await user.click(within(titleLlm).getByRole('button', { name: '生成建议' }));
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      '/llm/assist/mock',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          datasetKind: 'generic_json',
+          rawData: { prompt: '请清洗蓝牙耳机商品标题。' },
+          answers: {},
+          targetFieldKey: 'cleaned_title',
+          promptTemplate: '请根据 #prompt 输出清洗标题。',
+        }),
+      }),
+    );
+    expect(await within(titleLlm).findByText('已生成清洗标题。')).toBeInTheDocument();
+    await user.click(within(titleLlm).getByRole('button', { name: '采纳建议' }));
+    expect(screen.getByLabelText('清洗标题')).toHaveValue('轻量降噪蓝牙耳机');
+
+    const tagsLlm = screen.getByLabelText('质量标签 LLM 建议');
+    await user.click(within(tagsLlm).getByRole('button', { name: '生成建议' }));
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      '/llm/assist/mock',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          datasetKind: 'generic_json',
+          rawData: { prompt: '请清洗蓝牙耳机商品标题。' },
+          answers: { cleaned_title: '轻量降噪蓝牙耳机' },
+          targetFieldKey: 'quality_tags',
+          promptTemplate: '请根据 #prompt 输出建议标签。',
+        }),
+      }),
+    );
+    await user.click(await within(tagsLlm).findByRole('button', { name: '采纳建议' }));
+    expect(screen.getByLabelText('准确性')).toBeChecked();
+  });
+
   it('LLM 触发组件在 mock 请求失败时显示中文错误', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue({
@@ -1131,24 +1501,18 @@ describe('SchemaRenderer', () => {
     expect(screen.getByLabelText('清洗后标题')).toHaveValue('轻量降噪蓝牙耳机 Pro Max 黑色');
   });
 
-  it('rich_text 输入后写入字符串', async () => {
-    const user = userEvent.setup();
+  it('rich_text 渲染为 CKEditor 富文本编辑器', async () => {
     const onChange = vi.fn();
     const schema = baseSchema([{ key: 'content', type: 'rich_text', label: '正文' }]);
 
     const ControlledRenderer = () => {
-      const [answers, setAnswers] = useState<Record<string, unknown>>({});
-
       return (
         <SchemaRenderer
           schema={schema}
           rawData={{}}
-          value={answers}
+          value={{ content: '<p>已有内容</p>' }}
           mode="answer"
-          onChange={(next) => {
-            setAnswers(next);
-            onChange(next);
-          }}
+          onChange={onChange}
         />
       );
     };
@@ -1156,10 +1520,12 @@ describe('SchemaRenderer', () => {
     render(<ControlledRenderer />);
 
     expect(screen.getByText('富文本')).toBeInTheDocument();
-
-    await user.type(screen.getByLabelText('正文'), '<p>你好</p>');
-
-    expect(onChange).toHaveBeenLastCalledWith({ content: '<p>你好</p>' });
+    const editor = await screen.findByLabelText('正文');
+    expect(editor).toHaveAttribute('contenteditable', 'true');
+    expect(editor).toHaveTextContent('已有内容');
+    expect(document.querySelector('.schema-rich-text-editor .ck-editor')).toBeInTheDocument();
+    expect(document.querySelector('.schema-rich-text-editor .ck-toolbar')).toBeInTheDocument();
+    expect(document.querySelector('textarea[aria-label="正文"]')).toBeNull();
   });
 
   it('file_upload 选择文件后写入结构化对象', async () => {
@@ -1491,20 +1857,19 @@ describe('SchemaRenderer', () => {
       />,
     );
 
-    const richText = screen.getByLabelText('正文');
+    const richText = await screen.findByLabelText('正文');
     const fileUpload = screen.getByLabelText('附件');
     const imageUpload = screen.getByLabelText('图片');
-    const jsonEditor = screen.getByLabelText('JSON');
+    const jsonEditor = screen.getByRole('group', { name: 'JSON 编辑器' });
 
-    expect(richText).toBeDisabled();
+    expect(richText).toHaveAttribute('aria-disabled', 'true');
+    expect(richText).toHaveAttribute('contenteditable', 'false');
     expect(fileUpload).toBeDisabled();
     expect(imageUpload).toBeDisabled();
-    expect(jsonEditor).toBeDisabled();
+    expect(jsonEditor).toHaveAttribute('aria-disabled', 'true');
 
-    await user.type(richText, '<p>不能输入</p>');
     await user.upload(fileUpload, new File(['hello'], 'report.txt', { type: 'text/plain' }));
     await user.upload(imageUpload, new File(['image'], 'photo.png', { type: 'image/png' }));
-    await user.type(jsonEditor, '{"ok":true}');
 
     expect(onChange).not.toHaveBeenCalled();
   });

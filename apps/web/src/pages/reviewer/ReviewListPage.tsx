@@ -111,7 +111,7 @@ export const ReviewListPage = () => {
 
       {errorMessage ? <p role="alert">{errorMessage}</p> : null}
 
-      <div className="task-table-panel manual-review-task-table-panel">
+      <div className="task-management-table-card manual-review-task-table-panel">
         <div className="task-table-scroll manual-review-task-table-scroll" data-adaptive-table-viewport="true">
           <table className="task-table manual-review-task-table" aria-label="人工审核任务列表">
             <colgroup>
@@ -168,9 +168,7 @@ export const ReviewListPage = () => {
                     <td>
                       <div className="manual-review-task-title">
                         <strong>{task.taskName}</strong>
-                        <small>
-                          {task.batchNo} · {task.taskId}
-                        </small>
+                        <small>{task.batchNo}</small>
                       </div>
                     </td>
                     <td>
@@ -322,11 +320,12 @@ function buildManualReviewTasks(queueItems: ReviewQueueItemDto[]): ManualReviewT
       const latestItem = orderedItems[orderedItems.length - 1] ?? items[0];
       const createdAt = orderedItems[0]?.submittedAt ?? latestItem?.submittedAt ?? '';
       const updatedAt = latestItem?.updatedAt ?? latestItem?.submittedAt ?? createdAt;
+      const batchNo = `TASK-${taskId.slice(-8).toUpperCase()}`;
 
       return {
         taskId,
-        taskName: latestItem?.taskTitle ?? taskId,
-        batchNo: `TASK-${taskId.slice(-8).toUpperCase()}`,
+        taskName: latestItem?.taskTitle?.trim() ? latestItem.taskTitle : `人工审核任务 ${batchNo}`,
+        batchNo,
         stage: '复审',
         pendingCount: items.length,
         aiPassCount: items.filter((item) => item.aiDecision === 'pass').length,

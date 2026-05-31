@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -10,5 +10,12 @@ describe('Vite 开发代理', () => {
     expect(configSource).toContain("'/api': {");
     expect(configSource).toContain("target: 'http://localhost:3000'");
     expect(configSource).toContain("path.replace(/^\\/api/, '')");
+  });
+
+  it('浏览器标签页使用裁切后的 PNG favicon', () => {
+    const indexSource = readFileSync(join(process.cwd(), 'index.html'), 'utf8');
+
+    expect(indexSource).toContain('<link rel="icon" type="image/png" href="/src/assets/favicon.png" />');
+    expect(existsSync(join(process.cwd(), 'src/assets/favicon.png'))).toBe(true);
   });
 });
