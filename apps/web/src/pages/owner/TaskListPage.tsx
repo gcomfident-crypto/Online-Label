@@ -1745,11 +1745,7 @@ const xlsxRowToRecord = (headers: string[], row: string[]): DatasetRecord => {
   const record: DatasetRecord = {};
 
   headers.forEach((header, index) => {
-    const value = row[index] ?? '';
-
-    if (value.trim()) {
-      record[header] = value;
-    }
+    record[header] = (row[index] ?? '').trim();
   });
 
   return record;
@@ -1759,11 +1755,7 @@ const csvRowToRecord = (headers: string[], row: string[]): DatasetRecord => {
   const record: DatasetRecord = {};
 
   headers.forEach((header, index) => {
-    const value = row[index] ?? '';
-
-    if (value.trim()) {
-      record[header] = value.trim();
-    }
+    record[header] = (row[index] ?? '').trim();
   });
 
   return record;

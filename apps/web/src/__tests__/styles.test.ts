@@ -732,6 +732,8 @@ describe('global styles', () => {
     expect(closeRule).toContain('border-radius: 8px;');
     expect(closeHoverRule).toContain('background: transparent;');
     expect(closeHoverRule).toContain('color: #9ca3af;');
+    expect(closeHoverRule).toContain('box-shadow: none;');
+    expect(closeHoverRule).toContain('transform: none;');
     expect(actionsRule).toContain('justify-content: flex-end;');
     expect(actionsRule).toContain('gap: 12px;');
     expect(cancelRule).toContain('border: 1px solid #c9d8f6;');
@@ -740,6 +742,8 @@ describe('global styles', () => {
     expect(cancelHoverRule).toContain('border-color: #c9d8f6;');
     expect(cancelHoverRule).toContain('color: #306df7;');
     expect(cancelHoverRule).toContain('background: transparent;');
+    expect(cancelHoverRule).toContain('box-shadow: none;');
+    expect(cancelHoverRule).toContain('transform: none;');
     expect(saveRule).toContain('min-height: 40px;');
     expect(saveRule).toContain('border-radius: 10px;');
     expect(saveRule).toContain('padding: 0 20px;');
@@ -747,6 +751,8 @@ describe('global styles', () => {
     expect(saveHoverRule).toContain('border-color: #306df7;');
     expect(saveHoverRule).toContain('color: #ffffff;');
     expect(saveHoverRule).toContain('background: #306df7;');
+    expect(saveHoverRule).toContain('box-shadow: none;');
+    expect(saveHoverRule).toContain('transform: none;');
     expect(largeDesktopRule).toContain('width: min(520px, 30vw);');
     expect(tabletRule).toContain('width: 80vw;');
     expect(mobileRule).toContain('width: calc(100vw - 32px);');

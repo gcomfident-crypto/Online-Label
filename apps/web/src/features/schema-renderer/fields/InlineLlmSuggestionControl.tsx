@@ -184,21 +184,5 @@ const splitTagSuggestion = (value: string): string[] =>
     .map((item) => item.trim())
     .filter(Boolean);
 
-const normalizeTagValues = (field: SchemaField, values: readonly string[]): string[] => {
-  const options = field.options ?? [];
-
-  if (options.length === 0) {
-    return Array.from(new Set(values));
-  }
-
-  const valueByLabel = new Map(options.map((option) => [option.label, option.value]));
-  const allowedValues = new Set(options.map((option) => option.value));
-
-  return Array.from(
-    new Set(
-      values
-        .map((value) => (allowedValues.has(value) ? value : valueByLabel.get(value)))
-        .filter((value): value is string => Boolean(value)),
-    ),
-  );
-};
+const normalizeTagValues = (_field: SchemaField, values: readonly string[]): string[] =>
+  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));

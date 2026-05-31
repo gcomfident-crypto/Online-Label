@@ -186,7 +186,7 @@ export class TemplatesService {
     assertValidTemplateSchema(currentDto.schema);
 
     const version = current.version + 1;
-    const schemaVersion = input.versionName ?? `r${version}`;
+    const schemaVersion = input.versionName ?? `v${version}`;
     const nextSchema = {
       ...currentDto.schema,
       schemaVersion,

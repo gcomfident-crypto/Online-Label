@@ -24,6 +24,8 @@ const AUTO_OPTION_LIMIT = 100;
 const AUTO_RADIO_OPTION_LIMIT = 20;
 const AUTO_CHECKBOX_OPTION_LIMIT = 80;
 const AUTO_LONG_TEXT_LENGTH = 60;
+const AUTO_SHOW_ITEM_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.avif'] as const;
+const AUTO_SHOW_ITEM_VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ogg', '.mov'] as const;
 
 export const createAutoShowItemTemplateName = (fileName: string): string =>
   `自动解析模板 · ${fileName}`;
@@ -111,16 +113,23 @@ const resolveClassifiedFields = (
   annotationFields: AutoTemplateAnnotationField[];
 } => {
   const knownSourceKeys = new Set(sourceKeys);
+  const mediaDisplaySourceKeys = new Set(
+    sourceKeys.filter((sourceKey) => isMediaUrlFieldStats(fieldStatsMap.get(sourceKey))),
+  );
   const annotationFields = normalizeAnnotationFields(
     classification?.annotationFields,
     knownSourceKeys,
     fieldStatsMap,
-  );
+  ).filter((field) => !mediaDisplaySourceKeys.has(field.sourceKey));
   const annotationSourceKeys = new Set(annotationFields.map((field) => field.sourceKey));
-  const displayFields = normalizeDisplayFields(
-    classification?.displayFields,
-    knownSourceKeys,
-    annotationSourceKeys,
+  const displayFields = ensureMediaUrlDisplayFields(
+    normalizeDisplayFields(
+      classification?.displayFields,
+      knownSourceKeys,
+      annotationSourceKeys,
+    ),
+    sourceKeys,
+    mediaDisplaySourceKeys,
   );
   const classifiedSourceKeys = new Set([
     ...displayFields.map((field) => field.sourceKey),
@@ -147,6 +156,77 @@ const resolveClassifiedFields = (
     displayFields,
     annotationFields,
   };
+};
+
+const ensureMediaUrlDisplayFields = (
+  fields: readonly ShowItemDisplayField[],
+  sourceKeys: readonly string[],
+  mediaDisplaySourceKeys: ReadonlySet<string>,
+): ShowItemDisplayField[] => {
+  const fieldBySourceKey = new Map(
+    fields.map((field) => [
+      field.sourceKey,
+      mediaDisplaySourceKeys.has(field.sourceKey)
+        ? createMediaUrlDisplayField(field.sourceKey, field.label)
+        : field,
+    ]),
+  );
+  const normalizedFields: ShowItemDisplayField[] = [];
+
+  for (const sourceKey of sourceKeys) {
+    const existingField = fieldBySourceKey.get(sourceKey);
+
+    if (existingField) {
+      normalizedFields.push(existingField);
+      continue;
+    }
+
+    if (!mediaDisplaySourceKeys.has(sourceKey)) {
+      continue;
+    }
+
+    normalizedFields.push(createMediaUrlDisplayField(sourceKey));
+  }
+
+  return normalizedFields;
+};
+
+const createMediaUrlDisplayField = (sourceKey: string, label?: string): ShowItemDisplayField => ({
+  sourceKey,
+  label: normalizeLabel(label, sourceKey),
+  area: 'content',
+  format: 'text',
+});
+
+const isMediaUrlFieldStats = (stats?: AutoTemplateFieldValueStats): boolean => {
+  if (!stats) {
+    return false;
+  }
+
+  return [...stats.samples, ...stats.uniqueValues].some(isMediaResourceUrlValue);
+};
+
+const isMediaResourceUrlValue = (value: unknown): boolean => {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  try {
+    const url = new URL(value.trim());
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return false;
+    }
+
+    const pathname = url.pathname.toLowerCase();
+
+    return (
+      AUTO_SHOW_ITEM_IMAGE_EXTENSIONS.some((extension) => pathname.endsWith(extension)) ||
+      AUTO_SHOW_ITEM_VIDEO_EXTENSIONS.some((extension) => pathname.endsWith(extension))
+    );
+  } catch {
+    return false;
+  }
 };
 
 const normalizeDisplayFields = (

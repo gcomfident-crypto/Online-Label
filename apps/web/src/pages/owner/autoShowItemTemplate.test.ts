@@ -234,6 +234,130 @@ describe('autoShowItemTemplate', () => {
     });
   });
 
+  it('自动解析模板时把图片和视频 URL 字段保留为 ShowItem 展示字段', () => {
+    const schema = createAutoShowItemTemplateSchema(
+      [
+        {
+          prompt: '请根据素材判断商品标题是否合适。',
+          image_url: 'https://www.w3schools.com/w3css/img_lights.jpg',
+          video_url: 'http://vjs.zencdn.net/v/oceans.mp4',
+          preferred: 'A',
+        },
+      ],
+      'media.jsonl',
+      {
+        displayFields: [{ sourceKey: 'prompt', label: '题目', format: 'long_text' }],
+        annotationFields: [
+          { sourceKey: 'image_url', label: '图片链接', type: 'text' },
+          { sourceKey: 'video_url', label: '视频链接', type: 'text' },
+          { sourceKey: 'preferred', label: '偏好选择', type: 'radio' },
+        ],
+      },
+    );
+
+    expect(schema.fields[0]).toEqual({
+      key: 'auto_show_item',
+      type: 'show_item',
+      label: 'media.jsonl',
+      sourceKeys: ['prompt', 'image_url', 'video_url'],
+      displayConfig: {
+        layout: 'table',
+        fields: [
+          { sourceKey: 'prompt', label: '题目', format: 'long_text' },
+          { sourceKey: 'image_url', label: 'image_url', area: 'content', format: 'text' },
+          { sourceKey: 'video_url', label: 'video_url', area: 'content', format: 'text' },
+        ],
+      },
+    });
+    expect(schema.fields.map((field) => field.key)).not.toContain('image_url');
+    expect(schema.fields.map((field) => field.key)).not.toContain('video_url');
+    expect(schema.fields.find((field) => field.key === 'preferred')).toMatchObject({
+      type: 'radio',
+      label: '偏好选择',
+      validation: { required: true },
+    });
+  });
+
+  it('自动解析模板时 ShowItem 展示字段按输入文件原始字段顺序排列', () => {
+    const schema = createAutoShowItemTemplateSchema(
+      [
+        {
+          id: 'V0001',
+          category: '视频审核',
+          difficulty: '中等',
+          lang: 'zh',
+          media_type: 'video',
+          media_url: 'http://vjs.zencdn.net/v/oceans.mp4',
+          content_markdown: '',
+          prompt: '请观看视频，判断是否包含违规或不适画面。',
+          model_answer: '视频为海洋生态画面，未发现违规内容。',
+          reference: '海洋题材纪录短片，安全合规。',
+          tags: '视频 | 内容审核 | 海洋',
+          source: 'media_seed',
+          expected_dimensions: '安全性 | 相关性',
+          answer_quality: '',
+        },
+      ],
+      'qa_quality.xlsx',
+      {
+        displayFields: [
+          { sourceKey: 'id', label: 'ID', format: 'badge' },
+          { sourceKey: 'category', label: '分类', format: 'badge' },
+          { sourceKey: 'difficulty', label: '难度', format: 'badge' },
+          { sourceKey: 'lang', label: '语言', format: 'badge' },
+          { sourceKey: 'prompt', label: '题目', format: 'long_text' },
+          { sourceKey: 'model_answer', label: '模型回答', format: 'long_text' },
+          { sourceKey: 'reference', label: '参考答案', format: 'long_text' },
+          { sourceKey: 'tags', label: '标签', format: 'text' },
+          { sourceKey: 'source', label: '来源', format: 'text' },
+          { sourceKey: 'expected_dimensions', label: '预期维度', format: 'text' },
+          { sourceKey: 'media_type', label: '媒体类型', format: 'text' },
+          { sourceKey: 'media_url', label: '媒体链接', format: 'text' },
+          { sourceKey: 'content_markdown', label: 'Markdown 内容', format: 'long_text' },
+        ],
+        annotationFields: [{ sourceKey: 'answer_quality', label: '回答质量', type: 'textarea' }],
+      },
+    );
+
+    expect(schema.fields[0]).toMatchObject({
+      key: 'auto_show_item',
+      sourceKeys: [
+        'id',
+        'category',
+        'difficulty',
+        'lang',
+        'media_type',
+        'media_url',
+        'content_markdown',
+        'prompt',
+        'model_answer',
+        'reference',
+        'tags',
+        'source',
+        'expected_dimensions',
+      ],
+    });
+    expect(
+      schema.fields[0]?.type === 'show_item'
+        ? schema.fields[0].displayConfig?.fields?.map((field) => field.sourceKey)
+        : [],
+    ).toEqual([
+      'id',
+      'category',
+      'difficulty',
+      'lang',
+      'media_type',
+      'media_url',
+      'content_markdown',
+      'prompt',
+      'model_answer',
+      'reference',
+      'tags',
+      'source',
+      'expected_dimensions',
+    ]);
+  });
+
   it('模型漏判或无法判断的字段默认归为需要用户打标的物料', () => {
     const schema = createAutoShowItemTemplateSchema(
       [

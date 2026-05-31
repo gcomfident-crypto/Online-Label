@@ -362,16 +362,6 @@ const createDefaultField = (type: FieldType, schema: LabelHubSchema): SchemaFiel
     return { ...base, options: [] };
   }
 
-  if (type === 'tag_select') {
-    return {
-      ...base,
-      options: [
-        { label: '选项 A', value: 'option_a' },
-        { label: '选项 B', value: 'option_b' },
-      ],
-    };
-  }
-
   if (type === 'group') {
     return { ...base, fields: [], layout: 'single_column', defaultCollapsed: false };
   }

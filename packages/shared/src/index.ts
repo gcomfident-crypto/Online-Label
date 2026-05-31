@@ -44,6 +44,7 @@ export {
   type FieldOption,
   type FieldType,
   type FieldValidation,
+  type LabelHubSchemaMetadata,
   type LabelHubSchema,
   type LabelhubSchema,
   type SchemaField,

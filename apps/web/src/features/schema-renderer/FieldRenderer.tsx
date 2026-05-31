@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { MultiChoiceField, RadioField } from './fields/ChoiceField';
+import { MultiChoiceField, RadioField, TagSelectField } from './fields/ChoiceField';
 import { FileUploadField } from './fields/FileUploadField';
 import { GroupField } from './fields/GroupField';
 import { ImageUploadField } from './fields/ImageUploadField';
@@ -53,8 +53,10 @@ export const FieldRenderer = (props: FieldRendererProps) => {
       fieldElement = <RadioField {...fieldProps} />;
       break;
     case 'checkbox':
-    case 'tag_select':
       fieldElement = <MultiChoiceField {...fieldProps} />;
+      break;
+    case 'tag_select':
+      fieldElement = <TagSelectField {...fieldProps} />;
       break;
     case 'rich_text':
       fieldElement = <RichTextField {...fieldProps} />;

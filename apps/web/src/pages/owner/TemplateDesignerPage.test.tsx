@@ -3,14 +3,24 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TemplateDesignerPage } from './TemplateDesignerPage';
+import {
+  TemplateDesignerPage,
+  resolveDesignerDropTargetAtPoint,
+  resolveDesignerDropTargetForProjection,
+} from './TemplateDesignerPage';
 import divideIcon from '../../assets/divide.svg';
 import starIcon from '../../assets/star.svg';
 import tabsIcon from '../../assets/tabs.svg';
 import { DesignerCanvas } from '../../features/template-designer/DesignerCanvas';
 import { MaterialDragOverlay } from '../../features/template-designer/MaterialPanel';
 import { DESIGNER_MATERIALS, useTemplateDesignerStore } from '../../features/template-designer/templateStore';
-import { createLabelHubSchema, qaQualitySampleSchema, titleCleanupSampleSchema, type FieldType } from '@labelhub/shared';
+import {
+  createLabelHubSchema,
+  qaQualitySampleSchema,
+  titleCleanupSampleSchema,
+  type FieldType,
+  type LabelHubSchema,
+} from '@labelhub/shared';
 
 const createDomRect = ({
   height,
@@ -208,6 +218,106 @@ describe('TemplateDesignerPage', () => {
     expect(within(previewDialog).getByText('共 1 条样例')).toBeInTheDocument();
     expect(within(previewDialog).getByRole('columnheader', { name: 'prompt' })).toBeInTheDocument();
     expect(within(previewDialog).getByText('上传文件里的真实问题')).toBeInTheDocument();
+  });
+
+  it('保存自动解析模板后重新打开仍保留上传工具栏和完整 ShowItem 预览', async () => {
+    const user = userEvent.setup();
+    const autoSchema = createLabelHubSchema({
+      schemaVersion: 'auto-draft',
+      datasetKind: 'generic_json',
+      fields: [
+        {
+          key: 'auto_show_item',
+          type: 'show_item',
+          label: 'sample.jsonl',
+          sourceKeys: ['prompt', 'response_a', 'image_url'],
+          displayConfig: {
+            layout: 'table',
+            fields: [
+              { sourceKey: 'prompt', label: '问题', area: 'content', format: 'long_text' },
+              { sourceKey: 'response_a', label: '回答 A', area: 'content', format: 'long_text' },
+              { sourceKey: 'image_url', label: '图片链接', area: 'content', format: 'text' },
+            ],
+          },
+        },
+      ],
+    });
+    const previewRecord = {
+      prompt: '保存后仍要展示的问题',
+      response_a: '保存后仍要展示的回答 A',
+      image_url: 'https://www.w3schools.com/w3css/img_lights.jpg',
+    };
+    let savedTemplate: ReturnType<typeof createTemplateDto> | null = null;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({ data: savedTemplate ? [savedTemplate] : [] });
+      }
+
+      if (path === '/templates' && method === 'POST') {
+        const body = JSON.parse(String(init?.body ?? '{}')) as {
+          name: string;
+          schema: typeof autoSchema;
+        };
+        savedTemplate = createTemplateDto({
+          id: 'template_auto_saved',
+          name: body.name,
+          schema: body.schema,
+          status: 'DRAFT',
+        });
+
+        return jsonResponse({ data: savedTemplate });
+      }
+
+      return jsonResponse({ data: {} });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    window.sessionStorage.setItem(
+      'labelhub.templateDraftHandoff',
+      JSON.stringify({
+        name: '自动解析模板 · sample.jsonl',
+        sourceFileName: 'sample.jsonl',
+        schema: autoSchema,
+        previewRecords: [previewRecord],
+      }),
+    );
+
+    render(<TemplateDesignerPage />);
+
+    let dialog = await screen.findByRole('dialog', { name: '模板配置' });
+    let canvas = within(dialog).getByRole('main', { name: '模板编辑区域' });
+    expect(within(canvas).getByText('保存后仍要展示的问题')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('template-designer-backdrop'));
+    await user.click(screen.getByRole('button', { name: '保存' }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument(),
+    );
+    const createTemplateCall = fetchMock.mock.calls.find(
+      ([path, init]) => path.toString() === '/templates' && init?.method === 'POST',
+    );
+    const createTemplateBody = JSON.parse(String(createTemplateCall?.[1]?.body ?? '{}')) as {
+      schema: LabelHubSchema;
+    };
+    expect(createTemplateBody.schema.metadata?.autoTemplateSource).toEqual({
+      sourceFileName: 'sample.jsonl',
+      previewRecords: [previewRecord],
+    });
+
+    await openTemplateByName(user, '自动解析模板 · sample.jsonl');
+
+    dialog = screen.getByRole('dialog', { name: '模板配置' });
+    canvas = within(dialog).getByRole('main', { name: '模板编辑区域' });
+    expect(within(canvas).getByRole('button', { name: '预览已上传文件' })).toBeInTheDocument();
+    expect(within(canvas).getByRole('button', { name: '查看 AI Prompt' })).toBeInTheDocument();
+    expect(within(canvas).getByRole('button', { name: '预览 Labeler 标注效果' })).toBeInTheDocument();
+    expect(within(canvas).getByText('保存后仍要展示的问题')).toBeInTheDocument();
+    expect(within(canvas).getByText('保存后仍要展示的回答 A')).toBeInTheDocument();
+    expect(within(canvas).getByRole('img', { name: '图片链接' })).toBeInTheDocument();
   });
 
   it('模板配置页可查看由 ShowItem、标注答案、字段标准和输出格式组成的 AI Prompt', async () => {
@@ -1376,6 +1486,191 @@ describe('TemplateDesignerPage', () => {
     expect(screen.getByText('拖入字段到当前 Tab')).toBeInTheDocument();
   });
 
+  it('拖拽物料到根画布字段间隙时能解析为下一字段前插入', () => {
+    const originalElementsFromPoint = document.elementsFromPoint;
+    const root = document.createElement('div');
+    const firstField = document.createElement('article');
+    const secondField = document.createElement('article');
+
+    root.dataset.designerDropTargetKind = 'root';
+    firstField.className = 'designer-field-card';
+    secondField.className = 'designer-field-card';
+    firstField.dataset.designerFieldKey = 'text_1';
+    secondField.dataset.designerFieldKey = 'textarea_2';
+    root.append(firstField, secondField);
+    document.body.append(root);
+
+    vi.spyOn(firstField, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 0, height: 60 }));
+    vi.spyOn(secondField, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 92, height: 60 }));
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 0, height: 160 }));
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [root]),
+    });
+
+    try {
+      expect(resolveDesignerDropTargetAtPoint({ x: 24, y: 78 })?.target).toEqual({
+        kind: 'root',
+        beforeFieldKey: 'textarea_2',
+      });
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+      root.remove();
+    }
+  });
+
+  it('拖拽物料到根画布靠下字段右半区时仍按上下位置插入', () => {
+    const originalElementsFromPoint = document.elementsFromPoint;
+    const root = document.createElement('div');
+    const firstField = document.createElement('article');
+    const secondField = document.createElement('article');
+
+    root.dataset.designerDropTargetKind = 'root';
+    firstField.className = 'designer-field-card';
+    secondField.className = 'designer-field-card';
+    firstField.dataset.designerFieldKey = 'text_1';
+    secondField.dataset.designerFieldKey = 'textarea_2';
+    root.append(firstField, secondField);
+    document.body.append(root);
+
+    vi.spyOn(firstField, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 0, height: 60 }));
+    vi.spyOn(secondField, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 92, height: 60 }));
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 0, height: 160 }));
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [root]),
+    });
+
+    try {
+      expect(resolveDesignerDropTargetAtPoint({ x: 330, y: 104 })?.target).toEqual({
+        kind: 'root',
+        beforeFieldKey: 'textarea_2',
+      });
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+      root.remove();
+    }
+  });
+
+  it('拖拽物料到根画布字段下半区时解析为插到下一项前或末尾追加', () => {
+    const originalElementsFromPoint = document.elementsFromPoint;
+    const root = document.createElement('div');
+    const firstField = document.createElement('article');
+    const secondField = document.createElement('article');
+
+    root.dataset.designerDropTargetKind = 'root';
+    firstField.className = 'designer-field-card';
+    secondField.className = 'designer-field-card';
+    firstField.dataset.designerFieldKey = 'text_1';
+    secondField.dataset.designerFieldKey = 'textarea_2';
+    root.append(firstField, secondField);
+    document.body.append(root);
+
+    vi.spyOn(firstField, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 0, height: 60 }));
+    vi.spyOn(secondField, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 92, height: 60 }));
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 0, height: 160 }));
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [root]),
+    });
+
+    try {
+      expect(resolveDesignerDropTargetAtPoint({ x: 180, y: 50 })?.target).toEqual({
+        kind: 'root',
+        beforeFieldKey: 'textarea_2',
+      });
+      expect(resolveDesignerDropTargetAtPoint({ x: 180, y: 142 })?.target).toEqual({
+        kind: 'root',
+      });
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+      root.remove();
+    }
+  });
+
+  it('拖拽物料时真实指针命中优先于 dnd-kit 旧 overId 目标', () => {
+    expect(
+      resolveDesignerDropTargetForProjection({
+        overTarget: { kind: 'root', beforeFieldKey: 'text_12' },
+        pointTarget: { kind: 'root', beforeFieldKey: 'text_13' },
+      }),
+    ).toEqual({ kind: 'root', beforeFieldKey: 'text_13' });
+  });
+
+  it('拖拽物料到画布底部空白区时仍解析为根画布追加', () => {
+    const originalElementsFromPoint = document.elementsFromPoint;
+    const canvas = document.createElement('div');
+
+    canvas.className = 'designer-canvas';
+    canvas.dataset.designerDropTargetKind = 'root';
+    document.body.append(canvas);
+
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 0, height: 420 }));
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [canvas]),
+    });
+
+    try {
+      expect(resolveDesignerDropTargetAtPoint({ x: 24, y: 360 })?.target).toEqual({
+        kind: 'root',
+      });
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+      canvas.remove();
+    }
+  });
+
+  it('拖拽物料到 group 内字段间隙时不再被容器追加目标吞掉', () => {
+    const originalElementsFromPoint = document.elementsFromPoint;
+    const groupShell = document.createElement('section');
+    const firstField = document.createElement('article');
+    const secondField = document.createElement('article');
+
+    groupShell.dataset.designerDropTargetKind = 'group';
+    groupShell.dataset.designerGroupKey = 'group_1';
+    firstField.className = 'designer-field-card';
+    secondField.className = 'designer-field-card';
+    firstField.dataset.designerFieldKey = 'text_1';
+    secondField.dataset.designerFieldKey = 'textarea_2';
+    groupShell.append(firstField, secondField);
+    document.body.append(groupShell);
+
+    vi.spyOn(firstField, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 10, height: 56 }));
+    vi.spyOn(secondField, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 86, height: 56 }));
+    vi.spyOn(groupShell, 'getBoundingClientRect').mockReturnValue(createDomRect({ top: 0, height: 156 }));
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [groupShell]),
+    });
+
+    try {
+      expect(resolveDesignerDropTargetAtPoint({ x: 24, y: 74 })?.target).toEqual({
+        kind: 'group',
+        groupKey: 'group_1',
+        beforeFieldKey: 'textarea_2',
+      });
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+      groupShell.remove();
+    }
+  });
+
   it('模板名称使用标题式内联编辑并支持 Enter 提交和 Esc 取消', async () => {
     const user = userEvent.setup();
     const schema = createLabelHubSchema({
@@ -1977,8 +2272,8 @@ describe('TemplateDesignerPage', () => {
               name: '客服问答质量模板',
               description: null,
               datasetKind: 'qa_quality',
-              schemaVersion: 'r1',
-              schema: { ...qaQualitySampleSchema, schemaVersion: 'r1' },
+              schemaVersion: 'v1',
+              schema: { ...qaQualitySampleSchema, schemaVersion: 'v1' },
               status: 'PUBLISHED',
               version: 1,
               parentTemplateId: null,
@@ -2009,7 +2304,7 @@ describe('TemplateDesignerPage', () => {
     expect(templateNameInput).toHaveValue('单行输入');
     await user.clear(templateNameInput);
     await user.type(templateNameInput, '客服问答质量模板');
-    await user.click(screen.getByRole('button', { name: '保存并发布版本 r1' }));
+    await user.click(screen.getByRole('button', { name: '保存并发布版本 v1' }));
 
     expect(await screen.findByText('"客服问答质量模板" 模版已发布为v1')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -2028,7 +2323,7 @@ describe('TemplateDesignerPage', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
       '/templates/template_1/publish',
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ versionName: 'v1' }) }),
     );
   });
 

@@ -471,7 +471,7 @@ export const validateSchemaAnswers = (
           fieldKey,
           message: validationMessage(field, fieldMessage(field.label, '必须是字符串数组。')),
         });
-      } else if (!value.every((item) => optionValues(field).includes(item))) {
+      } else if (field.type === 'checkbox' && !value.every((item) => optionValues(field).includes(item))) {
         errors.push({
           fieldKey,
           message: validationMessage(field, `${field.label}包含无效选项。`),

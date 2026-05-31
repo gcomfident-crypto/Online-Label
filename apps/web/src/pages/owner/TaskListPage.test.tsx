@@ -2377,7 +2377,7 @@ describe('TaskListPage', () => {
     await user.click(screen.getByRole('button', { name: '根据输入文件创建模板' }));
     expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '保存并发布版本 r1' }));
+    await user.click(screen.getByRole('button', { name: '保存并发布版本 v1' }));
 
     const restoredDrawer = await screen.findByRole('complementary', { name: '发布任务抽屉' });
     expect(screen.getByRole('heading', { name: '任务管理' })).toBeInTheDocument();
@@ -2407,6 +2407,67 @@ describe('TaskListPage', () => {
 
     await waitFor(() => expect(screen.getByText('题目数：2')).toBeInTheDocument());
     expect(screen.queryByLabelText('题目数')).not.toBeInTheDocument();
+  });
+
+  it('从 XLSX 创建模板时保留表头字段顺序并包含空列', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({ data: [{ ...baseTask, status: 'DRAFT' }] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderTaskListPageWithTemplateRoute(<div role="dialog" aria-label="模板配置" />);
+
+    await screen.findByRole('table', { name: '任务列表' });
+    await user.click(screen.getByRole('button', { name: '新建任务' }));
+    await user.upload(
+      screen.getByLabelText('题目数据文件'),
+      await createXlsxFileFromRows([
+        [
+          'id',
+          'category',
+          'difficulty',
+          'lang',
+          'media_type',
+          'content_markdown',
+          'prompt',
+          'model_answer',
+          'reference',
+        ],
+        [
+          'Q0001',
+          '问答质量',
+          '中等',
+          'zh',
+          'markdown',
+          '',
+          '解释什么是过拟合',
+          '模型回答',
+          '参考答案',
+        ],
+      ]),
+    );
+
+    expect(await screen.findByText('题目数：1')).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('关联模板'));
+    await user.click(screen.getByRole('button', { name: '根据输入文件创建模板' }));
+
+    expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
+    const handoff = JSON.parse(window.sessionStorage.getItem('labelhub.templateDraftHandoff') ?? '{}');
+    expect(handoff.previewRecords[0]).toMatchObject({
+      content_markdown: '',
+      prompt: '解释什么是过拟合',
+    });
+    expect(handoff.autoClassificationRequest.fields.map((field: { sourceKey: string }) => field.sourceKey)).toEqual([
+      'id',
+      'category',
+      'difficulty',
+      'lang',
+      'media_type',
+      'content_markdown',
+      'prompt',
+      'model_answer',
+      'reference',
+    ]);
   });
 
   it('新建任务选择 preference_compare 模板并上传文件后发布', async () => {
@@ -2573,6 +2634,57 @@ const createXlsxFile = async (itemCount: number): Promise<File> => {
   return new File([await zip.generateAsync({ type: 'arraybuffer' })], 'qa_quality.xlsx', {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
+};
+
+const createXlsxFileFromRows = async (
+  rows: readonly (readonly string[])[],
+  fileName = 'qa_quality.xlsx',
+): Promise<File> => {
+  const sheetRows = rows
+    .map((row, rowIndex) => {
+      const rowNumber = rowIndex + 1;
+      const cells = row
+        .map((value, columnIndex) => {
+          if (!value) {
+            return '';
+          }
+
+          const cellRef = `${xlsxColumnName(columnIndex)}${rowNumber}`;
+
+          return `<c r="${cellRef}" t="inlineStr"><is><t>${value}</t></is></c>`;
+        })
+        .join('');
+
+      return `<row r="${rowNumber}">${cells}</row>`;
+    })
+    .join('');
+  const zip = new JSZip();
+  zip.file(
+    'xl/workbook.xml',
+    '<workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>',
+  );
+  zip.file(
+    'xl/_rels/workbook.xml.rels',
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>',
+  );
+  zip.file('xl/worksheets/sheet1.xml', `<worksheet><sheetData>${sheetRows}</sheetData></worksheet>`);
+
+  return new File([await zip.generateAsync({ type: 'arraybuffer' })], fileName, {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+};
+
+const xlsxColumnName = (index: number): string => {
+  let current = index + 1;
+  let name = '';
+
+  while (current > 0) {
+    const remainder = (current - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    current = Math.floor((current - 1) / 26);
+  }
+
+  return name;
 };
 
 const createTemplateDto = ({

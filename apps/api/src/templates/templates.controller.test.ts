@@ -22,7 +22,7 @@ describe('TemplatesController', () => {
       id: 'template_1',
       name: '新版模板',
     });
-    await expect(controller.publish('template_1', { versionName: 'r1' })).resolves.toEqual({
+    await expect(controller.publish('template_1', { versionName: 'v1' })).resolves.toEqual({
       template: { id: 'template_1' },
     });
     await expect(controller.createFromProfile({ profile: 'qa_quality' })).resolves.toEqual({
@@ -38,7 +38,7 @@ describe('TemplatesController', () => {
       actorId: undefined,
     });
     expect(service.update).toHaveBeenCalledWith('template_1', { name: '新版模板' });
-    expect(service.publish).toHaveBeenCalledWith('template_1', { versionName: 'r1' });
+    expect(service.publish).toHaveBeenCalledWith('template_1', { versionName: 'v1' });
     expect(service.createFromProfile).toHaveBeenCalledWith({ profile: 'qa_quality' });
     expect(service.deleteTemplate).toHaveBeenCalledWith('template_1');
   });

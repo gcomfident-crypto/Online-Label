@@ -214,6 +214,18 @@ describe('PropertyPanel', () => {
     });
     expect(screen.getByLabelText('关闭 AI 预审')).toBeChecked();
     expect(screen.getByTestId('designer-ai-review-collapse')).toHaveAttribute('aria-hidden', 'false');
+    const requirementInput = screen.getByLabelText('审核要求');
+    expect(requirementInput).toHaveAttribute(
+      'placeholder',
+      '例如：必须保留商品核心信息，不得新增不存在的信息。',
+    );
+    fireEvent.focus(requirementInput);
+    expect(requirementInput).toHaveAttribute('placeholder', '');
+    fireEvent.blur(requirementInput);
+    expect(requirementInput).toHaveAttribute(
+      'placeholder',
+      '例如：必须保留商品核心信息，不得新增不存在的信息。',
+    );
   });
 
   it('单行输入、多行文本和标签选择支持配置 LLM 提示并引用 ShowItem 字段', () => {
@@ -290,6 +302,7 @@ describe('PropertyPanel', () => {
 
     expect(screen.getByText('LLM提示')).toBeInTheDocument();
     expect(screen.getByLabelText('启用 LLM 提示')).not.toBeChecked();
+    expect(screen.queryByText('选项')).not.toBeInTheDocument();
   });
 
   it('分组容器只配置标题、说明、默认展开和布局列数', () => {

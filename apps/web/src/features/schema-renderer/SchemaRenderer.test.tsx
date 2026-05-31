@@ -73,7 +73,7 @@ describe('SchemaRenderer', () => {
     expect(screen.getByText('请比较两个回答的质量。')).toBeInTheDocument();
   });
 
-  it('show_item 单字段为空时保留暂无内容占位', () => {
+  it('show_item 单字段为空时不展示空字段值', () => {
     render(
       <SchemaRenderer
         schema={baseSchema([
@@ -86,7 +86,8 @@ describe('SchemaRenderer', () => {
       />,
     );
 
-    expect(screen.getByText('暂无内容')).toBeInTheDocument();
+    expect(screen.getByText('展示项 ShowItem')).toBeInTheDocument();
+    expect(screen.queryByText('暂无内容')).not.toBeInTheDocument();
   });
 
   it('show_item 支持按 displayConfig 表格逐行展示字段名和值', () => {
@@ -141,6 +142,60 @@ describe('SchemaRenderer', () => {
     expect(within(rows[6]).getByText('baseline-7b')).toBeInTheDocument();
     expect(within(table).queryByText('task_type')).not.toBeInTheDocument();
     expect(container.querySelector('.schema-field__show-table .schema-field__show-value--badge')).toBeNull();
+  });
+
+  it('show_item 自动把安全 URL 渲染为图片、视频和链接', () => {
+    const { container } = render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'material',
+            type: 'show_item',
+            label: '媒体题目',
+            displayConfig: {
+              layout: 'table',
+              fields: [
+                { sourceKey: 'image_url', label: '封面图', format: 'text' },
+                { sourceKey: 'video_url', label: '演示视频', format: 'text' },
+                { sourceKey: 'doc_url', label: '说明链接', format: 'text' },
+                { sourceKey: 'unsafe_url', label: '危险链接', format: 'text' },
+                { sourceKey: 'code_url', label: '代码链接', format: 'code' },
+              ],
+            },
+          },
+        ])}
+        rawData={{
+          image_url: 'https://www.w3schools.com/w3css/img_lights.jpg',
+          video_url: 'http://vjs.zencdn.net/v/oceans.mp4',
+          doc_url: 'https://example.com/doc',
+          unsafe_url: 'javascript:alert(1)',
+          code_url: 'https://www.w3schools.com/w3css/img_lights.jpg',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('img', { name: '封面图' })).toHaveAttribute(
+      'src',
+      'https://www.w3schools.com/w3css/img_lights.jpg',
+    );
+    expect(container.querySelectorAll('img.schema-field__show-resource-media')).toHaveLength(1);
+
+    const video = container.querySelector('video[src="http://vjs.zencdn.net/v/oceans.mp4"]');
+    expect(video).toBeInTheDocument();
+    expect(video).toHaveAttribute('controls');
+
+    expect(screen.getByRole('link', { name: 'https://example.com/doc' })).toHaveAttribute(
+      'target',
+      '_blank',
+    );
+    expect(screen.getByText('javascript:alert(1)')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'javascript:alert(1)' })).not.toBeInTheDocument();
+    expect(container.querySelector('pre.schema-field__show-value--code')).toHaveTextContent(
+      'https://www.w3schools.com/w3css/img_lights.jpg',
+    );
   });
 
   it('show_item 对 displayConfig 非表格布局也统一按表格展示', () => {
@@ -227,7 +282,7 @@ describe('SchemaRenderer', () => {
     expect(container.textContent).toContain('"priority": 2');
   });
 
-  it('show_item 自动识别字段缺少值时保持为空，不展示暂无内容占位', () => {
+  it('show_item 自动识别字段缺少值时不展示该字段', () => {
     render(
       <SchemaRenderer
         schema={baseSchema([
@@ -255,7 +310,7 @@ describe('SchemaRenderer', () => {
 
     const table = screen.getByRole('table', { name: '自动解析题目展示字段' });
     expect(within(table).getByText('问题')).toBeInTheDocument();
-    expect(within(table).getByText('回答 A')).toBeInTheDocument();
+    expect(within(table).queryByText('回答 A')).not.toBeInTheDocument();
     expect(within(table).queryByText('暂无内容')).not.toBeInTheDocument();
   });
 
@@ -1011,6 +1066,42 @@ describe('SchemaRenderer', () => {
     expect(screen.getByText('完整')).toHaveClass('schema-choice-bubble__surface');
   });
 
+  it('tag_select 让 labeler 通过加号自由新增标签，不展示预设选项', async () => {
+    const user = userEvent.setup();
+    const schema = baseSchema([
+      {
+        key: 'tags',
+        type: 'tag_select',
+        label: '标签',
+        options: [{ label: '预设标签', value: 'preset_tag' }],
+      },
+    ]);
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <SchemaRenderer
+          schema={schema}
+          rawData={{}}
+          value={answers}
+          mode="answer"
+          onChange={setAnswers}
+        />
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    expect(screen.queryByLabelText('预设标签')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '新增标签' }));
+    await user.type(screen.getByLabelText('新标签'), '质检{Enter}');
+
+    expect(screen.getByText('质检')).toHaveClass('task-tag-bubble__label');
+    expect(screen.getByRole('button', { name: '删除标签 质检' })).toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: '新标签输入' })).not.toBeInTheDocument();
+  });
+
   it('labeler 侧选项只展示选项文案，并在标题右侧展示说明和必填标识', () => {
     const { container } = render(
       <SchemaRenderer
@@ -1356,7 +1447,7 @@ describe('SchemaRenderer', () => {
       }),
     );
     await user.click(await within(tagsLlm).findByRole('button', { name: '采纳建议' }));
-    expect(screen.getByLabelText('准确性')).toBeChecked();
+    expect(screen.getByText('准确性')).toHaveClass('task-tag-bubble__label');
   });
 
   it('LLM 触发组件在 mock 请求失败时显示中文错误', async () => {
@@ -1486,11 +1577,12 @@ describe('SchemaRenderer', () => {
     expect(screen.queryByText('卖点关键词为必填项。')).not.toBeInTheDocument();
     expect(document.querySelector('.schema-field__errors')).toBeNull();
 
-    await user.click(screen.getByLabelText('降噪'));
+    await user.click(screen.getByRole('button', { name: '新增标签' }));
+    await user.type(screen.getByLabelText('新标签'), '降噪{Enter}');
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
         category: 'electronics',
-        keywords: ['noise_reduction'],
+        keywords: ['降噪'],
       }),
     );
 
@@ -1955,7 +2047,7 @@ describe('SchemaRenderer', () => {
     ]);
   });
 
-  it('checkbox 和 tag_select 必须是字符串数组且值在 options 内', () => {
+  it('checkbox 必须来自选项，tag_select 允许 labeler 自由新增标签', () => {
     const schema = baseSchema([
       {
         key: 'tags',
@@ -1973,7 +2065,9 @@ describe('SchemaRenderer', () => {
 
     expect(validateSchemaAnswers(schema, { tags: 'clear', keywords: ['title', 'other'] })).toEqual([
       { fieldKey: 'tags', message: '标签必须是字符串数组。' },
-      { fieldKey: 'keywords', message: '关键词包含无效选项。' },
+    ]);
+    expect(validateSchemaAnswers(schema, { tags: ['other'], keywords: ['title', 'other'] })).toEqual([
+      { fieldKey: 'tags', message: '标签包含无效选项。' },
     ]);
   });
 

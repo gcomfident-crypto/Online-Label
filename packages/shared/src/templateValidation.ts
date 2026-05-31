@@ -43,7 +43,7 @@ export type TemplateCompatibilityReport = {
   riskMessages: string[];
 };
 
-const OPTION_FIELD_TYPES = new Set<SchemaField['type']>(['radio', 'checkbox', 'tag_select']);
+const OPTION_FIELD_TYPES = new Set<SchemaField['type']>(['radio', 'checkbox']);
 
 export const validateTemplateSchema = (
   schema: LabelHubSchema,

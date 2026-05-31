@@ -91,10 +91,10 @@ describe('TemplatesService', () => {
       actorId: 'user_owner_001',
     });
 
-    const published = await service.publish(template.id, { versionName: 'r1' });
+    const published = await service.publish(template.id, { versionName: 'v1' });
 
     expect(published.template.status).toBe('PUBLISHED');
-    expect(published.template.schemaVersion).toBe('r1');
+    expect(published.template.schemaVersion).toBe('v1');
     expect(published.template.version).toBe(1);
     expect(published.compatibilityReport.compatible).toBe(true);
 

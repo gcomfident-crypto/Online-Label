@@ -1912,6 +1912,29 @@ p {
   box-shadow: none;
 }
 
+.schema-tag-input .task-tag-editor__bubbles {
+  gap: 0;
+  margin: -4px;
+}
+
+.schema-tag-input .task-tag-bubble {
+  font-size: 13px;
+}
+
+.schema-tag-input .task-tag-composer {
+  width: 164px;
+}
+
+.schema-tag-input .task-tag-bubble__remove:hover:not(:disabled),
+.schema-tag-input .task-tag-bubble__remove:focus-visible:not(:disabled),
+.schema-tag-input .task-tag-composer__confirm:hover:not(:disabled),
+.schema-tag-input .task-tag-composer__confirm:focus-visible:not(:disabled) {
+  border-color: #306df7;
+  color: #1d4ed8;
+  background: #ffffff;
+  box-shadow: 0 5px 12px rgba(29, 78, 216, 0.18);
+}
+
 .schema-field span,
 .schema-field legend,
 .schema-field h3,
@@ -2171,10 +2194,18 @@ p {
 }
 
 .schema-field__media {
+  display: block;
   max-width: 100%;
+  max-height: 320px;
   border: 1px solid #d8e2f3;
   border-radius: 8px;
   background: #eef4ff;
+  object-fit: contain;
+}
+
+video.schema-field__media {
+  width: min(100%, 560px);
+  background: #0f172a;
 }
 
 .schema-field__compare-grid {
@@ -2238,6 +2269,41 @@ p {
   overflow: hidden;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.schema-field__show-value--resource {
+  display: grid;
+  gap: 8px;
+  overflow: visible;
+}
+
+.schema-field__show-resource-media {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 280px;
+  border: 1px solid #d8e2f3;
+  border-radius: 8px;
+  background: #f8fbff;
+  object-fit: contain;
+}
+
+video.schema-field__show-resource-media {
+  width: min(100%, 560px);
+}
+
+.schema-field__show-resource-link {
+  color: #306df8;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  word-break: break-all;
+}
+
+.schema-field__show-resource-link:hover,
+.schema-field__show-resource-link:focus-visible {
+  color: #1f5fe5;
+  outline: none;
 }
 
 .schema-field__show-value--badge {
@@ -9843,9 +9909,13 @@ p {
 
 .task-close-confirm__close:hover:not(:disabled),
 .task-close-confirm__close:focus-visible:not(:disabled) {
+  border-color: transparent;
   color: #9ca3af;
   background: transparent;
+  box-shadow: none;
+  filter: none;
   outline: none;
+  transform: none;
 }
 
 .task-close-confirm__panel p {
@@ -9884,7 +9954,10 @@ p {
   border-color: #c9d8f6;
   color: #306df7;
   background: transparent;
+  box-shadow: none;
+  filter: none;
   outline: none;
+  transform: none;
 }
 
 .task-close-confirm__save {
@@ -9899,7 +9972,10 @@ p {
   border-color: #306df7;
   color: #ffffff;
   background: #306df7;
+  box-shadow: none;
+  filter: none;
   outline: none;
+  transform: none;
 }
 
 @media (min-width: 1600px) {

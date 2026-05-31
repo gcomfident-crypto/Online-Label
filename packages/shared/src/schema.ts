@@ -96,6 +96,14 @@ export type ShowItemDisplayConfig = {
   fields: readonly ShowItemDisplayField[];
 };
 
+export type LabelHubSchemaMetadata = {
+  autoTemplateSource?: {
+    sourceFileName?: string;
+    previewRecords?: readonly Record<string, unknown>[];
+  };
+  [key: string]: unknown;
+};
+
 export const FIELD_AI_REVIEW_ROLES = [
   'annotation_answer',
   'source_context',
@@ -164,6 +172,7 @@ export type LabelHubSchema = {
   fields: readonly SchemaField[];
   linkageRules?: readonly FieldLinkageRule[];
   aiReviewPrompt?: AiReviewPromptConfig;
+  metadata?: LabelHubSchemaMetadata;
 };
 
 export type LabelhubSchema = LabelHubSchema;

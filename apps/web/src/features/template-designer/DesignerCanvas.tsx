@@ -662,6 +662,7 @@ export const DesignerCanvas = ({
       ) : null}
       <div
         ref={setCanvasNode}
+        data-designer-drop-target-kind="root"
         className={[
           'designer-canvas',
           isDropHighlighted ? 'is-over' : '',
@@ -746,7 +747,7 @@ export const DesignerCanvas = ({
             />
           </section>
         ) : schema.fields.length === 0 ? (
-          <div className="designer-canvas__empty">
+          <div className="designer-canvas__empty" data-designer-drop-target-kind="root">
             拖入此处新增字段
             {shouldAppendPreview && activeDropPreview ? (
               <DesignerDropInsertionMarker
@@ -757,7 +758,7 @@ export const DesignerCanvas = ({
             ) : null}
           </div>
         ) : (
-          <div className="designer-canvas__fields">
+          <div className="designer-canvas__fields" data-designer-drop-target-kind="root">
             <SortableContext items={fieldKeys} strategy={verticalListSortingStrategy}>
               {schema.fields.map((field) => (
                 <SortableDesignerFieldCard

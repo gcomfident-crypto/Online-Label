@@ -452,6 +452,7 @@ const AiReviewProperties = ({
 }) => {
   const aiReview = normalizeAiReviewConfig(field);
   const [isExpanded, setIsExpanded] = useState(() => shouldExpandAiReview(field));
+  const [isRequirementFocused, setIsRequirementFocused] = useState(false);
   const selectedFieldKey = field.fieldKey ?? field.key;
 
   useEffect(() => {
@@ -494,9 +495,13 @@ const AiReviewProperties = ({
           <PropertyRow label="审核要求">
             <textarea
               aria-label="审核要求"
-              placeholder="例如：必须保留商品核心信息，不得新增不存在的信息。"
+              placeholder={
+                isRequirementFocused ? '' : '例如：必须保留商品核心信息，不得新增不存在的信息。'
+              }
               value={aiReview.requirement}
+              onBlur={() => setIsRequirementFocused(false)}
               onChange={(event) => updateAiReview({ requirement: event.target.value })}
+              onFocus={() => setIsRequirementFocused(true)}
             />
           </PropertyRow>
         </div>
@@ -1219,7 +1224,7 @@ const parseMimeTypes = (value: string): string[] => {
 };
 
 const isChoiceField = (field: SchemaField): boolean =>
-  field.type === 'radio' || field.type === 'checkbox' || field.type === 'tag_select';
+  field.type === 'radio' || field.type === 'checkbox';
 
 type OptionComposerState = 'closed' | 'closing' | 'committing' | 'open';
 type OptionDragState = {

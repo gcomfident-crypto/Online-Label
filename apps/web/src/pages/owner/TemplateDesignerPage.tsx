@@ -71,6 +71,9 @@ const DESIGNER_PREVIEW_RAW_DATA = {
   model_b: 'model-b',
 };
 
+const DESIGNER_CANVAS_AUTOSCROLL_EDGE = 72;
+const DESIGNER_CANVAS_AUTOSCROLL_MAX_STEP = 22;
+
 type LlmAssistPreviewResult = {
   datasetKind?: string;
   targetFieldKey?: string;
@@ -90,6 +93,7 @@ const TEMPLATE_DESIGNER_CLOSE_ANIMATION_MS = 240;
 const TEMPLATE_FALLBACK_PAGE_SIZE = 8;
 const TEMPLATE_TABLE_ROW_HEIGHT = 58;
 const DESIGNER_DROP_TARGET_LOCK_MARGIN = 12;
+const AUTO_TEMPLATE_SOURCE_METADATA_KEY = 'autoTemplateSource';
 
 type TemplateStatusFilter = TemplateDto['status'] | 'ALL';
 type TemplateSummary = {
@@ -145,6 +149,90 @@ const createDesignerDirtySnapshot = ({
     status,
   });
 
+type DesignerSourceContext = {
+  previewRecords: DatasetRecord[];
+  sourceFileName?: string;
+};
+
+const EMPTY_DESIGNER_SOURCE_CONTEXT: DesignerSourceContext = {
+  previewRecords: [],
+};
+
+const readDesignerSourceContext = (schema: LabelHubSchema): DesignerSourceContext => {
+  const metadataSource = schema.metadata?.[AUTO_TEMPLATE_SOURCE_METADATA_KEY];
+
+  if (!isPlainRecord(metadataSource)) {
+    return EMPTY_DESIGNER_SOURCE_CONTEXT;
+  }
+
+  const sourceFileName =
+    typeof metadataSource.sourceFileName === 'string' && metadataSource.sourceFileName.trim()
+      ? metadataSource.sourceFileName.trim()
+      : undefined;
+  const previewRecords = Array.isArray(metadataSource.previewRecords)
+    ? metadataSource.previewRecords.filter(isDatasetRecord)
+    : [];
+
+  if (!sourceFileName && previewRecords.length === 0) {
+    return EMPTY_DESIGNER_SOURCE_CONTEXT;
+  }
+
+  return {
+    previewRecords,
+    ...(sourceFileName ? { sourceFileName } : {}),
+  };
+};
+
+const withDesignerSourceContext = (
+  schema: LabelHubSchema,
+  context: {
+    previewRecords?: readonly DatasetRecord[];
+    sourceFileName?: string;
+  },
+): LabelHubSchema => {
+  const previewRecords = (context.previewRecords ?? []).filter(isDatasetRecord);
+  const sourceFileName = context.sourceFileName?.trim();
+
+  if (!sourceFileName && previewRecords.length === 0) {
+    return withoutDesignerSourceContext(schema);
+  }
+
+  return {
+    ...schema,
+    metadata: {
+      ...(schema.metadata ?? {}),
+      [AUTO_TEMPLATE_SOURCE_METADATA_KEY]: {
+        ...(sourceFileName ? { sourceFileName } : {}),
+        previewRecords,
+      },
+    },
+  };
+};
+
+const withoutDesignerSourceContext = (schema: LabelHubSchema): LabelHubSchema => {
+  if (!schema.metadata || !(AUTO_TEMPLATE_SOURCE_METADATA_KEY in schema.metadata)) {
+    return schema;
+  }
+
+  const { [AUTO_TEMPLATE_SOURCE_METADATA_KEY]: _removed, ...metadata } = schema.metadata;
+
+  if (Object.keys(metadata).length === 0) {
+    const { metadata: _schemaMetadata, ...schemaWithoutMetadata } = schema;
+
+    return schemaWithoutMetadata;
+  }
+
+  return {
+    ...schema,
+    metadata,
+  };
+};
+
+const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const isDatasetRecord = (value: unknown): value is DatasetRecord => isPlainRecord(value);
+
 const resolveCanvasCardWidth = (): number | null => {
   const fieldCard = document.querySelector(
     '.designer-canvas > .designer-canvas__fields > .designer-field-card:not(.designer-field-card--drop-preview)',
@@ -177,6 +265,40 @@ const pointIsInsideDesignerCanvas = (point: { x: number; y: number }): boolean =
   );
 };
 
+const scrollDesignerCanvasNearPointer = (point: { x: number; y: number }): boolean => {
+  const canvas = document.querySelector<HTMLElement>('.designer-canvas');
+  const rect = canvas?.getBoundingClientRect();
+
+  if (!canvas || !rect) {
+    return false;
+  }
+
+  const distanceToTop = point.y - rect.top;
+  const distanceToBottom = rect.bottom - point.y;
+  let scrollDelta = 0;
+
+  if (distanceToTop >= 0 && distanceToTop < DESIGNER_CANVAS_AUTOSCROLL_EDGE) {
+    scrollDelta = -Math.ceil(
+      ((DESIGNER_CANVAS_AUTOSCROLL_EDGE - distanceToTop) / DESIGNER_CANVAS_AUTOSCROLL_EDGE) *
+        DESIGNER_CANVAS_AUTOSCROLL_MAX_STEP,
+    );
+  } else if (distanceToBottom >= 0 && distanceToBottom < DESIGNER_CANVAS_AUTOSCROLL_EDGE) {
+    scrollDelta = Math.ceil(
+      ((DESIGNER_CANVAS_AUTOSCROLL_EDGE - distanceToBottom) / DESIGNER_CANVAS_AUTOSCROLL_EDGE) *
+        DESIGNER_CANVAS_AUTOSCROLL_MAX_STEP,
+    );
+  }
+
+  if (scrollDelta === 0) {
+    return false;
+  }
+
+  const previousScrollTop = canvas.scrollTop;
+  canvas.scrollTop += scrollDelta;
+
+  return canvas.scrollTop !== previousScrollTop;
+};
+
 const pointerCoordinatesFromActivator = (event: Event): { x: number; y: number } | null => {
   if ('clientX' in event && 'clientY' in event) {
     return {
@@ -188,7 +310,23 @@ const pointerCoordinatesFromActivator = (event: Event): { x: number; y: number }
   return null;
 };
 
+const pointerCoordinatesFromDragEvent = (
+  event: MouseEvent | PointerEvent | TouchEvent,
+): { x: number; y: number } | null => {
+  if ('touches' in event) {
+    const touch = event.touches[0] ?? event.changedTouches[0];
+
+    return touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+
+  return {
+    x: event.clientX,
+    y: event.clientY,
+  };
+};
+
 type LockedDesignerDropTarget = {
+  element: HTMLElement;
   rect: DOMRect;
   target: DesignerDropTarget;
 };
@@ -208,6 +346,7 @@ const isPointInsideRect = (
 
 const resolveDesignerDropTargetElement = (
   element: Element,
+  point: { x: number; y: number },
 ): LockedDesignerDropTarget | null => {
   const targetElement = element.closest<HTMLElement>('[data-designer-drop-target-kind]');
 
@@ -216,12 +355,21 @@ const resolveDesignerDropTargetElement = (
   }
 
   const kind = targetElement.dataset.designerDropTargetKind;
+  const withPointBeforeField = (target: DesignerDropTarget): LockedDesignerDropTarget => ({
+    element: targetElement,
+    rect: targetElement.getBoundingClientRect(),
+    target: applyBeforeFieldFromPoint(targetElement, target, point),
+  });
+
+  if (kind === 'root') {
+    return withPointBeforeField({ kind: 'root' });
+  }
 
   if (kind === 'group') {
     const groupKey = targetElement.dataset.designerGroupKey;
 
     return groupKey
-      ? { target: { kind: 'group', groupKey }, rect: targetElement.getBoundingClientRect() }
+      ? withPointBeforeField({ kind: 'group', groupKey })
       : null;
   }
 
@@ -230,14 +378,114 @@ const resolveDesignerDropTargetElement = (
     const tabKey = targetElement.dataset.designerTabKey;
 
     return tabsKey && tabKey
-      ? { target: { kind: 'tab', tabsKey, tabKey }, rect: targetElement.getBoundingClientRect() }
+      ? withPointBeforeField({ kind: 'tab', tabsKey, tabKey })
       : null;
   }
 
   return null;
 };
 
-const resolveDesignerDropTargetAtPoint = (
+const applyBeforeFieldFromPoint = (
+  targetElement: HTMLElement,
+  target: DesignerDropTarget,
+  point: { x: number; y: number },
+): DesignerDropTarget => {
+  const beforeFieldKey = resolveBeforeFieldKeyFromPoint(targetElement, point);
+
+  return beforeFieldKey ? { ...target, beforeFieldKey } : target;
+};
+
+const resolveBeforeFieldKeyFromPoint = (
+  targetElement: HTMLElement,
+  point: { x: number; y: number },
+): string | undefined => {
+  const fieldEntries = Array.from(
+    targetElement.querySelectorAll<HTMLElement>('.designer-field-card[data-designer-field-key]'),
+  )
+    .filter((fieldElement) => {
+      if (
+        fieldElement.classList.contains('is-dragging') ||
+        fieldElement.classList.contains('is-removing')
+      ) {
+        return false;
+      }
+
+      const nearestParentDropTarget = fieldElement.parentElement?.closest('[data-designer-drop-target-kind]');
+
+      if (nearestParentDropTarget === targetElement) {
+        return true;
+      }
+
+      return (
+        targetElement.classList.contains('designer-canvas') &&
+        nearestParentDropTarget instanceof HTMLElement &&
+        nearestParentDropTarget.classList.contains('designer-canvas__fields')
+      );
+    })
+    .map((fieldElement) => ({
+      key: fieldElement.dataset.designerFieldKey,
+      rect: fieldElement.getBoundingClientRect(),
+    }))
+    .filter((entry): entry is { key: string; rect: DOMRect } => Boolean(entry.key))
+    .sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
+
+  if (fieldEntries.length === 0) {
+    return undefined;
+  }
+
+  const rows: Array<{
+    bottom: number;
+    entries: typeof fieldEntries;
+    top: number;
+  }> = [];
+
+  for (const entry of fieldEntries) {
+    const row = rows.find((candidate) => Math.abs(candidate.top - entry.rect.top) <= 8);
+
+    if (row) {
+      row.entries.push(entry);
+      row.top = Math.min(row.top, entry.rect.top);
+      row.bottom = Math.max(row.bottom, entry.rect.bottom);
+    } else {
+      rows.push({
+        bottom: entry.rect.bottom,
+        entries: [entry],
+        top: entry.rect.top,
+      });
+    }
+  }
+
+  for (const row of rows) {
+    row.entries.sort((left, right) => left.rect.left - right.rect.left);
+  }
+
+  rows.sort((left, right) => left.top - right.top);
+
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+    const row = rows[rowIndex]!;
+
+    if (point.y < row.top - 4) {
+      return row.entries[0]?.key;
+    }
+
+    if (point.y <= row.bottom + 4) {
+      if (row.entries.length === 1) {
+        const entry = row.entries[0]!;
+        const rowMiddle = entry.rect.top + entry.rect.height / 2;
+
+        return point.y < rowMiddle ? entry.key : rows[rowIndex + 1]?.entries[0]?.key;
+      }
+
+      const beforeEntry = row.entries.find((entry) => point.x < entry.rect.left + entry.rect.width / 2);
+
+      return beforeEntry?.key ?? rows[rowIndex + 1]?.entries[0]?.key;
+    }
+  }
+
+  return undefined;
+};
+
+export const resolveDesignerDropTargetAtPoint = (
   point: { x: number; y: number },
 ): LockedDesignerDropTarget | null => {
   if (typeof document.elementsFromPoint !== 'function') {
@@ -255,7 +503,7 @@ const resolveDesignerDropTargetAtPoint = (
 
     visitedElements.add(targetElement);
 
-    const target = resolveDesignerDropTargetElement(targetElement);
+    const target = resolveDesignerDropTargetElement(targetElement, point);
 
     if (target) {
       return target;
@@ -264,6 +512,14 @@ const resolveDesignerDropTargetAtPoint = (
 
   return null;
 };
+
+export const resolveDesignerDropTargetForProjection = ({
+  overTarget,
+  pointTarget,
+}: {
+  overTarget: DesignerDropTarget | null;
+  pointTarget: DesignerDropTarget | null;
+}): DesignerDropTarget => pointTarget ?? overTarget ?? { kind: 'root' };
 
 const createAutoClassificationSchemaRecords = (
   request: AutoTemplateFieldClassificationRequest,
@@ -374,6 +630,10 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const [toastMessages, setToastMessages] = useState<ToastMessage[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const dragStartPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const latestDragPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const dragPointerProjectionFrameRef = useRef<number | null>(null);
+  const dragAutoScrollPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const dragAutoScrollFrameRef = useRef<number | null>(null);
   const dropTargetLockRef = useRef<LockedDesignerDropTarget | null>(null);
   const commitAnimationTimerRef = useRef<number | null>(null);
   const designerCloseTimerRef = useRef<number | null>(null);
@@ -426,7 +686,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       status: templateStatus,
     });
   };
-  const nextVersionName = `r${templateVersion + 1}`;
+  const nextVersionName = `v${templateVersion + 1}`;
   const allTemplateRows = useMemo<TemplateManagerRow[]>(
     () =>
       templates.map((template, index) => {
@@ -532,8 +792,25 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
   useEffect(() => {
     isMountedRef.current = true;
+    const updateLatestPointer = (event: MouseEvent | PointerEvent | TouchEvent) => {
+      const point = pointerCoordinatesFromDragEvent(event);
+
+      if (point) {
+        latestDragPointerRef.current = point;
+      }
+    };
+    const listenerOptions = { capture: true };
+    const touchListenerOptions = { capture: true, passive: true };
+
+    window.addEventListener('pointermove', updateLatestPointer, listenerOptions);
+    window.addEventListener('mousemove', updateLatestPointer, listenerOptions);
+    window.addEventListener('touchmove', updateLatestPointer, touchListenerOptions);
 
     return () => {
+      window.removeEventListener('pointermove', updateLatestPointer, listenerOptions);
+      window.removeEventListener('mousemove', updateLatestPointer, listenerOptions);
+      window.removeEventListener('touchmove', updateLatestPointer, touchListenerOptions);
+
       if (commitAnimationTimerRef.current) {
         window.clearTimeout(commitAnimationTimerRef.current);
       }
@@ -544,6 +821,14 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
       if (closeConfirmTimerRef.current) {
         window.clearTimeout(closeConfirmTimerRef.current);
+      }
+
+      if (dragAutoScrollFrameRef.current) {
+        window.cancelAnimationFrame(dragAutoScrollFrameRef.current);
+      }
+
+      if (dragPointerProjectionFrameRef.current) {
+        window.cancelAnimationFrame(dragPointerProjectionFrameRef.current);
       }
 
       isMountedRef.current = false;
@@ -578,14 +863,33 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setIsMaterialDropSettling(true);
   };
 
+  const stopDesignerCanvasAutoScroll = () => {
+    dragAutoScrollPointerRef.current = null;
+
+    if (dragAutoScrollFrameRef.current) {
+      window.cancelAnimationFrame(dragAutoScrollFrameRef.current);
+      dragAutoScrollFrameRef.current = null;
+    }
+  };
+
+  const stopDragPointerProjection = () => {
+    if (dragPointerProjectionFrameRef.current) {
+      window.cancelAnimationFrame(dragPointerProjectionFrameRef.current);
+      dragPointerProjectionFrameRef.current = null;
+    }
+  };
+
   const resetDragState = () => {
     setDraggingFieldKey(null);
     setDraggingMaterialType(null);
     setIsDraggingMaterialOverCanvas(false);
     setMaterialDropTarget(null);
     setMaterialOverlayWidth(null);
+    stopDragPointerProjection();
+    stopDesignerCanvasAutoScroll();
     dropTargetLockRef.current = null;
     dragStartPointerRef.current = null;
+    latestDragPointerRef.current = null;
   };
 
   const showToast = (message: ToastMessage): string => {
@@ -658,6 +962,10 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   };
 
   const resolveCurrentDragPointer = (event: DragMoveEvent | DragOverEvent | DragEndEvent) => {
+    if (latestDragPointerRef.current) {
+      return latestDragPointerRef.current;
+    }
+
     const startPointer = dragStartPointerRef.current;
 
     if (!startPointer) {
@@ -671,6 +979,13 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   };
 
   const resolveLockedDropTarget = (point: { x: number; y: number }): DesignerDropTarget | null => {
+    const nextTarget = resolveDesignerDropTargetAtPoint(point);
+
+    if (nextTarget) {
+      dropTargetLockRef.current = nextTarget;
+      return nextTarget.target;
+    }
+
     const lockedTarget = dropTargetLockRef.current;
 
     if (
@@ -681,16 +996,31 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     }
 
     dropTargetLockRef.current = null;
+    return null;
+  };
 
-    const nextTarget = resolveDesignerDropTargetAtPoint(point);
-
-    if (!nextTarget) {
-      return null;
+  const resolveMaterialDropProjectionAtPoint = (
+    type: MaterialSpec['type'],
+    currentPointer: { x: number; y: number },
+    overId?: string | null,
+  ) => {
+    if (!pointIsInsideDesignerCanvas(currentPointer)) {
+      return {
+        insideCanvas: false,
+        target: null,
+        width: null,
+      };
     }
 
-    dropTargetLockRef.current = nextTarget;
+    const overTarget = resolveDesignerDropTarget(schema, overId);
+    const pointTarget = resolveLockedDropTarget(currentPointer);
+    const target = resolveDesignerDropTargetForProjection({ overTarget, pointTarget });
 
-    return nextTarget.target;
+    return {
+      insideCanvas: true,
+      target,
+      width: resolveCanvasCardWidth(),
+    };
   };
 
   const resolveMaterialDropProjection = (event: DragMoveEvent | DragOverEvent | DragEndEvent) => {
@@ -701,29 +1031,12 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       return null;
     }
 
-    if (!pointIsInsideDesignerCanvas(currentPointer)) {
-      return {
-        insideCanvas: false,
-        target: null,
-        width: null,
-      };
-    }
-
-    const overId = event.over?.id ? String(event.over.id) : null;
-    const target = resolveLockedDropTarget(currentPointer) ??
-      resolveDesignerDropTarget(schema, overId) ??
-      { kind: 'root' };
-
-    return {
-      insideCanvas: true,
-      target,
-      width: resolveCanvasCardWidth(),
-    };
+    return resolveMaterialDropProjectionAtPoint(type, currentPointer, event.over?.id ? String(event.over.id) : null);
   };
 
-  const updateMaterialDropProjection = (event: DragMoveEvent | DragOverEvent) => {
-    const projection = resolveMaterialDropProjection(event);
-
+  const applyMaterialDropProjection = (
+    projection: ReturnType<typeof resolveMaterialDropProjectionAtPoint> | null,
+  ) => {
     if (!projection?.insideCanvas) {
       setIsDraggingMaterialOverCanvas(false);
       setMaterialDropTarget(null);
@@ -736,6 +1049,102 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setMaterialOverlayWidth(projection.width);
   };
 
+  const scheduleDesignerCanvasAutoScroll = (
+    type: MaterialSpec['type'],
+    point: { x: number; y: number },
+  ) => {
+    dragAutoScrollPointerRef.current = point;
+
+    if (dragAutoScrollFrameRef.current) {
+      return;
+    }
+
+    const runAutoScroll = () => {
+      dragAutoScrollFrameRef.current = null;
+      const latestPoint = dragAutoScrollPointerRef.current;
+
+      if (!latestPoint) {
+        return;
+      }
+
+      if (!scrollDesignerCanvasNearPointer(latestPoint)) {
+        return;
+      }
+
+      applyMaterialDropProjection(resolveMaterialDropProjectionAtPoint(type, latestPoint));
+      dragAutoScrollFrameRef.current = window.requestAnimationFrame(runAutoScroll);
+    };
+
+    dragAutoScrollFrameRef.current = window.requestAnimationFrame(runAutoScroll);
+  };
+
+  const updateMaterialDropProjection = (event: DragMoveEvent | DragOverEvent) => {
+    const type = event.active.data.current?.type as MaterialSpec['type'] | undefined;
+    const currentPointer = resolveCurrentDragPointer(event);
+
+    if (!type || !currentPointer) {
+      return;
+    }
+
+    const projection = resolveMaterialDropProjectionAtPoint(
+      type,
+      currentPointer,
+      event.over?.id ? String(event.over.id) : null,
+    );
+
+    if (!projection?.insideCanvas) {
+      stopDesignerCanvasAutoScroll();
+      applyMaterialDropProjection(projection);
+      return;
+    }
+
+    scheduleDesignerCanvasAutoScroll(type, currentPointer);
+    applyMaterialDropProjection(projection);
+  };
+
+  useEffect(() => {
+    if (!draggingMaterialType) {
+      return undefined;
+    }
+
+    const updateProjectionFromPointer = (event: MouseEvent | PointerEvent | TouchEvent) => {
+      const point = pointerCoordinatesFromDragEvent(event);
+
+      if (!point) {
+        return;
+      }
+
+      latestDragPointerRef.current = point;
+      stopDragPointerProjection();
+      dragPointerProjectionFrameRef.current = window.requestAnimationFrame(() => {
+        dragPointerProjectionFrameRef.current = null;
+        const projection = resolveMaterialDropProjectionAtPoint(draggingMaterialType, point);
+
+        if (!projection?.insideCanvas) {
+          stopDesignerCanvasAutoScroll();
+          applyMaterialDropProjection(projection);
+          return;
+        }
+
+        scheduleDesignerCanvasAutoScroll(draggingMaterialType, point);
+        applyMaterialDropProjection(projection);
+      });
+    };
+    const listenerOptions = { capture: true };
+    const touchListenerOptions = { capture: true, passive: true };
+
+    window.addEventListener('pointermove', updateProjectionFromPointer, listenerOptions);
+    window.addEventListener('mousemove', updateProjectionFromPointer, listenerOptions);
+    window.addEventListener('touchmove', updateProjectionFromPointer, touchListenerOptions);
+
+    return () => {
+      window.removeEventListener('pointermove', updateProjectionFromPointer, listenerOptions);
+      window.removeEventListener('mousemove', updateProjectionFromPointer, listenerOptions);
+      window.removeEventListener('touchmove', updateProjectionFromPointer, touchListenerOptions);
+      stopDragPointerProjection();
+    };
+  }, [draggingMaterialType, schema]);
+
   const handleDragStart = (event: DragStartEvent) => {
     const fieldKey = event.active.data.current?.fieldKey;
     const type = event.active.data.current?.type as MaterialSpec['type'] | undefined;
@@ -745,7 +1154,9 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setIsDraggingMaterialOverCanvas(false);
     setMaterialDropTarget(null);
     setMaterialOverlayWidth(null);
-    dragStartPointerRef.current = pointerCoordinatesFromActivator(event.activatorEvent);
+    const startPointer = pointerCoordinatesFromActivator(event.activatorEvent);
+    dragStartPointerRef.current = startPointer;
+    latestDragPointerRef.current = startPointer;
   };
 
   const handleDragMove = (event: DragMoveEvent) => {
@@ -761,19 +1172,18 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     const fieldKey = event.active.data.current?.fieldKey;
     const overId = event.over?.id;
     const materialProjection = resolveMaterialDropProjection(event);
+    const isFieldDrag = event.active.data.current?.kind === 'field' && typeof fieldKey === 'string';
+    const fieldDropPointer = isFieldDrag ? resolveCurrentDragPointer(event) : null;
+    const fieldPointTarget =
+      fieldDropPointer && pointIsInsideDesignerCanvas(fieldDropPointer)
+        ? resolveLockedDropTarget(fieldDropPointer)
+        : null;
 
     resetDragState();
 
-    if (
-      event.active.data.current?.kind === 'field' &&
-      typeof fieldKey === 'string'
-    ) {
-      const currentPointer = resolveCurrentDragPointer(event);
-      const pointTarget =
-        currentPointer && pointIsInsideDesignerCanvas(currentPointer)
-          ? resolveLockedDropTarget(currentPointer)
-          : null;
-      const target = pointTarget ?? resolveDesignerDropTarget(schema, overId ? String(overId) : null);
+    if (isFieldDrag) {
+      const overTarget = resolveDesignerDropTarget(schema, overId ? String(overId) : null);
+      const target = fieldPointTarget ?? overTarget;
 
       if (target && target.beforeFieldKey !== fieldKey) {
         moveFieldToTarget(fieldKey, target);
@@ -816,9 +1226,10 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const openExistingTemplate = (template: TemplateDto) => {
     autoClassificationRunRef.current += 1;
     clearDesignerCloseTimer();
+    const sourceContext = readDesignerSourceContext(template.schema);
     designerBaselineSnapshotRef.current = createDesignerDirtySnapshot({
       name: template.name,
-      previewRecords: [],
+      previewRecords: sourceContext.previewRecords,
       schema: template.schema,
       status: template.status,
     });
@@ -828,8 +1239,8 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setTemplateVersion(template.version);
     setTemplateStatus(template.status);
     setTemplateDraftReturnTo(null);
-    setDesignerPreviewRawData(DESIGNER_PREVIEW_RAW_DATA);
-    setDesignerPreviewRecords([]);
+    setDesignerPreviewRawData(sourceContext.previewRecords[0] ?? DESIGNER_PREVIEW_RAW_DATA);
+    setDesignerPreviewRecords([...sourceContext.previewRecords]);
     setIsDesignerPreviewOpen(false);
     setIsDesignerClosing(false);
     setIsDesignerOpen(true);
@@ -838,9 +1249,10 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const openPersistedDraft = (draft: PersistedDesignerDraft) => {
     autoClassificationRunRef.current += 1;
     clearDesignerCloseTimer();
+    const sourceContext = readDesignerSourceContext(draft.schema);
     designerBaselineSnapshotRef.current = createDesignerDirtySnapshot({
       name: draft.name ?? templateNameFromSchema(draft.schema),
-      previewRecords: [],
+      previewRecords: sourceContext.previewRecords,
       schema: draft.schema,
       status: draft.status,
     });
@@ -850,8 +1262,8 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setTemplateVersion(draft.version);
     setTemplateStatus(draft.status);
     setTemplateDraftReturnTo(null);
-    setDesignerPreviewRawData(DESIGNER_PREVIEW_RAW_DATA);
-    setDesignerPreviewRecords([]);
+    setDesignerPreviewRawData(sourceContext.previewRecords[0] ?? DESIGNER_PREVIEW_RAW_DATA);
+    setDesignerPreviewRecords([...sourceContext.previewRecords]);
     setIsDesignerPreviewOpen(false);
     showStatusToast('已恢复最近保存的草稿。');
     setIsDesignerClosing(false);
@@ -934,16 +1346,22 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
   const applyTemplateDraftHandoff = (draft: TemplateDraftHandoff) => {
     clearDesignerCloseTimer();
+    const previewRecords = [...(draft.previewRecords ?? [])];
+    const schemaWithSourceContext = withDesignerSourceContext(draft.schema, {
+      previewRecords,
+      sourceFileName: draft.sourceFileName,
+    });
+
     designerBaselineSnapshotRef.current = null;
-    setSchema(draft.schema);
-    selectField(draft.schema.fields[0]?.key ?? null);
+    setSchema(schemaWithSourceContext);
+    selectField(schemaWithSourceContext.fields[0]?.key ?? null);
     setTemplateId(null);
     setTemplateDraftName(draft.name);
     setTemplateVersion(0);
     setTemplateStatus('DRAFT');
     setTemplateDraftReturnTo(draft.returnTo ?? null);
-    setDesignerPreviewRawData(draft.previewRecords?.[0] ?? DESIGNER_PREVIEW_RAW_DATA);
-    setDesignerPreviewRecords([...(draft.previewRecords ?? [])]);
+    setDesignerPreviewRawData(previewRecords[0] ?? DESIGNER_PREVIEW_RAW_DATA);
+    setDesignerPreviewRecords(previewRecords);
     setIsDesignerPreviewOpen(false);
     setIsDesignerClosing(false);
     setIsDesignerOpen(true);
@@ -1137,7 +1555,14 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       return null;
     }
 
-    const draftSchema = templateStatus === 'PUBLISHED' ? { ...schema, schemaVersion: 'draft' } : schema;
+    const sourceContext = readDesignerSourceContext(schema);
+    const draftSchema = withDesignerSourceContext(
+      templateStatus === 'PUBLISHED' ? { ...schema, schemaVersion: 'draft' } : schema,
+      {
+        previewRecords: designerPreviewRecords,
+        sourceFileName: sourceContext.sourceFileName,
+      },
+    );
     const draftName = resolveTemplateName(templateDraftName, draftSchema);
     const savedTemplate =
       templateId && templateStatus !== 'PUBLISHED'
@@ -1146,14 +1571,19 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
             name: draftName,
             schema: draftSchema,
           });
+    const savedSourceContext = readDesignerSourceContext(savedTemplate.schema);
+    const nextPreviewRecords =
+      savedSourceContext.previewRecords.length > 0 ? savedSourceContext.previewRecords : designerPreviewRecords;
 
     setTemplateId(savedTemplate.id);
     setTemplateDraftName(savedTemplate.name);
     setTemplateVersion(savedTemplate.version);
     setTemplateStatus(savedTemplate.status);
+    setDesignerPreviewRawData(nextPreviewRecords[0] ?? DESIGNER_PREVIEW_RAW_DATA);
+    setDesignerPreviewRecords([...nextPreviewRecords]);
     designerBaselineSnapshotRef.current = createDesignerDirtySnapshot({
       name: savedTemplate.name,
-      previewRecords: designerPreviewRecords,
+      previewRecords: nextPreviewRecords,
       schema: savedTemplate.schema,
       status: savedTemplate.status,
     });
@@ -1178,7 +1608,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
         return;
       }
 
-      const versionName = `r${draft.version + 1}`;
+      const versionName = `v${draft.version + 1}`;
       const result = await publishTemplate(draft.id, versionName);
 
       setTemplateId(result.template.id);
@@ -1186,9 +1616,12 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       setTemplateVersion(result.template.version);
       setTemplateStatus(result.template.status);
       setSchema(result.template.schema);
+      const publishedSourceContext = readDesignerSourceContext(result.template.schema);
+      setDesignerPreviewRawData(publishedSourceContext.previewRecords[0] ?? DESIGNER_PREVIEW_RAW_DATA);
+      setDesignerPreviewRecords([...publishedSourceContext.previewRecords]);
       designerBaselineSnapshotRef.current = createDesignerDirtySnapshot({
         name: result.template.name,
-        previewRecords: designerPreviewRecords,
+        previewRecords: publishedSourceContext.previewRecords,
         schema: result.template.schema,
         status: result.template.status,
       });

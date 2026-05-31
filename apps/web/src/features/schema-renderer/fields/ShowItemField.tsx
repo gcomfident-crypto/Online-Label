@@ -24,12 +24,19 @@ const SOURCE_LABELS: Record<string, string> = {
 const MEDIA_TYPES = ['text', 'image', 'video', 'markdown'] as const;
 const MEDIA_CONTROL_KEYS = new Set(['media_type', 'media_url', 'content_markdown']);
 const UPLOADED_DATA_FILE_NAME_PATTERN = /(?:^|[/\\])[^/\\]+\.(?:csv|jsonl?|xlsx?|tsv)$/i;
+const SHOW_ITEM_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.avif'];
+const SHOW_ITEM_VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ogg', '.mov'];
 
 type MediaType = (typeof MEDIA_TYPES)[number];
 
 type MediaRenderResult = {
   consumedKeys: Set<string>;
   element: ReactNode;
+};
+
+type ShowItemResource = {
+  kind: 'image' | 'link' | 'video';
+  url: string;
 };
 
 const getSourceKeys = (field: BaseFieldProps['field']): string[] => {
@@ -59,8 +66,17 @@ const getMediaType = (rawData: Record<string, unknown>): MediaType | null => {
 };
 
 const hasDisplayValue = (value: unknown): boolean => {
+  if (typeof value === 'string') {
+    return value.trim().length > 0;
+  }
+
   return value !== null && value !== undefined && value !== '';
 };
+
+const hasShowItemDisplayValue = (
+  field: ShowItemDisplayField,
+  rawData: Record<string, unknown>,
+): boolean => hasDisplayValue(rawData[field.sourceKey]);
 
 const isDisplayFieldVisible = (field: ShowItemDisplayField): boolean => field.visible !== false;
 
@@ -87,6 +103,40 @@ const isSafeResourceUrl = (url: string, kind: 'image' | 'link'): boolean => {
     return parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:';
   } catch {
     return false;
+  }
+};
+
+const resolveShowItemResource = (value: unknown): ShowItemResource | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const url = value.trim();
+
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+
+    if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+      return null;
+    }
+
+    const pathname = parsedUrl.pathname.toLowerCase();
+
+    if (SHOW_ITEM_IMAGE_EXTENSIONS.some((extension) => pathname.endsWith(extension))) {
+      return { kind: 'image', url };
+    }
+
+    if (SHOW_ITEM_VIDEO_EXTENSIONS.some((extension) => pathname.endsWith(extension))) {
+      return { kind: 'video', url };
+    }
+
+    return { kind: 'link', url };
+  } catch {
+    return null;
   }
 };
 
@@ -172,15 +222,13 @@ const MarkdownText = ({ value }: { value: string }) => {
 const SourceValue = ({
   sourceKey,
   rawData,
-  showEmpty = false,
 }: {
   sourceKey: string;
   rawData: Record<string, unknown>;
-  showEmpty?: boolean;
 }) => {
   const value = rawData[sourceKey];
 
-  if (!showEmpty && !hasDisplayValue(value)) {
+  if (!hasDisplayValue(value)) {
     return null;
   }
 
@@ -201,7 +249,12 @@ const ShowItemTable = ({
   label: string;
   rawData: Record<string, unknown>;
 }) => {
-  const visibleFields = fields.filter((item) => isDisplayFieldVisible(item) && item.sourceKey.trim());
+  const visibleFields = fields.filter(
+    (item) =>
+      isDisplayFieldVisible(item) &&
+      item.sourceKey.trim() &&
+      hasShowItemDisplayValue(item, rawData),
+  );
 
   if (visibleFields.length === 0) {
     return null;
@@ -237,7 +290,12 @@ const ShowItemCard = ({
   label: string;
   rawData: Record<string, unknown>;
 }) => {
-  const visibleFields = fields.filter((item) => isDisplayFieldVisible(item) && item.sourceKey.trim());
+  const visibleFields = fields.filter(
+    (item) =>
+      isDisplayFieldVisible(item) &&
+      item.sourceKey.trim() &&
+      hasShowItemDisplayValue(item, rawData),
+  );
   const primaryField =
     visibleFields.find((item) => item.area === 'primary') ??
     visibleFields.find((item) => item.area !== 'meta') ??
@@ -297,7 +355,12 @@ const ShowItemFieldList = ({
   label: string;
   rawData: Record<string, unknown>;
 }) => {
-  const visibleFields = fields.filter((item) => isDisplayFieldVisible(item) && item.sourceKey.trim());
+  const visibleFields = fields.filter(
+    (item) =>
+      isDisplayFieldVisible(item) &&
+      item.sourceKey.trim() &&
+      hasShowItemDisplayValue(item, rawData),
+  );
 
   if (visibleFields.length === 0) {
     return null;
@@ -332,16 +395,51 @@ const ShowItemDisplayValue = ({
     .filter(Boolean)
     .join(' ');
 
-  if (field.format === 'badge') {
-    return <span className={className}>{displayValue}</span>;
-  }
-
   if (field.format === 'code' || field.format === 'json') {
     return (
       <pre className={className} style={maxLinesStyle(field.maxLines)}>
         {displayValue}
       </pre>
     );
+  }
+
+  const resource = resolveShowItemResource(value);
+
+  if (resource) {
+    return (
+      <span
+        className={`${className} schema-field__show-value--resource schema-field__show-value--resource-${resource.kind}`}
+        style={maxLinesStyle(field.maxLines)}
+      >
+        {resource.kind === 'image' ? (
+          <img
+            alt={field.label || getSourceLabel(field.sourceKey)}
+            className="schema-field__show-resource-media"
+            loading="lazy"
+            src={resource.url}
+          />
+        ) : null}
+        {resource.kind === 'video' ? (
+          <video className="schema-field__show-resource-media" controls preload="metadata" src={resource.url}>
+            当前浏览器不支持视频播放。
+          </video>
+        ) : null}
+        {resource.kind === 'link' ? (
+          <a
+            className="schema-field__show-resource-link"
+            href={resource.url}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            {resource.url}
+          </a>
+        ) : null}
+      </span>
+    );
+  }
+
+  if (field.format === 'badge') {
+    return <span className={className}>{displayValue}</span>;
   }
 
   return (
@@ -360,7 +458,12 @@ const ShowItemComparison = ({
   label: string;
   rawData: Record<string, unknown>;
 }) => {
-  const visibleFields = fields.filter((item) => isDisplayFieldVisible(item) && item.sourceKey.trim());
+  const visibleFields = fields.filter(
+    (item) =>
+      isDisplayFieldVisible(item) &&
+      item.sourceKey.trim() &&
+      hasShowItemDisplayValue(item, rawData),
+  );
   const promptField =
     visibleFields.find((field) => field.sourceKey === 'prompt') ??
     visibleFields.find((field) => field.area === 'primary');
@@ -609,7 +712,6 @@ export const ShowItemField = ({ field, rawData, rendererScope }: BaseFieldProps)
   const isPreferenceCompare =
     sourceKeys.includes('response_a') && sourceKeys.includes('response_b');
   const mediaRender = resolveMediaRender(sourceKeys, rawData);
-  const singleSource = sourceKeys.length === 1;
 
   return (
     <section className="schema-field schema-field--show-item" data-field-type={field.type}>
@@ -629,7 +731,6 @@ export const ShowItemField = ({ field, rawData, rendererScope }: BaseFieldProps)
                 key={sourceKey}
                 sourceKey={sourceKey}
                 rawData={rawData}
-                showEmpty={singleSource && !MEDIA_CONTROL_KEYS.has(sourceKey)}
               />
             ))}
           {mediaRender.element}
