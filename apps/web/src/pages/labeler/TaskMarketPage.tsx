@@ -13,11 +13,16 @@ import eyeIcon from '../../assets/eye.svg';
 
 const LABELER_ID = 'user_labeler_li_lei';
 
-const CLAIM_STATUS_OPTIONS: Array<{ label: string; value: MarketClaimStatus | 'ALL' }> = [
-  { label: '领取状态：全部', value: 'ALL' },
-  { label: '可领取', value: 'available' },
-  { label: '已满额', value: 'full' },
-  { label: '已截止', value: 'expired' },
+type ClaimStatusSummary = {
+  available: number;
+  expired: number;
+  total: number;
+};
+
+const CLAIM_STATUS_OPTIONS: Array<{ label: string; summaryKey: keyof ClaimStatusSummary; value: MarketClaimStatus | 'ALL' }> = [
+  { label: '全部', summaryKey: 'total', value: 'ALL' },
+  { label: '可领取', summaryKey: 'available', value: 'available' },
+  { label: '已截止', summaryKey: 'expired', value: 'expired' },
 ];
 
 const CLAIM_STATUS_LABELS: Record<MarketClaimStatus, string> = {
@@ -40,7 +45,6 @@ const TASK_MARKET_TABLE_ROW_HEIGHT = 66;
 export const TaskMarketPage = () => {
   const [tasks, setTasks] = useState<MarketTaskDto[]>([]);
   const [keyword, setKeyword] = useState('');
-  const [tag, setTag] = useState('');
   const [claimStatus, setClaimStatus] = useState<MarketClaimStatus | 'ALL'>('ALL');
   const [isLoading, setIsLoading] = useState(true);
   const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
@@ -56,10 +60,6 @@ export const TaskMarketPage = () => {
     void loadTasks();
   }, []);
 
-  const tagOptions = useMemo(
-    () => [...new Set(tasks.flatMap((task) => task.tags))].slice(0, 8),
-    [tasks],
-  );
   const taskDisplayIdMap = useMemo(() => {
     const chronologicalTasks = [...tasks].sort((first, second) => {
       const firstTime = marketTaskSequenceTime(first);
@@ -73,34 +73,57 @@ export const TaskMarketPage = () => {
 
     return new Map(chronologicalTasks.map((task, index) => [task.id, formatMarketTaskDisplayId(index + 1)]));
   }, [tasks]);
-  const totalPages = Math.max(1, Math.ceil(tasks.length / marketPageSize));
+  const filteredTasks = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+
+    return tasks.filter((task) => {
+      const matchesStatus = claimStatus === 'ALL' || task.claimStatus === claimStatus;
+      const taskDisplayId = taskDisplayIdMap.get(task.id) ?? task.id;
+      const matchesKeyword =
+        normalizedKeyword.length === 0 ||
+        [
+          task.title,
+          task.description,
+          task.templateName,
+          task.ownerName,
+          task.ownerId,
+          task.id,
+          taskDisplayId,
+          ...task.tags,
+        ]
+          .filter((value): value is string => typeof value === 'string')
+          .some((value) => value.toLowerCase().includes(normalizedKeyword));
+
+      return matchesStatus && matchesKeyword;
+    });
+  }, [claimStatus, keyword, taskDisplayIdMap, tasks]);
+  const claimStatusSummary = useMemo<ClaimStatusSummary>(
+    () => ({
+      total: tasks.length,
+      available: tasks.filter((task) => task.claimStatus === 'available').length,
+      expired: tasks.filter((task) => task.claimStatus === 'expired').length,
+    }),
+    [tasks],
+  );
+  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / marketPageSize));
   const paginatedTasks = useMemo(() => {
     const startIndex = (currentPage - 1) * marketPageSize;
 
-    return tasks.slice(startIndex, startIndex + marketPageSize);
-  }, [currentPage, marketPageSize, tasks]);
+    return filteredTasks.slice(startIndex, startIndex + marketPageSize);
+  }, [currentPage, filteredTasks, marketPageSize]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
   }, [totalPages]);
 
-  const loadTasks = async (
-    overrides: Partial<{
-      keyword: string;
-      tag: string;
-      claimStatus: MarketClaimStatus | 'ALL';
-    }> = {},
-  ) => {
-    const nextKeyword = overrides.keyword ?? keyword;
-    const nextTag = overrides.tag ?? tag;
-    const nextClaimStatus = overrides.claimStatus ?? claimStatus;
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [claimStatus, keyword]);
 
+  const loadTasks = async () => {
     setIsLoading(true);
     try {
       const nextTasks = await listMarketTasks({
-        keyword: nextKeyword.trim() || undefined,
-        tag: nextTag.trim() || undefined,
-        claimStatus: nextClaimStatus,
         labelerId: LABELER_ID,
       });
       setTasks(nextTasks.filter(isVisibleMarketTask));
@@ -143,52 +166,35 @@ export const TaskMarketPage = () => {
       <ToastViewport messages={messages} onDismiss={dismissToast} />
       <h1 id="labeler-market-title">任务广场</h1>
 
-      <div className="task-market-filter">
-        <input
-          aria-label="搜索任务"
-          placeholder="搜索任务名、模板或标签"
-          value={keyword}
-          onChange={(event) => setKeyword(event.target.value)}
-        />
-        <select
-          aria-label="标签筛选"
-          value={tag}
-          onChange={(event) => setTag(event.target.value)}
-        >
-          <option value="">全部标签</option>
-          {tagOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="领取状态筛选"
-          value={claimStatus}
-          onChange={(event) => setClaimStatus(event.target.value as MarketClaimStatus | 'ALL')}
-        >
-          {CLAIM_STATUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <button type="button" onClick={() => void loadTasks()}>
-          筛选
-        </button>
-      </div>
-
-      {isLoading ? (
-        <PageLoading title="正在加载任务广场" description="正在获取可领取任务、题目数和标签筛选项。" />
-      ) : (
-        <div className="task-management-table-card task-market-table-panel" ref={marketTableContainerRef}>
-          <div className="labeler-list-panel-heading" aria-label="待领取任务列表概览">
-            <div className="labeler-list-panel-heading__title">
-              <h2>待领取任务列表</h2>
-              <span>{tasks.length.toLocaleString()} 个任务</span>
-            </div>
-            <small>按更新时间倒序</small>
+      <div className="task-management-table-card task-market-table-panel" ref={marketTableContainerRef}>
+        <div className="task-management-table-toolbar task-market-table-toolbar">
+          <div className="task-summary-grid task-market-claim-status-grid" aria-label="领取状态筛选">
+            {CLAIM_STATUS_OPTIONS.map((option) => (
+              <ClaimStatusFilterCard
+                key={option.value}
+                isActive={claimStatus === option.value}
+                label={option.label}
+                status={option.value}
+                value={claimStatusSummary[option.summaryKey].toString()}
+                onClick={() => setClaimStatus(option.value)}
+              />
+            ))}
           </div>
+
+          <div className="task-filter-bar task-market-filter">
+            <input
+              aria-label="搜索任务"
+              placeholder="搜索任务名 / ID / 发布者"
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+            />
+          </div>
+        </div>
+
+        {isLoading ? (
+          <PageLoading title="正在加载任务广场" description="正在获取可领取任务和题目数。" />
+        ) : (
+          <>
           <div className="task-table-scroll task-market-table-frame" data-adaptive-table-viewport="true">
             <table className="task-table task-market-table" aria-label="任务广场列表">
               <colgroup>
@@ -292,7 +298,7 @@ export const TaskMarketPage = () => {
                     <td colSpan={9}>
                       <TableEmptyState
                         title="暂无可领取任务"
-                        description="调整关键词、标签或领取状态后再试"
+                        description="调整关键词或领取状态后再试"
                         illustrationAlt="空任务广场列表插画"
                       />
                     </td>
@@ -320,8 +326,9 @@ export const TaskMarketPage = () => {
               下一页
             </button>
           </div>
-        </div>
-      )}
+          </>
+        )}
+      </div>
 
       {previewTask ? (
         <TaskPreviewDialog task={previewTask} onClose={() => setPreviewTask(null)} />
@@ -378,6 +385,36 @@ const marketTaskSequenceTime = (task: MarketTaskDto): number => {
 
 const TaskTableCellInner = ({ children }: { children: ReactNode }) => (
   <div className="task-table__cell-inner">{children}</div>
+);
+
+const ClaimStatusFilterCard = ({
+  isActive,
+  label,
+  onClick,
+  status,
+  value,
+}: {
+  isActive: boolean;
+  label: string;
+  onClick: () => void;
+  status: MarketClaimStatus | 'ALL';
+  value: string;
+}) => (
+  <button
+    className={[
+      'task-summary-card',
+      status === 'ALL' ? 'task-summary-card--total' : '',
+      status === 'available' ? 'task-summary-card--done' : '',
+      status === 'expired' ? 'task-summary-card--paused' : '',
+      isActive ? 'is-active' : '',
+    ].filter(Boolean).join(' ')}
+    type="button"
+    aria-pressed={isActive}
+    onClick={onClick}
+  >
+    <span>{label}</span>
+    <strong>{value}</strong>
+  </button>
 );
 
 const TaskPreviewDialog = ({

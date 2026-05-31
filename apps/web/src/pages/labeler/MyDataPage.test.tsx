@@ -66,6 +66,8 @@ describe('MyDataPage', () => {
     expect(workspaceTitle.closest('.my-data-header')?.querySelector('p')).toBeNull();
     expect(screen.queryByLabelText('工作台统计')).not.toBeInTheDocument();
     expect(screen.queryByText('已完成')).not.toBeInTheDocument();
+    expect(screen.queryByText('全部类型')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('数据集筛选')).not.toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: '已领取任务列表' })).toBeInTheDocument();
     expect(screen.getAllByText('问答质量标注')).toHaveLength(1);
     expect(screen.queryByText('qa_2')).not.toBeInTheDocument();
