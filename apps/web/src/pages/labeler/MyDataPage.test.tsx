@@ -68,6 +68,8 @@ describe('MyDataPage', () => {
     expect(screen.queryByText('已完成')).not.toBeInTheDocument();
     expect(screen.queryByText('全部类型')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('数据集筛选')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('任务状态筛选')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '筛选' })).not.toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: '已领取任务列表' })).toBeInTheDocument();
     expect(screen.getAllByText('问答质量标注')).toHaveLength(1);
     expect(screen.queryByText('qa_2')).not.toBeInTheDocument();
@@ -84,6 +86,43 @@ describe('MyDataPage', () => {
     expect(screen.getByTestId('location-path')).toHaveTextContent(
       '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
     );
+  });
+
+  it('用任务管理样式的状态按钮和表格内搜索筛选工作台任务', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({ data: assignments })));
+
+    render(
+      <MemoryRouter>
+        <MyDataPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: '已领取任务列表' })).toBeInTheDocument();
+    const statusFilter = screen.getByLabelText('工作台状态筛选');
+    const tableCard = statusFilter.closest('.task-management-table-card');
+    expect(statusFilter.querySelectorAll('.task-summary-card')).toHaveLength(5);
+    expect(screen.getByRole('button', { name: /全部状态\s+1/ })).toHaveClass(
+      'task-summary-card--total',
+      'is-active',
+    );
+    expect(screen.getByRole('button', { name: /待标注\s+1/ })).toHaveClass('task-summary-card--running');
+    expect(screen.getByRole('button', { name: /已提交\s+1/ })).toHaveClass('task-summary-card--done');
+    expect(screen.getByRole('button', { name: /待修改\s+0/ })).toHaveClass('task-summary-card--paused');
+    expect(screen.getByRole('button', { name: /待完成\s+0/ })).toHaveClass('task-summary-card--draft');
+    expect(screen.queryByRole('button', { name: '筛选' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('搜索任务').closest('.task-management-table-card')).toBe(tableCard);
+
+    await user.click(screen.getByRole('button', { name: /已提交\s+1/ }));
+
+    const table = screen.getByRole('table', { name: '工作台任务列表' });
+    expect(within(table).getByText('1 条')).toBeInTheDocument();
+    expect(within(table).getByText('下一条 qa_1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /已提交\s+1/ })).toHaveClass('is-active');
+
+    await user.type(screen.getByLabelText('搜索任务'), '不存在');
+
+    expect(within(table).getByText('暂无领取任务')).toBeInTheDocument();
   });
 
   it('没有领取记录时仍保留工作台表格结构', async () => {

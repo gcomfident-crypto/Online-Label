@@ -16,19 +16,25 @@ const LABELER_ID = 'user_labeler_li_lei';
 const MY_DATA_FALLBACK_PAGE_SIZE = 7;
 const MY_DATA_TABLE_ROW_HEIGHT = 66;
 
-const STATUS_OPTIONS = [
-  { label: '全部状态', value: '' },
-  { label: '待标注', value: 'IN_PROGRESS' },
-  { label: '已提交', value: 'SUBMITTED' },
-  { label: '待修改', value: 'NEEDS_REVISION' },
-  { label: '待完成', value: 'FINAL_PENDING' },
+type LabelerStatusFilter = '' | 'IN_PROGRESS' | 'SUBMITTED' | 'NEEDS_REVISION' | 'FINAL_PENDING';
+
+const STATUS_OPTIONS: readonly {
+  label: string;
+  value: LabelerStatusFilter;
+  summaryClassName: string;
+}[] = [
+  { label: '全部状态', value: '', summaryClassName: 'task-summary-card--total' },
+  { label: '待标注', value: 'IN_PROGRESS', summaryClassName: 'task-summary-card--running' },
+  { label: '已提交', value: 'SUBMITTED', summaryClassName: 'task-summary-card--done' },
+  { label: '待修改', value: 'NEEDS_REVISION', summaryClassName: 'task-summary-card--paused' },
+  { label: '待完成', value: 'FINAL_PENDING', summaryClassName: 'task-summary-card--draft' },
 ];
 
 export const MyDataPage = () => {
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<LabelerAssignmentDto[]>([]);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [itemId, setItemId] = useState('');
+  const [statusFilter, setStatusFilter] = useState<LabelerStatusFilter>('');
+  const [searchKeyword, setSearchKeyword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const { dismissToast, messages, showErrorToast } = useToastController();
@@ -42,7 +48,7 @@ export const MyDataPage = () => {
   }, []);
 
   const filteredAssignments = useMemo(() => {
-    const keyword = itemId.trim();
+    const keyword = searchKeyword.trim();
 
     return assignments.filter((assignment) => {
       if (statusFilter && !matchesStatusFilter(assignment, statusFilter)) {
@@ -60,8 +66,29 @@ export const MyDataPage = () => {
 
       return true;
     });
-  }, [assignments, itemId, statusFilter]);
+  }, [assignments, searchKeyword, statusFilter]);
   const taskGroups = useMemo(() => groupAssignmentsByTask(filteredAssignments), [filteredAssignments]);
+  const statusSummary = useMemo(
+    () =>
+      STATUS_OPTIONS.reduce<Record<LabelerStatusFilter, number>>(
+        (summary, option) => {
+          const matchingAssignments = option.value
+            ? assignments.filter((assignment) => matchesStatusFilter(assignment, option.value))
+            : assignments;
+
+          summary[option.value] = groupAssignmentsByTask(matchingAssignments).length;
+          return summary;
+        },
+        {
+          '': 0,
+          IN_PROGRESS: 0,
+          SUBMITTED: 0,
+          NEEDS_REVISION: 0,
+          FINAL_PENDING: 0,
+        },
+      ),
+    [assignments],
+  );
   const totalPages = Math.max(1, Math.ceil(taskGroups.length / myDataPageSize));
   const paginatedTaskGroups = useMemo(() => {
     const startIndex = (currentPage - 1) * myDataPageSize;
@@ -75,7 +102,7 @@ export const MyDataPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [itemId, statusFilter]);
+  }, [searchKeyword, statusFilter]);
 
   const loadMyData = async () => {
     setIsLoading(true);
@@ -98,33 +125,45 @@ export const MyDataPage = () => {
         </div>
       </div>
 
-      <div className="my-data-filter">
-        <select
-          aria-label="任务状态筛选"
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-        >
-          {STATUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <input
-          aria-label="题目 ID 筛选"
-          placeholder="题目 ID 或外部 ID"
-          value={itemId}
-          onChange={(event) => setItemId(event.target.value)}
-        />
-        <button type="button" onClick={() => void loadMyData()}>
-          筛选
-        </button>
-      </div>
+      <div className="task-management-table-card my-data-table-scroll" ref={myDataTableContainerRef}>
+        <div className="task-management-table-toolbar my-data-table-toolbar">
+          <div className="task-summary-grid my-data-status-grid" aria-label="工作台状态筛选">
+            {STATUS_OPTIONS.map((option) => {
+              const isActive = statusFilter === option.value;
 
-      {isLoading ? (
-        <PageLoading title="正在加载工作台" description="正在同步已领取任务。" />
-      ) : (
-        <div className="task-management-table-card my-data-table-scroll" ref={myDataTableContainerRef}>
+              return (
+                <button
+                  key={option.value || 'ALL'}
+                  className={[
+                    'task-summary-card',
+                    option.summaryClassName,
+                    isActive ? 'is-active' : '',
+                  ].filter(Boolean).join(' ')}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => setStatusFilter(option.value)}
+                >
+                  <span>{option.label}</span>
+                  <strong>{statusSummary[option.value]}</strong>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="task-filter-bar my-data-search-bar">
+            <input
+              aria-label="搜索任务"
+              placeholder="搜索任务名 / 题目 ID / 外部 ID"
+              value={searchKeyword}
+              onChange={(event) => setSearchKeyword(event.target.value)}
+            />
+          </div>
+        </div>
+
+        {isLoading ? (
+          <PageLoading title="正在加载工作台" description="正在同步已领取任务。" />
+        ) : (
+          <>
           <div className="labeler-list-panel-heading">
             <div>
               <h2>已领取任务列表</h2>
@@ -216,8 +255,9 @@ export const MyDataPage = () => {
               下一页
             </button>
           </div>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </section>
   );
 };
@@ -320,7 +360,7 @@ const TaskProgressSummary = ({ taskGroup }: { taskGroup: LabelerTaskGroup }) => 
   );
 };
 
-function matchesStatusFilter(assignment: LabelerAssignmentDto, statusFilter: string): boolean {
+function matchesStatusFilter(assignment: LabelerAssignmentDto, statusFilter: LabelerStatusFilter): boolean {
   if (statusFilter === 'IN_PROGRESS') {
     return assignment.status === 'IN_PROGRESS' || assignment.status === 'ASSIGNED';
   }
