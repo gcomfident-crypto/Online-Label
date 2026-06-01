@@ -1220,8 +1220,7 @@ describe('TemplateDesignerPage', () => {
       value: animateMock,
     });
     const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      const element = this;
-      const fieldKey = element.dataset.designerFieldKey;
+      const fieldKey = this.dataset.designerFieldKey;
 
       if (fieldKey) {
         return createDomRect({ top: rectTopByFieldKey.get(fieldKey) ?? 0, height: 64 });

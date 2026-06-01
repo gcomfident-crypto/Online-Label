@@ -1392,10 +1392,6 @@ const parseDateTimeLocalValue = (value: string): Date | null => {
   return Number.isFinite(date.getTime()) ? date : null;
 };
 
-function formatDateTimePart(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
 const formatCalendarMonthLabel = (date: Date, selectedDate?: Date): string => {
   const monthLabel = `${date.getFullYear()}年${date.getMonth() + 1}月`;
 

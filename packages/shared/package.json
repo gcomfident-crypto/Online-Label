@@ -12,6 +12,7 @@
     }
   },
   "scripts": {
+    "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --project tsconfig.json",
     "test": "vitest run"
   }

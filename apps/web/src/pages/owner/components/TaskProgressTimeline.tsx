@@ -114,7 +114,7 @@ const buildNodesFromEvents = (
     .map((event, index) => {
       const status = event.status ?? (event.type === 'ai_review_rejected' ? 'warning' : 'completed');
       const actorName = event.actorName?.trim();
-      let label = '';
+      let label: string;
       let labelActorName: string | undefined;
 
       if (event.type === 'submitted' || event.type === 'ai_review_submitted') {

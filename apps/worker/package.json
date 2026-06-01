@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx src/main.ts",
     "dev:worker": "tsx src/main.ts",
+    "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --project tsconfig.json",
     "test": "vitest run"
   },

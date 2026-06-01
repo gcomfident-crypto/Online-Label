@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "dev:web": "vite --host 0.0.0.0",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" vite.config.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "test": "vitest run"
   },

@@ -157,8 +157,8 @@ describe('Prisma schema', () => {
     expect(modelBlock('ReviewRule')).toMatch(/\bdimensionVersion\s+Int\s+@default\(1\)/);
     expect(modelBlock('ReviewRule')).toMatch(/\bpassThreshold\s+Int\s+@default\(80\)/);
     expect(modelBlock('ReviewRule')).toMatch(/\bmanualThreshold\s+Int\s+@default\(60\)/);
-    expect(modelBlock('ReviewRule')).toMatch(/\bprovider\s+String\s+@default\(\"mock\"\)/);
-    expect(modelBlock('ReviewRule')).toMatch(/\bmodel\s+String\s+@default\(\"mock-stable-reviewer\"\)/);
+    expect(modelBlock('ReviewRule')).toMatch(/\bprovider\s+String\s+@default\("mock"\)/);
+    expect(modelBlock('ReviewRule')).toMatch(/\bmodel\s+String\s+@default\("mock-stable-reviewer"\)/);
     expect(modelBlock('ReviewRule')).toMatch(/\btemperature\s+Float\s+@default\(0\)/);
     expect(modelBlock('Submission')).toMatch(/\bidempotencyKey\s+String\?/);
     expect(modelBlock('Submission')).toMatch(/@@unique\(\[idempotencyKey\]\)/);

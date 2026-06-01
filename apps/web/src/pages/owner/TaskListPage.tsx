@@ -1420,14 +1420,6 @@ const formatEmptyImportError = (summary: DatasetImportSummaryDto): string => {
   return `题目数据导入失败：未导入任何题目。${detail}`;
 };
 
-const defaultDeadline = (): string => {
-  const date = new Date();
-  date.setDate(date.getDate() + 7);
-  date.setHours(23, 59, 0, 0);
-
-  return date.toISOString();
-};
-
 type DatasetFilePayload =
   | {
       format: 'json' | 'jsonl' | 'csv';

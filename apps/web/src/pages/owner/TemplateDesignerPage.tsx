@@ -600,7 +600,6 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const [templateStatusFilter, setTemplateStatusFilter] = useState<TemplateStatusFilter>('ALL');
   const [currentTemplatePage, setCurrentTemplatePage] = useState(1);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
-  const [persistedDraft, setPersistedDraft] = useState<PersistedDesignerDraft | null>(null);
   const [isDesignerOpen, setIsDesignerOpen] = useState(false);
   const [isDesignerClosing, setIsDesignerClosing] = useState(false);
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
@@ -753,7 +752,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   useEffect(() => {
     let isMounted = true;
 
-    setPersistedDraft(readPersistedDesignerDraft());
+    readPersistedDesignerDraft();
     setIsLoadingTemplates(true);
 
     void listTemplates()
@@ -1246,30 +1245,6 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setIsDesignerOpen(true);
   };
 
-  const openPersistedDraft = (draft: PersistedDesignerDraft) => {
-    autoClassificationRunRef.current += 1;
-    clearDesignerCloseTimer();
-    const sourceContext = readDesignerSourceContext(draft.schema);
-    designerBaselineSnapshotRef.current = createDesignerDirtySnapshot({
-      name: draft.name ?? templateNameFromSchema(draft.schema),
-      previewRecords: sourceContext.previewRecords,
-      schema: draft.schema,
-      status: draft.status,
-    });
-    setSchema(draft.schema);
-    setTemplateId(draft.templateId);
-    setTemplateDraftName(draft.name ?? templateNameFromSchema(draft.schema));
-    setTemplateVersion(draft.version);
-    setTemplateStatus(draft.status);
-    setTemplateDraftReturnTo(null);
-    setDesignerPreviewRawData(sourceContext.previewRecords[0] ?? DESIGNER_PREVIEW_RAW_DATA);
-    setDesignerPreviewRecords([...sourceContext.previewRecords]);
-    setIsDesignerPreviewOpen(false);
-    showStatusToast('已恢复最近保存的草稿。');
-    setIsDesignerClosing(false);
-    setIsDesignerOpen(true);
-  };
-
   const openTemplateDraftHandoff = (draft: TemplateDraftHandoff) => {
     if (draft.autoClassificationRequest) {
       openPendingTemplateDraftHandoff(draft as TemplateDraftHandoff & {
@@ -1588,7 +1563,6 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       status: savedTemplate.status,
     });
     persistDesignerDraft(savedTemplate);
-    setPersistedDraft(toPersistedDesignerDraft(savedTemplate));
     upsertTemplateInList(savedTemplate);
 
     if (!options?.quiet) {
@@ -1626,7 +1600,6 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
         status: result.template.status,
       });
       persistDesignerDraft(result.template);
-      setPersistedDraft(toPersistedDesignerDraft(result.template));
       upsertTemplateInList(result.template);
 
       if (templateDraftReturnTo) {
@@ -2083,18 +2056,6 @@ const templateNameFromSchema = (schema: LabelHubSchema): string => {
 
 const resolveTemplateName = (name: string | null, schema: LabelHubSchema): string =>
   name?.trim() || templateNameFromSchema(schema);
-
-const templateOwnerName = (createdById: string | null): string => {
-  if (!createdById) {
-    return '未记录';
-  }
-
-  if (createdById === 'user_owner_zhang_man' || createdById === 'user_owner_001') {
-    return '张满';
-  }
-
-  return createdById;
-};
 
 const mockTemplateOwnerName = (createdById: string | null): string => {
   if (!createdById || createdById === 'user_owner_zhang_man' || createdById === 'user_owner_001') {

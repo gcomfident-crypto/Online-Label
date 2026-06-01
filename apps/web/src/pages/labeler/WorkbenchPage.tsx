@@ -17,7 +17,7 @@ const LABELER_ID = 'user_labeler_li_lei';
 
 export const WorkbenchPage = () => {
   const navigate = useNavigate();
-  const { taskId, itemId } = useParams<{ taskId: string; itemId: string }>();
+  const { itemId } = useParams<{ itemId: string }>();
   const [searchParams] = useSearchParams();
   const assignmentId = searchParams.get('assignmentId') ?? '';
   const [workbench, setWorkbench] = useState<WorkbenchDto | null>(null);
