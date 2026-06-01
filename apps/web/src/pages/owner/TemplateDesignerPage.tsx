@@ -12,11 +12,14 @@ import { createPortal } from 'react-dom';
 
 import {
   validateTemplateSchema,
+  type AutoTemplateAnnotationField,
+  type AutoTemplateFieldClassificationResult,
   type AutoTemplateFieldClassificationRequest,
   type AutoTemplateSourceField,
   type DatasetRecord,
   type LabelHubSchema,
   type SchemaField,
+  type ShowItemDisplayField,
 } from '@labelhub/shared';
 
 import { classifyTemplateFields } from '../../api/llm';
@@ -533,6 +536,202 @@ const createAutoClassificationSchemaRecords = (
   );
 
   return [sourceKeyRecord, ...previewRecords].filter((record) => Object.keys(record).length > 0);
+};
+
+const createLocalAutoClassificationFallback = (
+  request: AutoTemplateFieldClassificationRequest,
+): AutoTemplateFieldClassificationResult => ({
+  layout: hasAutoClassificationSourceKeys(request.fields, ['response_a', 'response_b'])
+    ? 'comparison'
+    : 'field_list',
+  displayFields: request.fields
+    .filter((field) => !isLocalAutoClassificationAnnotationField(field.sourceKey))
+    .map(createLocalAutoClassificationDisplayField),
+  annotationFields: request.fields
+    .filter((field) => isLocalAutoClassificationAnnotationField(field.sourceKey))
+    .map(createLocalAutoClassificationAnnotationField),
+});
+
+const createLocalAutoClassificationDisplayField = (
+  field: AutoTemplateSourceField,
+): ShowItemDisplayField => {
+  const normalizedKey = field.sourceKey.trim().toLowerCase();
+
+  if (
+    normalizedKey === 'id' ||
+    normalizedKey === 'task_id' ||
+    normalizedKey.includes('type') ||
+    normalizedKey === 'lang' ||
+    normalizedKey === 'language' ||
+    normalizedKey === 'category' ||
+    normalizedKey === 'difficulty'
+  ) {
+    return {
+      sourceKey: field.sourceKey,
+      label: field.sourceKey,
+      area: 'meta',
+      format: 'badge',
+    };
+  }
+
+  if (normalizedKey.includes('prompt') || normalizedKey.includes('question')) {
+    return {
+      sourceKey: field.sourceKey,
+      label: field.sourceKey,
+      area: 'primary',
+      format: 'long_text',
+      maxLines: 8,
+    };
+  }
+
+  if (
+    normalizedKey.includes('response') ||
+    normalizedKey.includes('answer') ||
+    normalizedKey.includes('reference')
+  ) {
+    return {
+      sourceKey: field.sourceKey,
+      label: field.sourceKey,
+      area: 'content',
+      format: 'long_text',
+      maxLines: 12,
+    };
+  }
+
+  const valueType = field.valueTypes[0];
+
+  return {
+    sourceKey: field.sourceKey,
+    label: field.sourceKey,
+    area: valueType === 'number' || valueType === 'boolean' ? 'meta' : 'content',
+    format: valueType === 'object' || valueType === 'array' ? 'json' : 'text',
+  };
+};
+
+const createLocalAutoClassificationAnnotationField = (
+  field: AutoTemplateSourceField,
+): AutoTemplateAnnotationField => {
+  const normalizedKey = field.sourceKey.trim().toLowerCase();
+
+  if (
+    normalizedKey === 'preferred' ||
+    normalizedKey.includes('preference') ||
+    normalizedKey.includes('decision') ||
+    normalizedKey.includes('judgment') ||
+    normalizedKey.includes('verdict')
+  ) {
+    return {
+      sourceKey: field.sourceKey,
+      label: field.sourceKey,
+      type: 'radio',
+      options: [
+        { label: 'A', value: 'A' },
+        { label: 'B', value: 'B' },
+      ],
+      required: true,
+    };
+  }
+
+  if (normalizedKey.includes('dimension')) {
+    return {
+      sourceKey: field.sourceKey,
+      label: field.sourceKey,
+      type: 'checkbox',
+      options: [],
+    };
+  }
+
+  if (
+    normalizedKey.includes('note') ||
+    normalizedKey.includes('comment') ||
+    normalizedKey.includes('rationale') ||
+    normalizedKey.includes('reason')
+  ) {
+    return {
+      sourceKey: field.sourceKey,
+      label: field.sourceKey,
+      type: 'textarea',
+    };
+  }
+
+  return {
+    sourceKey: field.sourceKey,
+    label: field.sourceKey,
+    type: 'text',
+  };
+};
+
+const isLocalAutoClassificationAnnotationField = (sourceKey: string): boolean => {
+  if (isProtectedLocalAutoClassificationDisplayField(sourceKey)) {
+    return false;
+  }
+
+  const normalizedKey = sourceKey.trim().toLowerCase();
+
+  return (
+    normalizedKey === 'preferred' ||
+    normalizedKey.includes('preference') ||
+    normalizedKey.includes('margin') ||
+    normalizedKey.includes('dimension') ||
+    normalizedKey.includes('safety_flag') ||
+    normalizedKey.includes('annotator') ||
+    normalizedKey.includes('reviewer') ||
+    normalizedKey.includes('decision') ||
+    normalizedKey.includes('rationale') ||
+    normalizedKey.includes('reason') ||
+    normalizedKey.includes('note') ||
+    normalizedKey.includes('comment') ||
+    normalizedKey.includes('score') ||
+    normalizedKey.includes('rating') ||
+    normalizedKey.includes('judgment') ||
+    normalizedKey.includes('verdict')
+  );
+};
+
+const isProtectedLocalAutoClassificationDisplayField = (sourceKey: string): boolean => {
+  const normalizedKey = sourceKey.trim().toLowerCase();
+  const exactDisplayKeys = new Set([
+    'id',
+    'task_id',
+    'task_type',
+    'category',
+    'difficulty',
+    'lang',
+    'language',
+    'media_type',
+    'media_url',
+    'content_markdown',
+    'prompt',
+    'question',
+    'model_answer',
+    'reference',
+    'reference_answer',
+    'tags',
+    'source',
+    'expected_dimensions',
+    'response_a',
+    'response_b',
+  ]);
+
+  return (
+    exactDisplayKeys.has(normalizedKey) ||
+    normalizedKey.startsWith('expected_') ||
+    normalizedKey.includes('prompt') ||
+    normalizedKey.includes('question') ||
+    normalizedKey.includes('reference') ||
+    normalizedKey.includes('model_answer') ||
+    normalizedKey.includes('content_markdown') ||
+    normalizedKey.includes('media_url')
+  );
+};
+
+const hasAutoClassificationSourceKeys = (
+  fields: readonly AutoTemplateSourceField[],
+  sourceKeys: readonly string[],
+): boolean => {
+  const sourceKeySet = new Set(fields.map((field) => field.sourceKey.trim().toLowerCase()));
+
+  return sourceKeys.every((sourceKey) => sourceKeySet.has(sourceKey));
 };
 
 const resolveAutoClassificationSampleValue = (
@@ -1272,6 +1471,26 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       isDismissible: false,
       isLoading: true,
     });
+    const applyAutoClassificationDraft = (
+      classification?: AutoTemplateFieldClassificationResult | null,
+    ) => {
+      const schemaRecords = createAutoClassificationSchemaRecords(
+        draft.autoClassificationRequest,
+        draft.previewRecords ?? [],
+      );
+      const schema = createAutoShowItemTemplateSchema(
+        schemaRecords,
+        draft.sourceFileName ?? draft.autoClassificationRequest.fileName,
+        classification,
+        draft.autoClassificationRequest.fieldStats,
+      );
+
+      applyTemplateDraftHandoff({
+        ...draft,
+        schema,
+        autoClassificationRequest: undefined,
+      });
+    };
 
     void classifyTemplateFields(draft.autoClassificationRequest)
       .then((classification) => {
@@ -1284,25 +1503,10 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
           return;
         }
 
-        const schemaRecords = createAutoClassificationSchemaRecords(
-          draft.autoClassificationRequest,
-          draft.previewRecords ?? [],
-        );
-        const schema = createAutoShowItemTemplateSchema(
-          schemaRecords,
-          draft.sourceFileName ?? draft.autoClassificationRequest.fileName,
-          classification,
-          draft.autoClassificationRequest.fieldStats,
-        );
-
-        applyTemplateDraftHandoff({
-          ...draft,
-          schema,
-          autoClassificationRequest: undefined,
-        });
+        applyAutoClassificationDraft(classification);
         dismissToast(loadingToastId);
       })
-      .catch((error) => {
+      .catch(() => {
         if (!isMountedRef.current) {
           return;
         }
@@ -1312,10 +1516,9 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
           return;
         }
 
+        applyAutoClassificationDraft(createLocalAutoClassificationFallback(draft.autoClassificationRequest));
         dismissToast(loadingToastId);
-        setIsDesignerOpen(false);
-        setIsDesignerClosing(false);
-        showErrorToast(error instanceof Error ? error.message : '字段分类接口请求失败，请稍后重试。');
+        showInfoToast('字段分类接口不可用，已使用本地解析结果创建模板');
       });
   };
 

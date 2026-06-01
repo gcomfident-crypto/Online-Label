@@ -116,6 +116,7 @@ const FIELD_LAYOUT_SHIFT_ANIMATION_MS = 360;
 const EMPTY_FIELD_KEY_SET = new Set<string>();
 const EMPTY_VALIDATION_MESSAGES_BY_FIELD = new Map<string, readonly string[]>();
 const EMPTY_CANVAS_PREVIEW_RAW_DATA: Record<string, unknown> = {};
+const AI_REVIEW_PERSONA_PLACEHOLDER = '请填写 AI 预审角色设定，说明模型的身份、任务目标和审核范围。';
 
 const normalizeAiPromptConfig = (
   config: AiReviewPromptConfig | undefined,
@@ -627,11 +628,11 @@ export const DesignerCanvas = ({
                     : 'designer-canvas__uploaded-preview designer-canvas__ai-prompt-preview'
                 }
                 type="button"
-                aria-label={isAiPromptPreviewActive ? '退出 AI Prompt 预览' : '查看 AI Prompt'}
+                aria-label={isAiPromptPreviewActive ? '退出 AI Prompt 预览' : '查看AI预审Prompt'}
                 aria-pressed={isAiPromptPreviewActive}
                 onClick={toggleAiPromptPreview}
               >
-                <span>{isAiPromptPreviewActive ? '退出 Prompt' : '查看 AI Prompt'}</span>
+                <span>{isAiPromptPreviewActive ? '退出 Prompt' : '查看AI预审Prompt'}</span>
               </button>
             ) : null}
             {shouldShowLabelerPreview ? (
@@ -714,11 +715,11 @@ export const DesignerCanvas = ({
                     : 'designer-canvas__uploaded-preview designer-canvas__ai-prompt-preview'
                 }
                 type="button"
-                aria-label={isAiPromptPreviewActive ? '退出 AI Prompt 预览' : '查看 AI Prompt'}
+                aria-label={isAiPromptPreviewActive ? '退出 AI Prompt 预览' : '查看AI预审Prompt'}
                 aria-pressed={isAiPromptPreviewActive}
                 onClick={toggleAiPromptPreview}
               >
-                <span>{isAiPromptPreviewActive ? '退出 Prompt' : '查看 AI Prompt'}</span>
+                <span>{isAiPromptPreviewActive ? '退出 Prompt' : '查看AI预审Prompt'}</span>
               </button>
             ) : null}
           </div>
@@ -1000,6 +1001,7 @@ const AiPromptPreviewPanel = ({
                   <div className="designer-ai-prompt-preview__section-body-inner">
                     <AutoResizePromptTextarea
                       aria-label={`编辑${section.title}`}
+                      placeholder={section.key === 'persona' ? AI_REVIEW_PERSONA_PLACEHOLDER : undefined}
                       tabIndex={isCollapsed ? -1 : undefined}
                       value={section.content}
                       onChange={(value) => onSectionChange(section.key, value)}
@@ -1018,11 +1020,13 @@ const AiPromptPreviewPanel = ({
 const AutoResizePromptTextarea = ({
   'aria-label': ariaLabel,
   onChange,
+  placeholder,
   tabIndex,
   value,
 }: {
   'aria-label': string;
   onChange: (value: string) => void;
+  placeholder?: string;
   tabIndex?: number;
   value: string;
 }) => {
@@ -1046,6 +1050,7 @@ const AutoResizePromptTextarea = ({
     <textarea
       ref={textareaRef}
       aria-label={ariaLabel}
+      placeholder={placeholder}
       rows={1}
       tabIndex={tabIndex}
       value={value}

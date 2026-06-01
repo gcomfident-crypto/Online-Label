@@ -80,7 +80,7 @@ pnpm install
 cp .env.example .env
 ```
 
-默认 `LLM_PROVIDER=mock`，不需要真实模型密钥。启用 DeepSeek 时，在本机 `.env` 写入 `DEEPSEEK_API_KEY`，不要提交真实 key。
+默认 `LLM_PROVIDER=mock`，不需要真实模型密钥。启用 DeepSeek 时，在本机 `.env` 同时设置 `LLM_PROVIDER=deepseek` 和 `DEEPSEEK_API_KEY`，不要提交真实 key。
 
 3. 启动 PostgreSQL 和 Redis：
 

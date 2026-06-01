@@ -41,8 +41,7 @@ export type CompiledAiReviewPrompt = {
   answerData: Record<string, unknown>;
 };
 
-const DEFAULT_PERSONA =
-  '你是一个专业的数据标注质检审核员。你的任务是根据题目展示信息、标注员提交内容和字段审核标准，对本次标注结果进行 AI 预审。';
+const DEFAULT_PERSONA = '';
 
 const OUTPUT_SCHEMA = {
   verdict: 'pass | reject | manual',

@@ -66,6 +66,8 @@ describe('compileAiReviewPrompt', () => {
     expect(compiled.prompt).toContain('# 3. 标注员提交内容');
     expect(compiled.prompt).toContain('# 4. 字段级审核标准');
     expect(compiled.prompt).toContain('# 5. 输出格式约束');
+    expect(compiled.sections.find((section) => section.key === 'persona')?.content).toBe('');
+    expect(compiled.prompt).not.toContain('你是一个专业的数据标注质检审核员');
     expect(compiled.showItemData).toEqual([
       { sourceKey: 'prompt', label: 'Prompt', format: 'long_text', value: '请比较两个回答' },
       { sourceKey: 'response_a', label: '回答 A', format: 'text', value: '回答 A 内容' },

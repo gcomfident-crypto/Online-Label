@@ -523,6 +523,19 @@ describe('global styles', () => {
     expect(exportSearchRule).toContain('min-width: 0;');
   });
 
+  it('导出中心批量导出按钮和评测模板新增按钮保持同一最小宽度', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const actionWidthRule =
+      styles.match(/\.template-manager-filter-bar__create,[\s\S]*?\.task-filter-bar__create\.export-batch-action\s*\{[^}]+\}/)?.[0] ??
+      '';
+    const exportBatchFilterActionRules = [...styles.matchAll(/\.task-filter-bar__create\.export-batch-action\s*\{[^}]+\}/g)].map(
+      (match) => match[0],
+    );
+
+    expect(actionWidthRule).toContain('min-width: 102px;');
+    expect(exportBatchFilterActionRules.some((rule) => rule.includes('font-size: inherit;'))).toBe(true);
+  });
+
   it('任务管理表格使用大卡片、顶部胶囊筛选和更高表格行', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const cardRule = styles.match(/\.task-management-table-card\s*\{[^}]+\}/)?.[0] ?? '';
@@ -782,22 +795,34 @@ describe('global styles', () => {
     expect(actionsRule).toContain('justify-content: flex-end;');
     expect(actionsRule).toContain('gap: 12px;');
     expect(cancelRule).toContain('border: 1px solid #c9d8f6;');
+    expect(cancelRule).toContain('height: 40px;');
     expect(cancelRule).toContain('color: #306df7;');
     expect(cancelRule).toContain('background: transparent;');
     expect(cancelHoverRule).toContain('border-color: #c9d8f6;');
+    expect(cancelHoverRule).toContain('height: 40px;');
     expect(cancelHoverRule).toContain('color: #306df7;');
     expect(cancelHoverRule).toContain('background: transparent;');
     expect(cancelHoverRule).toContain('box-shadow: none;');
     expect(cancelHoverRule).toContain('transform: none;');
+    expect(cancelHoverRule).toContain('min-height: 40px;');
+    expect(cancelHoverRule).toContain('padding: 0 18px;');
+    expect(cancelHoverRule).toContain('transition: none;');
     expect(saveRule).toContain('min-height: 40px;');
+    expect(saveRule).toContain('height: 40px;');
     expect(saveRule).toContain('border-radius: 10px;');
     expect(saveRule).toContain('padding: 0 20px;');
     expect(saveRule).toContain('background: #306df7;');
     expect(saveHoverRule).toContain('border-color: #306df7;');
+    expect(saveHoverRule).toContain('height: 40px;');
     expect(saveHoverRule).toContain('color: #ffffff;');
     expect(saveHoverRule).toContain('background: #306df7;');
     expect(saveHoverRule).toContain('box-shadow: none;');
     expect(saveHoverRule).toContain('transform: none;');
+    expect(saveHoverRule).toContain('min-height: 40px;');
+    expect(saveHoverRule).toContain('padding: 0 20px;');
+    expect(saveHoverRule).toContain('transition: none;');
+    expect(styles).toContain('.template-designer-page .task-close-confirm__cancel:hover:not(:disabled)');
+    expect(styles).toContain('.template-designer-page .task-close-confirm__save:hover:not(:disabled)');
     expect(largeDesktopRule).toContain('width: min(520px, 30vw);');
     expect(tabletRule).toContain('width: 80vw;');
     expect(mobileRule).toContain('width: calc(100vw - 32px);');

@@ -10,8 +10,38 @@ describe('LlmService template field classifier', () => {
     vi.unstubAllGlobals();
   });
 
-  it('没有显式 LLM_PROVIDER 但配置 DeepSeek key 时按 DeepSeek OpenAI 兼容接口分类字段', async () => {
+  it('没有显式 LLM_PROVIDER 时即使配置 DeepSeek key 也默认使用 mock 字段分类', async () => {
     delete process.env.LLM_PROVIDER;
+    process.env.NODE_ENV = 'development';
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
+    process.env.LLM_MODEL = 'deepseek-chat';
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await new LlmService().classifyTemplateFields({
+      fileName: 'qa_quality.xlsx',
+      fields: [
+        { sourceKey: 'prompt', samples: ['问题'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+        { sourceKey: 'model_answer', samples: ['回答'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+        { sourceKey: 'expected_dimensions', samples: ['相关性'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+      ],
+      records: [
+        {
+          prompt: '问题',
+          model_answer: '回答',
+          expected_dimensions: '相关性',
+        },
+      ],
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.provider).toBe('mock');
+    expect(result.model).toBe('mock-field-classifier');
+  });
+
+  it('显式 LLM_PROVIDER=deepseek 且配置 DeepSeek key 时按 DeepSeek OpenAI 兼容接口分类字段', async () => {
+    process.env.LLM_PROVIDER = 'deepseek';
     process.env.NODE_ENV = 'development';
     process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
     process.env.LLM_MODEL = 'deepseek-chat';
@@ -113,7 +143,7 @@ describe('LlmService template field classifier', () => {
   });
 
   it('保留 AI 生成的填写提示，并把操作动词从字段标题中移除', async () => {
-    delete process.env.LLM_PROVIDER;
+    process.env.LLM_PROVIDER = 'deepseek';
     process.env.NODE_ENV = 'development';
     process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
 

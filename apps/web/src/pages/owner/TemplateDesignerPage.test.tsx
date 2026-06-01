@@ -329,7 +329,7 @@ describe('TemplateDesignerPage', () => {
     dialog = screen.getByRole('dialog', { name: '模板配置' });
     canvas = within(dialog).getByRole('main', { name: '模板编辑区域' });
     expect(within(canvas).getByRole('button', { name: '预览已上传文件' })).toBeInTheDocument();
-    expect(within(canvas).getByRole('button', { name: '查看 AI Prompt' })).toBeInTheDocument();
+    expect(within(canvas).getByRole('button', { name: '查看AI预审Prompt' })).toBeInTheDocument();
     expect(within(canvas).getByRole('button', { name: '预览 Labeler 标注效果' })).toBeInTheDocument();
     expect(within(canvas).getByText('保存后仍要展示的问题')).toBeInTheDocument();
     expect(within(canvas).getByText('保存后仍要展示的回答 A')).toBeInTheDocument();
@@ -393,7 +393,7 @@ describe('TemplateDesignerPage', () => {
 
     const dialog = await screen.findByRole('dialog', { name: '模板配置' });
     const canvas = within(dialog).getByRole('main', { name: '模板编辑区域' });
-    const aiPromptButton = within(canvas).getByRole('button', { name: '查看 AI Prompt' });
+    const aiPromptButton = within(canvas).getByRole('button', { name: '查看AI预审Prompt' });
 
     expect(aiPromptButton.closest('.designer-canvas__toolbar')).not.toBeNull();
 
@@ -407,6 +407,11 @@ describe('TemplateDesignerPage', () => {
     expect(within(promptPreview).queryByLabelText('AI Prompt 统计')).not.toBeInTheDocument();
     expect(within(promptPreview).getByLabelText('Prompt 组成部分')).toBeInTheDocument();
     expect(promptPreview).toHaveTextContent('1. 角色设定');
+    expect(within(promptPreview).getByLabelText('编辑角色设定')).toHaveAttribute(
+      'placeholder',
+      '请填写 AI 预审角色设定，说明模型的身份、任务目标和审核范围。',
+    );
+    expect((within(promptPreview).getByLabelText('编辑角色设定') as HTMLTextAreaElement).value).toBe('');
     expect(promptPreview).toHaveTextContent('2. 题目展示信息 Show Item');
     expect(
       (within(promptPreview).getByLabelText('编辑题目展示信息 Show Item') as HTMLTextAreaElement).value,
@@ -558,7 +563,7 @@ describe('TemplateDesignerPage', () => {
     expect(description).toHaveClass('designer-field-card__description');
   });
 
-  it('输入文件字段分类失败时，在评测模板页面展示错误并不打开错误模板', async () => {
+  it('输入文件字段分类失败时降级使用本地解析模板并打开配置抽屉', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: RequestInfo | URL) => {
@@ -592,11 +597,10 @@ describe('TemplateDesignerPage', () => {
 
     render(<TemplateDesignerPage />);
 
-    const toast = await screen.findByRole('alert');
-    expect(toast).toHaveClass('toast');
-    expect(toast).toHaveTextContent('字段分类接口请求失败，请稍后重试');
-    expect(toast).not.toHaveTextContent('HTTP 500');
-    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog', { name: '模板配置' });
+    expect(within(dialog).getByText('失败样例')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(await screen.findByText('字段分类接口不可用，已使用本地解析结果创建模板')).toBeInTheDocument();
   });
 
   it('用户在右侧修改 ShowItem 字段显示名时，画布立即更新且保留上传样例值', async () => {

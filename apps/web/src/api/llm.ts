@@ -14,7 +14,7 @@ export async function classifyTemplateFields(
       method: 'POST',
       body: JSON.stringify(input),
     },
-    '字段分类接口请求失败，请稍后重试。',
+    '字段分类接口暂时不可用。',
   );
 
   if (!result || typeof result !== 'object' || Array.isArray(result)) {

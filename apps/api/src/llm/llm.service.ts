@@ -265,13 +265,6 @@ function resolveLlmProvider(env: NodeJS.ProcessEnv): string {
     return configuredProvider.toLowerCase();
   }
 
-  if (
-    env.NODE_ENV !== 'test' &&
-    hasUsableApiKey(env.DEEPSEEK_API_KEY, 'replace_with_deepseek_api_key')
-  ) {
-    return 'deepseek';
-  }
-
   return 'mock';
 }
 
@@ -321,10 +314,6 @@ function resolveOpenAiCompatibleConfig(
   }
 
   return null;
-}
-
-function hasUsableApiKey(value: unknown, placeholder: string): boolean {
-  return typeof value === 'string' && Boolean(value.trim()) && value.trim() !== placeholder;
 }
 
 function resolveChatCompletionsEndpoint(baseUrlOrEndpoint: string): string {

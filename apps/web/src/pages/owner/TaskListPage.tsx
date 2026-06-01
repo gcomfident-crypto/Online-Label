@@ -498,7 +498,7 @@ export const TaskListPage = () => {
 
       navigate(OWNER_TEMPLATES_PATH);
     } catch (error) {
-      showErrorToast(error instanceof Error ? error.message : '字段分类接口请求失败，请稍后重试。');
+      showErrorToast(error instanceof Error ? error.message : '模板草稿准备失败，请稍后重试。');
     }
   };
 

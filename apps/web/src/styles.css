@@ -7025,6 +7025,11 @@ video.schema-field__show-resource-media {
   min-width: 0;
 }
 
+.template-manager-filter-bar__create,
+.task-filter-bar__create.export-batch-action {
+  min-width: 102px;
+}
+
 .task-filter-bar input,
 .task-publish-form input,
 .task-publish-form select,
@@ -9982,13 +9987,23 @@ video.schema-field__show-resource-media {
 
 .task-close-confirm__cancel,
 .task-close-confirm__save {
+  height: 40px;
   min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
+  line-height: 1;
+  transition: none;
 }
 
 .task-close-confirm__cancel {
+  --designer-button-border-color: #c9d8f6;
+  --designer-button-color: #306df7;
+  --designer-button-background: transparent;
+  height: 40px;
   border: 1px solid #c9d8f6;
   padding: 0 18px;
   color: #306df7;
@@ -9997,16 +10012,24 @@ video.schema-field__show-resource-media {
 
 .task-close-confirm__cancel:hover:not(:disabled),
 .task-close-confirm__cancel:focus-visible:not(:disabled) {
+  height: 40px;
+  min-height: 40px;
   border-color: #c9d8f6;
+  padding: 0 18px;
   color: #306df7;
   background: transparent;
   box-shadow: none;
   filter: none;
   outline: none;
+  transition: none;
   transform: none;
 }
 
 .task-close-confirm__save {
+  --designer-button-border-color: #306df7;
+  --designer-button-color: #ffffff;
+  --designer-button-background: #306df7;
+  height: 40px;
   border: 1px solid #306df7;
   padding: 0 20px;
   color: #ffffff;
@@ -10015,12 +10038,46 @@ video.schema-field__show-resource-media {
 
 .task-close-confirm__save:hover:not(:disabled),
 .task-close-confirm__save:focus-visible:not(:disabled) {
+  height: 40px;
+  min-height: 40px;
   border-color: #306df7;
+  padding: 0 20px;
   color: #ffffff;
   background: #306df7;
   box-shadow: none;
   filter: none;
   outline: none;
+  transition: none;
+  transform: none;
+}
+
+.template-designer-page .task-close-confirm__cancel:hover:not(:disabled),
+.template-designer-page .task-close-confirm__cancel:focus-visible:not(:disabled) {
+  height: 40px;
+  min-height: 40px;
+  border-color: #c9d8f6;
+  padding: 0 18px;
+  color: #306df7;
+  background: transparent;
+  box-shadow: none;
+  filter: none;
+  outline: none;
+  transition: none;
+  transform: none;
+}
+
+.template-designer-page .task-close-confirm__save:hover:not(:disabled),
+.template-designer-page .task-close-confirm__save:focus-visible:not(:disabled) {
+  height: 40px;
+  min-height: 40px;
+  border-color: #306df7;
+  padding: 0 20px;
+  color: #ffffff;
+  background: #306df7;
+  box-shadow: none;
+  filter: none;
+  outline: none;
+  transition: none;
   transform: none;
 }
 
@@ -10624,6 +10681,7 @@ video.schema-field__show-resource-media {
 .task-filter-bar__create.export-batch-action {
   min-height: 48px;
   padding: 0 18px;
+  font-size: inherit;
 }
 
 .export-center-layout {
