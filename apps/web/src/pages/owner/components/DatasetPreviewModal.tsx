@@ -145,10 +145,6 @@ const collectPreviewFields = (items: TaskItemDto[]): string[] => {
   for (const item of items) {
     for (const field of Object.keys(item.rawData)) {
       fields.add(field);
-
-      if (fields.size >= 8) {
-        return Array.from(fields);
-      }
     }
   }
 

@@ -1959,7 +1959,6 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
               items={createDesignerPreviewItems(designerPreviewRecords, schema.datasetKind)}
               isLoading={false}
               errorMessage={null}
-              coverage="workspace"
               showItemMeta={false}
               onClose={() => setIsDesignerPreviewOpen(false)}
             />,

@@ -13,6 +13,16 @@
   --platform-topbar-user-gap: 8px;
   --platform-topbar-avatar-size: 24px;
   --platform-user-menu-width: 190px;
+  --table-page-background: #F7F8FB;
+  --table-page-padding-block-start: 16px;
+  --table-page-padding-inline: 32px;
+  --table-page-padding-block-end: 20px;
+  --table-page-header-gap: 12px;
+  --table-page-title-height: 25px;
+  --table-page-title-font-size: 20px;
+  --table-card-radius: 16px;
+  --table-card-padding-block-start: 20px;
+  --table-card-padding-inline: 24px;
   color: #172033;
   background: #f4f7fe;
   overscroll-behavior-x: none;
@@ -6800,8 +6810,8 @@ video.schema-field__show-resource-media {
   display: flex;
   flex-direction: column;
   border: 1px solid #e6eaf2;
-  border-radius: 16px;
-  padding: 20px 24px 0;
+  border-radius: var(--table-card-radius);
+  padding: var(--table-card-padding-block-start) var(--table-card-padding-inline) 0;
   background: #ffffff;
   overflow: hidden;
 }
@@ -8435,6 +8445,8 @@ video.schema-field__show-resource-media {
 .task-tag-bubble--removable {
   position: relative;
   overflow: visible;
+  transition: transform 190ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
 .task-tag-bubble__surface {
@@ -8448,6 +8460,9 @@ video.schema-field__show-resource-media {
   padding: 6px 14px 6px 11px;
   color: #1d4ed8;
   background: #eaf1ff;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
   transform-origin: left center;
   transition:
     border-color 160ms ease,
@@ -8467,6 +8482,33 @@ video.schema-field__show-resource-media {
   border-color: #a9c0fb;
   background: #f4f7ff;
   box-shadow: 0 6px 14px rgba(48, 109, 247, 0.08);
+}
+
+.task-tag-editor__bubbles--dragging,
+.task-tag-editor__bubbles--dragging *,
+.task-tag-editor__bubbles--dragging .task-tag-bubble__surface {
+  cursor: grabbing !important;
+}
+
+.task-tag-bubble--dragging {
+  transition: none;
+}
+
+.task-tag-bubble--dragging .task-tag-bubble__surface {
+  border-color: #306df7;
+  background: #ffffff;
+  box-shadow: 0 10px 22px rgba(48, 109, 247, 0.18);
+  cursor: grabbing;
+  transform: scale(1.035);
+}
+
+.task-tag-bubble--dragging .task-tag-bubble__remove {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.task-tag-bubble--drag-shifted {
+  transition: transform 210ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .task-tag-bubble--entering {
@@ -9638,6 +9680,10 @@ video.schema-field__show-resource-media {
 
 .task-dataset-preview-overlay--workspace {
   inset: var(--platform-topbar-height) 0 0;
+  z-index: 69;
+}
+
+.task-dataset-preview-overlay--drawer {
   z-index: 69;
 }
 
@@ -13538,40 +13584,6 @@ video.schema-field__show-resource-media {
   font-weight: 800;
 }
 
-.agent-review-toolbar {
-  flex: 0 0 auto;
-  display: grid;
-  grid-template-columns: minmax(260px, 440px) 76px;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.agent-review-toolbar input,
-.agent-review-toolbar button {
-  min-width: 0;
-  min-height: 36px;
-  border: 1px solid #d5deef;
-  border-radius: 8px;
-  padding: 8px 10px;
-  color: #172033;
-  background: #ffffff;
-  font: inherit;
-  font-size: 13px;
-}
-
-.agent-review-toolbar button {
-  color: #306df8;
-  font-weight: 900;
-}
-
-.agent-review-toolbar input:focus,
-.agent-review-toolbar button:hover,
-.agent-review-toolbar button:focus-visible {
-  border-color: #306df8;
-  box-shadow: 0 0 0 3px rgba(48, 109, 248, 0.12);
-  outline: none;
-}
-
 .agent-review-table-panel {
   margin-top: 10px;
 }
@@ -15152,7 +15164,7 @@ video.schema-field__show-resource-media {
 .manual-review-list-page,
 .manual-review-detail-page {
   min-height: calc(100vh - var(--platform-topbar-height));
-  background: #f5f6f7;
+  background: var(--table-page-background);
 }
 
 .manual-review-list-page {
@@ -15160,7 +15172,7 @@ video.schema-field__show-resource-media {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 14px 24px 18px;
+  padding: var(--table-page-padding-block-start) var(--table-page-padding-inline) var(--table-page-padding-block-end);
 }
 
 .manual-review-list-header {
@@ -15192,6 +15204,104 @@ video.schema-field__show-resource-media {
   color: #64748b;
   font-size: 13px;
   font-weight: 700;
+}
+
+.task-management-page,
+.template-manager-page,
+.export-center-page,
+.task-market-page,
+.labeler-task-workspace,
+.agent-review-page,
+.manual-review-list-page {
+  height: calc(100vh - var(--platform-topbar-height));
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  padding: var(--table-page-padding-block-start) var(--table-page-padding-inline) var(--table-page-padding-block-end);
+  background: var(--table-page-background);
+}
+
+.task-management-header,
+.export-center-header,
+.task-market-page-title,
+.labeler-task-workspace .my-data-header,
+.agent-review-page__header,
+.manual-review-list-header {
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: var(--table-page-title-height);
+  margin: 0 0 var(--table-page-header-gap);
+  padding: 0;
+  border-bottom: 0;
+}
+
+.task-management-header h1,
+.export-center-header h1,
+.task-market-page-title h1,
+.labeler-task-workspace .my-data-header h1,
+.agent-review-page__header h1,
+.manual-review-list-header h1 {
+  margin: 0;
+  color: #172033;
+  font-size: var(--table-page-title-font-size);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.manual-review-list-header > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.manual-review-list-header h1 {
+  margin: 0;
+}
+
+.manual-review-list-header p {
+  display: none;
+}
+
+.task-market-table-panel.task-management-table-card,
+.agent-review-table-panel.task-management-table-card,
+.manual-review-task-table-panel.task-management-table-card {
+  margin-top: 0;
+}
+
+.export-center-workspace,
+.export-records-section,
+.export-task-table-panel,
+.task-management-page > .task-management-table-card,
+.template-manager-page > .task-management-table-card,
+.task-market-page > .task-management-table-card,
+.labeler-task-workspace > .task-management-table-card,
+.agent-review-page > .task-management-table-card,
+.manual-review-list-page > .task-management-table-card {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.export-center-workspace {
+  margin-top: 0;
+}
+
+.agent-review-table-toolbar {
+  grid-template-columns: minmax(560px, 680px) minmax(320px, 520px);
+  justify-content: space-between;
+}
+
+.agent-review-filter {
+  width: 100%;
+  grid-template-columns: minmax(320px, 1fr);
+  justify-content: end;
+  gap: 0;
+  margin: 0;
+}
+
+.agent-review-filter input {
+  min-width: 0;
 }
 
 .manual-review-task-table-panel {
@@ -16163,7 +16273,7 @@ video.schema-field__show-resource-media {
 .ai-review-page,
 .ai-rule-page,
 .human-review-page {
-  background: #F5F6F7;
+  background: var(--table-page-background);
 }
 
 @media (min-width: 2200px) {
@@ -16275,6 +16385,7 @@ video.schema-field__show-resource-media {
   .template-manager-page,
   .export-center-page,
   .agent-review-page,
+  .manual-review-list-page,
   .task-market-page,
   .my-data-page {
     width: min(2560px, calc(100% - 64px));
@@ -16382,6 +16493,7 @@ video.schema-field__show-resource-media {
   .template-manager-page,
   .export-center-page,
   .agent-review-page,
+  .manual-review-list-page,
   .task-market-page,
   .my-data-page {
     width: min(2800px, calc(100% - 160px));
@@ -16459,7 +16571,8 @@ video.schema-field__show-resource-media {
     justify-items: start;
   }
 
-  .agent-review-toolbar,
+  .agent-review-table-toolbar,
+  .agent-review-filter,
   .agent-review-card--logs li {
     grid-template-columns: 1fr;
   }
@@ -16532,6 +16645,7 @@ video.schema-field__show-resource-media {
   .dataset-bulk-panel,
   .task-market-header dl,
   .task-market-filter,
+  .agent-review-filter,
   .task-market-grid,
   .task-market-card__meta,
   .workbench-layout,
@@ -16587,6 +16701,10 @@ video.schema-field__show-resource-media {
 
   .workspace-page,
   .task-management-page,
+  .template-manager-page,
+  .export-center-page,
+  .agent-review-page,
+  .manual-review-list-page,
   .task-detail-page,
   .dataset-import-page,
   .task-market-page,

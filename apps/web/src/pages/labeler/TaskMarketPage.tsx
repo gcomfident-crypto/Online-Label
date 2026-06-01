@@ -164,7 +164,9 @@ export const TaskMarketPage = () => {
   return (
     <section className="task-market-page" aria-labelledby="labeler-market-title">
       <ToastViewport messages={messages} onDismiss={dismissToast} />
-      <h1 id="labeler-market-title">任务广场</h1>
+      <div className="task-market-page-title">
+        <h1 id="labeler-market-title">任务广场</h1>
+      </div>
 
       <div className="task-management-table-card task-market-table-panel" ref={marketTableContainerRef}>
         <div className="task-management-table-toolbar task-market-table-toolbar">

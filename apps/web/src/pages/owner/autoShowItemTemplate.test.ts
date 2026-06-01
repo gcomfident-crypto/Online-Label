@@ -583,7 +583,7 @@ describe('autoShowItemTemplate', () => {
     });
   });
 
-  it('导出上传文件 ShowItem 预览样例，最多保留 3 条非空记录', () => {
+  it('导出上传文件 ShowItem 预览样例，保留全部非空记录', () => {
     expect(
       createAutoShowItemPreviewRecords([
         {},
@@ -596,6 +596,7 @@ describe('autoShowItemTemplate', () => {
       { id: '1', prompt: '第一题' },
       { id: '2', prompt: '第二题' },
       { id: '3', prompt: '第三题' },
+      { id: '4', prompt: '第四题' },
     ]);
   });
 });

@@ -1228,7 +1228,9 @@ const isChoiceField = (field: SchemaField): boolean =>
 
 type OptionComposerState = 'closed' | 'closing' | 'committing' | 'open';
 type OptionDragState = {
+  activeCenterX: number;
   activeIndex: number;
+  centerXByValue: Map<string, number>;
   currentX: number;
   originX: number;
   pointerId: number;
@@ -1425,8 +1427,13 @@ const OptionBubbleEditor = ({
       }
 
       const measuredWidth = pendingDrag.optionElement.getBoundingClientRect().width;
+      const centerXByValue = collectOptionCenterXByValue(options, optionElementRefs.current);
       const nextDragState = {
+        activeCenterX:
+          centerXByValue.get(pendingDrag.value) ??
+          getOptionCenterX(optionElementRefs.current, pendingDrag.value),
         activeIndex: pendingDrag.startIndex,
+        centerXByValue,
         currentX: pendingDrag.originX,
         originX: pendingDrag.originX,
         pointerId: pendingDrag.pointerId,
@@ -1450,15 +1457,11 @@ const OptionBubbleEditor = ({
 
     event.preventDefault();
 
+    const currentX = getPointerClientX(event);
     const nextDragState = {
       ...currentDrag,
-      currentX: getPointerClientX(event),
-      targetIndex: getOptionDragTargetIndex(
-        options,
-        optionElementRefs.current,
-        currentDrag.value,
-        getPointerClientX(event),
-      ),
+      currentX,
+      targetIndex: getOptionDragTargetIndex(options, currentDrag, currentX),
     };
 
     dragStateRef.current = nextDragState;
@@ -1684,21 +1687,23 @@ const createOptionValue = (
 
 const getOptionDragTargetIndex = (
   options: NonNullable<SchemaField['options']>,
-  optionElements: Map<string, HTMLSpanElement>,
-  activeValue: string,
-  clientX: number,
+  dragState: OptionDragState,
+  currentX: number,
 ): number => {
-  const activeIndex = options.findIndex((option) => option.value === activeValue);
+  const activeIndex = options.findIndex((option) => option.value === dragState.value);
 
   if (activeIndex < 0) {
     return activeIndex;
   }
 
   let targetIndex = activeIndex;
+  const projectedCenterX = dragState.activeCenterX + currentX - dragState.originX;
 
-  if (clientX >= getOptionCenterX(optionElements, activeValue)) {
+  if (projectedCenterX >= dragState.activeCenterX) {
     for (let index = activeIndex + 1; index < options.length; index += 1) {
-      if (clientX > getOptionCenterX(optionElements, options[index].value)) {
+      const optionCenterX = dragState.centerXByValue.get(options[index].value);
+
+      if (optionCenterX !== undefined && projectedCenterX > optionCenterX) {
         targetIndex = index;
       }
     }
@@ -1707,12 +1712,31 @@ const getOptionDragTargetIndex = (
   }
 
   for (let index = activeIndex - 1; index >= 0; index -= 1) {
-    if (clientX < getOptionCenterX(optionElements, options[index].value)) {
+    const optionCenterX = dragState.centerXByValue.get(options[index].value);
+
+    if (optionCenterX !== undefined && projectedCenterX < optionCenterX) {
       targetIndex = index;
     }
   }
 
   return targetIndex;
+};
+
+const collectOptionCenterXByValue = (
+  options: NonNullable<SchemaField['options']>,
+  optionElements: Map<string, HTMLSpanElement>,
+): Map<string, number> => {
+  const centerXByValue = new Map<string, number>();
+
+  for (const option of options) {
+    const centerX = getOptionCenterX(optionElements, option.value);
+
+    if (Number.isFinite(centerX)) {
+      centerXByValue.set(option.value, centerX);
+    }
+  }
+
+  return centerXByValue;
 };
 
 const getOptionCenterX = (

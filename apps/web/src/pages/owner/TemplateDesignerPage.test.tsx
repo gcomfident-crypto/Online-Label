@@ -162,7 +162,19 @@ describe('TemplateDesignerPage', () => {
           {
             prompt: '上传文件里的真实问题',
             response_a: '上传文件里的候选回答 A',
+            raw_field_03: '原始字段 3',
+            raw_field_04: '原始字段 4',
+            raw_field_05: '原始字段 5',
+            raw_field_06: '原始字段 6',
+            raw_field_07: '原始字段 7',
+            raw_field_08: '原始字段 8',
+            raw_field_09: '原始字段 9',
+            raw_field_10: '原始字段 10',
           },
+          ...Array.from({ length: 11 }, (_, index) => ({
+            prompt: `上传文件里的真实问题 ${index + 2}`,
+            response_a: `上传文件里的候选回答 ${index + 2}`,
+          })),
         ],
       }),
     );
@@ -212,12 +224,16 @@ describe('TemplateDesignerPage', () => {
 
     const previewDialog = await screen.findByRole('dialog', { name: '预览已上传文件' });
     const previewOverlay = previewDialog.parentElement as HTMLElement;
-    expect(previewOverlay).toHaveClass('task-dataset-preview-overlay--workspace');
+    expect(previewOverlay).not.toHaveClass('task-dataset-preview-overlay--workspace');
+    expect(previewOverlay).toHaveClass('task-dataset-preview-overlay--drawer');
     expect(previewOverlay.parentElement).toBe(document.body);
     expect(previewOverlay.closest('.template-designer-drawer-shell')).toBeNull();
-    expect(within(previewDialog).getByText('共 1 条样例')).toBeInTheDocument();
+    expect(within(previewDialog).getByText('共 12 条样例')).toBeInTheDocument();
     expect(within(previewDialog).getByRole('columnheader', { name: 'prompt' })).toBeInTheDocument();
+    expect(within(previewDialog).getByRole('columnheader', { name: 'raw_field_10' })).toBeInTheDocument();
     expect(within(previewDialog).getByText('上传文件里的真实问题')).toBeInTheDocument();
+    expect(within(previewDialog).getByText('原始字段 10')).toBeInTheDocument();
+    expect(within(previewDialog).getByText('上传文件里的真实问题 12')).toBeInTheDocument();
   });
 
   it('保存自动解析模板后重新打开仍保留上传工具栏和完整 ShowItem 预览', async () => {

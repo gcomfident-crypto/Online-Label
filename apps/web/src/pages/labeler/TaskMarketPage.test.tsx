@@ -99,6 +99,7 @@ describe('TaskMarketPage', () => {
     expect(screen.queryByText('全部标签')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '筛选' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^已满额/ })).not.toBeInTheDocument();
+    expect(document.querySelector('.task-market-page-title')).not.toBeNull();
     expect(document.querySelector('.task-market-claim-status-grid')).not.toBeNull();
     expect(document.querySelectorAll('.task-market-claim-status-grid .task-summary-card')).toHaveLength(3);
     expect(document.querySelector('.task-market-table-panel.task-management-table-card')).not.toBeNull();

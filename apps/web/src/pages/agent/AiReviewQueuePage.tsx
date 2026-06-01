@@ -184,26 +184,16 @@ export const AiReviewQueuePage = () => {
         </div>
       </header>
 
-      <div className="agent-review-toolbar">
-        <input
-          aria-label="搜索任务级 AI 预审批次"
-          placeholder="搜索任务名 / 任务ID / 批次ID / 标注员 / 题目ID"
-          value={keyword}
-          onChange={(event) => setKeyword(event.target.value)}
-        />
-        <button type="button" aria-label="刷新任务级 AI 预审队列" onClick={() => void loadBatches()}>
-          刷新
-        </button>
-      </div>
-
       {isLoading && batches.length === 0 ? (
         <PageLoading className="page-loading--compact" title="正在加载 AI 预审队列" />
       ) : (
         <AiReviewBatchTable
           batches={paginatedBatches}
           currentPage={currentPage}
+          keyword={keyword}
           selectedBatchId={selectedBatch?.batchId ?? null}
           totalPages={totalPages}
+          onKeywordChange={setKeyword}
           onOpenBatch={(batch) => void handleOpenBatch(batch)}
           onPageChange={setCurrentPage}
         />
@@ -240,6 +230,8 @@ const AiReviewSheetPortal = ({ children }: { children: ReactNode }) => {
 const AiReviewBatchTable = ({
   batches,
   currentPage,
+  keyword,
+  onKeywordChange,
   onOpenBatch,
   onPageChange,
   selectedBatchId,
@@ -247,6 +239,8 @@ const AiReviewBatchTable = ({
 }: {
   batches: AiReviewBatchDto[];
   currentPage: number;
+  keyword: string;
+  onKeywordChange: (keyword: string) => void;
   onOpenBatch: (batch: AiReviewBatchDto) => void;
   onPageChange: (page: number) => void;
   selectedBatchId: string | null;
@@ -273,6 +267,18 @@ const AiReviewBatchTable = ({
 
   return (
     <div className="task-management-table-card agent-review-table-panel">
+      <div className="task-management-table-toolbar agent-review-table-toolbar">
+        <div className="agent-review-table-toolbar__spacer" aria-hidden="true" />
+        <div className="task-filter-bar agent-review-filter">
+          <input
+            aria-label="搜索任务级 AI 预审批次"
+            placeholder="搜索任务名 / 任务ID / 批次ID / 标注员 / 题目ID"
+            value={keyword}
+            onChange={(event) => onKeywordChange(event.target.value)}
+          />
+        </div>
+      </div>
+
       <div className="task-table-scroll" data-adaptive-table-viewport="true">
         <table className="task-table agent-review-batch-table" aria-label="任务级 AI 预审队列表格">
           <colgroup>

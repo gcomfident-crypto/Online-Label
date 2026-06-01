@@ -16,7 +16,7 @@ const LABELER_ID = 'user_labeler_li_lei';
 const MY_DATA_FALLBACK_PAGE_SIZE = 7;
 const MY_DATA_TABLE_ROW_HEIGHT = 66;
 
-type LabelerStatusFilter = '' | 'IN_PROGRESS' | 'SUBMITTED' | 'NEEDS_REVISION' | 'FINAL_PENDING';
+type LabelerStatusFilter = '' | 'IN_PROGRESS' | 'SUBMITTED' | 'NEEDS_REVISION';
 
 const STATUS_OPTIONS: readonly {
   label: string;
@@ -27,7 +27,6 @@ const STATUS_OPTIONS: readonly {
   { label: '待标注', value: 'IN_PROGRESS', summaryClassName: 'task-summary-card--running' },
   { label: '已提交', value: 'SUBMITTED', summaryClassName: 'task-summary-card--done' },
   { label: '待修改', value: 'NEEDS_REVISION', summaryClassName: 'task-summary-card--paused' },
-  { label: '待完成', value: 'FINAL_PENDING', summaryClassName: 'task-summary-card--draft' },
 ];
 
 export const MyDataPage = () => {
@@ -84,7 +83,6 @@ export const MyDataPage = () => {
           IN_PROGRESS: 0,
           SUBMITTED: 0,
           NEEDS_REVISION: 0,
-          FINAL_PENDING: 0,
         },
       ),
     [assignments],
@@ -164,12 +162,6 @@ export const MyDataPage = () => {
           <PageLoading title="正在加载工作台" description="正在同步已领取任务。" />
         ) : (
           <>
-          <div className="labeler-list-panel-heading">
-            <div>
-              <h2>已领取任务列表</h2>
-            </div>
-            <small>{taskGroups.length.toLocaleString()} 条任务</small>
-          </div>
           <div className="task-table-scroll my-data-table-frame" data-adaptive-table-viewport="true">
             <table className="task-table my-data-table" aria-label="工作台任务列表">
               <thead>

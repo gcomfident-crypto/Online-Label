@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import JSZip from 'jszip';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
@@ -622,7 +622,18 @@ describe('TaskListPage', () => {
       new File(
         [
           JSON.stringify([
-            { id: 'qa_preview_1', prompt: '待预览题目 1', model_answer: '回答 1' },
+            {
+              id: 'qa_preview_1',
+              prompt: '待预览题目 1',
+              model_answer: '回答 1',
+              field_04: '字段 4',
+              field_05: '字段 5',
+              field_06: '字段 6',
+              field_07: '字段 7',
+              field_08: '字段 8',
+              field_09: '字段 9',
+              field_10: '字段 10',
+            },
             { id: 'qa_preview_2', prompt: '待预览题目 2', model_answer: '回答 2' },
           ]),
         ],
@@ -639,6 +650,8 @@ describe('TaskListPage', () => {
     expect(dialog).toHaveClass('task-dataset-preview-modal--entering');
     expect(within(dialog).getByText('待预览题目 1')).toBeInTheDocument();
     expect(within(dialog).getByText('待预览题目 2')).toBeInTheDocument();
+    expect(within(dialog).getByRole('columnheader', { name: 'field_10' })).toBeInTheDocument();
+    expect(within(dialog).getByText('字段 10')).toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: '关闭' })).not.toBeInTheDocument();
 
     await user.click(dialog);
@@ -1866,6 +1879,51 @@ describe('TaskListPage', () => {
     expect(body).not.toHaveProperty('richTextInstruction');
   });
 
+  it('新建任务抽屉已创建标签支持左右拖拽换位', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: [] }))
+      .mockResolvedValueOnce(jsonResponse({ data: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderTaskListPage();
+
+    await screen.findByRole('table', { name: '任务列表' });
+    await user.click(screen.getByRole('button', { name: '新建任务' }));
+
+    await addTaskTag(user, '电商');
+    await addTaskTag(user, '质检');
+    await addTaskTag(user, '中文');
+
+    const ecommerceTag = screen.getByText('电商').closest('.task-tag-bubble') as HTMLSpanElement;
+    const qualityTag = screen.getByText('质检').closest('.task-tag-bubble') as HTMLSpanElement;
+    const chineseTag = screen.getByText('中文').closest('.task-tag-bubble') as HTMLSpanElement;
+    mockTagRect(ecommerceTag, 0);
+    mockTagRect(qualityTag, 88);
+    mockTagRect(chineseTag, 176);
+
+    const ecommerceSurface = ecommerceTag.querySelector('.task-tag-bubble__surface') as HTMLSpanElement;
+    vi.useFakeTimers();
+
+    try {
+      fireEvent(ecommerceSurface, createTaskTagPointerTestEvent('pointerdown', { button: 0, clientX: 20, pointerId: 1 }));
+      act(() => {
+        vi.advanceTimersByTime(170);
+      });
+      expect(ecommerceTag).toHaveClass('task-tag-bubble--dragging');
+
+      fireEvent(ecommerceSurface, createTaskTagPointerTestEvent('pointermove', { clientX: 250, pointerId: 1 }));
+      expect(qualityTag).toHaveClass('task-tag-bubble--drag-shifted');
+      expect(chineseTag).toHaveClass('task-tag-bubble--drag-shifted');
+      fireEvent(ecommerceSurface, createTaskTagPointerTestEvent('pointerup', { clientX: 250, pointerId: 1 }));
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(getTaskTagLabels()).toEqual(['质检', '中文', '电商']);
+  });
+
   it('新建任务在抽屉内上传题目数据后可以立即导入并发布', async () => {
     const user = userEvent.setup();
     const createdTask = {
@@ -2034,29 +2092,22 @@ describe('TaskListPage', () => {
       screen.getByLabelText('题目数据文件'),
       new File(
         [
-          JSON.stringify([
-            {
+          JSON.stringify(
+            Array.from({ length: 12 }, (_, index) => ({
               task_type: '知识问答',
               lang: 'zh',
-              prompt: '解释什么是过拟合',
-              response_a: '回答 A',
-              model_a: 'doubao-pro',
-            },
-            {
-              task_type: '知识问答',
-              lang: 'zh',
-              prompt: '解释什么是欠拟合',
-              response_a: '回答 B',
-              model_a: 'baseline-7b',
-            },
-          ]),
+              prompt: index === 0 ? '解释什么是过拟合' : `第 ${index + 1} 道题`,
+              response_a: index === 0 ? '回答 A' : `回答 ${index + 1}`,
+              model_a: index === 0 ? 'doubao-pro' : 'baseline-7b',
+            })),
+          ),
         ],
         'preference_compare.json',
         { type: 'application/json' },
       ),
     );
 
-    expect(await screen.findByText('题目数：2')).toBeInTheDocument();
+    expect(await screen.findByText('题目数：12')).toBeInTheDocument();
     expect(screen.getByLabelText('关联模板')).toHaveValue('');
 
     await user.click(screen.getByLabelText('关联模板'));
@@ -2067,7 +2118,8 @@ describe('TaskListPage', () => {
 
     expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
     const handoff = JSON.parse(window.sessionStorage.getItem('labelhub.templateDraftHandoff') ?? '{}');
-    expect(handoff.previewRecords).toEqual([
+    expect(handoff.previewRecords).toHaveLength(12);
+    expect(handoff.previewRecords.slice(0, 2)).toEqual([
       expect.objectContaining({
         task_type: '知识问答',
         lang: 'zh',
@@ -2078,11 +2130,16 @@ describe('TaskListPage', () => {
       expect.objectContaining({
         task_type: '知识问答',
         lang: 'zh',
-        prompt: '解释什么是欠拟合',
-        response_a: '回答 B',
+        prompt: '第 2 道题',
+        response_a: '回答 2',
         model_a: 'baseline-7b',
       }),
     ]);
+    expect(handoff.previewRecords.at(-1)).toMatchObject({
+      prompt: '第 12 道题',
+      response_a: '回答 12',
+    });
+    expect(handoff.autoClassificationRequest.records).toHaveLength(1);
     expect(handoff.autoClassificationRequest.fields.map((field: { sourceKey: string }) => field.sourceKey)).toEqual([
       'task_type',
       'lang',
@@ -2590,6 +2647,55 @@ const TemplateDesignerTestRoute = () => {
   const navigate = useNavigate();
 
   return <TemplateDesignerPage onReturnTo={(path) => navigate(path)} />;
+};
+
+const addTaskTag = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
+  await user.click(screen.getByRole('button', { name: '新增标签' }));
+  await user.type(screen.getByLabelText('新标签'), label);
+  await user.click(screen.getByRole('button', { name: '确认新增标签' }));
+  const composer = screen.getByRole('form', { name: '新标签输入' });
+  fireEvent.animationEnd(composer);
+  const tagBubble = screen.getByText(label).closest('.task-tag-bubble');
+  expect(tagBubble).not.toBeNull();
+  fireEvent.animationEnd(tagBubble as HTMLElement);
+};
+
+const mockTagRect = (element: HTMLElement, left: number, width = 72) => {
+  const rect = {
+    bottom: 34,
+    height: 34,
+    left,
+    right: left + width,
+    top: 0,
+    width,
+    x: left,
+    y: 0,
+    toJSON: () => rect,
+  } as DOMRect;
+
+  Object.defineProperty(element, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => rect,
+  });
+};
+
+const getTaskTagLabels = (): string[] =>
+  Array.from(document.querySelectorAll('.task-tag-editor__bubbles .task-tag-bubble--removable .task-tag-bubble__label'))
+    .map((element) => element.textContent ?? '');
+
+const createTaskTagPointerTestEvent = (
+  type: string,
+  options: { button?: number; clientX: number; pointerId: number },
+): Event => {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+
+  Object.defineProperties(event, {
+    button: { value: options.button ?? 0 },
+    clientX: { value: options.clientX },
+    pointerId: { value: options.pointerId },
+  });
+
+  return event;
 };
 
 const clickDrawerBackdrop = async (user: ReturnType<typeof userEvent.setup>) => {

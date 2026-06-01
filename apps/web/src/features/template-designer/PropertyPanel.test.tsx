@@ -646,6 +646,68 @@ describe('PropertyPanel', () => {
     }
   });
 
+  it('选项字段向右拖拽时不受拖拽标签自身位移影响，右侧标签会及时让位', () => {
+    vi.useFakeTimers();
+    const onUpdateField = vi.fn();
+
+    try {
+      render(
+        <PropertyPanel
+          field={{
+            key: 'preferred_field',
+            fieldKey: 'preferred',
+            type: 'checkbox',
+            label: '评估维度',
+            options: [
+              { label: '准确性', value: 'accuracy' },
+              { label: '完整性', value: 'coverage' },
+              { label: '安全性', value: 'safety' },
+            ],
+          }}
+          onAddLinkageRule={vi.fn()}
+          onUpdateField={onUpdateField}
+          onUpdateValidation={vi.fn()}
+        />,
+      );
+
+      const optionA = screen.getByText('准确性').closest('.designer-option-bubble') as HTMLElement;
+      const optionB = screen.getByText('完整性').closest('.designer-option-bubble') as HTMLElement;
+      const optionC = screen.getByText('安全性').closest('.designer-option-bubble') as HTMLElement;
+
+      mockOptionRect(optionA, { left: 44, width: 80 });
+      mockOptionRect(optionB, { left: 132, width: 80 });
+      mockOptionRect(optionC, { left: 220, width: 80 });
+
+      const optionASurface = optionA.querySelector('.designer-option-bubble__surface') as HTMLElement;
+
+      fireEvent(optionASurface, createPointerTestEvent('pointerdown', { button: 0, clientX: 50, pointerId: 1 }));
+
+      act(() => {
+        vi.advanceTimersByTime(160);
+      });
+
+      // Browser layout includes the active tag's transform during dragging. The sorter must use
+      // the initial centers captured at drag start, otherwise rightward dragging stalls.
+      mockOptionRect(optionA, { left: 174, width: 80 });
+      fireEvent(optionASurface, createPointerTestEvent('pointermove', { clientX: 180, pointerId: 1 }));
+
+      expect(optionB).toHaveClass('designer-option-bubble--drag-shifted');
+      expect(optionC).not.toHaveClass('designer-option-bubble--drag-shifted');
+
+      fireEvent(optionASurface, createPointerTestEvent('pointerup', { clientX: 180, pointerId: 1 }));
+
+      expect(onUpdateField).toHaveBeenLastCalledWith({
+        options: [
+          { label: '完整性', value: 'coverage' },
+          { label: '准确性', value: 'accuracy' },
+          { label: '安全性', value: 'safety' },
+        ],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('ShowItem 固定使用表格布局，隐藏展示区域配置并默认使用内容区', () => {
     const onUpdateField = vi.fn();
     const field: SchemaField = {

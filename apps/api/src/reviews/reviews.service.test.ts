@@ -64,7 +64,7 @@ type Assignment = {
       name: string;
       datasetKind: 'qa_quality';
       schemaVersion: string;
-    };
+    } | null;
   };
   taskItem: {
     id: string;
@@ -108,6 +108,27 @@ describe('ReviewsService', () => {
       }),
     );
     expect(pending[0].aiScores).toEqual({ overall: 90 });
+  });
+
+  it('人工复审列表兼容没有关联模板的任务', async () => {
+    const { service, db } = createService();
+    db.assignments[0].task.template = null;
+
+    const pending = await service.listPending({ reviewerId: 'reviewer_1' });
+    const detail = await service.getReview('submission_1');
+
+    expect(pending[0]).toEqual(
+      expect.objectContaining({
+        submissionId: 'submission_1',
+        datasetKind: 'qa_quality',
+      }),
+    );
+    expect(detail.task).toEqual(
+      expect.objectContaining({
+        datasetKind: 'qa_quality',
+        templateName: '未关联模板',
+      }),
+    );
   });
 
   it('开始复审后 submission 进入 RECHECK_REVIEWING 且 assignment 进入 UNDER_RECHECK', async () => {

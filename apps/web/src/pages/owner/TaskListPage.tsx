@@ -1495,7 +1495,7 @@ const resolveImportedDatasetRecords = async (
   summary: DatasetImportSummaryDto,
 ): Promise<DatasetRecord[]> => {
   const previewRecords = taskItemsToDatasetRecords(summary.preview);
-  if (previewRecords.length > 0) {
+  if (previewRecords.length > 0 && previewRecords.length >= summary.importedCount) {
     return previewRecords;
   }
 

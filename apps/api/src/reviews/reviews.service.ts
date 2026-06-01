@@ -79,7 +79,7 @@ type ReviewSubmissionRecord = {
         name: string;
         datasetKind: DatasetKind;
         schemaVersion: string;
-      };
+      } | null;
     };
     taskItem: {
       id: string;
@@ -713,6 +713,7 @@ async function writeBatchAudit(
 
 function toQueueItemDto(submission: ReviewSubmissionRecord): ReviewQueueItemDto {
   const aiReview = latestRecord(submission.reviewRecords, 'AI_PRECHECK', 'AI');
+  const datasetKind = resolveReviewDatasetKind(submission);
 
   return {
     submissionId: submission.id,
@@ -721,7 +722,7 @@ function toQueueItemDto(submission: ReviewSubmissionRecord): ReviewQueueItemDto 
     taskTitle: submission.assignment.task.title,
     taskItemId: submission.assignment.taskItem.id,
     externalId: submission.assignment.taskItem.externalId,
-    datasetKind: submission.assignment.task.template.datasetKind,
+    datasetKind,
     status: submission.status,
     round: submission.round,
     aiDecision: aiReview?.decision ?? null,
@@ -736,6 +737,8 @@ function toQueueItemDto(submission: ReviewSubmissionRecord): ReviewQueueItemDto 
 function toReviewDetailDto(submission: ReviewSubmissionRecord): ReviewDetailDto {
   const aiReview = latestRecord(submission.reviewRecords, 'AI_PRECHECK', 'AI');
   const humanReview = latestRecord(submission.reviewRecords, 'RECHECK', 'HUMAN');
+  const datasetKind = resolveReviewDatasetKind(submission);
+  const templateName = submission.assignment.task.template?.name ?? '未关联模板';
 
   return {
     submission: {
@@ -755,8 +758,8 @@ function toReviewDetailDto(submission: ReviewSubmissionRecord): ReviewDetailDto 
     task: {
       id: submission.assignment.task.id,
       title: submission.assignment.task.title,
-      datasetKind: submission.assignment.task.template.datasetKind,
-      templateName: submission.assignment.task.template.name,
+      datasetKind,
+      templateName,
     },
     taskItem: {
       id: submission.assignment.taskItem.id,
@@ -769,6 +772,10 @@ function toReviewDetailDto(submission: ReviewSubmissionRecord): ReviewDetailDto 
     reviewRecords: submission.reviewRecords.map(toReviewRecordDto),
     timeline: buildTimeline(submission),
   };
+}
+
+function resolveReviewDatasetKind(submission: ReviewSubmissionRecord): DatasetKind {
+  return submission.assignment.task.template?.datasetKind ?? submission.assignment.taskItem.datasetKind;
 }
 
 function toReviewRecordDto(record: ReviewRecordRecord): ReviewRecordDto {

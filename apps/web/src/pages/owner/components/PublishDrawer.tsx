@@ -566,6 +566,26 @@ const templateSearchText = (template: TaskTemplateSummary, displayIdMap: Map<str
 type TagComposerState = 'closed' | 'closing' | 'committing' | 'open';
 
 const MAX_TASK_TAGS = 5;
+const TASK_TAG_DRAG_GAP = 8;
+const TASK_TAG_DRAG_HOLD_MS = 160;
+
+type TaskTagDragState = {
+  activeIndex: number;
+  currentX: number;
+  originX: number;
+  pointerId: number;
+  shiftWidth: number;
+  tag: string;
+  targetIndex: number;
+};
+
+type PendingTaskTagDrag = {
+  originX: number;
+  pointerId: number;
+  startIndex: number;
+  tag: string;
+  tagElement: HTMLSpanElement;
+};
 
 const TagBubbleEditor = ({
   fieldError,
@@ -580,8 +600,13 @@ const TagBubbleEditor = ({
   const [draftTag, setDraftTag] = useState('');
   const [enteringTag, setEnteringTag] = useState<string | null>(null);
   const [removingTag, setRemovingTag] = useState<{ tag: string; width: number } | null>(null);
+  const [dragState, setDragState] = useState<TaskTagDragState | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const isTagInputComposingRef = useRef(false);
+  const tagElementRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
+  const pendingDragRef = useRef<PendingTaskTagDrag | null>(null);
+  const dragStateRef = useRef<TaskTagDragState | null>(null);
+  const dragHoldTimerRef = useRef<number | null>(null);
   const { dismissToast, messages, showErrorToast } = useToastController();
   const isComposerVisible = composerState !== 'closed';
   const isAtTagLimit = tags.length >= MAX_TASK_TAGS;
@@ -600,6 +625,15 @@ const TagBubbleEditor = ({
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
   }, [composerState]);
+
+  useEffect(() => {
+    return () => {
+      if (dragHoldTimerRef.current) {
+        window.clearTimeout(dragHoldTimerRef.current);
+        dragHoldTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const showTagLimitNotice = () => {
     showErrorToast('最多 5 个标签。');
@@ -686,24 +720,168 @@ const TagBubbleEditor = ({
     setComposerState('open');
   };
 
+  const clearDragHoldTimer = () => {
+    if (dragHoldTimerRef.current) {
+      window.clearTimeout(dragHoldTimerRef.current);
+      dragHoldTimerRef.current = null;
+    }
+  };
+
+  const startTagDrag = (tag: string, event: PointerEvent<HTMLSpanElement>) => {
+    if ((event.button !== 0 && event.button !== undefined) || removingTag) {
+      return;
+    }
+
+    const tagElement = event.currentTarget.closest('.task-tag-bubble');
+    const startIndex = tags.indexOf(tag);
+
+    if (!(tagElement instanceof HTMLSpanElement) || startIndex < 0) {
+      return;
+    }
+
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    clearDragHoldTimer();
+    const originX = getTaskTagPointerClientX(event);
+
+    pendingDragRef.current = {
+      originX,
+      pointerId: event.pointerId,
+      startIndex,
+      tag,
+      tagElement,
+    };
+
+    dragHoldTimerRef.current = window.setTimeout(() => {
+      const pendingDrag = pendingDragRef.current;
+
+      if (!pendingDrag || pendingDrag.pointerId !== event.pointerId) {
+        return;
+      }
+
+      const measuredWidth = pendingDrag.tagElement.getBoundingClientRect().width;
+      const nextDragState = {
+        activeIndex: pendingDrag.startIndex,
+        currentX: pendingDrag.originX,
+        originX: pendingDrag.originX,
+        pointerId: pendingDrag.pointerId,
+        shiftWidth: (measuredWidth > 0 ? measuredWidth : 80) + TASK_TAG_DRAG_GAP,
+        tag: pendingDrag.tag,
+        targetIndex: pendingDrag.startIndex,
+      };
+
+      dragStateRef.current = nextDragState;
+      setDragState(nextDragState);
+      dragHoldTimerRef.current = null;
+    }, TASK_TAG_DRAG_HOLD_MS);
+  };
+
+  const moveTagDrag = (event: PointerEvent<HTMLSpanElement>) => {
+    const currentDrag = dragStateRef.current;
+
+    if (!currentDrag || currentDrag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const nextDragState = {
+      ...currentDrag,
+      currentX: getTaskTagPointerClientX(event),
+      targetIndex: getTaskTagDragTargetIndex(
+        tags,
+        tagElementRefs.current,
+        currentDrag.tag,
+        getTaskTagPointerClientX(event),
+      ),
+    };
+
+    dragStateRef.current = nextDragState;
+    setDragState(nextDragState);
+  };
+
+  const finishTagDrag = (event: PointerEvent<HTMLSpanElement>) => {
+    const currentDrag = dragStateRef.current;
+
+    clearDragHoldTimer();
+    pendingDragRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+
+    if (!currentDrag || currentDrag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const activeIndex = tags.indexOf(currentDrag.tag);
+
+    if (activeIndex >= 0 && currentDrag.targetIndex >= 0 && activeIndex !== currentDrag.targetIndex) {
+      onChange(moveTaskTag(tags, activeIndex, currentDrag.targetIndex));
+    }
+
+    dragStateRef.current = null;
+    setDragState(null);
+  };
+
+  const cancelTagDrag = (event: PointerEvent<HTMLSpanElement>) => {
+    clearDragHoldTimer();
+    pendingDragRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    dragStateRef.current = null;
+    setDragState(null);
+  };
+
+  const getTagDragStyle = (
+    tag: string,
+    baseStyle?: CSSProperties,
+  ): CSSProperties | undefined => {
+    if (!dragState) {
+      return baseStyle;
+    }
+
+    const offset = getTaskTagDragOffset(tags, dragState, tag);
+
+    if (offset === 0 && dragState.tag !== tag) {
+      return baseStyle;
+    }
+
+    return {
+      ...baseStyle,
+      transform: `translateX(${offset}px)`,
+      zIndex: dragState.tag === tag ? 5 : undefined,
+    };
+  };
+
   return (
     <div className="task-tag-editor">
       <ToastViewport messages={messages} onDismiss={dismissToast} />
       <div className="task-tag-editor__heading">
         <span>标签</span>
       </div>
-      <div className="task-tag-editor__bubbles">
+      <div className={`task-tag-editor__bubbles${dragState ? ' task-tag-editor__bubbles--dragging' : ''}`}>
         {tags.map((tag) => (
           <span
             className={`task-tag-bubble task-tag-bubble--removable${
               enteringTag === tag ? ' task-tag-bubble--entering' : ''
-            }${removingTag?.tag === tag ? ' task-tag-bubble--removing' : ''}`}
+            }${removingTag?.tag === tag ? ' task-tag-bubble--removing' : ''}${
+              dragState?.tag === tag ? ' task-tag-bubble--dragging' : ''
+            }${
+              dragState && dragState.tag !== tag && getTaskTagDragOffset(tags, dragState, tag) !== 0
+                ? ' task-tag-bubble--drag-shifted'
+                : ''
+            }`}
             key={tag}
-            style={
+            ref={(element) => {
+              if (element) {
+                tagElementRefs.current.set(tag, element);
+                return;
+              }
+
+              tagElementRefs.current.delete(tag);
+            }}
+            style={getTagDragStyle(
+              tag,
               removingTag?.tag === tag
                 ? ({ '--task-tag-remove-width': `${removingTag.width}px` } as CSSProperties)
-                : undefined
-            }
+                : undefined,
+            )}
             onAnimationEnd={(event) => {
               if (event.target !== event.currentTarget) {
                 return;
@@ -724,12 +902,17 @@ const TagBubbleEditor = ({
               className={`task-tag-bubble__surface${
                 removingTag?.tag === tag ? ' task-tag-bubble__surface--removing' : ''
               }`}
+              onPointerDown={(event) => startTagDrag(tag, event)}
+              onPointerMove={moveTagDrag}
+              onPointerUp={finishTagDrag}
+              onPointerCancel={cancelTagDrag}
             >
               <span className="task-tag-bubble__label">{tag}</span>
               <button
                 aria-label={`删除标签 ${tag}`}
                 className="task-tag-bubble__remove"
                 type="button"
+                onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => removeTag(tag, event)}
               >
                 <span aria-hidden="true" />
@@ -803,6 +986,111 @@ const TagBubbleEditor = ({
       <FieldError message={fieldError} />
     </div>
   );
+};
+
+const getTaskTagPointerClientX = (event: PointerEvent<HTMLElement>): number => {
+  const clientX = Number(event.clientX);
+
+  return Number.isFinite(clientX) ? clientX : 0;
+};
+
+const getTaskTagDragTargetIndex = (
+  tags: readonly string[],
+  tagElements: Map<string, HTMLSpanElement>,
+  activeTag: string,
+  clientX: number,
+): number => {
+  const activeIndex = tags.indexOf(activeTag);
+
+  if (activeIndex < 0) {
+    return activeIndex;
+  }
+
+  let targetIndex = activeIndex;
+
+  if (clientX >= getTaskTagCenterX(tagElements, activeTag)) {
+    for (let index = activeIndex + 1; index < tags.length; index += 1) {
+      if (clientX > getTaskTagCenterX(tagElements, tags[index])) {
+        targetIndex = index;
+      }
+    }
+
+    return targetIndex;
+  }
+
+  for (let index = activeIndex - 1; index >= 0; index -= 1) {
+    if (clientX < getTaskTagCenterX(tagElements, tags[index])) {
+      targetIndex = index;
+    }
+  }
+
+  return targetIndex;
+};
+
+const getTaskTagCenterX = (
+  tagElements: Map<string, HTMLSpanElement>,
+  tag: string,
+): number => {
+  const tagElement = tagElements.get(tag);
+
+  if (!tagElement) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const rect = tagElement.getBoundingClientRect();
+
+  return rect.left + rect.width / 2;
+};
+
+const getTaskTagDragOffset = (
+  tags: readonly string[],
+  dragState: TaskTagDragState,
+  tag: string,
+): number => {
+  if (tag === dragState.tag) {
+    return dragState.currentX - dragState.originX;
+  }
+
+  const tagIndex = tags.indexOf(tag);
+
+  if (tagIndex < 0 || dragState.targetIndex === dragState.activeIndex) {
+    return 0;
+  }
+
+  if (
+    dragState.targetIndex > dragState.activeIndex &&
+    tagIndex > dragState.activeIndex &&
+    tagIndex <= dragState.targetIndex
+  ) {
+    return -dragState.shiftWidth;
+  }
+
+  if (
+    dragState.targetIndex < dragState.activeIndex &&
+    tagIndex >= dragState.targetIndex &&
+    tagIndex < dragState.activeIndex
+  ) {
+    return dragState.shiftWidth;
+  }
+
+  return 0;
+};
+
+const moveTaskTag = (
+  tags: readonly string[],
+  fromIndex: number,
+  toIndex: number,
+): string[] => {
+  const nextTags = [...tags];
+  const [movedTag] = nextTags.splice(fromIndex, 1);
+
+  if (movedTag === undefined) {
+    return nextTags;
+  }
+
+  nextTags.splice(toIndex, 0, movedTag);
+
+  return nextTags;
 };
 
 const FieldError = ({

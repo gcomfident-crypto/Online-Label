@@ -17,7 +17,6 @@ const AUTO_SHOW_ITEM_FIELD_KEY = 'auto_show_item';
 const FALLBACK_FIELD_KEY = 'id';
 const AUTO_FIELD_SCAN_LIMIT = 20;
 const AUTO_FIELD_SAMPLE_LIMIT = 3;
-const AUTO_PREVIEW_RECORD_LIMIT = 3;
 const AUTO_FIELD_DESCRIPTION_MAX_LENGTH = 20;
 const AUTO_OPTION_STATS_RECORD_LIMIT = 10_000;
 const AUTO_OPTION_LIMIT = 100;
@@ -88,9 +87,7 @@ export const createAutoShowItemTemplateSchema = (
 export const createAutoShowItemPreviewRecords = (
   records: readonly DatasetRecord[],
 ): DatasetRecord[] =>
-  records
-    .filter((record) => Object.keys(record).length > 0)
-    .slice(0, AUTO_PREVIEW_RECORD_LIMIT);
+  records.filter((record) => Object.keys(record).length > 0);
 
 const createAutoTemplateClassificationRecords = (
   records: readonly DatasetRecord[],

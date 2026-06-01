@@ -68,8 +68,11 @@ describe('AiReviewQueuePage', () => {
 
     expect(await screen.findByRole('heading', { name: 'AI 自动预审队列' })).toBeInTheDocument();
     expect(screen.queryByRole('tablist', { name: 'AI 预审状态筛选' })).not.toBeInTheDocument();
-    expect(screen.getByPlaceholderText('搜索任务名 / 任务ID / 批次ID / 标注员 / 题目ID')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '刷新任务级 AI 预审队列' })).toBeInTheDocument();
+    const searchInput = screen.getByPlaceholderText('搜索任务名 / 任务ID / 批次ID / 标注员 / 题目ID');
+    expect(searchInput.closest('.task-management-table-card')).toHaveClass('agent-review-table-panel');
+    expect(searchInput.closest('.task-management-table-toolbar')).toHaveClass('agent-review-table-toolbar');
+    expect(screen.queryByRole('button', { name: '刷新任务级 AI 预审队列' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '刷新' })).not.toBeInTheDocument();
 
     const table = screen.getByRole('table', { name: '任务级 AI 预审队列表格' });
     ['批次 ID', '任务名称', '标注员', '提交时间', '题目数', '当前状态', 'AI 建议', '综合分 / 失败原因', '操作']

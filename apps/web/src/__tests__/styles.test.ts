@@ -196,18 +196,22 @@ describe('global styles', () => {
     expect(emptyTableRule).toContain('height: 100%;');
   });
 
-  it('模板配置上传文件预览覆盖顶栏下方完整工作区', () => {
+  it('模板配置上传文件预览使用题目数据导入同款居中弹窗尺寸', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
-    const workspaceOverlayRule = styles.match(/\.task-dataset-preview-overlay--workspace\s*\{[^}]+\}/)?.[0] ?? '';
-    const workspaceModalRule = styles.match(
-      /\.task-dataset-preview-overlay--workspace \.task-dataset-preview-modal\s*\{[^}]+\}/,
-    )?.[0] ?? '';
+    const overlayRule = styles.match(/\.task-dataset-preview-overlay\s*\{[^}]+\}/)?.[0] ?? '';
+    const drawerOverlayRule = styles.match(/\.task-dataset-preview-overlay--drawer\s*\{[^}]+\}/)?.[0] ?? '';
+    const templateDrawerShellRule = styles.match(/\.template-designer-drawer-shell\s*\{[^}]+\}/)?.[0] ?? '';
+    const modalRule = styles.match(/\.task-dataset-preview-modal\s*\{[^}]+\}/)?.[0] ?? '';
+    const source = readFileSync(resolve(__dirname, '../pages/owner/TemplateDesignerPage.tsx'), 'utf8');
 
-    expect(workspaceOverlayRule).toContain('inset: var(--platform-topbar-height) 0 0;');
-    expect(workspaceOverlayRule).toContain('z-index: 69;');
-    expect(workspaceModalRule).toContain('width: calc(100vw - 48px);');
-    expect(workspaceModalRule).toContain('height: calc(100vh - var(--platform-topbar-height) - 48px);');
-    expect(workspaceModalRule).toContain('max-height: none;');
+    expect(overlayRule).toContain('place-items: center;');
+    expect(overlayRule).toContain('padding: 24px;');
+    expect(drawerOverlayRule).toContain('z-index: 69;');
+    expect(templateDrawerShellRule).toContain('z-index: 68;');
+    expect(modalRule).toContain('width: min(1280px, calc(100vw - 48px));');
+    expect(modalRule).toContain('max-height: min(78vh, 760px);');
+    expect(source).toContain('title="预览已上传文件"');
+    expect(source).not.toContain('coverage="workspace"');
   });
 
   it('关联模板下拉的模板 ID 使用模板表格同款标识样式', () => {
@@ -550,7 +554,7 @@ describe('global styles', () => {
     const taskCellRule = styles.match(/\.task-management-table-card \.task-table td\s*\{[^}]+\}/)?.[0] ?? '';
     const idRule = styles.match(/\.task-management-table-card \.task-table__id code\s*\{[^}]+\}/)?.[0] ?? '';
 
-    expect(cardRule).toContain('border-radius: 16px;');
+    expect(cardRule).toContain('border-radius: var(--table-card-radius);');
     expect(cardRule).toContain('background: #ffffff;');
     expect(toolbarRule).toContain('grid-template-columns: minmax(560px, 680px) minmax(0, 1fr);');
     expect(summaryGridRule).toContain('display: grid;');
@@ -595,6 +599,47 @@ describe('global styles', () => {
     expect(templateScrollRule).toContain('border: 1px solid #edf1f7;');
     expect(templateScrollRule).toContain('border-radius: 12px;');
     expect(templateTableRule).toContain('min-width: 1120px;');
+  });
+
+  it('后台列表页统一右侧灰色区域里的表格工作区尺寸规则', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const rootRule = styles.match(/:root\s*\{[^}]+\}/)?.[0] ?? '';
+    const pageRule =
+      styles.match(
+        /\.task-management-page,\s*\.template-manager-page,\s*\.export-center-page,\s*\.task-market-page,\s*\.labeler-task-workspace,\s*\.agent-review-page,\s*\.manual-review-list-page\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+    const headerRule =
+      styles.match(
+        /\.task-management-header,\s*\.export-center-header,\s*\.task-market-page-title,\s*\.labeler-task-workspace \.my-data-header,\s*\.agent-review-page__header,\s*\.manual-review-list-header\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+    const titleRule =
+      styles.match(
+        /\.task-management-header h1,\s*\.export-center-header h1,\s*\.task-market-page-title h1,\s*\.labeler-task-workspace \.my-data-header h1,\s*\.agent-review-page__header h1,\s*\.manual-review-list-header h1\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+    const panelRule =
+      styles.match(
+        /\.task-market-table-panel\.task-management-table-card,\s*\.agent-review-table-panel\.task-management-table-card,\s*\.manual-review-task-table-panel\.task-management-table-card\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+    const flexRule =
+      styles.match(
+        /\.export-center-workspace,\s*\.export-records-section,\s*\.export-task-table-panel,[\s\S]*?\.manual-review-list-page > \.task-management-table-card\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+
+    expect(rootRule).toContain('--table-page-background: #F7F8FB;');
+    expect(rootRule).toContain('--table-page-padding-inline: 32px;');
+    expect(rootRule).toContain('--table-page-title-height: 25px;');
+    expect(rootRule).toContain('--table-page-title-font-size: 20px;');
+    expect(pageRule).toContain('height: calc(100vh - var(--platform-topbar-height));');
+    expect(pageRule).toContain(
+      'padding: var(--table-page-padding-block-start) var(--table-page-padding-inline) var(--table-page-padding-block-end);',
+    );
+    expect(pageRule).toContain('background: var(--table-page-background);');
+    expect(headerRule).toContain('min-height: var(--table-page-title-height);');
+    expect(headerRule).toContain('margin: 0 0 var(--table-page-header-gap);');
+    expect(titleRule).toContain('font-size: var(--table-page-title-font-size);');
+    expect(titleRule).toContain('font-weight: 700;');
+    expect(panelRule).toContain('margin-top: 0;');
+    expect(flexRule).toContain('flex: 1 1 auto;');
   });
 
   it('模板配置物料 SVG 图标替换旧的富文本和 JSON 伪元素图标', () => {

@@ -70,7 +70,8 @@ describe('MyDataPage', () => {
     expect(screen.queryByLabelText('数据集筛选')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('任务状态筛选')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '筛选' })).not.toBeInTheDocument();
-    expect(await screen.findByRole('heading', { name: '已领取任务列表' })).toBeInTheDocument();
+    expect(await screen.findByRole('table', { name: '工作台任务列表' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '已领取任务列表' })).not.toBeInTheDocument();
     expect(screen.getAllByText('问答质量标注')).toHaveLength(1);
     expect(screen.queryByText('qa_2')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('问答质量标注 已领取题目明细')).not.toBeInTheDocument();
@@ -98,10 +99,9 @@ describe('MyDataPage', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('heading', { name: '已领取任务列表' })).toBeInTheDocument();
-    const statusFilter = screen.getByLabelText('工作台状态筛选');
+    const statusFilter = await screen.findByLabelText('工作台状态筛选');
     const tableCard = statusFilter.closest('.task-management-table-card');
-    expect(statusFilter.querySelectorAll('.task-summary-card')).toHaveLength(5);
+    expect(statusFilter.querySelectorAll('.task-summary-card')).toHaveLength(4);
     expect(screen.getByRole('button', { name: /全部状态\s+1/ })).toHaveClass(
       'task-summary-card--total',
       'is-active',
@@ -109,7 +109,7 @@ describe('MyDataPage', () => {
     expect(screen.getByRole('button', { name: /待标注\s+1/ })).toHaveClass('task-summary-card--running');
     expect(screen.getByRole('button', { name: /已提交\s+1/ })).toHaveClass('task-summary-card--done');
     expect(screen.getByRole('button', { name: /待修改\s+0/ })).toHaveClass('task-summary-card--paused');
-    expect(screen.getByRole('button', { name: /待完成\s+0/ })).toHaveClass('task-summary-card--draft');
+    expect(screen.queryByRole('button', { name: /待完成/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '筛选' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('搜索任务').closest('.task-management-table-card')).toBe(tableCard);
 
@@ -134,10 +134,11 @@ describe('MyDataPage', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('heading', { name: '已领取任务列表' })).toBeInTheDocument();
+    expect(await screen.findByRole('table', { name: '工作台任务列表' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '已领取任务列表' })).not.toBeInTheDocument();
     expect(screen.queryByText('0 个任务')).not.toBeInTheDocument();
     expect(screen.queryByText('0 条题目')).not.toBeInTheDocument();
-    expect(screen.getByText('0 条任务')).toBeInTheDocument();
+    expect(screen.queryByText('0 条任务')).not.toBeInTheDocument();
     const table = screen.getByRole('table', { name: '工作台任务列表' });
     expect(within(table).getByRole('img', { name: '空工作台任务列表插画' })).toHaveAttribute(
       'src',
