@@ -68,11 +68,16 @@ describe('compileAiReviewPrompt', () => {
     expect(compiled.prompt).toContain('# 5. 输出格式约束');
     expect(compiled.sections.find((section) => section.key === 'persona')?.content).toBe('');
     expect(compiled.prompt).not.toContain('你是一个专业的数据标注质检审核员');
+    expect(compiled.sections.find((section) => section.key === 'output_schema')?.content).toContain('fieldReviews');
+    expect(compiled.sections.find((section) => section.key === 'output_schema')?.content).toContain('overallComment');
+    expect(compiled.sections.find((section) => section.key === 'output_schema')?.content).not.toContain('relevance');
+    expect(compiled.sections.find((section) => section.key === 'output_schema')?.content).not.toContain('accuracy');
     expect(compiled.showItemData).toEqual([
       { sourceKey: 'prompt', label: 'Prompt', format: 'long_text', value: '请比较两个回答' },
       { sourceKey: 'response_a', label: '回答 A', format: 'text', value: '回答 A 内容' },
     ]);
-    expect(compiled.answerData).toEqual({ preferred: 'A', note: null });
+    expect(compiled.answerData).toEqual({ preferred: 'A' });
+    expect(compiled.sections.find((section) => section.key === 'answers')?.content).not.toContain('note');
     expect(compiled.fieldRequirements).toEqual([
       expect.objectContaining({
         fieldKey: 'preferred',
@@ -148,6 +153,49 @@ describe('compileAiReviewPrompt', () => {
       dimensions: ['accuracy'],
       safety_flag: null,
     });
+  });
+
+  it('传入 reviewFieldKeys 时只编译本次提交实际参与 AI 预审的字段', () => {
+    const schema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [
+        {
+          key: 'visible_answer',
+          fieldKey: 'visible_answer',
+          type: 'textarea',
+          label: '可见回答',
+          aiReview: {
+            enabled: true,
+            requirement: '审核可见回答。',
+          },
+        },
+        {
+          key: 'hidden_answer',
+          fieldKey: 'hidden_answer',
+          type: 'textarea',
+          label: '隐藏回答',
+          aiReview: {
+            enabled: true,
+            requirement: '隐藏时不应进入 AI 预审。',
+          },
+        },
+      ],
+    });
+
+    const compiled = compileAiReviewPrompt({
+      schema,
+      answers: {
+        visible_answer: '本次提交内容',
+      },
+      reviewFieldKeys: ['visible_answer'],
+    });
+
+    expect(compiled.answerData).toEqual({ visible_answer: '本次提交内容' });
+    expect(compiled.fieldRequirements.map((field) => field.fieldKey)).toEqual(['visible_answer']);
+    expect(compiled.prompt).toContain('审核可见回答。');
+    expect(compiled.prompt).not.toContain('隐藏时不应进入 AI 预审。');
+    expect(compiled.prompt).not.toContain('hidden_answer');
   });
 
   it('支持模板保存分段 Prompt 编辑内容', () => {

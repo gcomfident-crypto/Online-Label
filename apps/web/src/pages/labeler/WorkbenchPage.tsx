@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { getSchemaFieldKey, type SchemaField } from '@labelhub/shared';
 import { PageError } from '../../components/AppErrorBoundary';
@@ -14,9 +14,13 @@ import { getAssignmentWorkbench, saveDraft, type WorkbenchDto } from '../../api/
 import { getLabelerStats, submitTask, type LabelerStatsDto, type TaskSubmissionDto } from '../../api/submissions';
 
 const LABELER_ID = 'user_labeler_li_lei';
+type WorkbenchNavigationState = {
+  source?: 'my-data-table';
+};
 
 export const WorkbenchPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { itemId } = useParams<{ itemId: string }>();
   const [searchParams] = useSearchParams();
   const assignmentId = searchParams.get('assignmentId') ?? '';
@@ -188,6 +192,14 @@ export const WorkbenchPage = () => {
         return false;
       }
 
+      if (!isEditableAssignmentStatus(workbench.assignment.status)) {
+        if (source === 'manual') {
+          showInfoToast('当前题目已提交，暂不支持保存草稿。');
+        }
+
+        return false;
+      }
+
       setIsSaving(true);
       try {
         const draft = await saveDraft(workbench.assignment.id, {
@@ -215,7 +227,7 @@ export const WorkbenchPage = () => {
         setIsSaving(false);
       }
     },
-    [answers, localCacheKey, showErrorToast, showStatusToast, workbench],
+    [answers, localCacheKey, showErrorToast, showInfoToast, showStatusToast, workbench],
   );
 
   useEffect(() => {
@@ -240,6 +252,9 @@ export const WorkbenchPage = () => {
     () => (workbench ? hasSubmittableTaskAssignments(workbench, taskAssignments) : false),
     [taskAssignments, workbench],
   );
+  const isCurrentQuestionEditable = workbench
+    ? !hasSubmittedCurrentTask && isEditableAssignmentStatus(workbench.assignment.status)
+    : false;
   const isTaskSubmitDisabled =
     isSubmitting || hasSubmittedCurrentTask || !hasSubmittableCurrentTask;
 
@@ -254,7 +269,8 @@ export const WorkbenchPage = () => {
     }
 
     const linkageResult = applySchemaLinkage(workbench.task.schema, answers);
-    const errors = validateSchemaAnswers(workbench.task.schema, linkageResult.answers, linkageResult);
+    const submitAnswers = linkageResult.normalizedAnswers;
+    const errors = validateSchemaAnswers(workbench.task.schema, submitAnswers, linkageResult);
     if (errors.length > 0) {
       const firstError = errors[0]?.message;
       setActiveFieldKey(errors[0]?.fieldKey ?? null);
@@ -280,8 +296,8 @@ export const WorkbenchPage = () => {
         labelerId: LABELER_ID,
         actorId: LABELER_ID,
         currentAssignmentId: workbench.assignment.id,
-        currentAnswers: linkageResult.answers,
-        idempotencyKey: createTaskSubmissionIdempotencyKey(workbench, linkageResult.answers),
+        currentAnswers: submitAnswers,
+        idempotencyKey: createTaskSubmissionIdempotencyKey(workbench, submitAnswers),
       });
       const submissionsByAssignmentId = new Map(
         taskSubmission.submissions.map((submission) => [submission.assignmentId, submission]),
@@ -549,9 +565,20 @@ export const WorkbenchPage = () => {
       ?.focus();
   }, []);
 
+  const workbenchPageEnterClass = useMemo(
+    () =>
+      (location.state as WorkbenchNavigationState | null)?.source === 'my-data-table'
+        ? 'labeler-workbench-page workbench-page-enter workbench-page-enter--from-table'
+        : 'labeler-workbench-page workbench-page-enter',
+    [location.state],
+  );
+
   if (isLoading && !workbench) {
     return (
-      <section className="labeler-workbench-page" aria-labelledby="labeler-workbench-title">
+      <section
+        className={workbenchPageEnterClass}
+        aria-labelledby="labeler-workbench-title"
+      >
         <h1 id="labeler-workbench-title">标注台</h1>
         <PageLoading title="正在加载题目" description="正在恢复草稿、题目材料和贡献统计。" />
       </section>
@@ -560,7 +587,10 @@ export const WorkbenchPage = () => {
 
   if (!workbench) {
     return (
-      <section className="labeler-workbench-page" aria-labelledby="labeler-workbench-title">
+      <section
+        className={workbenchPageEnterClass}
+        aria-labelledby="labeler-workbench-title"
+      >
         <PageError
           title="无法加载当前题目"
           description={fatalErrorMessage ?? '请返回任务广场重新进入标注台。'}
@@ -574,14 +604,23 @@ export const WorkbenchPage = () => {
   }
 
   return (
-    <section className="labeler-workbench-page" aria-labelledby="labeler-workbench-title">
+    <section
+      className={workbenchPageEnterClass}
+      aria-labelledby="labeler-workbench-title"
+    >
       <ToastViewport messages={messages} onDismiss={dismissToast} />
       <div className="workbench-topline">
         <div>
+          <button
+            className="workbench-close-button"
+            type="button"
+            aria-label="返回我的工作台"
+            onClick={() => navigate('/labeler/my-data')}
+            title="返回我的工作台"
+          >
+            ×
+          </button>
           <h1 id="labeler-workbench-title">{workbench.task.title}</h1>
-          <p className="workbench-meta-line">
-            <span>第 {workbench.taskItem.sortOrder} 题</span>
-          </p>
         </div>
         <div className="workbench-topline__actions">
           <span className="autosave-indicator" aria-live="polite">
@@ -618,7 +657,7 @@ export const WorkbenchPage = () => {
               schema={workbench.task.schema}
               rawData={workbench.taskItem.rawData}
               value={answers}
-              mode="answer"
+              mode={isCurrentQuestionEditable ? 'answer' : 'review'}
               onChange={setAnswers}
               activeFieldKey={activeField ? getSchemaFieldKey(activeField) : activeFieldKey}
               onActiveFieldChange={setActiveFieldKey}
@@ -634,7 +673,11 @@ export const WorkbenchPage = () => {
               </button>
             </div>
             <div className="annotation-submit-bar__actions">
-              <button type="button" disabled={isSaving} onClick={() => void saveDraftNow('manual')}>
+              <button
+                type="button"
+                disabled={isSaving || !isCurrentQuestionEditable}
+                onClick={() => void saveDraftNow('manual')}
+              >
                 保存草稿
               </button>
               <button
@@ -1189,7 +1232,7 @@ function formatQuestionProgressLabel(progress: QuestionProgressState): string {
   }
 
   if (progress === 'draft') {
-    return '草稿';
+    return '进行中';
   }
 
   return '进行中';
@@ -1219,6 +1262,10 @@ function hasSubmittableTaskAssignments(
     isSubmittableAssignmentStatus(workbench.assignment.status) ||
     taskAssignments.some((assignment) => isSubmittableAssignmentStatus(assignment.status))
   );
+}
+
+function isEditableAssignmentStatus(status: AssignmentStatus): boolean {
+  return status === 'ASSIGNED' || status === 'IN_PROGRESS' || status === 'NEEDS_REVISION';
 }
 
 function isSubmittableAssignmentStatus(status: AssignmentStatus): boolean {

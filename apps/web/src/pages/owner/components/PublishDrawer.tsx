@@ -49,6 +49,7 @@ type PublishDrawerProps = {
   onChange: (patch: Partial<TaskFormInput>) => void;
   onTemplateChange: (templateId: string) => void;
   onTemplatePickerOpen?: () => void;
+  onViewTemplate?: (templateId: string) => void;
   onCreateTemplateFromDataset?: () => void;
   onDatasetFileChange: (file: File | null) => void;
   onPreviewDataset: () => void;
@@ -70,6 +71,7 @@ export const PublishDrawer = ({
   onChange,
   onTemplateChange,
   onTemplatePickerOpen,
+  onViewTemplate,
   onCreateTemplateFromDataset,
   onDatasetFileChange,
   onPreviewDataset,
@@ -242,6 +244,7 @@ export const PublishDrawer = ({
               value={form.templateId}
               onChange={onTemplateChange}
               onOpen={onTemplatePickerOpen}
+              onViewTemplate={onViewTemplate}
               onCreateTemplateFromDataset={onCreateTemplateFromDataset}
             />
           ) : (
@@ -399,19 +402,23 @@ const DatasetFileIconGraphic = ({ kind }: { kind: DatasetFileIconKind }) => {
   return null;
 };
 
-const formatTemplateOption = (template: TaskTemplateSummary, displayId = 'M-001'): string =>
-  template.id ? `${displayId} · ${template.name}` : '';
+const formatTemplateOption = (
+  template: TaskTemplateSummary | null | undefined,
+  displayId = 'M-001',
+): string => (template?.id ? `${displayId} · ${template.name}` : '');
 
 const TemplateSearchSelect = ({
   onChange,
   onCreateTemplateFromDataset,
   onOpen,
+  onViewTemplate,
   options,
   value,
 }: {
   onChange: (templateId: string) => void;
   onCreateTemplateFromDataset?: () => void;
   onOpen?: () => void;
+  onViewTemplate?: (templateId: string) => void;
   options: TaskTemplateSummary[];
   value: string;
 }) => {
@@ -452,6 +459,12 @@ const TemplateSearchSelect = ({
 
   const createTemplateFromDataset = () => {
     onCreateTemplateFromDataset?.();
+    setQuery('');
+    setIsOpen(false);
+  };
+
+  const viewTemplate = (template: TaskTemplateSummary) => {
+    onViewTemplate?.(template.id);
     setQuery('');
     setIsOpen(false);
   };
@@ -529,21 +542,45 @@ const TemplateSearchSelect = ({
               const label = formatTemplateOption(template, displayId);
 
               return (
-                <button
+                <div
                   key={template.id}
-                  className={template.id === value ? 'task-template-picker__option is-selected' : 'task-template-picker__option'}
-                  type="button"
+                  className={[
+                    'task-template-picker__option',
+                    'task-template-picker__option--selectable',
+                    template.id === value ? 'is-selected' : '',
+                  ].filter(Boolean).join(' ')}
                   role="option"
                   aria-label={label}
                   aria-selected={template.id === value}
-                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    selectTemplate(template);
+                  }}
                   onClick={() => selectTemplate(template)}
                 >
                   <span className="task-template-picker__option-main">
                     <code title={`原始ID：${template.id}`}>{displayId}</code>
                     <span>{template.name}</span>
                   </span>
-                </button>
+                  {onViewTemplate ? (
+                    <button
+                      className="template-manager-row-action task-template-picker__view-button"
+                      type="button"
+                      aria-label={`查看 ${label} 模板配置`}
+                      title="查看模板配置"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                      }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        viewTemplate(template);
+                      }}
+                    >
+                      <img aria-hidden="true" alt="" className="template-manager-row-action__icon" src={eyeIcon} />
+                    </button>
+                  ) : null}
+                </div>
               );
             })
           ) : (

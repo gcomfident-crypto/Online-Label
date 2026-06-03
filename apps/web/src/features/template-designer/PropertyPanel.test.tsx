@@ -24,6 +24,24 @@ describe('PropertyPanel', () => {
     const onUpdateValidation = vi.fn();
     const onAddLinkageRule = vi.fn();
     const onUpdateField = vi.fn();
+    const schemaFields: SchemaField[] = [
+      {
+        key: 'category',
+        type: 'text',
+        label: '类目',
+      },
+      {
+        key: 'size_table',
+        type: 'text',
+        label: '尺寸表',
+      },
+      {
+        key: 'cleaned_title',
+        fieldKey: 'cleaned_title',
+        type: 'text',
+        label: '商品标题清洗结果',
+      },
+    ];
     const field: SchemaField = {
       key: 'cleaned_title',
       fieldKey: 'cleaned_title',
@@ -54,6 +72,7 @@ describe('PropertyPanel', () => {
     render(
       <PropertyPanel
         field={field}
+        schemaFields={schemaFields}
         onAddLinkageRule={onAddLinkageRule}
         onUpdateField={onUpdateField}
         onUpdateValidation={onUpdateValidation}
@@ -81,6 +100,7 @@ describe('PropertyPanel', () => {
     expect(screen.queryByLabelText('字段作用')).not.toBeInTheDocument();
     expect(screen.queryByText('标注结果')).not.toBeInTheDocument();
     expect(screen.getByLabelText('审核要求')).toHaveValue('必须保留商品核心信息，不得新增不存在的信息。');
+    expect(screen.getByLabelText('审核要求')).toHaveClass('designer-ai-review-requirement');
     expect(screen.queryByText('问题严重程度')).not.toBeInTheDocument();
     expect(screen.getByText('校验规则')).toBeInTheDocument();
     const validationSwitch = screen.getByLabelText('隐藏校验规则');
@@ -97,8 +117,10 @@ describe('PropertyPanel', () => {
     expect(linkageSwitch).toHaveAttribute('aria-expanded', 'true');
     expect(linkageSwitch).toBeChecked();
     expect(screen.getByTestId('designer-linkage-collapse')).toHaveAttribute('aria-hidden', 'false');
-    expect(screen.getByText('category')).toBeInTheDocument();
-    expect(screen.getByText('size_table')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '控制显隐' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '规则 1 条件字段' })).toHaveTextContent('类目 · category');
+    expect(screen.getByRole('button', { name: '规则 1 目标字段' })).toHaveTextContent('尺寸表 · size_table');
+    expect(screen.getByLabelText('规则 1 显隐动作')).toHaveValue('hide');
     const deleteLinkageRuleButton = screen.getByRole('button', { name: '删除联动规则 1' });
     expect(deleteLinkageRuleButton).toHaveClass(
       'template-manager-row-action',
@@ -113,6 +135,18 @@ describe('PropertyPanel', () => {
         enabled: true,
         role: 'annotation_answer',
         requirement: '作为原始标题供 AI 对照。',
+      },
+    });
+
+    const requirementInput = screen.getByLabelText('审核要求') as HTMLTextAreaElement;
+    Object.defineProperty(requirementInput, 'scrollHeight', { configurable: true, value: 148 });
+    fireEvent.change(requirementInput, { target: { value: '第一行审核要求\n第二行审核要求\n第三行审核要求' } });
+    expect(requirementInput.style.height).toBe('148px');
+    expect(onUpdateField).toHaveBeenLastCalledWith({
+      aiReview: {
+        enabled: true,
+        role: 'annotation_answer',
+        requirement: '第一行审核要求\n第二行审核要求\n第三行审核要求',
       },
     });
 
@@ -163,6 +197,191 @@ describe('PropertyPanel', () => {
       },
     });
     expect(screen.getByLabelText('审核要求')).toHaveValue('必须保留商品核心信息，不得新增不存在的信息。');
+  });
+
+  it('字段联动可以自然配置控制显隐规则', () => {
+    const onUpdateField = vi.fn();
+    const schemaFields: SchemaField[] = [
+      {
+        key: 'status',
+        type: 'radio',
+        label: '状态',
+        options: [
+          { label: '通过', value: 'ok' },
+          { label: '拒绝', value: 'reject' },
+        ],
+      },
+      {
+        key: 'answer',
+        type: 'text',
+        label: '答案',
+      },
+    ];
+
+    render(
+      <PropertyPanel
+        field={{
+          key: 'answer',
+          type: 'text',
+          label: '答案',
+          linkageRules: [
+            {
+              when: { fieldKey: 'status', operator: 'equals', value: 'ok' },
+              action: 'show',
+              targetFieldKey: 'answer',
+            },
+          ],
+        }}
+        schemaFields={schemaFields}
+        onAddLinkageRule={vi.fn()}
+        onUpdateField={onUpdateField}
+        onUpdateValidation={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '控制显隐' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '规则 1 条件字段' })).toHaveTextContent('状态 · status');
+    expect(screen.getByRole('button', { name: '规则 1 目标字段' })).toHaveTextContent('答案 · answer');
+    expect(screen.getByLabelText('规则 1 显隐动作')).toHaveValue('show');
+
+    fireEvent.click(screen.getByRole('button', { name: '拒绝' }));
+    expect(onUpdateField).toHaveBeenLastCalledWith({
+      linkageRules: [
+        {
+          when: { fieldKey: 'status', operator: 'equals', value: 'reject' },
+          action: 'show',
+          targetFieldKey: 'answer',
+        },
+      ],
+    });
+  });
+
+  it('字段联动可以用矩阵配置限制选项规则', () => {
+    const onUpdateField = vi.fn();
+    const schemaFields: SchemaField[] = [
+      {
+        key: 'preferred',
+        type: 'radio',
+        label: '偏好选择',
+        options: [
+          { label: 'A', value: 'A' },
+          { label: 'B', value: 'B' },
+          { label: 'tie', value: 'tie' },
+        ],
+      },
+      {
+        key: 'margin',
+        type: 'radio',
+        label: '优劣程度',
+        options: [
+          { label: '明显优于', value: '明显优于' },
+          { label: '略优于', value: '略优于' },
+          { label: '明显逊于', value: '明显逊于' },
+          { label: '略逊于', value: '略逊于' },
+          { label: '相当', value: '相当' },
+        ],
+      },
+    ];
+    const rule = {
+      when: { fieldKey: 'preferred', operator: 'exists' as const },
+      action: 'limitOptions' as const,
+      targetFieldKey: 'margin',
+      cases: [
+        { value: 'A', optionValues: ['明显优于'] },
+        { value: 'B', optionValues: ['明显逊于', '略逊于'] },
+        { value: 'tie', optionValues: ['相当'] },
+      ],
+    };
+
+    render(
+      <PropertyPanel
+        field={{
+          key: 'margin',
+          type: 'radio',
+          label: '优劣程度',
+          options: schemaFields[1].options,
+          linkageRules: [rule],
+        }}
+        schemaFields={schemaFields}
+        onAddLinkageRule={vi.fn()}
+        onUpdateField={onUpdateField}
+        onUpdateValidation={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '限制选项' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '规则 1 条件字段' })).toHaveTextContent('偏好选择 · preferred');
+    expect(screen.getByRole('button', { name: '规则 1 目标字段' })).toHaveTextContent('优劣程度 · margin');
+    expect(screen.getByText('条件值')).toBeInTheDocument();
+    expect(screen.getByText('目标字段可选项')).toBeInTheDocument();
+
+    const firstRow = document.querySelector('.designer-linkage__matrix-row');
+    expect(firstRow).not.toBeNull();
+
+    fireEvent.click(within(firstRow as HTMLElement).getByRole('button', { name: '略优于' }));
+    expect(onUpdateField).toHaveBeenLastCalledWith({
+      linkageRules: [
+        {
+          ...rule,
+          cases: [
+            { value: 'A', optionValues: ['明显优于', '略优于'] },
+            { value: 'B', optionValues: ['明显逊于', '略逊于'] },
+            { value: 'tie', optionValues: ['相当'] },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('条件字段下拉菜单不展示“请选择字段”占位项', () => {
+    const onUpdateField = vi.fn();
+    const schemaFields: SchemaField[] = [
+      {
+        key: 'show_item',
+        type: 'show_item',
+        label: '题目展示',
+        sourceKey: 'prompt',
+      },
+      {
+        key: 'status',
+        type: 'text',
+        label: '状态',
+      },
+      {
+        key: 'answer',
+        type: 'text',
+        label: '答案',
+      },
+    ];
+
+    render(
+      <PropertyPanel
+        field={{
+          key: 'answer',
+          type: 'text',
+          label: '答案',
+          linkageRules: [
+            {
+              when: { fieldKey: '', operator: 'equals', value: 'ok' },
+              action: 'show',
+              targetFieldKey: 'status',
+            },
+          ],
+        }}
+        schemaFields={schemaFields}
+        onAddLinkageRule={vi.fn()}
+        onUpdateField={onUpdateField}
+        onUpdateValidation={vi.fn()}
+      />,
+    );
+
+    const fieldSelect = screen.getByRole('button', { name: '规则 1 条件字段' });
+    expect(fieldSelect).toHaveTextContent('请选择字段');
+    fireEvent.click(fieldSelect);
+    const conditionFieldMenu = screen.getByRole('listbox', { name: '规则 1 条件字段选项' });
+    expect(within(conditionFieldMenu).queryByRole('option', { name: '请选择字段' })).not.toBeInTheDocument();
+    expect(within(conditionFieldMenu).queryByRole('option', { name: '题目展示 · show_item' })).not.toBeInTheDocument();
+    expect(within(conditionFieldMenu).getByRole('option', { name: '状态 · status' })).toBeInTheDocument();
   });
 
   it('AI 预审默认关闭，点击胶囊开关后展开配置内容', () => {
@@ -302,7 +521,7 @@ describe('PropertyPanel', () => {
 
     expect(screen.getByText('LLM提示')).toBeInTheDocument();
     expect(screen.getByLabelText('启用 LLM 提示')).not.toBeChecked();
-    expect(screen.queryByText('选项')).not.toBeInTheDocument();
+    expect(screen.getByText('选项')).toBeInTheDocument();
   });
 
   it('分组容器只配置标题、说明、默认展开和布局列数', () => {

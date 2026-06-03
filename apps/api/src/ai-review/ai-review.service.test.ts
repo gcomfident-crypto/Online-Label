@@ -1,4 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { createLabelHubSchema, type LabelHubSchema } from '@labelhub/shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AiReviewService } from './ai-review.service.ts';
@@ -76,9 +77,18 @@ describe('AiReviewService', () => {
     const detail = await service.getBatchReview(batchId);
     expect(detail.items.map((item) => item.taskItem.externalId)).toEqual(['qa_1', 'qa_2']);
     expect(detail.items.map((item) => item.index)).toEqual([1, 2]);
+    expect(detail.items[0].reviewFields).toEqual([
+      expect.objectContaining({
+        fieldKey: 'quality',
+        label: '质量判断',
+        required: true,
+        requirement: '判断质量字段是否符合题目要求。',
+        type: 'radio',
+      }),
+    ]);
   });
 
-  it('任务级聚合结果按失败、打回、转人工、通过的优先级输出', async () => {
+  it('任务级聚合结果按失败、打回、通过的优先级输出，历史 manual 记录按打回处理', async () => {
     const createBatchJob = (input: {
       assignmentId: string;
       batchId: string;
@@ -114,8 +124,48 @@ describe('AiReviewService', () => {
 
     expect(byBatchId.get('batch_failed')).toMatchObject({ aggregateDecision: 'failed', status: 'FAILED' });
     expect(byBatchId.get('batch_reject')).toMatchObject({ aggregateDecision: 'reject', status: 'REJECTED' });
-    expect(byBatchId.get('batch_manual')).toMatchObject({ aggregateDecision: 'manual', status: 'MANUAL' });
+    expect(byBatchId.get('batch_manual')).toMatchObject({ aggregateDecision: 'reject', status: 'REJECTED' });
     expect(byBatchId.get('batch_pass')).toMatchObject({ aggregateDecision: 'pass', status: 'PASSED' });
+  });
+
+  it('字段级结果只要有一个未通过，批次和题目详情都强制显示打回', async () => {
+    const batchId = 'task-submit:task_qa:user_labeler_li_lei:assignment_1:1:field-rule';
+    const { service } = createService({
+      jobs: [
+        createJobRecord({
+          id: 'job_field_rule',
+          submissionId: 'submission_field_rule',
+          status: 'SUCCEEDED',
+          submission: createSubmissionSummaryRecord({
+            id: 'submission_field_rule',
+            assignmentId: 'assignment_1',
+            idempotencyKey: `${batchId}:assignment_1:1`,
+            externalId: 'qa_field_rule',
+            reviewRecords: [
+              createReviewRecord({
+                id: 'record_field_rule',
+                submissionId: 'submission_field_rule',
+                decision: 'pass',
+                structuredOutput: {
+                  verdict: 'pass',
+                  fieldReviews: [
+                    { fieldKey: 'quality', label: '质量判断', score: 92, decision: 'pass', comment: '通过。', suggestions: [] },
+                    { fieldKey: 'risk', label: '风险判断', score: 66, decision: 'manual', comment: '需要复核。', suggestions: [] },
+                  ],
+                  overallComment: '风险判断未通过字段级 AI 预审。',
+                },
+              }),
+            ],
+          }),
+        }),
+      ],
+    });
+
+    const [batch] = await service.listBatches();
+    expect(batch).toMatchObject({ aggregateDecision: 'reject', status: 'REJECTED', aiSuggestionLabel: '建议打回' });
+
+    const detail = await service.getBatchReview(batchId);
+    expect(detail.items[0]).toMatchObject({ decision: 'reject' });
   });
 
   it('失败任务可以重试并重新进入队列', async () => {
@@ -197,6 +247,38 @@ describe('AiReviewService', () => {
       { fromStatus: 'AI_REVIEWING', toStatus: 'AI_PASSED', action: 'AI_REVIEW_PASSED' },
       { fromStatus: 'AI_PASSED', toStatus: 'HUMAN_PENDING', action: 'AI_REVIEW_TO_HUMAN_PENDING' },
     ]);
+  });
+
+  it('写入 AI 预审结果时按字段级结果兜底，任一字段未通过则保存为打回', async () => {
+    const { service, submissions, assignments, reviewRecords } = createService({
+      submission: createSubmissionReviewRecord({ reviewRecords: [] }),
+    });
+
+    const detail = await service.completeJob('job_1', {
+      decision: 'pass',
+      scores: { overall: 82 },
+      structuredOutput: {
+        verdict: 'pass',
+        overallScore: 82,
+        fieldReviews: [
+          { fieldKey: 'quality', label: '质量判断', score: 93, decision: 'pass', comment: '通过。', suggestions: [] },
+          { fieldKey: 'risk', label: '风险判断', score: 64, decision: 'manual', comment: '需要复核。', suggestions: [] },
+        ],
+        overallComment: '风险判断未通过字段级 AI 预审。',
+      },
+    });
+
+    expect(detail.submission.status).toBe('NEEDS_REVISION');
+    expect(submissions[0].status).toBe('NEEDS_REVISION');
+    expect(assignments[0].status).toBe('NEEDS_REVISION');
+    expect(reviewRecords.at(-1)).toEqual(
+      expect.objectContaining({
+        decision: 'reject',
+        comment: '风险判断未通过字段级 AI 预审。',
+        scores: { overall: 82, reason: '风险判断未通过字段级 AI 预审。' },
+        structuredOutput: expect.objectContaining({ verdict: 'reject' }),
+      }),
+    );
   });
 
   it('记录 AI 预审打回时要求理由并让提交进入待修改', async () => {
@@ -357,7 +439,13 @@ type AiReviewJobRecord = {
   createdAt: Date;
   updatedAt: Date;
   submission: SubmissionSummaryRecord;
-  task: { title: string };
+  task: {
+    title: string;
+    template?: {
+      schemaVersion: string;
+      schema: LabelHubSchema | null;
+    };
+  };
 };
 
 type SubmissionSummaryRecord = {
@@ -468,7 +556,13 @@ function createJobRecord(input: Partial<AiReviewJobRecord> = {}): AiReviewJobRec
     createdAt: input.createdAt ?? now,
     updatedAt: input.updatedAt ?? now,
     submission: input.submission ?? submission,
-    task: input.task ?? { title: '问答质量标注' },
+    task: input.task ?? {
+      title: '问答质量标注',
+      template: {
+        schemaVersion: 'r1',
+        schema: qaReviewSchema,
+      },
+    },
   };
 }
 
@@ -558,3 +652,36 @@ function createSubmissionReviewRecord(input: { reviewRecords?: ReviewRecord[] } 
     updatedAt: new Date('2026-05-21T08:00:00.000Z'),
   };
 }
+
+const qaReviewSchema = createLabelHubSchema({
+  schemaVersion: 'r1',
+  datasetKind: 'qa_quality',
+  fields: [
+    { key: 'question', type: 'show_item', label: '题目', sourceKey: 'prompt' },
+    {
+      key: 'quality_field',
+      fieldKey: 'quality',
+      type: 'radio',
+      label: '质量判断',
+      required: true,
+      options: [
+        { label: '通过', value: 'pass' },
+        { label: '打回', value: 'reject' },
+      ],
+      aiReview: {
+        enabled: true,
+        requirement: '判断质量字段是否符合题目要求。',
+      },
+    },
+    {
+      key: 'note_field',
+      fieldKey: 'note',
+      type: 'textarea',
+      label: '备注',
+      aiReview: {
+        enabled: false,
+        requirement: '关闭后不进入 AI 预审。',
+      },
+    },
+  ],
+});

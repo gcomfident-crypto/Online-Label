@@ -51,10 +51,12 @@ export const TabsField = ({
   hiddenFieldKeys,
   disabledFieldKeys,
   requiredFieldKeys,
+  allowedOptionsByFieldKey,
   validationMessagesByField,
   onFieldChange,
   activeFieldKey,
   onActiveFieldChange,
+  getFieldNodeDecoration,
 }: BaseFieldProps) => {
   const tabs = useMemo(() => field.tabs ?? [], [field.tabs]);
   const layout = 'auto_rows';
@@ -94,10 +96,12 @@ export const TabsField = ({
       hiddenFieldKeys={hiddenFieldKeys}
       disabledFieldKeys={disabledFieldKeys}
       requiredFieldKeys={requiredFieldKeys}
+      allowedOptionsByFieldKey={allowedOptionsByFieldKey}
       validationMessagesByField={validationMessagesByField}
       onFieldChange={onFieldChange}
       activeFieldKey={activeFieldKey}
       onActiveFieldChange={onActiveFieldChange}
+      getFieldNodeDecoration={getFieldNodeDecoration}
     />
   );
 

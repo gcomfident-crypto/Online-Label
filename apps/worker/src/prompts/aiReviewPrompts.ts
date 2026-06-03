@@ -4,11 +4,15 @@ export type BuildAiReviewPromptInput = {
   datasetKind: DatasetKind;
   rawData: Record<string, unknown>;
   answers: Record<string, unknown>;
+  reviewFieldKeys?: readonly string[];
   rulePromptTemplate: string;
 };
 
 export function buildAiReviewPrompt(input: BuildAiReviewPromptInput): string {
   const fields = fieldsForDataset(input.datasetKind, input.rawData);
+  const answers = input.reviewFieldKeys
+    ? pick(input.answers, input.reviewFieldKeys)
+    : input.answers;
 
   return [
     input.rulePromptTemplate,
@@ -18,7 +22,7 @@ export function buildAiReviewPrompt(input: BuildAiReviewPromptInput): string {
     '官方题目字段:',
     JSON.stringify(fields, null, 2),
     '标注员 answers:',
-    JSON.stringify(input.answers, null, 2),
+    JSON.stringify(answers, null, 2),
   ].join('\n');
 }
 
@@ -34,6 +38,6 @@ function fieldsForDataset(datasetKind: DatasetKind, rawData: Record<string, unkn
   return rawData;
 }
 
-function pick(source: Record<string, unknown>, keys: string[]): Record<string, unknown> {
+function pick(source: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
   return Object.fromEntries(keys.map((key) => [key, source[key] ?? null]));
 }

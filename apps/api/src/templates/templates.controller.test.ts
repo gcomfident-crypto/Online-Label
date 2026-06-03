@@ -12,6 +12,9 @@ describe('TemplatesController', () => {
       publish: vi.fn().mockResolvedValue({ template: { id: 'template_1' } }),
       createFromProfile: vi.fn().mockResolvedValue({ id: 'template_profile' }),
       deleteTemplate: vi.fn().mockResolvedValue({ id: 'template_1' }),
+      listVersions: vi.fn().mockResolvedValue([{ id: 'template_v1', version: 1 }]),
+      diffVersion: vi.fn().mockResolvedValue({ summary: { added: 0, removed: 0, changed: 0 }, sections: [] }),
+      restoreVersion: vi.fn().mockResolvedValue({ restoredTemplate: { id: 'template_v1' } }),
     };
     const controller = new TemplatesController(service);
 
@@ -29,6 +32,14 @@ describe('TemplatesController', () => {
       id: 'template_profile',
     });
     await expect(controller.deleteTemplate('template_1')).resolves.toEqual({ id: 'template_1' });
+    await expect(controller.listVersions('template_1')).resolves.toEqual([{ id: 'template_v1', version: 1 }]);
+    await expect(controller.diffVersion('template_1', 'template_v1')).resolves.toEqual({
+      summary: { added: 0, removed: 0, changed: 0 },
+      sections: [],
+    });
+    await expect(controller.restoreVersion('template_1', 'template_v1')).resolves.toEqual({
+      restoredTemplate: { id: 'template_v1' },
+    });
 
     expect(service.create).toHaveBeenCalledWith({
       name: '新模板',
@@ -36,10 +47,14 @@ describe('TemplatesController', () => {
       datasetKind: 'generic_json',
       schema: undefined,
       actorId: undefined,
+      parentTemplateId: undefined,
     });
     expect(service.update).toHaveBeenCalledWith('template_1', { name: '新版模板' });
     expect(service.publish).toHaveBeenCalledWith('template_1', { versionName: 'v1' });
     expect(service.createFromProfile).toHaveBeenCalledWith({ profile: 'qa_quality' });
     expect(service.deleteTemplate).toHaveBeenCalledWith('template_1');
+    expect(service.listVersions).toHaveBeenCalledWith('template_1');
+    expect(service.diffVersion).toHaveBeenCalledWith('template_1', 'template_v1');
+    expect(service.restoreVersion).toHaveBeenCalledWith('template_1', 'template_v1');
   });
 });

@@ -10,6 +10,7 @@ import type { TaskDto, TaskFormInput } from '../../api/tasks';
 
 export const TEMPLATE_DRAFT_HANDOFF_STORAGE_KEY = 'labelhub.templateDraftHandoff';
 export const TASK_TEMPLATE_RETURN_HANDOFF_STORAGE_KEY = 'labelhub.taskTemplateReturnHandoff';
+export const TEMPLATE_OPEN_TARGET_STORAGE_KEY = 'labelhub.templateOpenTarget';
 export const OWNER_TEMPLATES_PATH = '/owner/templates';
 export const OWNER_TASKS_PATH = '/owner/tasks';
 
@@ -20,6 +21,11 @@ export type TemplateDraftHandoff = {
   returnTo?: string;
   previewRecords?: DatasetRecord[];
   autoClassificationRequest?: AutoTemplateFieldClassificationRequest;
+};
+
+export type TemplateOpenTarget = {
+  returnTo?: string;
+  templateId: string;
 };
 
 export type TaskTemplateReturnHandoff = {
@@ -70,6 +76,60 @@ export const consumeTemplateDraftHandoff = (): TemplateDraftHandoff | null => {
     const parsed = JSON.parse(rawDraft);
 
     if (!isTemplateDraftHandoff(parsed)) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+export const writeTemplateOpenTarget = (templateId: string, options: { returnTo?: string } = {}): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const normalizedTemplateId = templateId.trim();
+  if (!normalizedTemplateId) {
+    return false;
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      TEMPLATE_OPEN_TARGET_STORAGE_KEY,
+      JSON.stringify({
+        ...(options.returnTo ? { returnTo: options.returnTo } : {}),
+        templateId: normalizedTemplateId,
+      }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export const consumeTemplateOpenTarget = (): TemplateOpenTarget | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const storage = window.sessionStorage;
+    const rawTarget = storage.getItem(TEMPLATE_OPEN_TARGET_STORAGE_KEY)?.trim() ?? '';
+    storage.removeItem(TEMPLATE_OPEN_TARGET_STORAGE_KEY);
+
+    if (!rawTarget) {
+      return null;
+    }
+
+    if (!rawTarget.startsWith('{')) {
+      return rawTarget ? { templateId: rawTarget } : null;
+    }
+
+    const parsed = JSON.parse(rawTarget);
+
+    if (!isTemplateOpenTarget(parsed)) {
       return null;
     }
 
@@ -210,6 +270,12 @@ const isTemplateDraftHandoff = (value: unknown): value is TemplateDraftHandoff =
     )
   );
 };
+
+const isTemplateOpenTarget = (value: unknown): value is TemplateOpenTarget =>
+  isRecord(value) &&
+  typeof value.templateId === 'string' &&
+  value.templateId.trim().length > 0 &&
+  (value.returnTo === undefined || typeof value.returnTo === 'string');
 
 const isAutoTemplateFieldClassificationRequest = (
   value: unknown,

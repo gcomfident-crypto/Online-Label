@@ -36,9 +36,11 @@ describe('动态表单 Schema 协议', () => {
     expect(FIELD_LINKAGE_ACTIONS).toEqual([
       'show',
       'hide',
+      'limitOptions',
       'require',
       'disable',
       'setValue',
+      'assertValue',
     ]);
   });
 

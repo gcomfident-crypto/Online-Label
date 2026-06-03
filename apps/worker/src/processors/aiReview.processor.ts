@@ -23,6 +23,7 @@ type SubmissionRecord = {
       id: string;
       template: {
         datasetKind: DatasetKind;
+        schema?: TemplateSchema | null;
       };
       reviewRules: ReviewRuleRecord[];
     };
@@ -30,6 +31,24 @@ type SubmissionRecord = {
       rawData: Record<string, unknown>;
     };
   };
+};
+
+type TemplateSchema = {
+  fields?: readonly TemplateSchemaField[];
+};
+
+type TemplateSchemaField = {
+  key: string;
+  fieldKey?: string;
+  sourceKey?: string;
+  type: string;
+  aiReview?: {
+    enabled?: boolean;
+  };
+  fields?: readonly TemplateSchemaField[];
+  tabs?: readonly {
+    fields?: readonly TemplateSchemaField[];
+  }[];
 };
 
 type AiReviewJobRecord = {
@@ -58,7 +77,7 @@ type AiReviewProcessorClient = {
 };
 
 export type ProcessAiReviewResult = {
-  verdict: 'pass' | 'reject' | 'manual';
+  verdict: 'pass' | 'reject';
   reused: boolean;
 };
 
@@ -71,7 +90,7 @@ export async function processAiReviewJob(
   });
   if (existing) {
     return {
-      verdict: existing.decision === 'reject' ? 'reject' : existing.decision === 'manual' ? 'manual' : 'pass',
+      verdict: existing.decision === 'pass' ? 'pass' : 'reject',
       reused: true,
     };
   }
@@ -114,6 +133,10 @@ export async function processAiReviewJob(
     datasetKind: submission.assignment.task.template.datasetKind,
     rawData: submission.assignment.taskItem.rawData,
     answers: submission.answers,
+    reviewFieldKeys: aiReviewFieldKeysFromSchema(
+      submission.assignment.task.template.schema,
+      submission.answers,
+    ),
     rulePromptTemplate: rule.promptTemplate,
   });
 
@@ -133,6 +156,46 @@ export async function processAiReviewJob(
     await persistReviewFailure(payload, dependencies.client, job, error);
     throw error;
   }
+}
+
+function aiReviewFieldKeysFromSchema(
+  schema: TemplateSchema | null | undefined,
+  answers: Record<string, unknown>,
+): readonly string[] | undefined {
+  if (!schema?.fields) {
+    return undefined;
+  }
+
+  return flattenTemplateFields(schema.fields)
+    .filter((field) => isAnswerTemplateField(field) && field.aiReview?.enabled)
+    .map((field) => field.fieldKey ?? field.sourceKey ?? field.key)
+    .filter((fieldKey) => Object.prototype.hasOwnProperty.call(answers, fieldKey));
+}
+
+function flattenTemplateFields(fields: readonly TemplateSchemaField[]): TemplateSchemaField[] {
+  const flattened: TemplateSchemaField[] = [];
+
+  for (const field of fields) {
+    flattened.push(field);
+
+    if (field.fields) {
+      flattened.push(...flattenTemplateFields(field.fields));
+    }
+
+    if (field.tabs) {
+      for (const tab of field.tabs) {
+        if (tab.fields) {
+          flattened.push(...flattenTemplateFields(tab.fields));
+        }
+      }
+    }
+  }
+
+  return flattened;
+}
+
+function isAnswerTemplateField(field: TemplateSchemaField): boolean {
+  return !['show_item', 'group', 'tabs', 'llm_assist'].includes(field.type);
 }
 
 function selectStructuredOutputMode(rule: ReviewRuleRecord, provider: LlmProvider): StructuredOutputMode {
@@ -212,24 +275,17 @@ async function persistReviewFailure(
   await client.aiReviewJob.update({
     where: { idempotencyKey: payload.idempotencyKey },
     data: {
-      status: isFinal ? 'MANUAL_FALLBACK' : 'FAILED_RETRYING',
+      status: isFinal ? 'FAILED_FINAL' : 'FAILED_RETRYING',
       attempts,
       lastError: error instanceof Error ? error.message : 'AI 预审失败。',
       finishedAt: isFinal ? new Date() : null,
-      logs: appendLog(job?.logs, isFinal ? 'manual' : 'retry', error instanceof Error ? error.message : 'AI 预审失败。'),
+      logs: appendLog(job?.logs, isFinal ? 'error' : 'retry', error instanceof Error ? error.message : 'AI 预审失败。'),
     },
   });
-
-  if (isFinal) {
-    await client.submission.update({
-      where: { id: payload.submissionId },
-      data: { status: 'HUMAN_PENDING' },
-    });
-  }
 }
 
 function assertStructuredReview(review: LlmReviewResult): void {
-  if (!['pass', 'reject', 'manual'].includes(review.verdict)) {
+  if (!['pass', 'reject'].includes(review.verdict)) {
     throw new Error('结构化输出异常：verdict 不合法。');
   }
 

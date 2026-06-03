@@ -52,6 +52,7 @@ export const SchemaRenderer = ({
   onChange,
   activeFieldKey,
   onActiveFieldChange,
+  getFieldNodeDecoration,
 }: SchemaRendererProps) => {
   const rendererScope = useId();
   const latestValueRef = useRef(value);
@@ -132,10 +133,12 @@ export const SchemaRenderer = ({
           hiddenFieldKeys={linkageResult.hiddenFieldKeys}
           disabledFieldKeys={linkageResult.disabledFieldKeys}
           requiredFieldKeys={linkageResult.requiredFieldKeys}
+          allowedOptionsByFieldKey={linkageResult.allowedOptionsByFieldKey}
           validationMessagesByField={validationMessagesByField}
           onFieldChange={handleFieldChange}
           activeFieldKey={activeFieldKey}
           onActiveFieldChange={onActiveFieldChange}
+          getFieldNodeDecoration={getFieldNodeDecoration}
         />
       ))}
     </section>

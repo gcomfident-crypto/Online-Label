@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { createLabelHubSchema } from '@labelhub/shared';
+
 import { resolveDesignerDropTarget, useTemplateDesignerStore } from './templateStore';
 
 describe('useTemplateDesignerStore', () => {
@@ -7,7 +9,12 @@ describe('useTemplateDesignerStore', () => {
     const store = useTemplateDesignerStore.getState();
 
     store.resetDesigner();
+    expect(useTemplateDesignerStore.getState().canUndo).toBe(false);
+    expect(useTemplateDesignerStore.getState().canRedo).toBe(false);
+
     store.addField('text');
+    expect(useTemplateDesignerStore.getState().canUndo).toBe(true);
+    expect(useTemplateDesignerStore.getState().canRedo).toBe(false);
     expect(useTemplateDesignerStore.getState().schema.fields).toHaveLength(1);
     expect(useTemplateDesignerStore.getState().schema.fields[0]).toMatchObject({
       type: 'text',
@@ -21,10 +28,93 @@ describe('useTemplateDesignerStore', () => {
     );
 
     store.undo();
+    expect(useTemplateDesignerStore.getState().canUndo).toBe(true);
+    expect(useTemplateDesignerStore.getState().canRedo).toBe(true);
     expect(useTemplateDesignerStore.getState().schema.fields).toHaveLength(1);
 
     store.redo();
+    expect(useTemplateDesignerStore.getState().canUndo).toBe(true);
+    expect(useTemplateDesignerStore.getState().canRedo).toBe(false);
     expect(useTemplateDesignerStore.getState().schema.fields).toHaveLength(2);
+  });
+
+  it('新修改会清空 redo 栈并把历史深度限制在 100 条', () => {
+    const store = useTemplateDesignerStore.getState();
+
+    store.resetDesigner();
+    store.addField('text');
+    store.addField('textarea');
+    store.undo();
+    expect(useTemplateDesignerStore.getState().canRedo).toBe(true);
+
+    store.addField('radio');
+    expect(useTemplateDesignerStore.getState().canRedo).toBe(false);
+    expect(useTemplateDesignerStore.getState().future).toHaveLength(0);
+
+    for (let index = 0; index < 120; index += 1) {
+      store.addField('text');
+    }
+
+    expect(useTemplateDesignerStore.getState().past).toHaveLength(100);
+  });
+
+  it('加载新 schema 会重置历史栈，避免跨模板撤销', () => {
+    const store = useTemplateDesignerStore.getState();
+
+    store.resetDesigner();
+    store.addField('text');
+    expect(useTemplateDesignerStore.getState().canUndo).toBe(true);
+
+    store.setSchema(createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [
+        { key: 'note', fieldKey: 'note', type: 'textarea', label: '备注' },
+      ],
+    }));
+
+    expect(useTemplateDesignerStore.getState().schema.fields.map((field) => field.key)).toEqual(['note']);
+    expect(useTemplateDesignerStore.getState().past).toHaveLength(0);
+    expect(useTemplateDesignerStore.getState().future).toHaveLength(0);
+    expect(useTemplateDesignerStore.getState().canUndo).toBe(false);
+    expect(useTemplateDesignerStore.getState().canRedo).toBe(false);
+  });
+
+  it('字段排序和属性修改也会进入撤销重做历史', () => {
+    const store = useTemplateDesignerStore.getState();
+
+    store.resetDesigner();
+    store.addField('text');
+    store.addField('textarea');
+    const [textField, textareaField] = useTemplateDesignerStore.getState().schema.fields;
+
+    store.reorderField(textField.key, textareaField.key);
+    expect(useTemplateDesignerStore.getState().schema.fields.map((field) => field.key)).toEqual([
+      textareaField.key,
+      textField.key,
+    ]);
+
+    store.undo();
+    expect(useTemplateDesignerStore.getState().schema.fields.map((field) => field.key)).toEqual([
+      textField.key,
+      textareaField.key,
+    ]);
+
+    store.redo();
+    expect(useTemplateDesignerStore.getState().schema.fields.map((field) => field.key)).toEqual([
+      textareaField.key,
+      textField.key,
+    ]);
+
+    store.selectField(textField.key);
+    store.updateSelectedField({ label: '改名字段' });
+    expect(useTemplateDesignerStore.getState().schema.fields[1].label).toBe('改名字段');
+
+    store.undo();
+    expect(useTemplateDesignerStore.getState().schema.fields[1].label).toBe('单行输入');
+
+    store.redo();
+    expect(useTemplateDesignerStore.getState().schema.fields[1].label).toBe('改名字段');
   });
 
   it('支持按目标字段拖拽重排同级字段', () => {

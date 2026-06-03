@@ -7,6 +7,7 @@ import {
   type AiReviewBatchDecision,
   type AiReviewBatchDetailDto,
   type AiReviewBatchDto,
+  type AiReviewFieldDto,
   type AiReviewBatchItemDto,
   type AiReviewBatchStatus,
   type AiReviewLogDto,
@@ -19,7 +20,6 @@ const STATUS_LABELS: Record<AiReviewBatchStatus, string> = {
   PENDING: '待审核',
   PASSED: '已通过',
   REJECTED: '已打回',
-  MANUAL: '转人工',
   FAILED: '失败',
 };
 
@@ -27,7 +27,6 @@ const DECISION_LABELS: Record<AiReviewBatchDecision, string> = {
   pending: '等待预审',
   pass: '建议通过',
   reject: '建议打回',
-  manual: '转人工复核',
   failed: '失败',
 };
 
@@ -35,17 +34,29 @@ const QUESTION_DECISION_TABS: Array<{ label: string; value: AiReviewBatchDecisio
   { label: '待审核', value: 'pending' },
   { label: '已通过', value: 'pass' },
   { label: '已打回', value: 'reject' },
-  { label: '转人工', value: 'manual' },
   { label: '失败', value: 'failed' },
 ];
 
-const SCORE_DIMENSIONS = [
-  { key: 'relevance', aliases: ['相关性'], label: '相关性' },
-  { key: 'accuracy', aliases: ['准确性'], label: '准确性' },
-  { key: 'format', aliases: ['格式合规'], label: '格式合规' },
-  { key: 'safety', aliases: ['安全性'], label: '安全性' },
-  { key: 'overall', aliases: ['综合', 'score', 'total'], label: '综合' },
-] as const;
+type FieldReviewDecision = 'pass' | 'pending' | 'reject';
+
+type NormalizedFieldReview = {
+  fieldKey: string;
+  label: string;
+  type: string;
+  required: boolean;
+  requirement: string;
+  score: number | null;
+  decision: FieldReviewDecision;
+  comment: string;
+  suggestions: string[];
+};
+
+type ItemReviewSummary = {
+  decision: AiReviewBatchDecision;
+  counts: Record<FieldReviewDecision, number>;
+  rejectedLabels: string[];
+  total: number;
+};
 
 const LOG_LABELS: Record<AiReviewLogDto['type'], string> = {
   audit: 'audit',
@@ -95,12 +106,8 @@ export const AiReviewQueuePage = () => {
       }
 
       return [
-        batch.batchId,
-        batch.displayId,
-        batch.taskId,
         batch.taskTitle,
         batch.labelerName,
-        batch.labelerId ?? '',
         ...batch.externalIds,
       ].some((value) => value.toLowerCase().includes(normalizedKeyword));
     });
@@ -272,7 +279,7 @@ const AiReviewBatchTable = ({
         <div className="task-filter-bar agent-review-filter">
           <input
             aria-label="搜索任务级 AI 预审批次"
-            placeholder="搜索任务名 / 任务ID / 批次ID / 标注员 / 题目ID"
+            placeholder="搜索任务名 / 标注员 / 题目ID"
             value={keyword}
             onChange={(event) => onKeywordChange(event.target.value)}
           />
@@ -282,7 +289,6 @@ const AiReviewBatchTable = ({
       <div className="task-table-scroll" data-adaptive-table-viewport="true">
         <table className="task-table agent-review-batch-table" aria-label="任务级 AI 预审队列表格">
           <colgroup>
-            <col className="agent-review-batch-table__col-batch" />
             <col className="agent-review-batch-table__col-title" />
             <col className="agent-review-batch-table__col-labeler" />
             <col className="agent-review-batch-table__col-submitted" />
@@ -294,7 +300,6 @@ const AiReviewBatchTable = ({
           </colgroup>
           <thead>
             <tr>
-              <th>批次 ID</th>
               <th>任务名称</th>
               <th>标注员</th>
               <th>提交时间</th>
@@ -319,11 +324,6 @@ const AiReviewBatchTable = ({
                   onClick={(event) => handleRowClick(event, batch)}
                   onKeyDown={(event) => handleRowKeyDown(event, batch)}
                 >
-                  <td className="task-table__id">
-                    <TableCellInner>
-                      <code>{batch.displayId}</code>
-                    </TableCellInner>
-                  </td>
                   <td>
                     <TableCellInner>
                       <button
@@ -386,7 +386,7 @@ const AiReviewBatchTable = ({
               ))
             ) : (
               <tr className="task-table__empty-row">
-                <td colSpan={9}>
+                <td colSpan={8}>
                   <TableEmptyState title="暂无任务级 AI 预审记录" illustrationAlt="空预审队列插画" />
                 </td>
               </tr>
@@ -485,7 +485,7 @@ const AiReviewBatchSheet = ({
         <header className="agent-review-drawer-header">
           <div>
             <h2 id="agent-review-detail-title">
-              {batch.displayId} · {batch.taskTitle}
+              AI 预审详情 · {batch.taskTitle}
             </h2>
             <p>
               提交于 {formatClock(batch.submittedAt)} · 标注员 {batch.labelerName} · 模板版本 {batch.templateVersion ?? '未记录'} · 共{' '}
@@ -510,13 +510,10 @@ const AiReviewBatchSheet = ({
                 <div className="agent-review-sheet-main">
                   {selectedItem ? (
                     <>
-                      <section className="agent-review-drawer-grid">
-                        <JsonSubmissionPanel item={selectedItem} />
-                        <ScorePanel item={selectedItem} />
-                      </section>
-                      <AiCommentPanel item={selectedItem} />
-                      <PromptPanel item={selectedItem} />
-                      <LogPanel logs={selectedItem.logs} />
+                      <ItemReviewResultStrip item={selectedItem} />
+                      <FieldReviewPanel item={selectedItem} />
+                      <AiOverallCommentPanel item={selectedItem} />
+                      <TechnicalDetailsPanel item={selectedItem} />
                     </>
                   ) : null}
                 </div>
@@ -548,7 +545,6 @@ const QuestionList = ({
     }),
     {
       failed: 0,
-      manual: 0,
       pass: 0,
       pending: 0,
       reject: 0,
@@ -611,77 +607,165 @@ const QuestionList = ({
   );
 };
 
-const JsonSubmissionPanel = ({ item }: { item: AiReviewBatchItemDto }) => (
-  <article className="agent-review-card agent-review-card--json">
-    <PanelHeading title="提交内容" meta="JSON 字段视图" />
-    <pre>{formatJson({ rawData: item.taskItem.rawData, answers: item.submission.answers })}</pre>
-  </article>
-);
+const ItemReviewResultStrip = ({ item }: { item: AiReviewBatchItemDto }) => {
+  const summary = itemReviewSummary(item);
+  const meta = [
+    `AI 预审字段 ${summary.total.toLocaleString()} 个`,
+    `通过 ${summary.counts.pass.toLocaleString()}`,
+    `打回 ${summary.counts.reject.toLocaleString()}`,
+    summary.counts.pending > 0 ? `待预审 ${summary.counts.pending.toLocaleString()}` : '',
+  ].filter(Boolean).join(' · ');
 
-const ScorePanel = ({ item }: { item: AiReviewBatchItemDto }) => (
-  <article className="agent-review-card agent-review-card--score">
-    <PanelHeading title="维度评分（共 100）" meta="function_calling · 结构化" />
-    <div className="agent-review-score-list">
-      {SCORE_DIMENSIONS.map((dimension) => {
-        const score = scoreValue(item.reviewRecord?.scores ?? {}, dimension.key, dimension.aliases);
+  return (
+    <section className={`agent-review-result-strip is-${decisionTone(summary.decision)}`} aria-label="当前题结果">
+      <div>
+        <strong>{itemResultTitle(summary.decision)}</strong>
+        <span>{meta}</span>
+      </div>
+      {summary.rejectedLabels.length > 0 ? (
+        <p>
+          打回字段：
+          <span>{summary.rejectedLabels.join('、')}</span>
+        </p>
+      ) : null}
+    </section>
+  );
+};
 
-        return (
-          <div key={dimension.key} className="agent-review-score-row">
-            <div>
-              <span>{dimension.label}</span>
-              <strong className={`is-${scoreTone(score)}`}>{score === null ? '—' : score}</strong>
-            </div>
-            <span className="agent-review-score-track" aria-hidden="true">
-              <span className={`is-${scoreTone(score)}`} style={{ width: `${score ?? 0}%` }} />
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  </article>
-);
+const FieldReviewPanel = ({ item }: { item: AiReviewBatchItemDto }) => {
+  const rows = fieldReviewRows(item);
 
-const AiCommentPanel = ({ item }: { item: AiReviewBatchItemDto }) => (
-  <article className={`agent-review-card agent-review-card--comment is-${decisionTone(item.decision)}`}>
-    <PanelHeading title="AI 评语" />
-    <div className="agent-review-comment-box">
-      <strong>
-        {DECISION_LABELS[item.decision]}
-        <span>阈值：综合 &lt; 70 即打回</span>
-      </strong>
-      <p>{item.reviewRecord?.comment ?? item.job.lastError ?? 'AI 预审尚未输出评语。'}</p>
-    </div>
-  </article>
-);
+  return (
+    <article className="agent-review-card agent-review-card--fields">
+      <PanelHeading title="字段预审结果" meta={`含 Labeler 提交内容 · ${rows.length.toLocaleString()} 个字段`} />
+      {rows.length > 0 ? (
+        <div className="agent-review-field-list" role="list" aria-label="字段预审结果列表">
+          {rows.map((row) => (
+            <section
+              key={row.fieldKey}
+              className={`agent-review-field-block is-${row.decision}`}
+              role="listitem"
+              aria-label={`${row.label} AI 预审结果`}
+            >
+              <header className="agent-review-field-block__header">
+                <div>
+                  <strong>{row.label}</strong>
+                  <small>{row.fieldKey}</small>
+                </div>
+                <FieldDecisionPill decision={row.decision} />
+              </header>
 
-const PromptPanel = ({ item }: { item: AiReviewBatchItemDto }) => (
-  <article className="agent-review-card agent-review-card--prompt">
-    <PanelHeading title="审核 Prompt 模板" meta={promptRuleLabel(item.reviewRecord?.ruleId)} />
-    <pre>{item.reviewRecord?.rawPrompt ?? fallbackPromptTemplate()}</pre>
-  </article>
-);
+              <div className="agent-review-field-block__rule">
+                <span>预审规则</span>
+                <RulePreview requirement={row.requirement} />
+              </div>
 
-const LogPanel = ({ logs }: { logs: AiReviewLogDto[] }) => (
-  <article className="agent-review-card agent-review-card--logs">
-    <PanelHeading title="处理日志 / 审计" />
-    <ol>
-      {logs.length > 0 ? (
-        logs.map((log) => (
-          <li key={log.id}>
-            <time dateTime={log.time}>{formatClock(log.time)}</time>
-            <span>{LOG_LABELS[log.type]}</span>
-            <p>{log.message}</p>
-          </li>
-        ))
+              <section className="agent-review-field-block__submission" aria-label={`${row.label} Labeler 提交内容`}>
+                <span>Labeler 提交内容</span>
+                <ValuePreview type={row.type} value={item.submission.answers[row.fieldKey]} />
+              </section>
+
+              <div className="agent-review-field-block__ai">
+                <div>
+                  <span>AI 说明</span>
+                  <p>{row.comment || '暂无 AI 评价。'}</p>
+                </div>
+                <div>
+                  <span>修改建议</span>
+                  <p>{row.suggestions.length > 0 ? row.suggestions.join('；') : '-'}</p>
+                </div>
+              </div>
+            </section>
+          ))}
+        </div>
       ) : (
-        <li>
-          <time>未记录</time>
-          <span>audit</span>
-          <p>暂无处理日志。</p>
-        </li>
+        <EmptyPanelText>{fieldReviewEmptyText(item)}</EmptyPanelText>
       )}
-    </ol>
+    </article>
+  );
+};
+
+const AiOverallCommentPanel = ({ item }: { item: AiReviewBatchItemDto }) => (
+  <article className={`agent-review-card agent-review-card--comment is-${decisionTone(item.decision)}`}>
+    <PanelHeading title="AI 总评" />
+    <div className="agent-review-comment-box">
+      <strong>{DECISION_LABELS[item.decision]}</strong>
+      <p>{overallComment(item)}</p>
+    </div>
   </article>
+);
+
+const TechnicalDetailsPanel = ({ item }: { item: AiReviewBatchItemDto }) => (
+  <section className="agent-review-technical-sections" aria-label="技术信息">
+    <TechnicalDetails title="查看审核 Prompt">
+      <PanelHeading title="审核 Prompt" meta={promptRuleLabel(item.reviewRecord?.ruleId)} />
+      <pre>{item.reviewRecord?.rawPrompt?.trim() || '本题暂未记录真实审核 Prompt。'}</pre>
+    </TechnicalDetails>
+    <TechnicalDetails title="查看处理日志">
+      <PanelHeading title="处理日志 / 审计" />
+      <LogList logs={item.logs} />
+    </TechnicalDetails>
+  </section>
+);
+
+const TechnicalDetails = ({ children, title }: { children: ReactNode; title: string }) => (
+  <details className="agent-review-technical-section">
+    <summary>{title}</summary>
+    <div>{children}</div>
+  </details>
+);
+
+const LogList = ({ logs }: { logs: AiReviewLogDto[] }) => (
+  <ol className="agent-review-log-list">
+    {logs.length > 0 ? (
+      logs.map((log) => (
+        <li key={log.id}>
+          <time dateTime={log.time}>{formatClock(log.time)}</time>
+          <span>{LOG_LABELS[log.type]}</span>
+          <p>{log.message}</p>
+        </li>
+      ))
+    ) : (
+      <li>
+        <time>未记录</time>
+        <span>audit</span>
+        <p>暂无处理日志。</p>
+      </li>
+    )}
+  </ol>
+);
+
+const RulePreview = ({ requirement }: { requirement: string }) => (
+  <p className={requirement ? 'agent-review-rule-preview' : 'agent-review-rule-preview is-empty'}>
+    {requirement || '未记录字段预审规则。'}
+  </p>
+);
+
+const ValuePreview = ({ type, value }: { type?: string; value: unknown }) => {
+  const chips = fieldValueChips(value, type);
+
+  if (chips.length > 0) {
+    return (
+      <div className="agent-review-value-chips">
+        {chips.map((chip) => (
+          <span key={chip}>{chip}</span>
+        ))}
+      </div>
+    );
+  }
+
+  const displayValue = formatFieldValue(value);
+  const isEmpty = displayValue === '未选择';
+
+  return (
+    <div className="agent-review-value-preview">
+      <pre className={isEmpty ? 'is-empty' : undefined}>{displayValue}</pre>
+    </div>
+  );
+};
+
+const EmptyPanelText = ({ children }: { children: ReactNode }) => (
+  <p className="agent-review-empty-text">{children}</p>
 );
 
 const PanelHeading = ({ meta, title }: { meta?: ReactNode; title: string }) => (
@@ -695,37 +779,253 @@ const DecisionPill = ({ decision, label }: { decision: AiReviewBatchDecision; la
   <span className={`agent-review-decision-pill is-${decisionTone(decision)}`}>{label}</span>
 );
 
-function scoreValue(scores: Record<string, unknown>, key: string, aliases: readonly string[]): number | null {
-  for (const candidate of [key, ...aliases]) {
-    const value = scores[candidate];
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return Math.max(0, Math.min(100, Math.round(value)));
-    }
-    if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) {
-      return Math.max(0, Math.min(100, Math.round(Number(value))));
-    }
-  }
+const FieldDecisionPill = ({ decision }: { decision: FieldReviewDecision }) => (
+  <span className={`agent-review-field-decision is-${decision}`}>{FIELD_DECISION_LABELS[decision]}</span>
+);
 
-  return null;
+const FIELD_DECISION_LABELS: Record<FieldReviewDecision, string> = {
+  pass: '通过',
+  pending: '待预审',
+  reject: '打回',
+};
+
+function fieldReviewRows(item: AiReviewBatchItemDto): NormalizedFieldReview[] {
+  const outputReviews = fieldReviewsFromStructuredOutput(item.reviewRecord?.structuredOutput);
+  const reviewFields = reviewFieldsForItem(item);
+  const rows = reviewFields.map((field) => {
+    const review = outputReviews.find((candidate) => candidate.fieldKey === field.fieldKey);
+    const fallbackDecision: FieldReviewDecision = 'pending';
+
+    return review ? {
+      ...review,
+      label: review.label || field.label,
+      type: field.type,
+      required: field.required,
+      requirement: field.requirement,
+    } : {
+      fieldKey: field.fieldKey,
+      label: field.label,
+      type: field.type,
+      required: field.required,
+      requirement: field.requirement,
+      score: null,
+      decision: fallbackDecision,
+      comment: item.reviewRecord ? '该字段暂无字段级 AI 评价。' : 'AI 预审尚未输出字段结果。',
+      suggestions: [],
+    };
+  });
+  return reviewFields.length > 0 ? rows : outputReviews;
 }
 
-function scoreTone(score: number | null): 'high' | 'low' | 'medium' {
-  if (score === null || score < 60) {
-    return 'low';
-  }
-  if (score < 80) {
-    return 'medium';
+function reviewFieldsForItem(item: AiReviewBatchItemDto): AiReviewFieldDto[] {
+  if ((item.reviewFields ?? []).length > 0) {
+    return item.reviewFields;
   }
 
-  return 'high';
+  return fieldReviewsFromStructuredOutput(item.reviewRecord?.structuredOutput).map((review) => ({
+    fieldKey: review.fieldKey,
+    label: review.label,
+    type: 'unknown',
+    required: false,
+    requirement: review.requirement,
+  }));
 }
 
-function decisionTone(decision: AiReviewBatchDecision): 'failed' | 'manual' | 'pass' | 'pending' | 'reject' {
-  if (decision === 'failed') {
+function fieldReviewsFromStructuredOutput(value: Record<string, unknown> | null | undefined): NormalizedFieldReview[] {
+  const fieldReviews = value?.fieldReviews;
+
+  if (!Array.isArray(fieldReviews)) {
+    return [];
+  }
+
+  return fieldReviews
+    .map((item) => normalizeFieldReview(item))
+    .filter((item): item is NormalizedFieldReview => item !== null);
+}
+
+function normalizeFieldReview(value: unknown): NormalizedFieldReview | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const fieldKey = stringValue(record.fieldKey);
+
+  if (!fieldKey) {
+    return null;
+  }
+
+  return {
+    fieldKey,
+    label: stringValue(record.label) || fieldKey,
+    type: stringValue(record.type) || 'unknown',
+    required: Boolean(record.required),
+    requirement: stringValue(record.requirement || record.rule || record.criteria),
+    score: numericFieldScore(record.score),
+    decision: normalizeFieldDecision(record.decision),
+    comment: stringValue(record.comment || record.reason),
+    suggestions: normalizeSuggestions(record.suggestions),
+  };
+}
+
+function itemReviewSummary(item: AiReviewBatchItemDto): ItemReviewSummary {
+  const rows = fieldReviewRows(item);
+  const counts = fieldReviewCounts(rows);
+  const rejectedLabels = rows.filter((row) => row.decision === 'reject').map((row) => row.label || row.fieldKey);
+
+  return {
+    counts,
+    decision: itemDecisionFromFieldRows(item, rows),
+    rejectedLabels,
+    total: rows.length,
+  };
+}
+
+function itemDecisionFromFieldRows(
+  item: AiReviewBatchItemDto,
+  rows: readonly NormalizedFieldReview[],
+): AiReviewBatchDecision {
+  if (item.decision === 'failed') {
     return 'failed';
   }
-  if (decision === 'manual') {
-    return 'manual';
+  if (rows.some((row) => row.decision === 'reject')) {
+    return 'reject';
+  }
+  if (rows.length > 0 && rows.every((row) => row.decision === 'pass')) {
+    return 'pass';
+  }
+  if (rows.some((row) => row.decision === 'pending')) {
+    return 'pending';
+  }
+
+  return item.decision;
+}
+
+function itemResultTitle(decision: AiReviewBatchDecision): string {
+  if (decision === 'pass') {
+    return '本题建议通过';
+  }
+  if (decision === 'reject') {
+    return '本题建议打回';
+  }
+  if (decision === 'failed') {
+    return '本题预审失败';
+  }
+
+  return '本题等待预审';
+}
+
+function fieldReviewCounts(rows: readonly NormalizedFieldReview[]): Record<FieldReviewDecision, number> {
+  return rows.reduce<Record<FieldReviewDecision, number>>(
+    (counts, row) => ({
+      ...counts,
+      [row.decision]: counts[row.decision] + 1,
+    }),
+    {
+      pass: 0,
+      pending: 0,
+      reject: 0,
+    },
+  );
+}
+
+function normalizeFieldDecision(value: unknown): FieldReviewDecision {
+  if (value === 'pass' || value === true) {
+    return 'pass';
+  }
+  if (value === 'reject' || value === false) {
+    return 'reject';
+  }
+  if (value === 'manual') {
+    return 'reject';
+  }
+
+  return 'pending';
+}
+
+function normalizeSuggestions(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map(stringValue).filter(Boolean);
+  }
+
+  const suggestion = stringValue(value);
+
+  return suggestion ? [suggestion] : [];
+}
+
+function numericFieldScore(value: unknown): number | null {
+  const numericValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+
+  return Number.isFinite(numericValue) ? Math.max(0, Math.min(100, Math.round(numericValue))) : null;
+}
+
+function overallComment(item: AiReviewBatchItemDto): string {
+  const structuredOutput = item.reviewRecord?.structuredOutput;
+  const comment = structuredOutput ? stringValue(structuredOutput.overallComment || structuredOutput.reason) : '';
+
+  return comment || item.reviewRecord?.comment || item.job.lastError || '暂无 AI 总评。';
+}
+
+function fieldReviewEmptyText(item: AiReviewBatchItemDto): string {
+  if (item.reviewFields.length === 0 && !item.reviewRecord) {
+    return '当前模板没有开启 AI 预审字段，或 AI 预审尚未开始。';
+  }
+  if (item.reviewRecord) {
+    return '该历史记录未保存字段级预审结果。';
+  }
+
+  return 'AI 预审尚未输出字段结果。';
+}
+
+function structuredOutputModeLabel(value?: string | null): string {
+  if (value === 'function_calling') {
+    return 'function_calling · 结构化';
+  }
+  if (value === 'json_schema') {
+    return 'json_schema · 结构化';
+  }
+
+  return '结构化输出未记录';
+}
+
+function fieldValueChips(value: unknown, type?: string): string[] {
+  const isChoiceField = type === 'radio' || type === 'checkbox' || type === 'tag_select';
+
+  if (Array.isArray(value) && value.length > 0 && value.every(isPrimitiveFieldValue)) {
+    return value.map((item) => String(item));
+  }
+  if (isChoiceField && isPrimitiveFieldValue(value) && String(value).trim()) {
+    return [String(value)];
+  }
+
+  return [];
+}
+
+function isPrimitiveFieldValue(value: unknown): value is string | number | boolean {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+}
+
+function formatFieldValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') {
+    return '未选择';
+  }
+  if (Array.isArray(value) && value.length === 0) {
+    return '未选择';
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  return formatJson(value);
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function decisionTone(decision: AiReviewBatchDecision): 'failed' | 'pass' | 'pending' | 'reject' {
+  if (decision === 'failed') {
+    return 'failed';
   }
   if (decision === 'pass') {
     return 'pass';
@@ -738,20 +1038,7 @@ function decisionTone(decision: AiReviewBatchDecision): 'failed' | 'manual' | 'p
 }
 
 function promptRuleLabel(ruleId?: string | null): string {
-  return ruleId ? `规则：${ruleId}` : '规则：电商相关性 v2';
-}
-
-function fallbackPromptTemplate(): string {
-  return [
-    '你是电商商品标题审核员，请基于以下维度为提交内容打分（0-100）：',
-    '[相关性] 标注结果与原始数据是否对齐',
-    '[准确性] 关键信息与商品事实是否一致',
-    '[格式合规] 是否满足模板字段与正则规则',
-    '[安全性] 是否包含敏感 / 违规词',
-    '',
-    '请通过 function_call 返回 JSON:',
-    '{ "scores": {...}, "verdict": "pass|reject|manual", "reason": "..." }',
-  ].join('\n');
+  return ruleId ? `规则：${ruleId}` : '规则：未记录';
 }
 
 function formatJson(value: unknown): string {

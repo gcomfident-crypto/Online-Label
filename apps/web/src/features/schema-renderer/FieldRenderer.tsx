@@ -15,27 +15,47 @@ import { UnsupportedField } from './fields/UnsupportedField';
 import type { FieldRendererProps } from './types';
 import { getSchemaFieldKey } from './types';
 
+const withAllowedOptions = (
+  field: FieldRendererProps['field'],
+  allowedOptions: ReadonlySet<string> | undefined,
+): FieldRendererProps['field'] => {
+  if (!allowedOptions || !field.options) {
+    return field;
+  }
+
+  return {
+    ...field,
+    options: field.options.filter((option) => allowedOptions.has(option.value)),
+  };
+};
+
 export const FieldRenderer = (props: FieldRendererProps) => {
   const fieldKey = getSchemaFieldKey(props.field);
+  const allowedOptions = props.allowedOptionsByFieldKey.get(fieldKey);
 
   if (props.hiddenFieldKeys.has(fieldKey)) {
     return null;
   }
 
   const isRequiredByLinkage = props.requiredFieldKeys.has(fieldKey);
-  const field = isRequiredByLinkage && !props.field.validation?.required
+  const restrictedField = withAllowedOptions(
+    props.field,
+    allowedOptions,
+  );
+  const field = isRequiredByLinkage && !restrictedField.validation?.required
     ? {
-        ...props.field,
+        ...restrictedField,
         validation: {
-          ...(props.field.validation ?? {}),
+          ...(restrictedField.validation ?? {}),
           required: true,
         },
       }
-    : props.field;
+    : restrictedField;
   const fieldProps = {
     ...props,
     field,
     disabled: props.disabledFieldKeys.has(fieldKey),
+    optionLimitActive: Boolean(allowedOptions),
   };
   let fieldElement: ReactNode;
 
@@ -83,18 +103,25 @@ export const FieldRenderer = (props: FieldRendererProps) => {
       fieldElement = <UnsupportedField {...fieldProps} />;
       break;
   }
+  const decoration = props.getFieldNodeDecoration?.(field) ?? null;
+  const className = [
+    props.activeFieldKey === fieldKey ? 'schema-renderer__field-node is-active' : 'schema-renderer__field-node',
+    decoration ? `schema-renderer__field-node--diff-${decoration.state}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div
-      className={
-        props.activeFieldKey === fieldKey
-          ? 'schema-renderer__field-node is-active'
-          : 'schema-renderer__field-node'
-      }
+      className={className}
       data-field-key={fieldKey}
+      data-diff-state={decoration?.state}
       onClick={() => props.onActiveFieldChange?.(fieldKey)}
       onFocusCapture={() => props.onActiveFieldChange?.(fieldKey)}
     >
+      {decoration ? (
+        <span className="schema-renderer__field-diff-badge">{decoration.label}</span>
+      ) : null}
       {fieldElement}
     </div>
   );

@@ -4,7 +4,7 @@ import { AiReviewProcessorService } from './ai-review-processor.service.ts';
 import { AiReviewService } from './ai-review.service.ts';
 
 describe('AiReviewProcessorService', () => {
-  it('自动处理排队任务，写入五维评分并把通过结果送入人工复审', async () => {
+  it('自动处理排队任务，写入字段级预审结果并把通过结果送入人工复审', async () => {
     const { processor, auditLogs, jobs, submissions, reviewRecords } = createProcessor({
       answers: {
         cleaned_title: '户外便携野营折叠桌椅套装 5 件套',
@@ -20,7 +20,7 @@ describe('AiReviewProcessorService', () => {
 
     const result = await processor.processQueuedJobs({ limit: 5 });
 
-    expect(result).toEqual({ processed: 1, passed: 1, rejected: 0, manual: 0, failed: 0 });
+    expect(result).toEqual({ processed: 1, passed: 1, rejected: 0, failed: 0 });
     expect(submissions[0].status).toBe('HUMAN_PENDING');
     expect(jobs[0]).toMatchObject({ status: 'SUCCEEDED', attempts: 1, lastError: null });
     expect(reviewRecords.at(-1)).toEqual(
@@ -28,18 +28,27 @@ describe('AiReviewProcessorService', () => {
         stage: 'AI_PRECHECK',
         reviewerType: 'AI',
         decision: 'pass',
-        rawPrompt: expect.stringContaining('相关性'),
-        structuredOutput: expect.objectContaining({ verdict: 'pass' }),
+        rawPrompt: expect.stringContaining('fieldReviews'),
+        structuredOutput: expect.objectContaining({
+          verdict: 'pass',
+          fieldReviews: expect.arrayContaining([
+            expect.objectContaining({
+              fieldKey: 'cleaned_title',
+              label: 'cleaned_title',
+              decision: 'pass',
+              score: expect.any(Number),
+            }),
+          ]),
+          overallComment: expect.stringContaining('所有开启 AI 预审的字段均通过'),
+        }),
         modelMetadata: expect.objectContaining({ provider: 'mock', model: 'mock-stable-reviewer' }),
       }),
     );
     expect(reviewRecords.at(-1)?.scores).toEqual(
       expect.objectContaining({
-        relevance: expect.any(Number),
-        accuracy: expect.any(Number),
-        format: expect.any(Number),
-        safety: expect.any(Number),
         overall: expect.any(Number),
+        fieldCount: 3,
+        passedFieldCount: 3,
       }),
     );
     expect(auditLogs.every((auditLog) => auditLog.actorId === null || auditLog.actorId === undefined)).toBe(true);
@@ -61,18 +70,60 @@ describe('AiReviewProcessorService', () => {
 
     const result = await processor.processQueuedJobs({ limit: 5 });
 
-    expect(result).toEqual({ processed: 1, passed: 0, rejected: 1, manual: 0, failed: 0 });
+    expect(result).toEqual({ processed: 1, passed: 0, rejected: 1, failed: 0 });
     expect(submissions[0].status).toBe('NEEDS_REVISION');
     expect(assignments[0].status).toBe('NEEDS_REVISION');
     expect(reviewRecords.at(-1)).toEqual(
       expect.objectContaining({
         decision: 'reject',
-        comment: expect.stringContaining('综合分低于通过阈值'),
+        comment: expect.stringContaining('未通过 AI 预审'),
       }),
     );
-    expect(reviewRecords.at(-1)?.scores).toEqual(
+    expect(reviewRecords.at(-1)?.structuredOutput).toEqual(
       expect.objectContaining({
-        reason: expect.stringContaining('综合分低于通过阈值'),
+        fieldReviews: expect.arrayContaining([
+          expect.objectContaining({
+            fieldKey: 'cleaned_title',
+            decision: 'reject',
+            comment: expect.stringContaining('未填写'),
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it('任一字段未通过时整题直接打回，不再进入第三种状态或通过', async () => {
+    const { processor, assignments, submissions, reviewRecords } = createProcessor({
+      answers: {
+        cleaned_title: '户外便携野营折叠桌椅套装 5 件套',
+        category: 'x',
+        keywords: ['折叠', '户外', '桌椅套装'],
+      },
+      rawData: {
+        title: '户外便携野营折叠桌椅套装 5 件套',
+        category: '家居用品',
+        keywords: ['折叠', '户外', '桌椅套装'],
+      },
+    });
+
+    const result = await processor.processQueuedJobs({ limit: 5 });
+
+    expect(result).toEqual({ processed: 1, passed: 0, rejected: 1, failed: 0 });
+    expect(submissions[0].status).toBe('NEEDS_REVISION');
+    expect(assignments[0].status).toBe('NEEDS_REVISION');
+    expect(reviewRecords.at(-1)).toEqual(
+      expect.objectContaining({
+        decision: 'reject',
+        comment: expect.stringContaining('category 未通过 AI 预审'),
+        structuredOutput: expect.objectContaining({
+          verdict: 'reject',
+          fieldReviews: expect.arrayContaining([
+            expect.objectContaining({
+              fieldKey: 'category',
+              decision: 'reject',
+            }),
+          ]),
+        }),
       }),
     );
   });
@@ -161,16 +212,9 @@ function createProcessor(input: {
       taskId: 'task_qa',
       stage: 'AI_PRECHECK',
       name: '商品清洗 AI 预审 v1',
-      promptTemplate:
-        '你是商品标题质检审核员，请按相关性、准确性、格式合规、安全性、综合五个维度评分。',
+      promptTemplate: '你是商品标题质检审核员，请对开启 AI 预审的字段逐项判断标注结果是否合格。',
       promptVersion: 2,
-      dimensions: [
-        { key: 'relevance', label: '相关性', maxScore: 100 },
-        { key: 'accuracy', label: '准确性', maxScore: 100 },
-        { key: 'format', label: '格式合规', maxScore: 100 },
-        { key: 'safety', label: '安全性', maxScore: 100 },
-        { key: 'overall', label: '综合', maxScore: 100 },
-      ],
+      dimensions: [],
       dimensionVersion: 1,
       passThreshold: 70,
       manualThreshold: 55,

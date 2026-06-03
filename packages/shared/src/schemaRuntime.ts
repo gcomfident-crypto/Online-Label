@@ -5,7 +5,11 @@ export type SchemaLinkageResult = {
   hiddenFieldKeys: Set<string>;
   requiredFieldKeys: Set<string>;
   disabledFieldKeys: Set<string>;
+  allowedOptionsByFieldKey: Map<string, Set<string>>;
   answers: Record<string, unknown>;
+  normalizedAnswers: Record<string, unknown>;
+  assertionErrors: SchemaValidationError[];
+  validationErrors: SchemaValidationError[];
 };
 
 export type SchemaValidationError = {
@@ -17,6 +21,9 @@ export type SchemaValidationContext = {
   hiddenFieldKeys?: ReadonlySet<string>;
   disabledFieldKeys?: ReadonlySet<string>;
   requiredFieldKeys?: ReadonlySet<string>;
+  allowedOptionsByFieldKey?: ReadonlyMap<string, ReadonlySet<string>>;
+  assertionErrors?: ReadonlyArray<SchemaValidationError>;
+  validationErrors?: ReadonlyArray<SchemaValidationError>;
 };
 
 export const getSchemaFieldKey = (field: SchemaField): string => {
@@ -107,6 +114,10 @@ const collectRules = (schema: LabelHubSchema): FieldLinkageRule[] => {
   return [...(schema.linkageRules ?? []), ...fieldRules];
 };
 
+const createFieldByKeyMap = (fields: readonly SchemaField[]): Map<string, SchemaField> => {
+  return new Map(fields.map((field) => [getSchemaFieldKey(field), field]));
+};
+
 const isEmptyValue = (value: unknown): boolean => {
   return (
     value === undefined ||
@@ -150,11 +161,116 @@ const matchesCondition = (
   }
 };
 
+const matchesCaseValue = (sourceValue: unknown, caseValue: unknown): boolean => {
+  if (Array.isArray(sourceValue)) {
+    return sourceValue.some((item) => Object.is(item, caseValue));
+  }
+
+  return Object.is(sourceValue, caseValue);
+};
+
+const resolveLimitOptions = (
+  rule: FieldLinkageRule,
+  answers: Record<string, unknown>,
+): Set<string> | null => {
+  if (rule.action !== 'limitOptions') {
+    return null;
+  }
+
+  if (rule.cases && rule.cases.length > 0) {
+    const sourceValue = answers[rule.when.fieldKey];
+    const matchedCases = rule.cases.filter((ruleCase) =>
+      matchesCaseValue(sourceValue, ruleCase.value),
+    );
+
+    if (matchedCases.length === 0) {
+      return null;
+    }
+
+    return new Set(matchedCases.flatMap((ruleCase) => ruleCase.optionValues));
+  }
+
+  if (!rule.optionValues || !matchesCondition(answers, rule)) {
+    return null;
+  }
+
+  return new Set(rule.optionValues);
+};
+
+const intersectOptionSets = (
+  current: ReadonlySet<string> | undefined,
+  next: ReadonlySet<string>,
+): Set<string> => {
+  if (!current) {
+    return new Set(next);
+  }
+
+  return new Set([...current].filter((value) => next.has(value)));
+};
+
+const normalizeLimitedOptionValue = (
+  field: SchemaField | undefined,
+  currentValue: unknown,
+  allowedOptions: ReadonlySet<string>,
+): { hasValue: boolean; value?: unknown } => {
+  const allowedValues = [...allowedOptions];
+  const onlyAllowedValue = allowedValues.length === 1 ? allowedValues[0] : undefined;
+
+  if (!field) {
+    return { hasValue: true, value: currentValue };
+  }
+
+  if (field.type === 'radio') {
+    if (typeof currentValue === 'string' && allowedOptions.has(currentValue)) {
+      return { hasValue: true, value: currentValue };
+    }
+
+    if (onlyAllowedValue !== undefined) {
+      return { hasValue: true, value: onlyAllowedValue };
+    }
+
+    return { hasValue: false };
+  }
+
+  if (field.type === 'checkbox' || field.type === 'tag_select') {
+    const currentValues = Array.isArray(currentValue)
+      ? currentValue.filter((item): item is string => typeof item === 'string')
+      : [];
+    const nextValues = currentValues.filter((item) => allowedOptions.has(item));
+
+    if (nextValues.length > 0) {
+      return { hasValue: true, value: nextValues };
+    }
+
+    if (onlyAllowedValue !== undefined) {
+      return { hasValue: true, value: [onlyAllowedValue] };
+    }
+
+    return { hasValue: true, value: [] };
+  }
+
+  return { hasValue: true, value: currentValue };
+};
+
+const omitHiddenAnswers = (
+  answers: Record<string, unknown>,
+  hiddenFieldKeys: ReadonlySet<string>,
+): Record<string, unknown> => {
+  const normalizedAnswers = { ...answers };
+
+  for (const fieldKey of hiddenFieldKeys) {
+    delete normalizedAnswers[fieldKey];
+  }
+
+  return normalizedAnswers;
+};
+
 export const applySchemaLinkage = (
   schema: LabelHubSchema,
   answers: Record<string, unknown>,
 ): SchemaLinkageResult => {
   const fields = collectFields(schema.fields);
+  const fieldsByKey = createFieldByKeyMap(fields);
   const fieldKeys = fields.map(getSchemaFieldKey);
   const descendantsByFieldKey = collectDescendantKeysByFieldKey(schema.fields);
   const nextAnswers = { ...answers };
@@ -183,6 +299,8 @@ export const applySchemaLinkage = (
   const hiddenFieldKeys = new Set<string>();
   const requiredFieldKeys = new Set<string>();
   const disabledFieldKeys = new Set<string>();
+  const allowedOptionsByFieldKey = new Map<string, Set<string>>();
+  const assertionErrors: SchemaValidationError[] = [];
   const showTargetFieldKeys = new Set(
     rules.filter((rule) => rule.action === 'show').map((rule) => rule.targetFieldKey),
   );
@@ -223,6 +341,15 @@ export const applySchemaLinkage = (
       requiredFieldKeys.add(rule.targetFieldKey);
     }
 
+    if (rule.action === 'assertValue') {
+      if (!areJsonValuesEqual(nextAnswers[rule.targetFieldKey], rule.value)) {
+        assertionErrors.push({
+          fieldKey: rule.targetFieldKey,
+          message: rule.message ?? `字段 ${rule.targetFieldKey} 未满足联动约束。`,
+        });
+      }
+    }
+
     if (rule.action === 'disable') {
       applyToFieldKeys(
         getTargetFieldKeys(descendantsByFieldKey, rule.targetFieldKey),
@@ -231,12 +358,55 @@ export const applySchemaLinkage = (
     }
   }
 
+  for (const rule of rules) {
+    const resolvedAllowedOptions = resolveLimitOptions(rule, nextAnswers);
+
+    if (!resolvedAllowedOptions) {
+      continue;
+    }
+
+    const targetOptionValues = new Set(optionValues(fieldsByKey.get(rule.targetFieldKey) ?? {
+      key: rule.targetFieldKey,
+      type: 'text',
+      label: rule.targetFieldKey,
+    }));
+    const allowedOptions = targetOptionValues.size > 0
+      ? new Set([...resolvedAllowedOptions].filter((value) => targetOptionValues.has(value)))
+      : resolvedAllowedOptions;
+    const currentAllowedOptions = allowedOptionsByFieldKey.get(rule.targetFieldKey);
+    allowedOptionsByFieldKey.set(
+      rule.targetFieldKey,
+      intersectOptionSets(currentAllowedOptions, allowedOptions),
+    );
+  }
+
+  for (const [fieldKey, allowedOptions] of allowedOptionsByFieldKey) {
+    const nextValue = normalizeLimitedOptionValue(
+      fieldsByKey.get(fieldKey),
+      nextAnswers[fieldKey],
+      allowedOptions,
+    );
+
+    if (nextValue.hasValue) {
+      nextAnswers[fieldKey] = nextValue.value;
+    } else {
+      delete nextAnswers[fieldKey];
+    }
+  }
+
+  const normalizedAnswers = omitHiddenAnswers(nextAnswers, hiddenFieldKeys);
+  const validationErrors: SchemaValidationError[] = [...assertionErrors];
+
   return {
     visibleFieldKeys,
     hiddenFieldKeys,
     requiredFieldKeys,
     disabledFieldKeys,
+    allowedOptionsByFieldKey,
     answers: nextAnswers,
+    normalizedAnswers,
+    assertionErrors,
+    validationErrors,
   };
 };
 
@@ -423,7 +593,9 @@ export const validateSchemaAnswers = (
   answers: Record<string, unknown>,
   context: SchemaValidationContext = {},
 ): SchemaValidationError[] => {
-  const errors: SchemaValidationError[] = [];
+  const errors: SchemaValidationError[] = [
+    ...(context.validationErrors ?? context.assertionErrors ?? []),
+  ];
   const fields = collectFields(schema.fields);
 
   for (const field of fields) {
@@ -431,11 +603,13 @@ export const validateSchemaAnswers = (
     const value = answers[fieldKey];
     const hidden = context.hiddenFieldKeys?.has(fieldKey) ?? false;
     const disabled = context.disabledFieldKeys?.has(fieldKey) ?? false;
+    const allowedOptions = context.allowedOptionsByFieldKey?.get(fieldKey);
+    const validOptionValues = allowedOptions ? [...allowedOptions] : optionValues(field);
     const required = Boolean(
       field.required || field.validation?.required || context.requiredFieldKeys?.has(fieldKey),
     );
 
-    if ((hidden && !field.validateWhenHidden) || disabled) {
+    if (hidden || disabled) {
       continue;
     }
 
@@ -457,7 +631,7 @@ export const validateSchemaAnswers = (
 
     if (
       field.type === 'radio' &&
-      (typeof value !== 'string' || !optionValues(field).includes(value))
+      (typeof value !== 'string' || !validOptionValues.includes(value))
     ) {
       errors.push({
         fieldKey,
@@ -471,7 +645,10 @@ export const validateSchemaAnswers = (
           fieldKey,
           message: validationMessage(field, fieldMessage(field.label, '必须是字符串数组。')),
         });
-      } else if (field.type === 'checkbox' && !value.every((item) => optionValues(field).includes(item))) {
+      } else if (
+        (field.type === 'checkbox' || allowedOptions) &&
+        !value.every((item) => validOptionValues.includes(item))
+      ) {
         errors.push({
           fieldKey,
           message: validationMessage(field, `${field.label}包含无效选项。`),

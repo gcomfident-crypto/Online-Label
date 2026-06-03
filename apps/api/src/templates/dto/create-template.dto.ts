@@ -6,6 +6,7 @@ export type CreateTemplateDto = {
   datasetKind?: unknown;
   schema?: unknown;
   actorId?: unknown;
+  parentTemplateId?: unknown;
 };
 
 export type CreateTemplateInput = {
@@ -14,4 +15,5 @@ export type CreateTemplateInput = {
   datasetKind: DatasetKind;
   schema?: LabelHubSchema;
   actorId?: string;
+  parentTemplateId?: string;
 };

@@ -110,8 +110,8 @@ function parseStructuredOutput(rawOutput: string): Record<string, unknown> {
   }
 }
 
-function verdictValue(value: unknown): 'pass' | 'reject' | 'manual' {
-  if (value === 'pass' || value === 'reject' || value === 'manual') {
+function verdictValue(value: unknown): 'pass' | 'reject' {
+  if (value === 'pass' || value === 'reject') {
     return value;
   }
 

@@ -10,6 +10,7 @@ import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
 import eyeIcon from '../../assets/eye.svg';
+import getIcon from '../../assets/get.svg';
 
 const LABELER_ID = 'user_labeler_li_lei';
 
@@ -204,8 +205,7 @@ export const TaskMarketPage = () => {
                 <col className="task-market-table__col-title" />
                 <col className="task-market-table__col-owner" />
                 <col className="task-market-table__col-status" />
-                <col className="task-market-table__col-template" />
-                <col className="task-market-table__col-limit" />
+                <col className="task-market-table__col-reward" />
                 <col className="task-market-table__col-progress" />
                 <col className="task-market-table__col-deadline" />
                 <col className="task-market-table__col-actions" />
@@ -216,8 +216,7 @@ export const TaskMarketPage = () => {
                   <th>任务名</th>
                   <th>发布者</th>
                   <th>状态</th>
-                  <th>评测模板</th>
-                  <th>领取范围</th>
+                  <th>报酬</th>
                   <th>进度</th>
                   <th>截止时间</th>
                   <th>操作</th>
@@ -235,7 +234,6 @@ export const TaskMarketPage = () => {
                       <TaskTableCellInner>
                         <div className="task-market-table__title">
                           <strong>{task.title}</strong>
-                          <span>{task.rewardRule ?? '未设置奖励'}</span>
                         </div>
                       </TaskTableCellInner>
                     </td>
@@ -251,14 +249,8 @@ export const TaskMarketPage = () => {
                     </td>
                     <td>
                       <TaskTableCellInner>
-                        <div className="task-market-table__template">
-                          <span>{task.templateName}</span>
-                          <small>{DATASET_KIND_LABELS[task.datasetKind]}</small>
-                        </div>
+                        <span className="task-market-table__reward">{task.rewardRule ?? '未设置奖励'}</span>
                       </TaskTableCellInner>
-                    </td>
-                    <td>
-                      <TaskTableCellInner>{formatClaimScope(task)}</TaskTableCellInner>
                     </td>
                     <td>
                       <TaskTableCellInner>
@@ -274,22 +266,21 @@ export const TaskMarketPage = () => {
                       <TaskTableCellInner>
                         <div className="task-market-table__actions">
                           <button
-                            className="task-market-table__preview-button"
+                            className="task-table-action task-table-action--icon task-market-table__preview-button"
                             type="button"
                             aria-label={`预览 ${task.title}`}
                             onClick={() => setPreviewTask(task)}
                           >
                             <img className="task-market-table__preview-icon" src={eyeIcon} alt="" aria-hidden="true" />
-                            预览
                           </button>
                           <button
-                            className="primary-action task-market-table__claim-button"
+                            className="task-table-action task-table-action--icon task-market-table__claim-button"
                             type="button"
                             aria-label={`${claimButtonText(task, claimingTaskId)} ${task.title}`}
                             disabled={!canClaim(task) || claimingTaskId === task.id}
                             onClick={() => void handleClaim(task)}
                           >
-                            {claimButtonText(task, claimingTaskId)}
+                            <img className="task-market-table__claim-icon" src={getIcon} alt="" aria-hidden="true" />
                           </button>
                         </div>
                       </TaskTableCellInner>
@@ -297,7 +288,7 @@ export const TaskMarketPage = () => {
                   </tr>
                 )) : (
                   <tr className="task-table__empty-row">
-                    <td colSpan={9}>
+                    <td colSpan={8}>
                       <TableEmptyState
                         title="暂无可领取任务"
                         description="调整关键词或领取状态后再试"
@@ -370,8 +361,6 @@ const progressPercent = (task: MarketTaskDto): number => {
 
   return Math.min(100, (task.assignedCount / total) * 100);
 };
-
-const formatClaimScope = (_task: MarketTaskDto): string => '整任务';
 
 const formatMarketTaskDisplayId = (sequence: number): string => `T-${sequence.toString().padStart(4, '0')}`;
 
@@ -532,18 +521,18 @@ type ClaimStatusStyle = CSSProperties & {
 
 const CLAIM_STATUS_STYLES: Record<MarketClaimStatus, ClaimStatusStyle> = {
   available: {
-    '--status-dot-color': '#00A676',
-    '--status-text-color': '#007F5F',
-    '--status-bg-color': '#E6F7F1',
+    '--status-dot-color': '#0FB86B',
+    '--status-text-color': '#0FB86B',
+    '--status-bg-color': '#E8F7EF',
   },
   claimed: {
-    '--status-dot-color': '#2F6BFF',
-    '--status-text-color': '#1D4ED8',
-    '--status-bg-color': '#EFF6FF',
+    '--status-dot-color': '#2E5BFF',
+    '--status-text-color': '#2E5BFF',
+    '--status-bg-color': '#E6F0FF',
   },
   limited: {
     '--status-dot-color': '#D97706',
-    '--status-text-color': '#92400E',
+    '--status-text-color': '#D97706',
     '--status-bg-color': '#FFF7E6',
   },
   full: {
@@ -552,9 +541,9 @@ const CLAIM_STATUS_STYLES: Record<MarketClaimStatus, ClaimStatusStyle> = {
     '--status-bg-color': '#E2E8F0',
   },
   expired: {
-    '--status-dot-color': '#94A3B8',
-    '--status-text-color': '#64748B',
-    '--status-bg-color': '#F1F5F9',
+    '--status-dot-color': '#DC2626',
+    '--status-text-color': '#DC2626',
+    '--status-bg-color': '#FEF2F2',
   },
 };
 

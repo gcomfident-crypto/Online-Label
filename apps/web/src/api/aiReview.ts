@@ -24,8 +24,8 @@ export type AiReviewJobDto = {
   updatedAt: string;
 };
 
-export type AiReviewBatchStatus = 'PENDING' | 'PASSED' | 'REJECTED' | 'MANUAL' | 'FAILED';
-export type AiReviewBatchDecision = 'pending' | 'pass' | 'reject' | 'manual' | 'failed';
+export type AiReviewBatchStatus = 'PENDING' | 'PASSED' | 'REJECTED' | 'FAILED';
+export type AiReviewBatchDecision = 'pending' | 'pass' | 'reject' | 'failed';
 
 export type AiReviewLogDto = {
   id: string;
@@ -72,6 +72,14 @@ export type AiReviewRecordDto = {
   createdAt: string;
 };
 
+export type AiReviewFieldDto = {
+  fieldKey: string;
+  label: string;
+  type: string;
+  required: boolean;
+  requirement: string;
+};
+
 export type AiReviewBatchItemDto = {
   index: number;
   job: AiReviewJobDto;
@@ -91,6 +99,7 @@ export type AiReviewBatchItemDto = {
     rawData: Record<string, unknown>;
   };
   reviewRecord: AiReviewRecordDto | null;
+  reviewFields: AiReviewFieldDto[];
   decision: AiReviewBatchDecision;
   overallScore: number | null;
   logs: AiReviewLogDto[];

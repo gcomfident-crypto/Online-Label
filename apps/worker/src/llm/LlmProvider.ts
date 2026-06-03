@@ -2,7 +2,7 @@ export type DatasetKind = 'qa_quality' | 'preference_compare' | 'generic_json';
 
 export type StructuredOutputMode = 'function_calling' | 'json_schema';
 
-export type LlmReviewVerdict = 'pass' | 'reject' | 'manual';
+export type LlmReviewVerdict = 'pass' | 'reject';
 
 export type LlmReviewInput = {
   datasetKind: DatasetKind;

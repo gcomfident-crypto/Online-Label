@@ -41,7 +41,7 @@ export class MockLlmProvider implements LlmProvider {
 
 function verdictForInput(input: LlmReviewInput): LlmReviewVerdict {
   if (input.answers.manual_review === true || input.answers.needs_manual === true) {
-    return 'manual';
+    return 'reject';
   }
 
   if (input.rawData.safety_flag === true || input.answers.safety_flag === true || input.answers.quality === 'fail') {
@@ -66,10 +66,6 @@ function scoresForInput(input: LlmReviewInput, verdict: LlmReviewVerdict): Recor
 function reasonForVerdict(verdict: LlmReviewVerdict): string {
   if (verdict === 'reject') {
     return '检测到安全风险或关键质量问题，建议打回修改。';
-  }
-
-  if (verdict === 'manual') {
-    return '样本需要人工复核后再进入后续流程。';
   }
 
   return '标注结果覆盖核心维度，建议进入人工复审。';

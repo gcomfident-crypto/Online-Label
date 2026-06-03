@@ -19,11 +19,11 @@ export class SchemaService {
     answers: Record<string, unknown>,
   ): SchemaValidateResult {
     const linkageResult = applySchemaLinkage(schema, answers);
-    const errors = validateSchemaAnswers(schema, linkageResult.answers, linkageResult);
+    const errors = validateSchemaAnswers(schema, linkageResult.normalizedAnswers, linkageResult);
 
     return {
       valid: errors.length === 0,
-      answers: linkageResult.answers,
+      answers: linkageResult.normalizedAnswers,
       errors,
     };
   }

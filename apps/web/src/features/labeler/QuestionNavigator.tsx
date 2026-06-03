@@ -32,7 +32,8 @@ export const QuestionNavigator = ({
       <div>
         <h2>题目导航</h2>
         <p>
-          已完成 {completedPercent}% · 当前第 {currentIndex + 1} 题
+          已完成 <span className="question-navigator__mono-number">{completedPercent}</span>% · 当前第{' '}
+          <span className="question-navigator__mono-number">{currentIndex + 1}</span> 题
         </p>
       </div>
       <div className="question-navigator__list">
@@ -62,7 +63,7 @@ function getStatusClassName(statusLabel: string): string {
   }
 
   if (statusLabel === '草稿') {
-    return 'question-navigator__status--draft';
+    return 'question-navigator__status--in-progress';
   }
 
   if (statusLabel === '进行中') {

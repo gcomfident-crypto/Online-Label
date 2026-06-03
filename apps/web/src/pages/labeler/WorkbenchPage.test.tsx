@@ -266,7 +266,7 @@ describe('WorkbenchPage', () => {
     renderWorkbenchPage();
 
     expect(await screen.findByRole('heading', { name: '问答质量标注' })).toBeInTheDocument();
-    expect(screen.getByText('第 8 题')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '返回我的工作台' })).toBeInTheDocument();
     expect(screen.queryByText(/模板 r1/)).not.toBeInTheDocument();
     expect(screen.queryByText(/题目 ID/)).not.toBeInTheDocument();
     const navigationPanel = screen.getByRole('complementary', { name: '题目导航' });
@@ -319,6 +319,78 @@ describe('WorkbenchPage', () => {
       }),
     );
     expect(fetchMock).not.toHaveBeenCalledWith('/submissions', expect.anything());
+  });
+
+  it('提交任务后当前题目进入只读态，禁止草稿保存', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            ...qaWorkbench,
+            draft: {
+              answers: { quality: 'pass' },
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ data: stats }))
+      .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            id: 'draft_1',
+            assignmentId: 'assignment_1',
+            answers: { quality: 'pass' },
+            schemaVersion: 'r1',
+            createdAt: '2026-05-21T00:00:00.000Z',
+            updatedAt: '2026-05-21T08:02:31.000Z',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            taskId: 'task_qa',
+            labelerId: 'user_labeler_li_lei',
+            submittedCount: 1,
+            submissions: [
+              {
+                id: 'submission_locked',
+                assignmentId: 'assignment_1',
+                status: 'AI_QUEUED',
+                round: 1,
+                answers: { quality: 'pass' },
+                schemaVersion: 'r1',
+                submittedAt: '2026-05-21T08:03:00.000Z',
+                createdAt: '2026-05-21T08:03:00.000Z',
+                updatedAt: '2026-05-21T08:03:00.000Z',
+              },
+            ],
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            ...stats,
+            submittedCount: 1,
+            aiQueuedCount: 1,
+          },
+        }),
+      );
+
+    vi.stubGlobal('fetch', fetchMock);
+    renderWorkbenchPage();
+
+    await screen.findByRole('heading', { name: /问答质量标注/ });
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
+    expect(await screen.findByText('提交任务成功，1 条标注已进入 AI 预审队列')).toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: '保存草稿' })).toBeDisabled();
+    expect(screen.getByLabelText('审核意见')).toBeDisabled();
+    expect(screen.getByRole('radio', { name: '优秀' })).toBeDisabled();
   });
 
   it('题目导航在切题后保留已填写题目的已完成状态', async () => {
@@ -385,16 +457,16 @@ describe('WorkbenchPage', () => {
     const navigationPanel = await screen.findByRole('complementary', { name: '题目导航' });
     await user.type(screen.getByLabelText('审核意见'), '先补充备注');
     const firstQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_1/ });
-    expect(firstQuestionButton).toHaveTextContent('草稿');
-    expect(within(firstQuestionButton).getByText('草稿').closest('.question-navigator__status')).toHaveClass(
-      'question-navigator__status--draft',
+    expect(firstQuestionButton).toHaveTextContent('进行中');
+    expect(within(firstQuestionButton).getByText('进行中').closest('.question-navigator__status')).toHaveClass(
+      'question-navigator__status--in-progress',
     );
 
     await user.click(screen.getByLabelText('优秀'));
     expect(within(navigationPanel).getByRole('button', { name: /qa_1/ })).toHaveTextContent('已完成');
 
     await user.click(screen.getByRole('button', { name: '下一题 →' }));
-    expect(await screen.findByText('第 9 题')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '问答质量标注' })).toBeInTheDocument();
 
     const refreshedNavigationPanel = screen.getByRole('complementary', { name: '题目导航' });
     const completedQuestionButton = within(refreshedNavigationPanel).getByRole('button', { name: /qa_1/ });
@@ -503,7 +575,7 @@ describe('WorkbenchPage', () => {
     renderWorkbenchPage();
 
     await screen.findByRole('heading', { name: /问答质量标注/ });
-    expect(screen.getByText('第 8 题')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '返回我的工作台' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /qa_2/ }));
     await waitFor(() => {
@@ -513,11 +585,11 @@ describe('WorkbenchPage', () => {
     });
 
     expect(screen.queryByText('正在加载题目')).not.toBeInTheDocument();
-    expect(screen.getByText('第 8 题')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '返回我的工作台' })).toBeInTheDocument();
 
     resolveSecondWorkbench(jsonResponse({ data: secondWorkbench }));
 
-    expect(await screen.findByText('第 9 题')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '问答质量标注' })).toBeInTheDocument();
     expect(screen.queryByText('正在加载题目')).not.toBeInTheDocument();
   });
 

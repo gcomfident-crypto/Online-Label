@@ -29,6 +29,7 @@ export type CompileAiReviewPromptInput = {
   schema: LabelHubSchema;
   rawData?: Record<string, unknown>;
   answers?: Record<string, unknown>;
+  reviewFieldKeys?: readonly string[];
   persona?: string;
 };
 
@@ -44,38 +45,33 @@ export type CompiledAiReviewPrompt = {
 const DEFAULT_PERSONA = '';
 
 const OUTPUT_SCHEMA = {
-  verdict: 'pass | reject | manual',
-  overallScore: '0-100',
+  verdict: 'pass | reject',
+  overallScore: '0-100，可选；表示本题字段级预审的综合分',
   fieldReviews: [
     {
       fieldKey: '被审核字段 key',
       label: '被审核字段标题',
       score: '0-100',
-      passed: true,
-      reason: '20-80 字说明该字段是否达标',
+      decision: 'pass | reject',
+      comment: '20-80 字说明该字段标注结果是否达标',
+      suggestions: ['需要标注员修改的建议；通过时可为空数组'],
     },
   ],
-  scores: {
-    relevance: '0-100',
-    accuracy: '0-100',
-    format: '0-100',
-    safety: '0-100',
-    overall: '0-100',
-  },
-  reason: '整体审核结论，说明通过、打回或人工复核的原因',
-  suggestions: ['需要标注员修改的建议；通过时可为空数组'],
+  overallComment: '整体审核结论，说明通过或打回的原因',
 } as const;
 
 export const compileAiReviewPrompt = ({
   answers = {},
   persona = DEFAULT_PERSONA,
   rawData = {},
+  reviewFieldKeys,
   schema,
 }: CompileAiReviewPromptInput): CompiledAiReviewPrompt => {
   const flattenedFields = flattenSchemaFields(schema.fields);
+  const reviewFieldKeySet = reviewFieldKeys ? new Set(reviewFieldKeys) : undefined;
   const showItemData = buildShowItemData(flattenedFields, rawData);
-  const answerData = buildAnswerData(flattenedFields, answers);
-  const fieldRequirements = buildFieldRequirements(flattenedFields);
+  const answerData = buildAnswerData(flattenedFields, answers, reviewFieldKeySet);
+  const fieldRequirements = buildFieldRequirements(flattenedFields, reviewFieldKeySet);
   const sections = applyPromptSectionOverrides([
     {
       key: 'persona',
@@ -106,7 +102,9 @@ export const compileAiReviewPrompt = ({
       content: [
         '你必须只输出合法 JSON，不要输出 Markdown、解释文本或代码块。',
         'fieldReviews 必须覆盖字段级审核标准中的每一个字段。',
-        'verdict 只能是 pass、reject、manual 三者之一。',
+        'fieldReviews 内每一项必须包含 fieldKey、label、score、decision、comment 和 suggestions。',
+        'verdict 只能是 pass 或 reject。',
+        '不要输出固定的相关性、准确性、格式合规、安全性、综合等维度评分；只评价开启 AI 预审的字段。',
         '输出 JSON Schema 示例：',
         stringifyJson(OUTPUT_SCHEMA),
       ].join('\n'),
@@ -219,9 +217,10 @@ const normalizeShowItemDisplayFields = (field: SchemaField): ShowItemDisplayFiel
 const buildAnswerData = (
   fields: readonly SchemaField[],
   answers: Record<string, unknown>,
+  reviewFieldKeys?: ReadonlySet<string>,
 ): Record<string, unknown> => {
   const answerEntries = fields
-    .filter(isAnswerField)
+    .filter((field) => isAiReviewAnswerField(field, reviewFieldKeys))
     .map((field) => {
       const fieldKey = field.fieldKey ?? field.sourceKey ?? field.key;
       return [fieldKey, Object.prototype.hasOwnProperty.call(answers, fieldKey) ? answers[fieldKey] : null] as const;
@@ -230,10 +229,22 @@ const buildAnswerData = (
   return Object.fromEntries(answerEntries);
 };
 
-const buildFieldRequirements = (fields: readonly SchemaField[]): AiReviewFieldRequirement[] =>
+const buildFieldRequirements = (
+  fields: readonly SchemaField[],
+  reviewFieldKeys?: ReadonlySet<string>,
+): AiReviewFieldRequirement[] =>
   fields
     .filter(isAnswerField)
     .filter((field) => field.aiReview?.enabled)
+    .filter((field) => {
+      if (!reviewFieldKeys) {
+        return true;
+      }
+
+      const fieldKey = field.fieldKey ?? field.sourceKey ?? field.key;
+
+      return reviewFieldKeys.has(fieldKey);
+    })
     .map((field) => ({
       fieldKey: field.fieldKey ?? field.sourceKey ?? field.key,
       label: field.label,
@@ -247,6 +258,23 @@ const buildFieldRequirements = (fields: readonly SchemaField[]): AiReviewFieldRe
 
 const isAnswerField = (field: SchemaField): boolean =>
   !['show_item', 'group', 'tabs', 'llm_assist'].includes(field.type);
+
+const isAiReviewAnswerField = (
+  field: SchemaField,
+  reviewFieldKeys?: ReadonlySet<string>,
+): boolean => {
+  if (!isAnswerField(field) || !field.aiReview?.enabled) {
+    return false;
+  }
+
+  if (!reviewFieldKeys) {
+    return true;
+  }
+
+  const fieldKey = field.fieldKey ?? field.sourceKey ?? field.key;
+
+  return reviewFieldKeys.has(fieldKey);
+};
 
 const stringifyJson = (value: unknown): string => JSON.stringify(value, null, 2);
 

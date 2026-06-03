@@ -54,11 +54,15 @@ import {
   type MaterialSpec,
 } from '../../features/template-designer/templateStore';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
+import versionIcon from '../../assets/version.svg';
 import { createAutoShowItemTemplateSchema } from './autoShowItemTemplate';
 import { DatasetPreviewModal } from './components/DatasetPreviewModal';
+import { TemplateVersionManagerModal } from './components/TemplateVersionManagerModal';
 import {
+  consumeTemplateOpenTarget,
   consumeTemplateDraftHandoff,
   updateTaskTemplateReturnHandoff,
+  type TemplateOpenTarget,
   type TemplateDraftHandoff,
 } from './templateDraftHandoff';
 import { formatTemplateDisplayId } from './templateDisplayId';
@@ -74,6 +78,7 @@ const DESIGNER_PREVIEW_RAW_DATA = {
   model_b: 'model-b',
 };
 
+const OWNER_ID = 'user_owner_zhang_man';
 const DESIGNER_CANVAS_AUTOSCROLL_EDGE = 72;
 const DESIGNER_CANVAS_AUTOSCROLL_MAX_STEP = 22;
 
@@ -98,6 +103,74 @@ const TEMPLATE_TABLE_ROW_HEIGHT = 58;
 const DESIGNER_DROP_TARGET_LOCK_MARGIN = 12;
 const AUTO_TEMPLATE_SOURCE_METADATA_KEY = 'autoTemplateSource';
 
+const resolveInitialTemplateOpenTarget = (): TemplateOpenTarget | null => {
+  const handoffTarget = consumeTemplateOpenTarget();
+  const routeTarget = readTemplateOpenTargetFromLocationSearch();
+
+  if (!routeTarget) {
+    return handoffTarget;
+  }
+
+  if (!handoffTarget || handoffTarget.templateId !== routeTarget.templateId) {
+    return routeTarget;
+  }
+
+  return {
+    ...routeTarget,
+    returnTo: routeTarget.returnTo ?? handoffTarget.returnTo,
+  };
+};
+
+const readTemplateOpenTargetFromLocationSearch = (): TemplateOpenTarget | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const templateId = new URLSearchParams(window.location.search).get('templateId')?.trim() ?? '';
+
+  return templateId ? { templateId } : null;
+};
+
+type DesignerHistoryShortcut = 'undo' | 'redo';
+
+const resolveDesignerHistoryShortcut = (
+  event: Pick<globalThis.KeyboardEvent, 'altKey' | 'ctrlKey' | 'key' | 'metaKey' | 'shiftKey'>,
+): DesignerHistoryShortcut | null => {
+  if (event.altKey || (!event.ctrlKey && !event.metaKey)) {
+    return null;
+  }
+
+  const key = event.key.toLowerCase();
+
+  if (key === 'z') {
+    return event.shiftKey ? 'redo' : 'undo';
+  }
+
+  if (key === 'y') {
+    return 'redo';
+  }
+
+  return null;
+};
+
+const isDesignerTextEditingTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  if (target.matches('input, textarea, select')) {
+    return true;
+  }
+
+  return Boolean(
+    target.closest('[contenteditable="true"], [role="textbox"], .ck-editor__editable, .ProseMirror'),
+  );
+};
+
 type TemplateStatusFilter = TemplateDto['status'] | 'ALL';
 type TemplateSummary = {
   draft: number;
@@ -105,6 +178,7 @@ type TemplateSummary = {
   total: number;
 };
 type TemplateManagerRow = {
+  activeUsageCount: number;
   createdAt: string;
   datasetKind: string;
   fieldCount: number;
@@ -117,6 +191,7 @@ type TemplateManagerRow = {
   status: string;
   statusFilterKey: TemplateDto['status'];
   template?: TemplateDto;
+  usageCount: number;
   version: string;
 };
 
@@ -125,13 +200,20 @@ const TEMPLATE_SUMMARY_FILTERS: Array<{
   summaryKey: keyof TemplateSummary;
   value: TemplateStatusFilter;
 }> = [
-  { label: '模板总数', value: 'ALL', summaryKey: 'total' },
+  { label: '总模版', value: 'ALL', summaryKey: 'total' },
   { label: '草稿', value: 'DRAFT', summaryKey: 'draft' },
   { label: '已发布', value: 'PUBLISHED', summaryKey: 'published' },
 ];
 
 type TemplateDesignerPageProps = {
   onReturnTo?: (path: string) => void;
+};
+
+type TemplateDraftReturnSource = 'task-template-draft' | 'task-template-preview';
+
+type TemplateDraftReturnState = {
+  returnTo: string | null;
+  source: TemplateDraftReturnSource | null;
 };
 
 const createDesignerDirtySnapshot = ({
@@ -777,6 +859,22 @@ const toTaskTemplateSummary = (template: TemplateDto): TaskDto['template'] => ({
   status: template.status,
 });
 
+const templateVersionChainKey = (template: TemplateDto): string =>
+  template.rootTemplateId ?? template.parentTemplateId ?? template.id;
+
+const isSameTemplateVersionChain = (left: TemplateDto, right: TemplateDto): boolean => {
+  const leftChainKey = templateVersionChainKey(left);
+  const rightChainKey = templateVersionChainKey(right);
+
+  return (
+    leftChainKey === rightChainKey ||
+    left.id === rightChainKey ||
+    right.id === leftChainKey ||
+    left.parentTemplateId === right.id ||
+    right.parentTemplateId === left.id
+  );
+};
+
 const createDesignerPreviewItems = (
   records: readonly DatasetRecord[],
   datasetKind: LabelHubSchema['datasetKind'],
@@ -794,6 +892,7 @@ const createDesignerPreviewItems = (
   }));
 
 export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps = {}) => {
+  const [routeTemplateTarget] = useState(resolveInitialTemplateOpenTarget);
   const [templates, setTemplates] = useState<TemplateDto[]>([]);
   const [templateSearchKeyword, setTemplateSearchKeyword] = useState('');
   const [templateStatusFilter, setTemplateStatusFilter] = useState<TemplateStatusFilter>('ALL');
@@ -803,6 +902,9 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const [isDesignerClosing, setIsDesignerClosing] = useState(false);
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
   const [isCloseConfirmClosing, setIsCloseConfirmClosing] = useState(false);
+  const [isPublishSaveAsOpen, setIsPublishSaveAsOpen] = useState(false);
+  const [isPublishSaveAsClosing, setIsPublishSaveAsClosing] = useState(false);
+  const [publishSaveAsTemplateName, setPublishSaveAsTemplateName] = useState('');
   const [draggingFieldKey, setDraggingFieldKey] = useState<string | null>(null);
   const [draggingMaterialType, setDraggingMaterialType] = useState<MaterialSpec['type'] | null>(null);
   const [isDraggingMaterialOverCanvas, setIsDraggingMaterialOverCanvas] = useState(false);
@@ -819,7 +921,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   });
   const [templateVersion, setTemplateVersion] = useState(0);
   const [templateStatus, setTemplateStatus] = useState<TemplateDto['status']>('DRAFT');
-  const [templateDraftReturnTo, setTemplateDraftReturnTo] = useState<string | null>(null);
+  const [versionManagerTemplate, setVersionManagerTemplate] = useState<TemplateDto | null>(null);
   const [designerPreviewRawData, setDesignerPreviewRawData] = useState<Record<string, unknown>>(
     DESIGNER_PREVIEW_RAW_DATA,
   );
@@ -836,7 +938,10 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const commitAnimationTimerRef = useRef<number | null>(null);
   const designerCloseTimerRef = useRef<number | null>(null);
   const closeConfirmTimerRef = useRef<number | null>(null);
+  const publishSaveAsTimerRef = useRef<number | null>(null);
+  const templateDraftReturnRef = useRef<TemplateDraftReturnState>({ returnTo: null, source: null });
   const didConsumeTemplateDraftHandoffRef = useRef(false);
+  const openedRouteTemplateIdRef = useRef<string | null>(null);
   const autoClassificationRunRef = useRef(0);
   const toastSequenceRef = useRef(0);
   const isMountedRef = useRef(true);
@@ -855,6 +960,10 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     moveFieldToTarget,
     setSchema,
     resetDesigner,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
   } = useTemplateDesignerStore();
   const selectedField = useMemo(
     () => selectDesignerField(schema, selectedFieldKey),
@@ -870,6 +979,34 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   );
   const dragOverlayPortalTarget = typeof document === 'undefined' ? null : document.body;
   const currentTemplateName = templateDraftName ?? templateNameFromSchema(schema);
+  const activeSavedTemplate = useMemo(
+    () => (templateId ? templates.find((template) => template.id === templateId) ?? null : null),
+    [templateId, templates],
+  );
+  const isPublishBlockedByUsage = useMemo(() => {
+    if (!activeSavedTemplate) {
+      return false;
+    }
+
+    return templates.some(
+      (template) =>
+        isSameTemplateVersionChain(template, activeSavedTemplate) && (template.activeUsageCount ?? 0) > 0,
+    );
+  }, [activeSavedTemplate, templates]);
+  const setTemplateDraftReturn = (
+    returnTo: string | null,
+    source: TemplateDraftReturnSource | null,
+  ) => {
+    templateDraftReturnRef.current = returnTo ? { returnTo, source } : { returnTo: null, source: null };
+  };
+  const clearTemplateDraftReturn = () => {
+    setTemplateDraftReturn(null, null);
+  };
+  const clearTemplatePreviewReturnAfterSave = () => {
+    if (templateDraftReturnRef.current.source === 'task-template-preview') {
+      clearTemplateDraftReturn();
+    }
+  };
   const hasDesignerContentChanges = () => {
     const baselineSnapshot = designerBaselineSnapshotRef.current;
 
@@ -894,6 +1031,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
         const datasetKind = datasetKindLabel(template.datasetKind);
 
         return {
+          activeUsageCount: template.activeUsageCount ?? 0,
           createdAt: template.createdAt,
           datasetKind,
           fieldCount: template.schema.fields.length,
@@ -916,6 +1054,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
           status,
           statusFilterKey: template.status,
           template,
+          usageCount: template.usageCount ?? 0,
           version: template.version > 0 ? `v${template.version}` : 'v0',
         };
       }),
@@ -989,6 +1128,37 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   }, [totalTemplatePages]);
 
   useEffect(() => {
+    if (!isDesignerOpen) {
+      return;
+    }
+
+    const handleDesignerHistoryKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || isDesignerTextEditingTarget(event.target)) {
+        return;
+      }
+
+      const shortcut = resolveDesignerHistoryShortcut(event);
+
+      if (shortcut === 'undo' && canUndo) {
+        event.preventDefault();
+        undo();
+        return;
+      }
+
+      if (shortcut === 'redo' && canRedo) {
+        event.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener('keydown', handleDesignerHistoryKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleDesignerHistoryKeyDown);
+    };
+  }, [canRedo, canUndo, isDesignerOpen, redo, undo]);
+
+  useEffect(() => {
     isMountedRef.current = true;
     const updateLatestPointer = (event: MouseEvent | PointerEvent | TouchEvent) => {
       const point = pointerCoordinatesFromDragEvent(event);
@@ -1019,6 +1189,10 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
       if (closeConfirmTimerRef.current) {
         window.clearTimeout(closeConfirmTimerRef.current);
+      }
+
+      if (publishSaveAsTimerRef.current) {
+        window.clearTimeout(publishSaveAsTimerRef.current);
       }
 
       if (dragAutoScrollFrameRef.current) {
@@ -1413,7 +1587,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setTemplateDraftName(null);
     setTemplateVersion(0);
     setTemplateStatus('DRAFT');
-    setTemplateDraftReturnTo(null);
+    clearTemplateDraftReturn();
     setDesignerPreviewRawData(DESIGNER_PREVIEW_RAW_DATA);
     setDesignerPreviewRecords([]);
     setIsDesignerPreviewOpen(false);
@@ -1421,7 +1595,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setIsDesignerOpen(true);
   };
 
-  const openExistingTemplate = (template: TemplateDto) => {
+  const openExistingTemplate = (template: TemplateDto, options: { returnTo?: string | null } = {}) => {
     autoClassificationRunRef.current += 1;
     clearDesignerCloseTimer();
     const sourceContext = readDesignerSourceContext(template.schema);
@@ -1436,13 +1610,32 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setTemplateDraftName(template.name);
     setTemplateVersion(template.version);
     setTemplateStatus(template.status);
-    setTemplateDraftReturnTo(null);
+    setTemplateDraftReturn(options.returnTo ?? null, options.returnTo ? 'task-template-preview' : null);
     setDesignerPreviewRawData(sourceContext.previewRecords[0] ?? DESIGNER_PREVIEW_RAW_DATA);
     setDesignerPreviewRecords([...sourceContext.previewRecords]);
     setIsDesignerPreviewOpen(false);
     setIsDesignerClosing(false);
     setIsDesignerOpen(true);
   };
+
+  useEffect(() => {
+    if (
+      !routeTemplateTarget?.templateId ||
+      isLoadingTemplates ||
+      openedRouteTemplateIdRef.current === routeTemplateTarget.templateId
+    ) {
+      return;
+    }
+
+    const template = templates.find((item) => item.id === routeTemplateTarget.templateId);
+
+    if (!template) {
+      return;
+    }
+
+    openedRouteTemplateIdRef.current = routeTemplateTarget.templateId;
+    openExistingTemplate(template, { returnTo: routeTemplateTarget.returnTo });
+  }, [isLoadingTemplates, routeTemplateTarget, templates]);
 
   const openTemplateDraftHandoff = (draft: TemplateDraftHandoff) => {
     if (draft.autoClassificationRequest) {
@@ -1518,7 +1711,6 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
         applyAutoClassificationDraft(createLocalAutoClassificationFallback(draft.autoClassificationRequest));
         dismissToast(loadingToastId);
-        showInfoToast('字段分类接口不可用，已使用本地解析结果创建模板');
       });
   };
 
@@ -1537,7 +1729,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setTemplateDraftName(draft.name);
     setTemplateVersion(0);
     setTemplateStatus('DRAFT');
-    setTemplateDraftReturnTo(draft.returnTo ?? null);
+    setTemplateDraftReturn(draft.returnTo ?? null, draft.returnTo ? 'task-template-draft' : null);
     setDesignerPreviewRawData(previewRecords[0] ?? DESIGNER_PREVIEW_RAW_DATA);
     setDesignerPreviewRecords(previewRecords);
     setIsDesignerPreviewOpen(false);
@@ -1594,8 +1786,42 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     }, CLOSE_CONFIRM_ANIMATION_MS);
   };
 
+  const clearPublishSaveAsTimer = () => {
+    if (!publishSaveAsTimerRef.current) {
+      return;
+    }
+
+    window.clearTimeout(publishSaveAsTimerRef.current);
+    publishSaveAsTimerRef.current = null;
+  };
+
+  const closePublishSaveAsWithAnimation = (afterClose?: () => void) => {
+    if (!isPublishSaveAsOpen) {
+      afterClose?.();
+      return;
+    }
+
+    clearPublishSaveAsTimer();
+    setIsPublishSaveAsClosing(true);
+    publishSaveAsTimerRef.current = window.setTimeout(() => {
+      publishSaveAsTimerRef.current = null;
+      setIsPublishSaveAsOpen(false);
+      setIsPublishSaveAsClosing(false);
+      afterClose?.();
+    }, CLOSE_CONFIRM_ANIMATION_MS);
+  };
+
+  const openPublishSaveAsModal = () => {
+    const defaultName = `${currentTemplateName} 副本`;
+
+    clearPublishSaveAsTimer();
+    setPublishSaveAsTemplateName(defaultName);
+    setIsPublishSaveAsOpen(true);
+    setIsPublishSaveAsClosing(false);
+  };
+
   const requestDesignerClose = () => {
-    if (isDesignerClosing || isCloseConfirmOpen) {
+    if (isDesignerClosing || isCloseConfirmOpen || isPublishSaveAsOpen || isPublishSaveAsClosing) {
       return;
     }
 
@@ -1636,13 +1862,17 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const resetDesignerDrawerState = () => {
     resetDragState();
     designerBaselineSnapshotRef.current = null;
+    clearPublishSaveAsTimer();
     setIsDesignerOpen(false);
     setIsDesignerClosing(false);
     setIsCloseConfirmOpen(false);
     setIsCloseConfirmClosing(false);
+    setIsPublishSaveAsOpen(false);
+    setIsPublishSaveAsClosing(false);
+    setPublishSaveAsTemplateName('');
     setCommittedDropFieldKey(null);
     setIsMaterialDropSettling(false);
-    setTemplateDraftReturnTo(null);
+    clearTemplateDraftReturn();
   };
 
   const closeDesignerWithAnimation = () => {
@@ -1652,7 +1882,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
     resetDragState();
     clearDesignerCloseTimer();
-    const returnTo = templateDraftReturnTo;
+    const returnTo = templateDraftReturnRef.current.returnTo;
     setIsDesignerClosing(true);
     designerCloseTimerRef.current = window.setTimeout(() => {
       designerCloseTimerRef.current = null;
@@ -1663,10 +1893,13 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     }, TEMPLATE_DESIGNER_CLOSE_ANIMATION_MS);
   };
 
-  const upsertTemplateInList = (template: TemplateDto) => {
+  const upsertTemplateInList = (template: TemplateDto, options: { collapseVersionChain?: boolean } = {}) => {
     setTemplates((current) => [
       template,
-      ...current.filter((currentTemplate) => currentTemplate.id !== template.id),
+      ...current.filter((currentTemplate) =>
+        currentTemplate.id !== template.id &&
+        (!options.collapseVersionChain || !isSameTemplateVersionChain(currentTemplate, template)),
+      ),
     ]);
   };
 
@@ -1676,6 +1909,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
         name: `${template.name} 副本`,
         description: template.template?.description ?? undefined,
         schema: cloneTemplateSchemaForDraft(resolveTemplateSchema(template)),
+        actorId: OWNER_ID,
       });
 
       upsertTemplateInList(copiedTemplate);
@@ -1683,6 +1917,30 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : '模板复制失败，请稍后重试。');
     }
+  };
+
+  const applySavedDesignerTemplate = (savedTemplate: TemplateDto) => {
+    const savedSourceContext = readDesignerSourceContext(savedTemplate.schema);
+    const nextPreviewRecords =
+      savedSourceContext.previewRecords.length > 0 ? savedSourceContext.previewRecords : designerPreviewRecords;
+
+    setTemplateId(savedTemplate.id);
+    setTemplateDraftName(savedTemplate.name);
+    setTemplateVersion(savedTemplate.version);
+    setTemplateStatus(savedTemplate.status);
+    setSchema(savedTemplate.schema);
+    setDesignerPreviewRawData(nextPreviewRecords[0] ?? DESIGNER_PREVIEW_RAW_DATA);
+    setDesignerPreviewRecords([...nextPreviewRecords]);
+    designerBaselineSnapshotRef.current = createDesignerDirtySnapshot({
+      name: savedTemplate.name,
+      previewRecords: nextPreviewRecords,
+      schema: savedTemplate.schema,
+      status: savedTemplate.status,
+    });
+    persistDesignerDraft(savedTemplate);
+    upsertTemplateInList(savedTemplate);
+
+    return nextPreviewRecords;
   };
 
   const handleDeleteTemplateRow = async (template: TemplateManagerRow) => {
@@ -1699,6 +1957,38 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : '模板删除失败，请稍后重试。');
     }
+  };
+
+  const openVersionManager = (template: TemplateDto) => {
+    setVersionManagerTemplate(template);
+  };
+
+  const handleTemplateVersionRestored = (result: {
+    restoredTemplate: TemplateDto;
+    archivedVersions: TemplateDto[];
+    message: string;
+    warning?: string;
+  }) => {
+    const archivedVersionIds = new Set(result.archivedVersions.map((template) => template.id));
+
+    setVersionManagerTemplate(result.restoredTemplate);
+    setTemplates((current) => [
+      result.restoredTemplate,
+      ...current.filter(
+        (template) => template.id !== result.restoredTemplate.id && !archivedVersionIds.has(template.id),
+      ),
+    ]);
+
+    if (templateId === result.restoredTemplate.id || (templateId && archivedVersionIds.has(templateId))) {
+      openExistingTemplate(result.restoredTemplate);
+    }
+
+    showStatusToast(result.warning ?? result.message);
+    void listTemplates()
+      .then(setTemplates)
+      .catch(() => {
+        // 恢复结果已回填，列表刷新失败时保留当前可用状态。
+      });
   };
 
   const openTemplateRow = (template: TemplateManagerRow) => {
@@ -1725,7 +2015,12 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     openTemplateRow(template);
   };
 
-  const saveDraft = async (options?: { quiet?: boolean }): Promise<TemplateDto | null> => {
+  const saveDraft = async (
+    options?: {
+      preservePreviewReturn?: boolean;
+      quiet?: boolean;
+    },
+  ): Promise<TemplateDto | null> => {
     const validation = validateTemplateSchema(schema);
 
     if (!validation.valid) {
@@ -1748,25 +2043,13 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
         : await createTemplateDraft({
             name: draftName,
             schema: draftSchema,
+            ...(templateId && templateStatus === 'PUBLISHED' ? { parentTemplateId: templateId } : {}),
+            actorId: OWNER_ID,
           });
-    const savedSourceContext = readDesignerSourceContext(savedTemplate.schema);
-    const nextPreviewRecords =
-      savedSourceContext.previewRecords.length > 0 ? savedSourceContext.previewRecords : designerPreviewRecords;
-
-    setTemplateId(savedTemplate.id);
-    setTemplateDraftName(savedTemplate.name);
-    setTemplateVersion(savedTemplate.version);
-    setTemplateStatus(savedTemplate.status);
-    setDesignerPreviewRawData(nextPreviewRecords[0] ?? DESIGNER_PREVIEW_RAW_DATA);
-    setDesignerPreviewRecords([...nextPreviewRecords]);
-    designerBaselineSnapshotRef.current = createDesignerDirtySnapshot({
-      name: savedTemplate.name,
-      previewRecords: nextPreviewRecords,
-      schema: savedTemplate.schema,
-      status: savedTemplate.status,
-    });
-    persistDesignerDraft(savedTemplate);
-    upsertTemplateInList(savedTemplate);
+    applySavedDesignerTemplate(savedTemplate);
+    if (!options?.preservePreviewReturn) {
+      clearTemplatePreviewReturnAfterSave();
+    }
 
     if (!options?.quiet) {
       showStatusToast('草稿已保存。');
@@ -1775,18 +2058,52 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     return savedTemplate;
   };
 
+  const saveAsNewTemplate = async (): Promise<TemplateDto | null> => {
+    const validation = validateTemplateSchema(schema);
+
+    if (!validation.valid) {
+      showErrorToast(validation.errors.map((error) => error.message).join('；'));
+      return null;
+    }
+
+    const sourceContext = readDesignerSourceContext(schema);
+    const draftSchema = withDesignerSourceContext(
+      templateStatus === 'PUBLISHED' ? { ...schema, schemaVersion: 'draft' } : schema,
+      {
+        previewRecords: designerPreviewRecords,
+        sourceFileName: sourceContext.sourceFileName,
+      },
+    );
+    const draftName = resolveTemplateName(publishSaveAsTemplateName, draftSchema);
+    const savedTemplate = await createTemplateDraft({
+      name: draftName,
+      schema: draftSchema,
+      actorId: OWNER_ID,
+    });
+
+    applySavedDesignerTemplate(savedTemplate);
+    clearTemplatePreviewReturnAfterSave();
+    return savedTemplate;
+  };
+
   const handlePublish = async () => {
+    if (isPublishBlockedByUsage) {
+      openPublishSaveAsModal();
+      return;
+    }
+
     setIsSaving(true);
 
     try {
-      const draft = await saveDraft({ quiet: true });
+      const publishReturnState = templateDraftReturnRef.current;
+      const draft = await saveDraft({ preservePreviewReturn: true, quiet: true });
 
       if (!draft) {
         return;
       }
 
       const versionName = `v${draft.version + 1}`;
-      const result = await publishTemplate(draft.id, versionName);
+      const result = await publishTemplate(draft.id, versionName, { actorId: OWNER_ID });
 
       setTemplateId(result.template.id);
       setTemplateDraftName(result.template.name);
@@ -1803,18 +2120,22 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
         status: result.template.status,
       });
       persistDesignerDraft(result.template);
-      upsertTemplateInList(result.template);
+      upsertTemplateInList(result.template, { collapseVersionChain: true });
 
-      if (templateDraftReturnTo) {
+      if (publishReturnState.returnTo && publishReturnState.source === 'task-template-draft') {
         const didUpdateReturnHandoff = updateTaskReturnHandoffTemplate(result.template);
 
         if (didUpdateReturnHandoff) {
-          onReturnTo?.(templateDraftReturnTo);
+          onReturnTo?.(publishReturnState.returnTo);
           return;
         }
 
         showErrorToast('任务抽屉状态恢复失败，请回到任务管理页后重新选择模板。');
         return;
+      }
+
+      if (publishReturnState.source === 'task-template-preview') {
+        clearTemplateDraftReturn();
       }
 
       const publishedVersionLabel =
@@ -1825,6 +2146,25 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       }
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : '模板发布失败，请稍后重试。');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleConfirmSaveAsNewTemplate = async () => {
+    setIsSaving(true);
+
+    try {
+      const savedTemplate = await saveAsNewTemplate();
+
+      if (!savedTemplate) {
+        return;
+      }
+
+      showStatusToast('模板已另存为新模板。');
+      closePublishSaveAsWithAnimation();
+    } catch (error) {
+      showErrorToast(error instanceof Error ? error.message : '另存为新模板失败，请稍后重试。');
     } finally {
       setIsSaving(false);
     }
@@ -1930,6 +2270,20 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                       <button
                         className="template-manager-row-action"
                         type="button"
+                        aria-label={`查看 ${template.name} 版本管理`}
+                        title="版本管理"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (template.template) {
+                            openVersionManager(template.template);
+                          }
+                        }}
+                      >
+                        <TemplateHistoryIcon />
+                      </button>
+                      <button
+                        className="template-manager-row-action"
+                        type="button"
                         aria-label={`复制 ${template.name}`}
                         title="复制"
                         onClick={(event) => {
@@ -1943,9 +2297,18 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                         className="template-manager-row-action template-manager-row-action--delete"
                         type="button"
                         aria-label={`删除 ${template.name}`}
-                        title="删除"
+                        title={
+                          template.activeUsageCount > 0
+                            ? '模板正在被未完成任务使用，暂不可删除'
+                            : '删除'
+                        }
+                        disabled={template.activeUsageCount > 0}
                         onClick={(event) => {
                           event.stopPropagation();
+                          if (template.activeUsageCount > 0) {
+                            return;
+                          }
+
                           void handleDeleteTemplateRow(template);
                         }}
                       >
@@ -2015,21 +2378,44 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
             onClick={(event) => event.stopPropagation()}
           >
             <header className="template-designer-topbar">
-              <div>
+              <div className="template-designer-topbar__title-group">
                 <h1 id="template-designer-title">模板配置</h1>
+                <div className="template-designer-history-actions" aria-label="编辑历史">
+                  <button
+                    aria-label="撤销"
+                    className="template-designer-history-button"
+                    disabled={!canUndo}
+                    title="撤销"
+                    type="button"
+                    onClick={undo}
+                  >
+                    <TemplateUndoIcon />
+                  </button>
+                  <button
+                    aria-label="重做"
+                    className="template-designer-history-button"
+                    disabled={!canRedo}
+                    title="重做"
+                    type="button"
+                    onClick={redo}
+                  >
+                    <TemplateRedoIcon />
+                  </button>
+                </div>
               </div>
               <div className="template-designer-topbar__actions">
+                {activeSavedTemplate ? (
+                  <button
+                    className="template-designer-version-button"
+                    type="button"
+                    onClick={() => openVersionManager(activeSavedTemplate)}
+                  >
+                    <TemplateHistoryIcon className="template-designer-version-button__icon" />
+                    <span>版本管理</span>
+                  </button>
+                ) : null}
                 <button className="primary-action" type="button" disabled={isSaving} onClick={handlePublish}>
                   保存并发布版本 {nextVersionName}
-                </button>
-                <button
-                  aria-label="关闭模板配置"
-                  className="template-designer-drawer__close"
-                  disabled={isSaving}
-                  type="button"
-                  onClick={requestDesignerClose}
-                >
-                  ×
                 </button>
               </div>
             </header>
@@ -2148,6 +2534,70 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                 </div>
               </div>
             ) : null}
+            {isPublishSaveAsOpen ? (
+              <div
+                className={
+                  isPublishSaveAsClosing
+                    ? 'task-close-confirm template-publish-save-as-confirm is-closing'
+                    : 'task-close-confirm template-publish-save-as-confirm'
+                }
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="template-publish-save-as-title"
+                aria-describedby="template-publish-save-as-description"
+                onMouseDown={(event) => {
+                  if (!isSaving && event.target === event.currentTarget) {
+                    closePublishSaveAsWithAnimation();
+                  }
+                }}
+              >
+                <div className="task-close-confirm__panel" onMouseDown={(event) => event.stopPropagation()}>
+                  <div className="task-close-confirm__header">
+                    <h2 id="template-publish-save-as-title">模板正在使用中</h2>
+                    <button
+                      aria-label="关闭另存为新模板弹窗"
+                      className="task-close-confirm__close"
+                      disabled={isSaving}
+                      type="button"
+                      onClick={() => closePublishSaveAsWithAnimation()}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <p id="template-publish-save-as-description">
+                    该模板当前正在被未完成任务使用，不能直接发布新版本。请先修改模板名后，另存为一个新模板继续编辑。
+                  </p>
+                  <label className="template-publish-save-as__field">
+                    <span>模板名称</span>
+                    <input
+                      aria-label="模板名称"
+                      disabled={isSaving}
+                      placeholder="请输入新模板名称"
+                      value={publishSaveAsTemplateName}
+                      onChange={(event) => setPublishSaveAsTemplateName(event.target.value)}
+                    />
+                  </label>
+                  <div className="task-close-confirm__actions">
+                    <button
+                      className="task-close-confirm__cancel"
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => closePublishSaveAsWithAnimation()}
+                    >
+                      取消
+                    </button>
+                    <button
+                      className="task-close-confirm__save"
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => void handleConfirmSaveAsNewTemplate()}
+                    >
+                      另存为新模板
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </section>
         </div>
           ,
@@ -2167,6 +2617,16 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
             />,
             document.body,
           )
+        : null}
+      {versionManagerTemplate && dragOverlayPortalTarget
+        ? createPortal(
+          <TemplateVersionManagerModal
+            template={versionManagerTemplate}
+            onClose={() => setVersionManagerTemplate(null)}
+            onRestored={handleTemplateVersionRestored}
+          />,
+          dragOverlayPortalTarget,
+        )
         : null}
     </section>
   );
@@ -2365,6 +2825,46 @@ const cloneTemplateSchemaForDraft = (schema: LabelHubSchema): LabelHubSchema => 
     schemaVersion: 'draft',
   };
 };
+
+const TemplateHistoryIcon = ({ className = 'template-manager-row-action__icon' }: { className?: string }) => (
+  <img aria-hidden="true" alt="" className={className} src={versionIcon} />
+);
+
+const TemplateUndoIcon = () => (
+  <svg
+    aria-hidden="true"
+    className="template-designer-history-button__icon"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M9.25 7.25 5.5 11l3.75 3.75M6 11h7.25c3.04 0 5.25 1.78 5.25 4.5 0 1.27-.49 2.34-1.31 3.11"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    />
+  </svg>
+);
+
+const TemplateRedoIcon = () => (
+  <svg
+    aria-hidden="true"
+    className="template-designer-history-button__icon"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="m14.75 7.25 3.75 3.75-3.75 3.75M18 11h-7.25c-3.04 0-5.25 1.78-5.25 4.5 0 1.27.49 2.34 1.31 3.11"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    />
+  </svg>
+);
 
 const TemplateCopyIcon = () => (
   <svg

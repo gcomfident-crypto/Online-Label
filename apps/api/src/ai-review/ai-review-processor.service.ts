@@ -5,7 +5,7 @@ import {
   type OnApplicationBootstrap,
   type OnModuleDestroy,
 } from '@nestjs/common';
-import { compileAiReviewPrompt } from '@labelhub/shared';
+import { compileAiReviewPrompt, type AiReviewFieldRequirement } from '@labelhub/shared';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
 import {
@@ -50,17 +50,10 @@ type ReviewRuleRecord = {
   config: Record<string, unknown> | null;
 };
 
-type ReviewDimension = {
-  key: string;
-  label: string;
-  maxScore: number;
-};
-
 export type AiReviewProcessorResult = {
   processed: number;
   passed: number;
   rejected: number;
-  manual: number;
   failed: number;
 };
 
@@ -72,15 +65,23 @@ type AiReviewVerdict = {
   structuredOutput: Record<string, unknown>;
 };
 
+type AiReviewFieldVerdict = {
+  fieldKey: string;
+  label: string;
+  score: number;
+  decision: CompleteAiReviewJobInput['decision'];
+  comment: string;
+  suggestions: string[];
+};
+
+type AiReviewContext = {
+  answerData: Record<string, unknown>;
+  fieldRequirements: readonly AiReviewFieldRequirement[];
+  prompt: string;
+};
+
 const DEFAULT_PROCESSOR_LIMIT = 5;
 const DEFAULT_POLL_INTERVAL_MS = 3000;
-const REQUIRED_DIMENSIONS: ReviewDimension[] = [
-  { key: 'relevance', label: '相关性', maxScore: 100 },
-  { key: 'accuracy', label: '准确性', maxScore: 100 },
-  { key: 'format', label: '格式合规', maxScore: 100 },
-  { key: 'safety', label: '安全性', maxScore: 100 },
-  { key: 'overall', label: '综合', maxScore: 100 },
-];
 const UNSAFE_TERMS = ['违法', '违禁', '暴力', '色情', '仇恨', '自残', '诈骗', '毒品'];
 
 @Injectable()
@@ -125,7 +126,6 @@ export class AiReviewProcessorService implements OnApplicationBootstrap, OnModul
       processed: 0,
       passed: 0,
       rejected: 0,
-      manual: 0,
       failed: 0,
     };
 
@@ -145,14 +145,14 @@ export class AiReviewProcessorService implements OnApplicationBootstrap, OnModul
         try {
           const detail = await this.aiReviewService.getSubmissionReview(job.submissionId);
           const rule = await this.findActiveRule(job.taskId);
-          const prompt = buildPrompt(rule, detail);
-          const verdict = evaluateWithMockAgent(detail, rule);
+          const reviewContext = buildReviewContext(rule, detail);
+          const verdict = evaluateWithMockAgent(detail, rule, reviewContext);
 
           await this.aiReviewService.completeJob(job.id, {
             decision: verdict.decision,
             scores: verdict.scores,
             comment: verdict.comment,
-            rawPrompt: prompt,
+            rawPrompt: reviewContext.prompt,
             rawOutput: verdict.rawOutput,
             structuredOutput: verdict.structuredOutput,
             modelMetadata: {
@@ -168,8 +168,6 @@ export class AiReviewProcessorService implements OnApplicationBootstrap, OnModul
           result.processed += 1;
           if (verdict.decision === 'pass') {
             result.passed += 1;
-          } else if (verdict.decision === 'manual') {
-            result.manual += 1;
           } else {
             result.rejected += 1;
           }
@@ -224,60 +222,69 @@ export class AiReviewProcessorService implements OnApplicationBootstrap, OnModul
   }
 }
 
-function buildPrompt(rule: ReviewRuleRecord, detail: AiReviewDetailDto): string {
+function buildReviewContext(rule: ReviewRuleRecord, detail: AiReviewDetailDto): AiReviewContext {
   if (detail.task.templateSchema) {
-    return compileAiReviewPrompt({
+    const compiledPrompt = compileAiReviewPrompt({
       schema: detail.task.templateSchema,
       rawData: detail.taskItem.rawData,
       answers: detail.submission.answers,
-      persona: [
-        rule.promptTemplate,
-        '',
-        '任务级评分维度：',
-        ...normalizedDimensions(rule).map((dimension) => `- ${dimension.label} (${dimension.key})：0-${dimension.maxScore}`),
-      ].join('\n'),
-    }).prompt;
+      reviewFieldKeys: Object.keys(detail.submission.answers),
+      persona: rule.promptTemplate,
+    });
+
+    return {
+      answerData: compiledPrompt.answerData,
+      fieldRequirements: compiledPrompt.fieldRequirements,
+      prompt: compiledPrompt.prompt,
+    };
   }
 
-  return [
+  const fieldRequirements = Object.keys(detail.submission.answers).map<AiReviewFieldRequirement>((fieldKey) => ({
+    fieldKey,
+    label: fieldKey,
+    type: 'text',
+    required: false,
+    requirement: '请判断该字段标注结果是否符合题目事实和任务要求。',
+  }));
+
+  return {
+    answerData: detail.submission.answers,
+    fieldRequirements,
+    prompt: [
     rule.promptTemplate,
-    '',
-    '评分维度：',
-    ...normalizedDimensions(rule).map((dimension) => `- ${dimension.label} (${dimension.key})：0-${dimension.maxScore}`),
     '',
     `题目 rawData：${JSON.stringify(detail.taskItem.rawData)}`,
     `标注 answers：${JSON.stringify(detail.submission.answers)}`,
     '',
-    '请输出 JSON：{"scores": {...}, "verdict": "pass|reject|manual", "reason": "..."}',
-  ].join('\n');
+      '请只输出 JSON：{"verdict":"pass|reject","fieldReviews":[{"fieldKey":"...","label":"...","score":0,"decision":"pass|reject","comment":"...","suggestions":[]}],"overallComment":"..."}',
+    ].join('\n'),
+  };
 }
 
-function evaluateWithMockAgent(detail: AiReviewDetailDto, rule: ReviewRuleRecord): AiReviewVerdict {
-  const scores = scoreAnswers(detail.taskItem.rawData, detail.submission.answers);
+function evaluateWithMockAgent(
+  detail: AiReviewDetailDto,
+  rule: ReviewRuleRecord,
+  reviewContext: AiReviewContext,
+): AiReviewVerdict {
   const passThreshold = clampScore(rule.passThreshold || 70);
-  const manualThreshold = clampScore(rule.manualThreshold || 55);
-  const safetyThreshold = 80;
-  let decision: CompleteAiReviewJobInput['decision'] = 'reject';
-  let comment = `综合分低于通过阈值 ${passThreshold}，请补充关键字段并确保标注与原始数据一致。`;
-
-  if (scores.safety < safetyThreshold) {
-    comment = `安全性低于 ${safetyThreshold}，请检查是否包含违规、敏感或高风险内容。`;
-  } else if (scores.overall >= passThreshold) {
-    decision = 'pass';
-    comment = 'AI 预审通过，进入人工复审。';
-  } else if (scores.overall >= manualThreshold) {
-    decision = 'manual';
-    comment = `综合分处于 ${manualThreshold}-${passThreshold} 区间，建议转人工复核。`;
-  }
+  const fieldReviews = reviewContext.fieldRequirements.map((field) =>
+    evaluateField(detail.taskItem.rawData, reviewContext.answerData, field, passThreshold),
+  );
+  const overallScore = aggregateFieldScore(fieldReviews);
+  const decision = aggregateFieldDecision(fieldReviews);
+  const comment = overallCommentForDecision(decision, fieldReviews);
 
   const structuredOutput = {
     verdict: decision,
-    scores,
-    reason: comment,
-    suggestions:
-      decision === 'pass'
-        ? []
-        : ['补充缺失字段', '核对标注值与原始数据的一致性', '避免提交空答案或过短答案'],
+    fieldReviews,
+    overallScore,
+    overallComment: comment,
+  };
+  const scores = {
+    overall: overallScore ?? 0,
+    fieldCount: fieldReviews.length,
+    passedFieldCount: fieldReviews.filter((field) => field.decision === 'pass').length,
+    rejectedFieldCount: fieldReviews.filter((field) => field.decision === 'reject').length,
   };
 
   return {
@@ -289,41 +296,99 @@ function evaluateWithMockAgent(detail: AiReviewDetailDto, rule: ReviewRuleRecord
   };
 }
 
-function scoreAnswers(
+function evaluateField(
   rawData: Record<string, unknown>,
-  answers: Record<string, unknown>,
-): Record<string, number> {
-  const rawText = flattenText(rawData);
-  const answerText = flattenText(answers);
-  const answerLeafCount = countNonEmptyLeaves(answers);
-  const rawTokens = meaningfulTokens(rawText);
-  const answerTokens = meaningfulTokens(answerText);
-  const overlapRatio = tokenOverlapRatio(rawTokens, answerTokens);
-  const hasUnsafeContent = UNSAFE_TERMS.some((term) => answerText.includes(term));
+  answerData: Record<string, unknown>,
+  field: AiReviewFieldRequirement,
+  passThreshold: number,
+): AiReviewFieldVerdict {
+  const value = Object.prototype.hasOwnProperty.call(answerData, field.fieldKey) ? answerData[field.fieldKey] : null;
+  const score = scoreFieldAnswer(rawData, value);
+  const decision = score >= passThreshold ? 'pass' : 'reject';
+  const isEmpty = countNonEmptyLeaves(value) === 0;
 
-  if (!answerText.trim() || answerLeafCount === 0) {
+  if (decision === 'pass') {
     return {
-      relevance: 20,
-      accuracy: 20,
-      format: 30,
-      safety: hasUnsafeContent ? 30 : 99,
-      overall: hasUnsafeContent ? 24 : 34,
+      fieldKey: field.fieldKey,
+      label: field.label,
+      score,
+      decision,
+      comment: `${field.label} 的提交内容符合字段审核要求。`,
+      suggestions: [],
     };
   }
 
-  const relevance = clampScore(58 + overlapRatio * 36 + Math.min(answerLeafCount, 4) * 2);
-  const accuracy = clampScore(55 + overlapRatio * 34 + (answerLeafCount >= 3 ? 6 : 0));
-  const format = clampScore(answersHaveEmptyRequiredValues(answers) ? 58 : 84 + Math.min(answerLeafCount, 4) * 2);
-  const safety = hasUnsafeContent ? 30 : 99;
-  const overall = clampScore(Math.round(relevance * 0.25 + accuracy * 0.25 + format * 0.2 + safety * 0.2 + Math.min(answerLeafCount, 5) * 2));
-
   return {
-    relevance,
-    accuracy,
-    format,
-    safety,
-    overall,
+    fieldKey: field.fieldKey,
+    label: field.label,
+    score,
+    decision,
+    comment: isEmpty
+      ? `${field.label} 未填写，无法完成字段级 AI 预审。`
+      : `${field.label} 的提交内容与题目材料或审核要求匹配度不足。`,
+    suggestions: isEmpty
+      ? [`请补充 ${field.label}。`]
+      : [`请核对 ${field.label} 是否符合字段审核要求。`],
   };
+}
+
+function scoreFieldAnswer(
+  rawData: Record<string, unknown>,
+  answer: unknown,
+): number {
+  const answerText = flattenText(answer);
+  const hasUnsafeContent = UNSAFE_TERMS.some((term) => answerText.includes(term));
+
+  if (countNonEmptyLeaves(answer) === 0) {
+    return hasUnsafeContent ? 24 : 34;
+  }
+
+  const rawTokens = meaningfulTokens(flattenText(rawData));
+  const answerTokens = meaningfulTokens(answerText);
+  const overlapRatio = tokenOverlapRatio(rawTokens, answerTokens);
+  const shapeBonus = Array.isArray(answer) ? Math.min(answer.length, 3) * 4 : Math.min(answerText.length, 80) / 8;
+  const safetyPenalty = hasUnsafeContent ? 45 : 0;
+
+  return clampScore(68 + overlapRatio * 18 + shapeBonus - safetyPenalty);
+}
+
+function aggregateFieldDecision(fieldReviews: readonly AiReviewFieldVerdict[]): CompleteAiReviewJobInput['decision'] {
+  if (fieldReviews.length === 0) {
+    return 'reject';
+  }
+  if (fieldReviews.some((field) => field.decision !== 'pass')) {
+    return 'reject';
+  }
+
+  return 'pass';
+}
+
+function aggregateFieldScore(fieldReviews: readonly AiReviewFieldVerdict[]): number | null {
+  if (fieldReviews.length === 0) {
+    return null;
+  }
+
+  return Math.round(fieldReviews.reduce((total, field) => total + field.score, 0) / fieldReviews.length);
+}
+
+function overallCommentForDecision(
+  decision: CompleteAiReviewJobInput['decision'],
+  fieldReviews: readonly AiReviewFieldVerdict[],
+): string {
+  if (fieldReviews.length === 0) {
+    return '当前模板没有开启 AI 预审字段，无法完成字段级 AI 预审。';
+  }
+
+  if (decision === 'pass') {
+    return '所有开启 AI 预审的字段均通过，进入人工复审。';
+  }
+
+  const failedLabels = fieldReviews
+    .filter((field) => field.decision !== 'pass')
+    .map((field) => field.label)
+    .join('、');
+
+  return `${failedLabels || '存在字段'} 未通过 AI 预审，建议打回给标注员修改。`;
 }
 
 function defaultReviewRule(taskId: string): ReviewRuleRecord {
@@ -331,9 +396,9 @@ function defaultReviewRule(taskId: string): ReviewRuleRecord {
     id: 'default_ai_precheck_rule',
     taskId,
     name: '默认 AI 预审规则',
-    promptTemplate: '请根据 rawData 和标注员 answers，按相关性、准确性、格式合规、安全性、综合五个维度评分。',
+    promptTemplate: '请根据 rawData 和标注员 answers，对开启 AI 预审的字段逐项输出字段级审核结果。',
     promptVersion: 1,
-    dimensions: REQUIRED_DIMENSIONS,
+    dimensions: [],
     passThreshold: 70,
     manualThreshold: 55,
     provider: 'mock',
@@ -341,23 +406,6 @@ function defaultReviewRule(taskId: string): ReviewRuleRecord {
     temperature: 0,
     config: { structuredOutputMode: 'function_calling' },
   };
-}
-
-function normalizedDimensions(rule: ReviewRuleRecord): ReviewDimension[] {
-  const dimensions = Array.isArray(rule.dimensions) ? rule.dimensions.filter(isReviewDimension) : [];
-  const dimensionMap = new Map(dimensions.map((dimension) => [dimension.key, dimension]));
-
-  return REQUIRED_DIMENSIONS.map((dimension) => dimensionMap.get(dimension.key) ?? dimension);
-}
-
-function isReviewDimension(value: unknown): value is ReviewDimension {
-  return Boolean(
-    value &&
-      typeof value === 'object' &&
-      typeof (value as Record<string, unknown>).key === 'string' &&
-      typeof (value as Record<string, unknown>).label === 'string' &&
-      typeof (value as Record<string, unknown>).maxScore === 'number',
-  );
 }
 
 function structuredOutputMode(rule: ReviewRuleRecord): string {
@@ -419,18 +467,6 @@ function countNonEmptyLeaves(value: unknown): number {
   }
 
   return 1;
-}
-
-function answersHaveEmptyRequiredValues(answers: Record<string, unknown>): boolean {
-  const values = Object.values(answers);
-
-  return values.length === 0 || values.some((value) => {
-    if (Array.isArray(value)) {
-      return value.length === 0;
-    }
-
-    return value === null || value === undefined || value === '';
-  });
 }
 
 function clampScore(value: number): number {

@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import {
   assertSubmissionTransition,
+  compileAiReviewPrompt,
   type LabelHubSchema,
   type AiReviewStatus,
   type DatasetKind,
@@ -33,6 +34,7 @@ type AiReviewJobRecord = {
     title: string;
     template?: {
       schemaVersion: string;
+      schema?: LabelHubSchema | null;
     } | null;
   };
   submission?: SubmissionSummaryRecord;
@@ -119,7 +121,7 @@ type SubmissionReviewRecord = SubmissionSummaryRecord & {
 
 export type CompleteAiReviewJobInput = {
   actorId?: string;
-  decision: 'pass' | 'reject' | 'manual';
+  decision: 'pass' | 'reject';
   scores?: Record<string, unknown>;
   comment?: string;
   rawPrompt?: string;
@@ -151,14 +153,22 @@ export type AiReviewJobDto = {
   updatedAt: string;
 };
 
-export type AiReviewBatchStatus = 'PENDING' | 'PASSED' | 'REJECTED' | 'MANUAL' | 'FAILED';
-export type AiReviewBatchDecision = 'pending' | 'pass' | 'reject' | 'manual' | 'failed';
+export type AiReviewBatchStatus = 'PENDING' | 'PASSED' | 'REJECTED' | 'FAILED';
+export type AiReviewBatchDecision = 'pending' | 'pass' | 'reject' | 'failed';
 
 export type AiReviewLogDto = {
   id: string;
   type: 'queue' | 'llm' | 'verdict' | 'audit' | 'error' | 'retry' | 'run';
   time: string;
   message: string;
+};
+
+export type AiReviewFieldDto = {
+  fieldKey: string;
+  label: string;
+  type: string;
+  required: boolean;
+  requirement: string;
 };
 
 export type AiReviewBatchDto = {
@@ -201,6 +211,7 @@ export type AiReviewBatchItemDto = {
     rawData: Record<string, unknown>;
   };
   reviewRecord: (Omit<ReviewRecord, 'createdAt'> & { createdAt: string }) | null;
+  reviewFields: AiReviewFieldDto[];
   decision: AiReviewBatchDecision;
   overallScore: number | null;
   logs: AiReviewLogDto[];
@@ -264,6 +275,7 @@ const JOB_INCLUDE = {
       template: {
         select: {
           schemaVersion: true,
+          schema: true,
         },
       },
     },
@@ -383,7 +395,7 @@ export class AiReviewService {
     if (!RETRYABLE_STATUSES.has(job.status)) {
       throw new BadRequestException({
         code: 'AI_REVIEW_JOB_NOT_RETRYABLE',
-        message: '只有失败或转人工兜底的 AI 预审任务可以手动重试。',
+        message: '只有失败的 AI 预审任务可以手动重试。',
       });
     }
 
@@ -411,14 +423,17 @@ export class AiReviewService {
   }
 
   async completeJob(jobId: string, input: CompleteAiReviewJobInput): Promise<AiReviewDetailDto> {
-    const decision = normalizeAiDecision(input.decision);
-    const comment = input.comment?.trim() ?? '';
-    if (!decision) {
+    const inputDecision = normalizeAiDecision(input.decision);
+    if (!inputDecision) {
       throw new BadRequestException({
         code: 'AI_REVIEW_DECISION_INVALID',
-        message: 'AI 预审结果必须是 pass、reject 或 manual。',
+        message: 'AI 预审结果必须是 pass 或 reject。',
       });
     }
+    const decision = fieldReviewDecisionOverride(input.structuredOutput) ?? inputDecision;
+    const comment = input.comment?.trim() || structuredOutputComment(input.structuredOutput) || '';
+    const structuredOutput = structuredOutputWithDecision(input.structuredOutput, decision);
+
     if (decision === 'reject' && !comment) {
       throw new BadRequestException({
         code: 'AI_REVIEW_REJECT_REASON_REQUIRED',
@@ -481,7 +496,7 @@ export class AiReviewService {
           comment: comment || defaultAiComment(decision),
           rawPrompt: input.rawPrompt,
           rawOutput: input.rawOutput,
-          structuredOutput: input.structuredOutput,
+          structuredOutput,
           modelMetadata: input.modelMetadata,
           retryCount: job.attempts + 1,
           idempotencyKey: job.idempotencyKey,
@@ -514,7 +529,7 @@ export class AiReviewService {
       await client.aiReviewJob.update({
         where: { id: job.id },
         data: {
-          status: decision === 'manual' ? 'MANUAL_FALLBACK' : 'SUCCEEDED',
+          status: 'SUCCEEDED',
           lastError: null,
           finishedAt: new Date(),
           logs: [
@@ -653,15 +668,12 @@ async function writeAiReviewAudit(
 }
 
 function normalizeAiDecision(value: unknown): CompleteAiReviewJobInput['decision'] | null {
-  return value === 'pass' || value === 'reject' || value === 'manual' ? value : null;
+  return value === 'pass' || value === 'reject' ? value : null;
 }
 
 function aiSubmissionStatusForDecision(decision: CompleteAiReviewJobInput['decision']): SubmissionStatus {
   if (decision === 'pass') {
     return 'AI_PASSED';
-  }
-  if (decision === 'manual') {
-    return 'AI_MANUAL';
   }
 
   return 'AI_REJECTED';
@@ -671,9 +683,6 @@ function aiAuditActionForDecision(decision: CompleteAiReviewJobInput['decision']
   if (decision === 'pass') {
     return 'AI_REVIEW_PASSED';
   }
-  if (decision === 'manual') {
-    return 'AI_REVIEW_MANUAL';
-  }
 
   return 'AI_REVIEW_REJECTED';
 }
@@ -681,9 +690,6 @@ function aiAuditActionForDecision(decision: CompleteAiReviewJobInput['decision']
 function defaultAiComment(decision: CompleteAiReviewJobInput['decision']): string {
   if (decision === 'pass') {
     return 'AI 预审通过，进入人工复审。';
-  }
-  if (decision === 'manual') {
-    return 'AI 预审转人工复核。';
   }
 
   return 'AI 预审打回，标注员需要修改。';
@@ -700,6 +706,32 @@ function scoresWithReason(
   }
 
   return normalizedScores;
+}
+
+function fieldReviewDecisionOverride(structuredOutput: Record<string, unknown> | undefined): 'reject' | null {
+  const fieldReviews = structuredOutput?.fieldReviews;
+  if (!Array.isArray(fieldReviews) || fieldReviews.length === 0) {
+    return null;
+  }
+
+  return fieldReviews.some((fieldReview) => !isRecord(fieldReview) || fieldReview.decision !== 'pass') ? 'reject' : null;
+}
+
+function structuredOutputComment(structuredOutput: Record<string, unknown> | undefined): string {
+  const overallComment = structuredOutput?.overallComment;
+  if (typeof overallComment === 'string' && overallComment.trim()) {
+    return overallComment.trim();
+  }
+
+  const reason = structuredOutput?.reason;
+  return typeof reason === 'string' ? reason.trim() : '';
+}
+
+function structuredOutputWithDecision(
+  structuredOutput: Record<string, unknown> | undefined,
+  decision: CompleteAiReviewJobInput['decision'],
+): Record<string, unknown> | undefined {
+  return structuredOutput ? { ...structuredOutput, verdict: decision } : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -787,6 +819,10 @@ function toBatchItemDto(job: AiReviewJobRecord, index: number): AiReviewBatchIte
       rawData: taskItem?.rawData ?? {},
     },
     reviewRecord: reviewRecord ? toReviewRecordDto(reviewRecord) : null,
+    reviewFields: reviewFieldsFromTemplateSchema(
+      job.task?.template?.schema ?? null,
+      submission?.answers ?? {},
+    ),
     decision: decisionForJob(job),
     overallScore: scoreFromRecord(reviewRecord),
     logs: toBatchItemLogs(job, reviewRecord),
@@ -829,9 +865,6 @@ function aggregateBatchDecision(jobs: AiReviewJobRecord[]): AiReviewBatchDecisio
   if (decisions.includes('reject')) {
     return 'reject';
   }
-  if (decisions.includes('manual')) {
-    return 'manual';
-  }
   if (decisions.length > 0 && decisions.every((decision) => decision === 'pass')) {
     return 'pass';
   }
@@ -844,12 +877,21 @@ function decisionForJob(job: AiReviewJobRecord): AiReviewBatchDecision {
     return 'failed';
   }
 
-  const reviewDecision = latestAiReviewRecord(job)?.decision;
-  if (reviewDecision === 'reject' || reviewDecision === 'manual' || reviewDecision === 'pass') {
+  const reviewRecord = latestAiReviewRecord(job);
+  const fieldReviewOverride = fieldReviewDecisionOverride(reviewRecord?.structuredOutput ?? undefined);
+  if (fieldReviewOverride) {
+    return fieldReviewOverride;
+  }
+
+  const reviewDecision = reviewRecord?.decision;
+  if (reviewDecision === 'manual') {
+    return 'reject';
+  }
+  if (reviewDecision === 'reject' || reviewDecision === 'pass') {
     return reviewDecision;
   }
   if (job.status === 'MANUAL_FALLBACK') {
-    return 'manual';
+    return 'failed';
   }
   if (job.status === 'SUCCEEDED') {
     return 'pass';
@@ -864,9 +906,6 @@ function batchStatusFromDecision(decision: AiReviewBatchDecision): AiReviewBatch
   }
   if (decision === 'reject') {
     return 'REJECTED';
-  }
-  if (decision === 'manual') {
-    return 'MANUAL';
   }
   if (decision === 'pass') {
     return 'PASSED';
@@ -896,10 +935,32 @@ function scoreFromRecord(record: ReviewRecord | null): number | null {
     return null;
   }
 
-  return numericScore(record.scores.overall)
+  return numericScore(record.structuredOutput?.overallScore)
+    ?? numericScore(record.scores.overall)
     ?? numericScore(record.scores.score)
     ?? numericScore(record.scores.total)
     ?? averageNumericScores(record.scores);
+}
+
+function reviewFieldsFromTemplateSchema(
+  schema: LabelHubSchema | null,
+  answers: Record<string, unknown>,
+): AiReviewFieldDto[] {
+  if (!schema) {
+    return [];
+  }
+
+  return compileAiReviewPrompt({
+    schema,
+    answers,
+    reviewFieldKeys: Object.keys(answers),
+  }).fieldRequirements.map((field) => ({
+    fieldKey: field.fieldKey,
+    label: field.label,
+    type: field.type,
+    required: field.required,
+    requirement: field.requirement,
+  }));
 }
 
 function averageNumericScores(scores: Record<string, unknown>): number | null {
@@ -936,9 +997,6 @@ function aiSuggestionLabel(decision: AiReviewBatchDecision): string {
   }
   if (decision === 'reject') {
     return '建议打回';
-  }
-  if (decision === 'manual') {
-    return '转人工复核';
   }
   if (decision === 'pass') {
     return '建议通过';
@@ -989,7 +1047,7 @@ function logType(value: unknown): AiReviewLogDto['type'] {
   if (value === 'queue' || value === 'llm' || value === 'verdict' || value === 'audit' || value === 'error' || value === 'retry' || value === 'run') {
     return value;
   }
-  if (value === 'pass' || value === 'reject' || value === 'manual') {
+  if (value === 'pass' || value === 'reject') {
     return 'verdict';
   }
 

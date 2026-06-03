@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 
 export type PortalSidebarItem = {
   icon: string;
@@ -7,6 +7,7 @@ export type PortalSidebarItem = {
   label: string;
   parts: string[];
   to: string;
+  isActive?: (pathname: string) => boolean;
 };
 
 type PortalSidebarProps = {
@@ -23,11 +24,13 @@ export const PortalSidebar = ({
   onToggle,
 }: PortalSidebarProps) => {
   const hiddenLabelClass = isCollapsed ? ' is-hidden' : '';
+  const { pathname } = useLocation();
 
   return (
     <aside className="portal-sidebar">
       <nav className="portal-nav" aria-label={navLabel}>
         {items.map((item) => {
+          const isItemActive = item.isActive?.(pathname);
           const iconClassName = item.iconAsset
             ? `portal-nav__icon portal-nav__icon--${item.icon} portal-nav__icon--asset`
             : `portal-nav__icon portal-nav__icon--${item.icon}`;
@@ -36,7 +39,13 @@ export const PortalSidebar = ({
             : undefined;
 
           return (
-            <NavLink key={item.to} to={item.to} aria-label={item.label} title={item.label}>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              aria-label={item.label}
+              title={item.label}
+              className={({ isActive }) => (isActive || isItemActive ? 'active' : undefined)}
+            >
               <span className={iconClassName} style={iconStyle} aria-hidden="true" />
               <span className={`portal-nav__label${hiddenLabelClass}`} aria-hidden="true">
                 {item.parts.map((part, index) => (

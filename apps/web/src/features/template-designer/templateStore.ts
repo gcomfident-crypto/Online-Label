@@ -55,6 +55,8 @@ type TemplateDesignerState = {
   selectedFieldKey: string | null;
   past: LabelHubSchema[];
   future: LabelHubSchema[];
+  canUndo: boolean;
+  canRedo: boolean;
   resetDesigner: () => void;
   addField: (type: FieldType) => void;
   addFieldBefore: (type: FieldType, targetFieldKey: string) => void;
@@ -77,6 +79,8 @@ type TemplateDesignerState = {
   redo: () => void;
 };
 
+const DESIGNER_HISTORY_LIMIT = 100;
+
 const emptySchema = (): LabelHubSchema =>
   createLabelHubSchema({
     schemaVersion: 'draft',
@@ -89,12 +93,16 @@ export const useTemplateDesignerStore = create<TemplateDesignerState>((set, get)
   selectedFieldKey: null,
   past: [],
   future: [],
+  canUndo: false,
+  canRedo: false,
   resetDesigner: () =>
     set({
       schema: emptySchema(),
       selectedFieldKey: null,
       past: [],
       future: [],
+      canUndo: false,
+      canRedo: false,
     }),
   addField: (type) => {
     commitSchemaChange(set, get, (schema) => {
@@ -170,19 +178,18 @@ export const useTemplateDesignerStore = create<TemplateDesignerState>((set, get)
   },
   addLinkageRuleToSelectedField: () => {
     const selectedField = findFieldByKey(get().schema.fields, get().selectedFieldKey);
-    const firstField = get().schema.fields[0];
 
-    if (!selectedField || !firstField) {
+    if (!selectedField) {
       return;
     }
 
     const rule: FieldLinkageRule = {
       when: {
-        fieldKey: firstEditableAnswerKey(get().schema.fields) ?? selectedField.fieldKey ?? selectedField.key,
+        fieldKey: '',
         operator: 'equals',
         value: '',
       },
-      action: 'require',
+      action: 'show',
       targetFieldKey: selectedField.fieldKey ?? selectedField.key,
     };
 
@@ -283,10 +290,14 @@ export const useTemplateDesignerStore = create<TemplateDesignerState>((set, get)
     });
   },
   setSchema: (schema) => {
-    commitSchemaChange(set, get, () => ({
+    set({
       schema: clone(schema),
       selectedFieldKey: firstEditableFieldKey(schema.fields),
-    }));
+      past: [],
+      future: [],
+      canUndo: false,
+      canRedo: false,
+    });
   },
   loadOfficialTemplate: (templateKey) => {
     get().setSchema(officialTemplateSchema(templateKey));
@@ -301,10 +312,12 @@ export const useTemplateDesignerStore = create<TemplateDesignerState>((set, get)
     const previous = past[past.length - 1];
 
     set({
-      schema: previous,
+      schema: clone(previous),
       selectedFieldKey: firstEditableFieldKey(previous.fields),
       past: past.slice(0, -1),
-      future: [schema, ...future].slice(0, 20),
+      future: [clone(schema), ...future].slice(0, DESIGNER_HISTORY_LIMIT),
+      canUndo: past.length > 1,
+      canRedo: true,
     });
   },
   redo: () => {
@@ -317,10 +330,12 @@ export const useTemplateDesignerStore = create<TemplateDesignerState>((set, get)
     const next = future[0];
 
     set({
-      schema: next,
+      schema: clone(next),
       selectedFieldKey: firstEditableFieldKey(next.fields),
-      past: [...past, schema].slice(-20),
+      past: [...past, clone(schema)].slice(-DESIGNER_HISTORY_LIMIT),
       future: future.slice(1),
+      canUndo: true,
+      canRedo: future.length > 1,
     });
   },
 }));
@@ -335,12 +350,26 @@ const commitSchemaChange = (
 ) => {
   const current = get();
   const next = updater(current.schema);
+  const nextSelectedFieldKey = next.selectedFieldKey ?? current.selectedFieldKey;
+
+  if (isSameSchema(current.schema, next.schema)) {
+    set({
+      selectedFieldKey: nextSelectedFieldKey,
+      canUndo: current.past.length > 0,
+      canRedo: current.future.length > 0,
+    });
+    return;
+  }
+
+  const past = [...current.past, clone(current.schema)].slice(-DESIGNER_HISTORY_LIMIT);
 
   set({
-    schema: next.schema,
-    selectedFieldKey: next.selectedFieldKey ?? current.selectedFieldKey,
-    past: [...current.past, current.schema].slice(-20),
+    schema: clone(next.schema),
+    selectedFieldKey: nextSelectedFieldKey,
+    past,
     future: [],
+    canUndo: past.length > 0,
+    canRedo: false,
   });
 };
 
@@ -990,6 +1019,9 @@ const collectFieldKeys = (fields: readonly SchemaField[]): string[] => {
     ...(field.tabs?.flatMap((tab) => collectFieldKeys(tab.fields)) ?? []),
   ]);
 };
+
+const isSameSchema = (left: LabelHubSchema, right: LabelHubSchema): boolean =>
+  JSON.stringify(left) === JSON.stringify(right);
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 

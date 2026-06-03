@@ -10,13 +10,32 @@ describe('LlmService template field classifier', () => {
     vi.unstubAllGlobals();
   });
 
-  it('没有显式 LLM_PROVIDER 时即使配置 DeepSeek key 也默认使用 mock 字段分类', async () => {
+  it('没有显式 LLM_PROVIDER 但配置 DeepSeek key 时按 DeepSeek OpenAI 兼容接口分类字段', async () => {
     delete process.env.LLM_PROVIDER;
     process.env.NODE_ENV = 'development';
     process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
     process.env.LLM_MODEL = 'deepseek-chat';
 
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  layout: 'field_list',
+                  displayFields: [
+                    { sourceKey: 'prompt', label: '问题', area: 'primary', format: 'long_text', maxLines: 8 },
+                  ],
+                  annotationFields: [],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     const result = await new LlmService().classifyTemplateFields({
@@ -35,9 +54,18 @@ describe('LlmService template field classifier', () => {
       ],
     });
 
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(result.provider).toBe('mock');
-    expect(result.model).toBe('mock-field-classifier');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.deepseek.com/chat/completions',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-deepseek-key',
+          'Content-Type': 'application/json',
+        }),
+      }),
+    );
+    expect(result.provider).toBe('deepseek');
+    expect(result.model).toBe('deepseek-chat');
   });
 
   it('显式 LLM_PROVIDER=deepseek 且配置 DeepSeek key 时按 DeepSeek OpenAI 兼容接口分类字段', async () => {

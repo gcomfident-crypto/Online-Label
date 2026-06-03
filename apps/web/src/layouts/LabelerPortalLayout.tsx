@@ -21,6 +21,7 @@ const LABELER_NAV_ITEMS = [
     parts: ['工', '作', '台'],
     icon: 'my-data',
     iconAsset: workbenchIcon,
+    isActive: (pathname: string) => pathname.startsWith('/labeler/tasks/'),
   },
 ];
 

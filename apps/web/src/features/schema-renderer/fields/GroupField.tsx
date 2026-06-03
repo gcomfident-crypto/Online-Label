@@ -25,10 +25,12 @@ export const GroupField = ({
   hiddenFieldKeys,
   disabledFieldKeys,
   requiredFieldKeys,
+  allowedOptionsByFieldKey,
   validationMessagesByField,
   onFieldChange,
   activeFieldKey,
   onActiveFieldChange,
+  getFieldNodeDecoration,
 }: BaseFieldProps) => {
   const layout = field.layout === 'two_columns' ? 'two_columns' : 'single_column';
   const childFieldKeys = useMemo(() => collectFieldKeys(field.fields ?? []), [field.fields]);
@@ -88,10 +90,12 @@ export const GroupField = ({
               hiddenFieldKeys={hiddenFieldKeys}
               disabledFieldKeys={disabledFieldKeys}
               requiredFieldKeys={requiredFieldKeys}
+              allowedOptionsByFieldKey={allowedOptionsByFieldKey}
               validationMessagesByField={validationMessagesByField}
               onFieldChange={onFieldChange}
               activeFieldKey={activeFieldKey}
               onActiveFieldChange={onActiveFieldChange}
+              getFieldNodeDecoration={getFieldNodeDecoration}
             />
           ))}
         </div>

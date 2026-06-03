@@ -23,6 +23,23 @@ describe('AI 预审 Prompt', () => {
     expect(prompt).toContain('"quality": "pass"');
   });
 
+  it('配置审核字段时只写入开启 AI 预审的标注员答案', () => {
+    const prompt = buildAiReviewPrompt({
+      datasetKind: 'qa_quality',
+      rawData: {
+        prompt: '如何判断回答质量？',
+        model_answer: '检查事实性。',
+      },
+      answers: { quality: 'pass', internal_note: '这段不需要机审。' },
+      reviewFieldKeys: ['quality'],
+      rulePromptTemplate: '请输出结构化结果。',
+    });
+
+    expect(prompt).toContain('"quality": "pass"');
+    expect(prompt).not.toContain('internal_note');
+    expect(prompt).not.toContain('这段不需要机审。');
+  });
+
   it('preference_compare Prompt 包含 A/B 回答、dimensions 和标注员答案', () => {
     const prompt = buildAiReviewPrompt({
       datasetKind: 'preference_compare',

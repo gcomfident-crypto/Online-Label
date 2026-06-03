@@ -89,7 +89,12 @@ describe('Prisma schema', () => {
     expect(modelBlock('TaskTemplate')).toMatch(/\bversion\s+Int\s+@default\(0\)/);
     expect(modelBlock('TaskTemplate')).toMatch(/\bpublishedAt\s+DateTime\?/);
     expect(modelBlock('TaskTemplate')).toMatch(/\bparentTemplateId\s+String\?/);
+    expect(modelBlock('TaskTemplate')).toMatch(/\brootTemplateId\s+String\?/);
+    expect(modelBlock('TaskTemplate')).toMatch(/\barchivedAt\s+DateTime\?/);
+    expect(modelBlock('TaskTemplate')).toMatch(/\brestoredFromTemplateId\s+String\?/);
     expect(modelBlock('TaskTemplate')).toMatch(/@@index\(\[status\]\)/);
+    expect(modelBlock('TaskTemplate')).toMatch(/@@index\(\[rootTemplateId\]\)/);
+    expect(modelBlock('TaskTemplate')).toMatch(/@@index\(\[archivedAt\]\)/);
   });
 
   it('keeps task publishing metadata for owner workflow', () => {

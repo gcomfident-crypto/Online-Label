@@ -49,6 +49,7 @@ import {
   OWNER_TASKS_PATH,
   OWNER_TEMPLATES_PATH,
   consumeTaskTemplateReturnHandoff,
+  writeTemplateOpenTarget,
   writeTaskTemplateReturnHandoff,
   writeTemplateDraftHandoff,
   type TaskTemplateReturnHandoff,
@@ -364,6 +365,24 @@ export const TaskListPage = () => {
     );
     setIsTaskFormDirty(true);
     setDrawerFieldErrors({});
+  };
+
+  const handleViewTemplate = (templateId: string) => {
+    if (selectedTask && taskForm && drawerMode) {
+      writeTaskTemplateReturnHandoff({
+        datasetFile,
+        datasetImportSummary,
+        datasetTemplateDraft,
+        drawerMode,
+        form: taskForm,
+        isTaskFormDirty,
+        selectedTask,
+        templateOptions,
+      });
+    }
+
+    writeTemplateOpenTarget(templateId, { returnTo: OWNER_TASKS_PATH });
+    navigate(`${OWNER_TEMPLATES_PATH}?templateId=${encodeURIComponent(templateId)}`);
   };
 
   const handleDatasetFileChange = (file: File | null) => {
@@ -1079,6 +1098,7 @@ export const TaskListPage = () => {
             onChange={handleTaskFormChange}
             onTemplateChange={handleTemplateChange}
             onTemplatePickerOpen={handleTemplatePickerOpen}
+            onViewTemplate={handleViewTemplate}
             onCreateTemplateFromDataset={canCreateTemplateFromDataset ? handleCreateTemplateFromDataset : undefined}
             onDatasetFileChange={handleDatasetFileChange}
             onPreviewDataset={() => void handlePreviewDataset()}
@@ -1184,16 +1204,16 @@ const SummaryCard = ({
 );
 
 const taskToForm = (task: TaskDto): TaskFormInput => ({
-  title: task.title,
-  tags: task.tags,
-  rewardPerItem: task.rewardPerItem,
-  perUserLimit: task.perUserLimit,
-  quota: task.quota,
-  deadline: task.deadline,
-  distributionStrategy: task.distributionStrategy,
-  aiPreReviewEnabled: task.aiPreReviewEnabled,
-  aiRuleName: task.aiRuleName,
-  templateId: task.templateId,
+  title: task.title ?? '',
+  tags: task.tags ?? [],
+  rewardPerItem: task.rewardPerItem ?? null,
+  perUserLimit: task.perUserLimit ?? null,
+  quota: task.quota ?? null,
+  deadline: task.deadline ?? null,
+  distributionStrategy: task.distributionStrategy ?? 'FIRST_COME_FIRST_SERVE',
+  aiPreReviewEnabled: task.aiPreReviewEnabled ?? false,
+  aiRuleName: task.aiRuleName ?? null,
+  templateId: task.templateId ?? '',
 });
 
 const normalizeTaskForm = (form: TaskFormInput): TaskFormInput => ({

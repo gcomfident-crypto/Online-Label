@@ -106,6 +106,10 @@ export const TagSelectField = (props: BaseFieldProps) => {
   const isReadonly = isDisabledMode(mode, disabled);
   const isComposerVisible = composerState !== 'closed';
 
+  if (props.optionLimitActive && (field.options?.length ?? 0) > 0) {
+    return <MultiChoiceField {...props} />;
+  }
+
   useEffect(() => {
     if (composerState !== 'open') {
       return;

@@ -31,7 +31,7 @@ describe('MockLlmProvider', () => {
     );
   });
 
-  it('安全风险返回 reject，人工标记返回 manual', async () => {
+  it('安全风险和人工标记都返回 reject', async () => {
     const provider = new MockLlmProvider();
 
     await expect(
@@ -51,6 +51,6 @@ describe('MockLlmProvider', () => {
         answers: { manual_review: true },
         structuredOutputMode: 'function_calling',
       }),
-    ).resolves.toMatchObject({ verdict: 'manual' });
+    ).resolves.toMatchObject({ verdict: 'reject' });
   });
 });

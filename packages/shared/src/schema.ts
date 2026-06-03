@@ -25,9 +25,11 @@ export type FieldType = (typeof FIELD_TYPES)[number];
 export const FIELD_LINKAGE_ACTIONS = [
   'show',
   'hide',
+  'limitOptions',
   'require',
   'disable',
   'setValue',
+  'assertValue',
 ] as const;
 
 export type FieldLinkageAction = (typeof FIELD_LINKAGE_ACTIONS)[number];
@@ -63,11 +65,21 @@ export type FieldLinkageCondition = {
   value?: unknown;
 };
 
+export type FieldLinkageOptionCase = {
+  value: unknown;
+  optionValues: readonly string[];
+};
+
 export type FieldLinkageRule = {
   when: FieldLinkageCondition;
   action: FieldLinkageAction;
   targetFieldKey: string;
   value?: unknown;
+  optionValues?: readonly string[];
+  cases?: readonly FieldLinkageOptionCase[];
+  clearInvalidValue?: boolean;
+  autoSelectWhenSingleOption?: boolean;
+  message?: string;
 };
 
 export type FieldOption = {

@@ -2525,7 +2525,81 @@ describe('SchemaRenderer', () => {
     expect(document.querySelector('.schema-field__errors')).toBeNull();
   });
 
-  it('隐藏字段默认不触发必填，validateWhenHidden 为 true 时仍校验', () => {
+  it('Renderer 根据 limitOptions 联动实时过滤选项并自动填入唯一选项', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const schema = {
+      ...baseSchema([
+        {
+          key: 'preferred',
+          type: 'radio',
+          label: '偏好选择',
+          options: [
+            { label: 'A', value: 'A' },
+            { label: 'B', value: 'B' },
+            { label: 'tie', value: 'tie' },
+          ],
+        },
+        {
+          key: 'margin',
+          type: 'radio',
+          label: '优劣程度',
+          options: [
+            { label: '明显优于', value: '明显优于' },
+            { label: '略优于', value: '略优于' },
+            { label: '明显逊于', value: '明显逊于' },
+            { label: '略逊于', value: '略逊于' },
+            { label: '相当', value: '相当' },
+          ],
+        },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'preferred', operator: 'exists' },
+          action: 'limitOptions',
+          targetFieldKey: 'margin',
+          cases: [
+            { value: 'A', optionValues: ['明显优于', '略优于'] },
+            { value: 'B', optionValues: ['明显逊于', '略逊于'] },
+            { value: 'tie', optionValues: ['相当'] },
+          ],
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <SchemaRenderer
+          schema={schema}
+          rawData={{}}
+          value={answers}
+          mode="answer"
+          onChange={(next) => {
+            setAnswers(next);
+            onChange(next);
+          }}
+        />
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    await user.click(screen.getByLabelText('A'));
+
+    expect(screen.getByLabelText('明显优于')).toBeInTheDocument();
+    expect(screen.getByLabelText('略优于')).toBeInTheDocument();
+    expect(screen.queryByLabelText('明显逊于')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('略逊于')).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('tie'));
+
+    expect(screen.getByLabelText('相当')).toBeChecked();
+    expect(onChange).toHaveBeenLastCalledWith({ preferred: 'tie', margin: '相当' });
+  });
+
+  it('隐藏字段不触发必填校验', () => {
     const schema = {
       ...baseSchema([
         {
@@ -2564,9 +2638,7 @@ describe('SchemaRenderer', () => {
 
     const linkage = applySchemaLinkage(schema, { status: 'rejected' });
 
-    expect(validateSchemaAnswers(schema, { status: 'rejected' }, linkage)).toEqual([
-      { fieldKey: 'auditNote', message: '审计备注为必填项。' },
-    ]);
+    expect(validateSchemaAnswers(schema, { status: 'rejected' }, linkage)).toEqual([]);
   });
 
   it('自定义校验 key 命中时返回中文错误', () => {

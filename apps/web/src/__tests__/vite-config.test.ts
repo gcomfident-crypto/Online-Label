@@ -8,7 +8,7 @@ describe('Vite 开发代理', () => {
     const configSource = readFileSync(configPath, 'utf8');
 
     expect(configSource).toContain("'/api': {");
-    expect(configSource).toContain("target: 'http://localhost:3000'");
+    expect(configSource).toContain("'http://localhost:6001'");
     expect(configSource).toContain("path.replace(/^\\/api/, '')");
   });
 

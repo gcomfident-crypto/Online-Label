@@ -133,6 +133,89 @@ describe('template validation', () => {
     });
   });
 
+  it('校验字段联动限制选项的目标类型、选项值和冲突规则', () => {
+    const schema = baseSchema([
+      {
+        key: 'preferred',
+        type: 'radio',
+        label: '偏好选择',
+        options: [{ label: 'A', value: 'A' }],
+      },
+      {
+        key: 'margin',
+        type: 'radio',
+        label: '优劣程度',
+        options: [{ label: '明显优于', value: '明显优于' }],
+      },
+      {
+        key: 'comment',
+        type: 'text',
+        label: '说明',
+      },
+      {
+        key: 'material',
+        type: 'show_item',
+        label: '题目',
+        sourceKey: 'prompt',
+      },
+    ]);
+
+    expect(
+      validateTemplateSchema({
+        ...schema,
+        linkageRules: [
+          {
+            when: { fieldKey: 'material', operator: 'exists' },
+            action: 'show',
+            targetFieldKey: 'comment',
+          },
+          {
+            when: { fieldKey: 'preferred', operator: 'exists' },
+            action: 'limitOptions',
+            targetFieldKey: 'comment',
+            cases: [{ value: 'A', optionValues: ['明显优于'] }],
+          },
+          {
+            when: { fieldKey: 'preferred', operator: 'exists' },
+            action: 'limitOptions',
+            targetFieldKey: 'margin',
+            cases: [{ value: 'A', optionValues: ['不存在的选项'] }],
+          },
+          {
+            when: { fieldKey: 'preferred', operator: 'exists' },
+            action: 'limitOptions',
+            targetFieldKey: 'margin',
+            cases: [{ value: 'A', optionValues: ['明显优于'] }],
+          },
+        ],
+      }),
+    ).toEqual({
+      valid: false,
+      errors: [
+        {
+          code: 'TEMPLATE_LINKAGE_SOURCE_INVALID',
+          fieldKey: 'material',
+          message: '联动条件字段 题目 不是可提交字段，不能作为条件字段。',
+        },
+        {
+          code: 'TEMPLATE_LINKAGE_OPTIONS_TARGET_INVALID',
+          fieldKey: 'comment',
+          message: '限制选项的目标字段 说明 必须是单选、多选或标签选择。',
+        },
+        {
+          code: 'TEMPLATE_LINKAGE_OPTION_INVALID',
+          fieldKey: 'margin',
+          message: '限制选项 不存在的选项 不属于目标字段 优劣程度 的已有选项。',
+        },
+        {
+          code: 'TEMPLATE_LINKAGE_CONFLICT',
+          fieldKey: 'margin',
+          message: '字段 margin 存在多条限制选项联动，请合并成一张条件值表。',
+        },
+      ],
+    });
+  });
+
   it('官方样例可以通过发布前校验且商品标题清洗包含关键词字段', () => {
     expect(validateTemplateSchema(qaQualitySampleSchema)).toEqual({
       valid: true,

@@ -114,9 +114,10 @@ const SORTABLE_FIELD_TRANSITION = {
 const FIELD_REMOVE_ANIMATION_MS = 320;
 const FIELD_LAYOUT_SHIFT_ANIMATION_MS = 360;
 const EMPTY_FIELD_KEY_SET = new Set<string>();
+const EMPTY_ALLOWED_OPTIONS_BY_FIELD_KEY = new Map<string, ReadonlySet<string>>();
 const EMPTY_VALIDATION_MESSAGES_BY_FIELD = new Map<string, readonly string[]>();
 const EMPTY_CANVAS_PREVIEW_RAW_DATA: Record<string, unknown> = {};
-const AI_REVIEW_PERSONA_PLACEHOLDER = '请填写 AI 预审角色设定，说明模型的身份、任务目标和审核范围。';
+const AI_REVIEW_PERSONA_PLACEHOLDER = '请填写 AI 预审角色设定，说明模型的身份、任务目标和审核范围';
 
 const normalizeAiPromptConfig = (
   config: AiReviewPromptConfig | undefined,
@@ -1422,6 +1423,7 @@ const DesignerFieldCard = ({
               hiddenFieldKeys={EMPTY_FIELD_KEY_SET}
               disabledFieldKeys={EMPTY_FIELD_KEY_SET}
               requiredFieldKeys={EMPTY_FIELD_KEY_SET}
+              allowedOptionsByFieldKey={EMPTY_ALLOWED_OPTIONS_BY_FIELD_KEY}
               validationMessagesByField={EMPTY_VALIDATION_MESSAGES_BY_FIELD}
               onFieldChange={() => undefined}
               disabled

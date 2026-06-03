@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import type { DatasetKind } from '@labelhub/shared';
@@ -28,6 +28,10 @@ const STATUS_OPTIONS: readonly {
   { label: '已提交', value: 'SUBMITTED', summaryClassName: 'task-summary-card--done' },
   { label: '待修改', value: 'NEEDS_REVISION', summaryClassName: 'task-summary-card--paused' },
 ];
+
+type WorkbenchNavigationState = {
+  source: 'my-data-table';
+};
 
 export const MyDataPage = () => {
   const navigate = useNavigate();
@@ -114,6 +118,13 @@ export const MyDataPage = () => {
     }
   };
 
+  const navigateToWorkbench = useCallback(
+    (assignment: LabelerAssignmentDto) => {
+      navigate(workbenchHref(assignment), { state: { source: 'my-data-table' } as WorkbenchNavigationState });
+    },
+    [navigate],
+  );
+
   return (
     <section className="my-data-page labeler-task-workspace" aria-labelledby="my-data-title">
       <ToastViewport messages={messages} onDismiss={dismissToast} />
@@ -181,11 +192,11 @@ export const MyDataPage = () => {
                     key={taskGroup.taskId}
                     className="my-data-table__row my-data-table__row--task"
                     tabIndex={0}
-                    onClick={() => navigate(workbenchHref(taskGroup.nextAssignment))}
+                    onClick={() => navigateToWorkbench(taskGroup.nextAssignment)}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        navigate(workbenchHref(taskGroup.nextAssignment));
+                        navigateToWorkbench(taskGroup.nextAssignment);
                       }
                     }}
                   >
@@ -208,6 +219,7 @@ export const MyDataPage = () => {
                         className="primary-link"
                         aria-label={`继续标注 ${taskGroup.taskTitle}`}
                         to={workbenchHref(taskGroup.nextAssignment)}
+                        state={{ source: 'my-data-table' } as WorkbenchNavigationState}
                         onClick={(event) => event.stopPropagation()}
                       >
                         继续标注

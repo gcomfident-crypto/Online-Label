@@ -214,6 +214,109 @@ describe('global styles', () => {
     expect(source).not.toContain('coverage="workspace"');
   });
 
+  it('模板版本管理弹窗遮罩避开顶栏并提供入场退场动画', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const modalRule = styles.match(/\.template-version-modal\s*\{[^}]+\}/)?.[0] ?? '';
+    const enteringRule = styles.match(/\.template-version-modal--entering\s*\{[^}]+\}/)?.[0] ?? '';
+    const closingRule = styles.match(/\.template-version-modal--closing\s*\{[^}]+\}/)?.[0] ?? '';
+    const panelEnteringRule = styles.match(/\.template-version-modal--entering \.template-version-modal__panel\s*\{[^}]+\}/)?.[0] ?? '';
+    const panelClosingRule = styles.match(/\.template-version-modal--closing \.template-version-modal__panel\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(modalRule).toContain('top: var(--platform-topbar-height);');
+    expect(modalRule).toContain('height: calc(100vh - var(--platform-topbar-height));');
+    expect(enteringRule).toContain('animation: task-dataset-preview-overlay-in 180ms ease-out both;');
+    expect(closingRule).toContain('animation: task-dataset-preview-overlay-out 180ms ease-in both;');
+    expect(panelEnteringRule).toContain('animation: task-dataset-preview-modal-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;');
+    expect(panelClosingRule).toContain('animation: task-dataset-preview-modal-out 180ms cubic-bezier(0.55, 0, 0.2, 1) both;');
+  });
+
+  it('模板版本管理表格字段和内容居中展示', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const cellRule = styles.match(/\.template-version-table th,\s*\.template-version-table td\s*\{[^}]+\}/)?.[0] ?? '';
+    const actionRule = styles.match(/\.template-version-table__actions\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(cellRule).toContain('text-align: center;');
+    expect(actionRule).toContain('justify-content: center;');
+    expect(actionRule).toContain('min-height: 32px;');
+  });
+
+  it('模板版本管理收缩摘要栏使用紧凑横向布局', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const summaryRule = styles.match(/\.template-version-list-summary\s*\{[^}]+\}/)?.[0] ?? '';
+    const collapsedRule = styles.match(
+      /\.template-version-modal__list--collapsed \.template-version-list-summary\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const expandedRule = styles.match(
+      /\.template-version-modal__list--expanded \.template-version-table-scroll\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const titleRule = styles.match(/\.template-version-list-summary__title\s*\{[^}]+\}/)?.[0] ?? '';
+    const metaRule = styles.match(/\.template-version-list-summary__meta\s*\{[^}]+\}/)?.[0] ?? '';
+    const buttonRule = styles.match(/\.template-version-list-summary__expand\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(summaryRule).toContain('display: grid;');
+    expect(summaryRule).toContain('align-items: center;');
+    expect(summaryRule).toContain('grid-template-columns: max-content minmax(0, 1fr) max-content;');
+    expect(summaryRule).toContain('min-height: 44px;');
+    expect(summaryRule).toContain('border: 1px solid #dbe7ff;');
+    expect(summaryRule).toContain('border-radius: 8px;');
+    expect(summaryRule).toContain('background: #ffffff;');
+    expect(collapsedRule).toContain('animation: template-version-list-collapse-in 180ms ease-out both;');
+    expect(expandedRule).toContain('animation: template-version-list-expand-in 180ms ease-out both;');
+    expect(styles).toContain('@keyframes template-version-list-collapse-in');
+    expect(styles).toContain('@keyframes template-version-list-expand-in');
+    expect(titleRule).toContain('font-weight: 900;');
+    expect(metaRule).toContain('text-align: center;');
+    expect(buttonRule).toContain('min-height: 32px;');
+    expect(buttonRule).toContain('border: 1px solid #c9d8f6;');
+    expect(buttonRule).toContain('border-radius: 6px;');
+  });
+
+  it('模板版本 Diff 使用左右渲染预览并支持横向和纵向滚动', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const scrollerRule = styles.match(/\.template-version-side-by-side-diff__scroller\s*\{[^}]+\}/)?.[0] ?? '';
+    const gridRule = styles.match(/\.template-version-side-by-side-diff__grid\s*\{[^}]+\}/)?.[0] ?? '';
+    const ownerPreviewShellRule =
+      styles.match(/\.template-version-side-by-side-diff__owner-preview-shell\s*\{[^}]+\}/)?.[0] ?? '';
+    const canvasRule = styles.match(/\.template-version-side-by-side-diff__canvas\s*\{[^}]+\}/)?.[0] ?? '';
+    const summaryChangedRule = styles.match(
+      /\.template-version-diff__summary \[data-diff-kind='changed'\]\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const changedBadgeRule = styles.match(
+      /\.schema-renderer__field-node--diff-changed > \.schema-renderer__field-diff-badge\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const addedRule = styles.match(
+      /\.template-version-side-by-side-diff__owner-preview-shell \.template-version-side-by-side-diff__canvas \.schema-renderer__field-node--diff-added\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const removedRule = styles.match(
+      /\.template-version-side-by-side-diff__owner-preview-shell \.template-version-side-by-side-diff__canvas \.schema-renderer__field-node--diff-removed\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const changedRule = styles.match(
+      /\.template-version-side-by-side-diff__owner-preview-shell \.template-version-side-by-side-diff__canvas \.schema-renderer__field-node--diff-changed\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+
+    expect(scrollerRule).toContain('overflow-x: auto;');
+    expect(scrollerRule).toContain('overflow-y: auto;');
+    expect(scrollerRule).not.toContain('overflow-y: hidden;');
+    expect(scrollerRule).toContain('min-height: 0;');
+    expect(scrollerRule).toContain('max-height: min(58vh, 560px);');
+    expect(gridRule).toContain('grid-template-columns: repeat(2, minmax(420px, 1fr));');
+    expect(gridRule).toContain('min-width: 900px;');
+    expect(ownerPreviewShellRule).toContain('min-height: 0;');
+    expect(canvasRule).not.toContain('background: #f8fbff;');
+    expect(styles).toContain('.designer-canvas .designer-canvas__labeler-preview-surface');
+    expect(styles).not.toContain('template-version-side-by-side-diff__labeler-surface');
+    expect(styles).not.toContain('.template-version-side-by-side-diff__canvas .schema-renderer {');
+    expect(summaryChangedRule).toContain('color: #c2410c;');
+    expect(summaryChangedRule).toContain('background: #fff7ed;');
+    expect(changedBadgeRule).toContain('color: #c2410c;');
+    expect(changedBadgeRule).toContain('background: #ffedd5;');
+    expect(addedRule).toContain('box-shadow: inset 3px 0 0 #22c55e;');
+    expect(removedRule).toContain('box-shadow: inset 3px 0 0 #ef4444;');
+    expect(changedRule).toContain('border-color: #fdba74;');
+    expect(changedRule).toContain('background: #fff7ed;');
+    expect(changedRule).toContain('box-shadow: inset 3px 0 0 #f97316;');
+  });
+
   it('关联模板下拉的模板 ID 使用模板表格同款标识样式', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const optionMainRule = styles.match(/\.task-template-picker__option-main\s*\{[^}]+\}/)?.[0] ?? '';
@@ -828,24 +931,18 @@ describe('global styles', () => {
     expect(mobileRule).toContain('width: calc(100vw - 32px);');
   });
 
-  it('模板配置顶部栏更扁并使用右侧关闭按钮', () => {
+  it('模板配置顶部栏更扁并不再保留右侧关闭按钮样式', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const topbarRule = styles.match(/\.template-designer-topbar\s*\{[^}]+\}/)?.[0] ?? '';
     const titleRule = styles.match(/\.template-designer-topbar h1\s*\{[^}]+\}/)?.[0] ?? '';
     const actionButtonRule = styles.match(/\.template-designer-topbar__actions button\s*\{[^}]+\}/)?.[0] ?? '';
-    const closeRule = styles.match(/\.template-designer-drawer__close\s*\{[^}]+\}/)?.[0] ?? '';
 
     expect(topbarRule).toContain('padding: 9px 24px;');
     expect(topbarRule).toContain('gap: 16px;');
     expect(titleRule).toContain('font-size: 18px;');
     expect(actionButtonRule).toContain('min-height: 30px;');
     expect(actionButtonRule).toContain('padding: 5px 10px;');
-    expect(closeRule).toContain('width: 32px;');
-    expect(closeRule).toContain('height: 32px;');
-    expect(closeRule).toContain('border: 1px solid transparent;');
-    expect(closeRule).toContain('background: transparent;');
-    expect(closeRule).toContain('font-size: 28px;');
-    expect(closeRule).toContain('font-weight: 300;');
+    expect(styles).not.toContain('template-designer-drawer__close');
   });
 
   it('模板配置内部表格内容保持左对齐', () => {
@@ -1284,6 +1381,18 @@ describe('global styles', () => {
     expect(focusRule).toContain('border-color: #306df8;');
     expect(focusRule).toContain('box-shadow: 0 0 0 3px rgba(48, 109, 248, 0.14);');
     expect(focusRule).toContain('outline: none;');
+  });
+
+  it('关联模板菜单的查看模板眼睛按钮不显示边框和独立背景', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const viewButtonRule = styles.match(/\.task-template-picker__view-button\s*\{[^}]+\}/)?.[0] ?? '';
+    const viewButtonHoverRule = styles.match(
+      /\.task-template-picker__view-button:hover:not\(:disabled\),\s*\.task-template-picker__view-button:focus-visible:not\(:disabled\)\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+
+    expect(viewButtonRule).toContain('border: 0;');
+    expect(viewButtonRule).toContain('background: transparent;');
+    expect(viewButtonHoverRule).toContain('background: transparent;');
   });
 
   it('任务截止时间日历浮层使用圆角和柔和弹出动效', () => {

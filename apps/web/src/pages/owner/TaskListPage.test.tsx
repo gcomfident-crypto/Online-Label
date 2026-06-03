@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TaskListPage, resolveOwnerDisplayTasks } from './TaskListPage';
 import { TemplateDesignerPage } from './TemplateDesignerPage';
+import { createLabelHubSchema } from '@labelhub/shared';
 
 const baseTask = {
   id: 'task_1',
@@ -17,7 +18,7 @@ const baseTask = {
   rewardPerItem: 0.3,
   perUserLimit: 100,
   quota: 5000,
-  deadline: '2026-06-01T15:59:00.000Z',
+  deadline: '2026-06-10T15:59:00.000Z',
   distributionStrategy: 'FIRST_COME_FIRST_SERVE',
   aiPreReviewEnabled: true,
   aiRuleName: '电商相关性 v2',
@@ -267,7 +268,7 @@ describe('TaskListPage', () => {
     expect(table.querySelectorAll('.task-date-cell__time').length).toBeGreaterThan(0);
     expect(within(rows[1]).getByText('2026-05-23')).toBeInTheDocument();
     expect(within(rows[1]).getAllByText('00:00').length).toBeGreaterThan(0);
-    expect(within(rows[1]).getByText('2026-06-01')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('2026-06-10')).toBeInTheDocument();
     expect(within(rows[1]).getByText('15:59')).toBeInTheDocument();
     expect(within(table).queryByText('2026-05-20 00:00')).not.toBeInTheDocument();
     expect(within(table).getByText('商品标题清洗 v3 · 抖音电商')).toBeInTheDocument();
@@ -1194,6 +1195,168 @@ describe('TaskListPage', () => {
     expect(screen.queryByRole('option', { name: 'M-001 · 偏好对比模板' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: 'M-002 · 问答质量模板' }));
     expect(screen.getByLabelText('关联模板')).toHaveValue('M-002 · 问答质量模板');
+  });
+
+  it('关联模板菜单可通过眼睛按钮直接查看已有模板配置', async () => {
+    const user = userEvent.setup();
+    const templateOptions = [
+      createTemplateDto({
+        id: 'template_preference',
+        name: '偏好对比模板',
+        datasetKind: 'preference_compare',
+        schemaVersion: 'pref-r1',
+      }),
+      createTemplateDto({
+        id: 'template_qa',
+        name: '问答质量模板',
+        datasetKind: 'qa_quality',
+        schemaVersion: 'r1',
+      }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: [{ ...baseTask, status: 'DRAFT' }] }))
+      .mockResolvedValueOnce(jsonResponse({ data: templateOptions }))
+      .mockResolvedValueOnce(jsonResponse({ data: templateOptions }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderTaskListPageWithTemplateRoute();
+
+    await screen.findByRole('table', { name: '任务列表' });
+    await user.click(screen.getByRole('button', { name: '新建任务' }));
+    await user.type(screen.getByLabelText('任务标题'), '查看模板后恢复的任务');
+    await user.click(screen.getByLabelText('关联模板'));
+    expect(screen.getByLabelText('关联模板')).toHaveValue('');
+
+    await user.click(screen.getByRole('button', { name: '查看 M-002 · 问答质量模板 模板配置' }));
+
+    const dialog = await screen.findByRole('dialog', { name: '模板配置' });
+    expect(within(dialog).getByRole('button', { name: '编辑模板名称' })).toHaveTextContent('问答质量模板');
+    expect(within(dialog).queryByRole('button', { name: '关闭模板配置' })).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/templates', expect.objectContaining({ method: 'GET' }));
+
+    await user.click(screen.getByTestId('template-designer-backdrop'));
+
+    const restoredDrawer = await screen.findByRole('complementary', { name: '发布任务抽屉' });
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+    expect(document.querySelector('.task-publish-drawer-shell')).toHaveClass('is-returning-from-template');
+    expect(within(restoredDrawer).getByLabelText('任务标题')).toHaveValue('查看模板后恢复的任务');
+    expect(within(restoredDrawer).getByLabelText('关联模板')).toHaveValue('');
+  });
+
+  it('从关联模板查看已有模板并保存修改后关闭配置不再恢复任务抽屉', async () => {
+    const user = userEvent.setup();
+    const editableSchema = createLabelHubSchema({
+      schemaVersion: 'r1',
+      datasetKind: 'qa_quality',
+      fields: [{ key: 'prompt', type: 'text', label: '题目' }],
+    });
+    const existingTemplate = {
+      ...createTemplateDto({
+        id: 'template_qa',
+        name: '问答质量模板',
+        datasetKind: 'qa_quality',
+        schemaVersion: 'r1',
+      }),
+      schema: editableSchema,
+      version: 1,
+    };
+    const templateOptions = [
+      createTemplateDto({
+        id: 'template_preference',
+        name: '偏好对比模板',
+        datasetKind: 'preference_compare',
+        schemaVersion: 'pref-r1',
+      }),
+      existingTemplate,
+    ];
+    let savedDraft = {
+      ...existingTemplate,
+      id: 'template_qa_draft',
+      status: 'DRAFT' as const,
+      schemaVersion: 'draft',
+      parentTemplateId: existingTemplate.id,
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      const method = init?.method ?? 'GET';
+
+      if (path === '/tasks' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [{ ...baseTask, status: 'DRAFT' }] }));
+      }
+
+      if (path === '/templates' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: templateOptions }));
+      }
+
+      if (path === '/templates' && method === 'POST') {
+        const body = JSON.parse(String(init?.body ?? '{}')) as {
+          name: string;
+          schema: typeof editableSchema;
+        };
+        savedDraft = {
+          ...savedDraft,
+          name: body.name,
+          schema: body.schema,
+        };
+
+        return Promise.resolve(jsonResponse({ data: savedDraft }));
+      }
+
+      if (path === '/templates/template_qa_draft/publish' && method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              template: {
+                ...savedDraft,
+                id: 'template_qa_v2',
+                status: 'PUBLISHED',
+                schemaVersion: 'r2',
+                version: 2,
+                publishedAt: '2026-05-30T00:00:00.000Z',
+              },
+              compatibilityReport: {
+                addedFieldKeys: [],
+                removedFieldKeys: [],
+                changedFieldTypes: [],
+                compatible: true,
+                riskMessages: [],
+              },
+            },
+          }),
+        );
+      }
+
+      return Promise.resolve(jsonResponse({ data: [] }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderTaskListPageWithTemplateRoute();
+
+    await screen.findByRole('table', { name: '任务列表' });
+    await user.click(screen.getByRole('button', { name: '新建任务' }));
+    await user.type(screen.getByLabelText('任务标题'), '查看模板后不应恢复的任务');
+    await user.click(screen.getByLabelText('关联模板'));
+    await user.click(screen.getByRole('button', { name: '查看 M-002 · 问答质量模板 模板配置' }));
+
+    const dialog = await screen.findByRole('dialog', { name: '模板配置' });
+    const canvas = within(dialog).getByRole('main', { name: '模板编辑区域' });
+    await user.click(within(canvas).getByRole('button', { name: '编辑模板名称' }));
+    const templateNameInput = within(canvas).getByRole('textbox', { name: '模板名称' });
+    await user.clear(templateNameInput);
+    await user.type(templateNameInput, '改动后的问答模板');
+    await user.click(within(dialog).getByRole('button', { name: '保存并发布版本 v2' }));
+
+    expect(await screen.findByText('"改动后的问答模板" 模版已发布为v2')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('template-designer-backdrop'));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('heading', { name: '评测模板' })).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: '发布任务抽屉' })).not.toBeInTheDocument();
   });
 
   it('已保存草稿重新打开后仍可切换关联模板', async () => {
@@ -2706,7 +2869,7 @@ const clickDrawerBackdrop = async (user: ReturnType<typeof userEvent.setup>) => 
 
 const selectDeadline = async (
   user: ReturnType<typeof userEvent.setup>,
-  value = '2026-06-01T23:00:00',
+  value = '2026-06-10T23:00:00',
 ) => {
   await user.click(screen.getByRole('button', { name: '选择截止时间' }));
   fireEvent.change(screen.getByLabelText('截止日期时间'), { target: { value } });

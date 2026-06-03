@@ -124,25 +124,30 @@ model User {
 }
 
 model TaskTemplate {
-  id               String         @id @default(cuid())
-  name             String
-  description      String?
-  datasetKind      DatasetKind
-  schemaVersion    String
-  schema           Json
-  status           TemplateStatus @default(DRAFT)
-  version          Int            @default(0)
-  parentTemplateId String?
-  publishedAt      DateTime?
-  createdById      String?
-  createdBy        User?          @relation("TaskTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  tasks            Task[]
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id                     String         @id @default(cuid())
+  name                   String
+  description            String?
+  datasetKind            DatasetKind
+  schemaVersion          String
+  schema                 Json
+  status                 TemplateStatus @default(DRAFT)
+  version                Int            @default(0)
+  parentTemplateId       String?
+  rootTemplateId         String?
+  archivedAt             DateTime?
+  restoredFromTemplateId String?
+  publishedAt            DateTime?
+  createdById            String?
+  createdBy              User?          @relation("TaskTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  tasks                  Task[]
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 
   @@index([datasetKind])
   @@index([status])
   @@index([parentTemplateId])
+  @@index([rootTemplateId])
+  @@index([archivedAt])
   @@map("task_templates")
 }
 
@@ -237,20 +242,20 @@ model Draft {
 }
 
 model Submission {
-  id            String           @id @default(cuid())
-  assignmentId  String
-  assignment    Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  status        SubmissionStatus @default(SUBMITTED)
-  round         Int
-  answers       Json
-  schemaVersion String
+  id             String           @id @default(cuid())
+  assignmentId   String
+  assignment     Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  status         SubmissionStatus @default(SUBMITTED)
+  round          Int
+  answers        Json
+  schemaVersion  String
   idempotencyKey String?
-  submittedAt   DateTime         @default(now())
-  reviewRecords ReviewRecord[]
-  aiReviewJobs  AiReviewJob[]
-  auditLogs     AuditLog[]
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  submittedAt    DateTime         @default(now())
+  reviewRecords  ReviewRecord[]
+  aiReviewJobs   AiReviewJob[]
+  auditLogs      AuditLog[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@unique([assignmentId, round])
   @@unique([idempotencyKey])
@@ -288,29 +293,29 @@ model ReviewRule {
 }
 
 model ReviewRecord {
-  id               String      @id @default(cuid())
-  submissionId     String
-  submission       Submission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  ruleId           String?
-  rule             ReviewRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
-  stage            ReviewStage
-  reviewerId       String?
-  reviewer         User?       @relation("ReviewRecordReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  id                 String      @id @default(cuid())
+  submissionId       String
+  submission         Submission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  ruleId             String?
+  rule               ReviewRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  stage              ReviewStage
+  reviewerId         String?
+  reviewer           User?       @relation("ReviewRecordReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
   assignedReviewerId String?
-  assignedReviewer User?       @relation("ReviewRecordAssignee", fields: [assignedReviewerId], references: [id], onDelete: SetNull)
-  reviewerType     String      @default("AI")
-  scores           Json
-  decision         String?
-  comment          String?
-  revisedAnswers   Json?
-  rawPrompt        String?
-  rawOutput        String?
-  structuredOutput Json?
-  modelMetadata    Json?
-  retryCount       Int         @default(0)
-  idempotencyKey   String?
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  assignedReviewer   User?       @relation("ReviewRecordAssignee", fields: [assignedReviewerId], references: [id], onDelete: SetNull)
+  reviewerType       String      @default("AI")
+  scores             Json
+  decision           String?
+  comment            String?
+  revisedAnswers     Json?
+  rawPrompt          String?
+  rawOutput          String?
+  structuredOutput   Json?
+  modelMetadata      Json?
+  retryCount         Int         @default(0)
+  idempotencyKey     String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
   @@unique([idempotencyKey])
   @@index([submissionId])

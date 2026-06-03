@@ -8,9 +8,13 @@ import {
   resolveDesignerDropTargetAtPoint,
   resolveDesignerDropTargetForProjection,
 } from './TemplateDesignerPage';
+import { OWNER_TASKS_PATH, writeTemplateOpenTarget } from './templateDraftHandoff';
+import diffIcon from '../../assets/diff.svg';
 import divideIcon from '../../assets/divide.svg';
+import recoverIcon from '../../assets/recover.svg';
 import starIcon from '../../assets/star.svg';
 import tabsIcon from '../../assets/tabs.svg';
+import versionIcon from '../../assets/version.svg';
 import { DesignerCanvas } from '../../features/template-designer/DesignerCanvas';
 import { MaterialDragOverlay } from '../../features/template-designer/MaterialPanel';
 import { DESIGNER_MATERIALS, useTemplateDesignerStore } from '../../features/template-designer/templateStore';
@@ -59,6 +63,7 @@ describe('TemplateDesignerPage', () => {
   afterEach(() => {
     vi.useRealTimers();
     sessionStorage.clear();
+    window.history.pushState({}, '', '/');
     vi.unstubAllGlobals();
   });
 
@@ -126,7 +131,9 @@ describe('TemplateDesignerPage', () => {
     await user.click(screen.getByLabelText('显示字段联动'));
     expect(screen.getByLabelText('隐藏字段联动')).toBeChecked();
     await user.click(screen.getByRole('button', { name: '新增联动规则' }));
-    expect(screen.getByText('条件字段')).toBeInTheDocument();
+    expect(screen.getByText('联动 1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '控制显隐' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '规则 1 条件字段' })).toHaveTextContent('请选择字段');
 
     expect(screen.queryByRole('region', { name: 'Renderer 预览' })).not.toBeInTheDocument();
   });
@@ -274,6 +281,7 @@ describe('TemplateDesignerPage', () => {
 
       if (path === '/templates' && method === 'POST') {
         const body = JSON.parse(String(init?.body ?? '{}')) as {
+          actorId?: string;
           name: string;
           schema: typeof autoSchema;
         };
@@ -282,6 +290,7 @@ describe('TemplateDesignerPage', () => {
           name: body.name,
           schema: body.schema,
           status: 'DRAFT',
+          createdById: body.actorId ?? null,
         });
 
         return jsonResponse({ data: savedTemplate });
@@ -317,8 +326,10 @@ describe('TemplateDesignerPage', () => {
       ([path, init]) => path.toString() === '/templates' && init?.method === 'POST',
     );
     const createTemplateBody = JSON.parse(String(createTemplateCall?.[1]?.body ?? '{}')) as {
+      actorId?: string;
       schema: LabelHubSchema;
     };
+    expect(createTemplateBody.actorId).toBe('user_owner_zhang_man');
     expect(createTemplateBody.schema.metadata?.autoTemplateSource).toEqual({
       sourceFileName: 'sample.jsonl',
       previewRecords: [previewRecord],
@@ -377,6 +388,17 @@ describe('TemplateDesignerPage', () => {
                 requirement: '必须结合两个回答的事实准确性和完整性判断。',
               },
             },
+            {
+              key: 'internal_note_field',
+              fieldKey: 'internal_note',
+              type: 'textarea',
+              label: '内部备注',
+              aiReview: {
+                enabled: false,
+                role: 'annotation_answer',
+                requirement: '关闭 AI 预审时不应该进入 Prompt。',
+              },
+            },
           ],
         }),
         previewRecords: [
@@ -409,7 +431,7 @@ describe('TemplateDesignerPage', () => {
     expect(promptPreview).toHaveTextContent('1. 角色设定');
     expect(within(promptPreview).getByLabelText('编辑角色设定')).toHaveAttribute(
       'placeholder',
-      '请填写 AI 预审角色设定，说明模型的身份、任务目标和审核范围。',
+      '请填写 AI 预审角色设定，说明模型的身份、任务目标和审核范围',
     );
     expect((within(promptPreview).getByLabelText('编辑角色设定') as HTMLTextAreaElement).value).toBe('');
     expect(promptPreview).toHaveTextContent('2. 题目展示信息 Show Item');
@@ -417,12 +439,15 @@ describe('TemplateDesignerPage', () => {
       (within(promptPreview).getByLabelText('编辑题目展示信息 Show Item') as HTMLTextAreaElement).value,
     ).toContain('上传 Prompt：比较两个回答');
     expect(promptPreview).toHaveTextContent('3. 标注员提交内容');
-    expect((within(promptPreview).getByLabelText('编辑标注员提交内容') as HTMLTextAreaElement).value).toContain(
-      '"preferred": null',
-    );
+    const answersTextarea = within(promptPreview).getByLabelText('编辑标注员提交内容') as HTMLTextAreaElement;
+    expect(answersTextarea.value).toContain('"preferred": null');
+    expect(answersTextarea.value).not.toContain('internal_note');
     expect(promptPreview).toHaveTextContent('4. 字段级审核标准');
     expect((within(promptPreview).getByLabelText('编辑字段级审核标准') as HTMLTextAreaElement).value).toContain(
       '必须结合两个回答的事实准确性和完整性判断。',
+    );
+    expect((within(promptPreview).getByLabelText('编辑字段级审核标准') as HTMLTextAreaElement).value).not.toContain(
+      '关闭 AI 预审时不应该进入 Prompt。',
     );
     expect(promptPreview).toHaveTextContent('5. 输出格式约束');
     expect((within(promptPreview).getByLabelText('编辑输出格式约束') as HTMLTextAreaElement).value).toContain('verdict');
@@ -563,7 +588,7 @@ describe('TemplateDesignerPage', () => {
     expect(description).toHaveClass('designer-field-card__description');
   });
 
-  it('输入文件字段分类失败时降级使用本地解析模板并打开配置抽屉', async () => {
+  it('输入文件字段分类失败时静默降级使用本地解析模板并打开配置抽屉', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: RequestInfo | URL) => {
@@ -600,7 +625,7 @@ describe('TemplateDesignerPage', () => {
     const dialog = await screen.findByRole('dialog', { name: '模板配置' });
     expect(within(dialog).getByText('失败样例')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(await screen.findByText('字段分类接口不可用，已使用本地解析结果创建模板')).toBeInTheDocument();
+    expect(screen.queryByText('字段分类接口不可用，已使用本地解析结果创建模板')).not.toBeInTheDocument();
   });
 
   it('用户在右侧修改 ShowItem 字段显示名时，画布立即更新且保留上传样例值', async () => {
@@ -766,7 +791,7 @@ describe('TemplateDesignerPage', () => {
     expect(templateListPanel).toHaveClass('task-management-table-card', 'template-manager-table-panel');
     const summaryRegion = within(templateListPanel as HTMLElement).getByLabelText('模板状态筛选');
     expect(summaryRegion).toHaveClass('task-summary-grid', 'template-summary-grid');
-    expect(within(summaryRegion).getByText('模板总数')).toBeInTheDocument();
+    expect(within(summaryRegion).getByText('总模版')).toBeInTheDocument();
     expect(within(summaryRegion).getByText('草稿')).toBeInTheDocument();
     expect(within(summaryRegion).getByText('已发布')).toBeInTheDocument();
     expect(within(summaryRegion).queryByText('已归档')).not.toBeInTheDocument();
@@ -794,6 +819,7 @@ describe('TemplateDesignerPage', () => {
     expect(screen.queryByRole('button', { name: '预览 问答质量模板' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '编辑 问答质量模板' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '复制 问答质量模板' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '查看 问答质量模板 版本管理' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '删除 问答质量模板' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: '更多操作 问答质量模板' })).not.toBeInTheDocument();
     const publishedTemplateRow = screen.getByRole('button', { name: /打开模板 问答质量模板/ });
@@ -824,7 +850,7 @@ describe('TemplateDesignerPage', () => {
     expect(screen.getByRole('button', { name: /打开模板 问答质量模板/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /打开官方模板/ })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /模板总数/ }));
+    await user.click(screen.getByRole('button', { name: /总模版/ }));
     expect(screen.getByRole('button', { name: /打开模板 问答质量模板/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /打开官方模板/ })).not.toBeInTheDocument();
 
@@ -843,7 +869,7 @@ describe('TemplateDesignerPage', () => {
     expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
     expect(document.querySelector('.template-designer-drawer-shell')?.parentElement).toBe(document.body);
     expect(screen.getByRole('button', { name: '选择 题目原始数据' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '关闭模板配置' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '关闭模板配置' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('dialog', { name: '模板配置' }));
     expect(screen.getByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
@@ -860,7 +886,7 @@ describe('TemplateDesignerPage', () => {
 
     await user.click(screen.getByText('M-001'));
     expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '关闭模板配置' }));
+    await user.click(screen.getByTestId('template-designer-backdrop'));
     expect(screen.queryByText('需要保存成草稿吗？')).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument(),
@@ -872,6 +898,39 @@ describe('TemplateDesignerPage', () => {
     expect(screen.queryByRole('button', { name: '选择 题目原始数据' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '使用 qa_quality' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '使用 preference_compare' })).not.toBeInTheDocument();
+  });
+
+  it('从任务抽屉预览模板带着 URL templateId 进入时，点击外侧会返回任务管理', async () => {
+    const user = userEvent.setup();
+    const onReturnTo = vi.fn();
+    const targetTemplate = createTemplateDto({
+      id: 'template_qa',
+      name: '问答质量模板',
+      schema: qaQualitySampleSchema,
+      status: 'PUBLISHED',
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          data: [targetTemplate],
+        }),
+      ),
+    );
+
+    writeTemplateOpenTarget(targetTemplate.id, { returnTo: OWNER_TASKS_PATH });
+    window.history.pushState({}, '', `/owner/templates?templateId=${targetTemplate.id}`);
+
+    render(<TemplateDesignerPage onReturnTo={onReturnTo} />);
+
+    expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('template-designer-backdrop'));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument(),
+    );
+    expect(onReturnTo).toHaveBeenCalledWith(OWNER_TASKS_PATH);
   });
 
   it('模板列表状态使用任务管理同款圆点胶囊并沿用模板筛选配色', async () => {
@@ -965,6 +1024,9 @@ describe('TemplateDesignerPage', () => {
     render(<TemplateDesignerPage />);
 
     const templateTable = await screen.findByRole('table', { name: '模板列表' });
+    const customVersionButton = within(templateTable).getByRole('button', { name: '查看 自定义问答模板 版本管理' });
+    expect(customVersionButton.querySelector('img')).toHaveAttribute('src', versionIcon);
+    expect(customVersionButton.querySelector('img')).toHaveAttribute('alt', '');
     expect(within(templateTable).getByRole('button', { name: '复制 自定义问答模板' })).toBeInTheDocument();
     const customDeleteButton = within(templateTable).getByRole('button', { name: '删除 自定义问答模板' });
     expect(customDeleteButton).toBeEnabled();
@@ -994,6 +1056,482 @@ describe('TemplateDesignerPage', () => {
     expect(screen.queryByRole('button', { name: /打开模板 自定义问答模板$/ })).not.toBeInTheDocument();
   });
 
+  it('被未完成任务占用的模板禁用删除按钮并提示原因', async () => {
+    const user = userEvent.setup();
+    const lockedTemplate = createTemplateDto({
+      id: 'template_locked',
+      name: '使用中模板',
+      schema: qaQualitySampleSchema,
+      status: 'PUBLISHED',
+      usageCount: 2,
+      activeUsageCount: 1,
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({ data: [lockedTemplate] });
+      }
+
+      return jsonResponse({ data: {} });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+
+    const templateTable = await screen.findByRole('table', { name: '模板列表' });
+    const deleteButton = within(templateTable).getByRole('button', { name: '删除 使用中模板' });
+
+    expect(deleteButton).toBeDisabled();
+    expect(deleteButton).toHaveAttribute('title', '模板正在被未完成任务使用，暂不可删除');
+
+    await user.click(deleteButton);
+
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/templates/template_locked',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('模板列表行版本管理点击 Diff 后收缩版本列表，并在未完成任务占用时禁用恢复', async () => {
+    const user = userEvent.setup();
+    const restoredTemplate = createTemplateDto({
+      id: 'template_v1',
+      name: '版本链模板',
+      schema: createLabelHubSchema({
+        schemaVersion: 'v1',
+        datasetKind: 'generic_json',
+        fields: [
+          { key: 'material', type: 'show_item', label: '题目材料', sourceKey: 'prompt' },
+          { key: 'prompt', type: 'text', label: '题目' },
+          { key: 'obsolete', type: 'text', label: '旧字段' },
+        ],
+      }),
+      status: 'PUBLISHED',
+      version: 1,
+      rootTemplateId: 'template_v1',
+      createdById: 'user_owner_zhang_man',
+    });
+    const middleTemplate = createTemplateDto({
+      id: 'template_v2',
+      name: '版本链模板',
+      schema: createLabelHubSchema({
+        schemaVersion: 'v2',
+        datasetKind: 'generic_json',
+        fields: [
+          { key: 'material', type: 'show_item', label: '题目材料', sourceKey: 'prompt' },
+          { key: 'prompt', type: 'textarea', label: '题目文本' },
+        ],
+      }),
+      status: 'PUBLISHED',
+      version: 2,
+      parentTemplateId: 'template_v1',
+      rootTemplateId: 'template_v1',
+      createdById: 'user_owner_zhang_man',
+    });
+    const currentTemplate = createTemplateDto({
+      id: 'template_v3',
+      name: '版本链模板',
+      schema: createLabelHubSchema({
+        schemaVersion: 'v3',
+        datasetKind: 'generic_json',
+        fields: [
+          { key: 'material', type: 'show_item', label: '题目材料', sourceKey: 'prompt' },
+          { key: 'prompt', type: 'textarea', label: '题目文本' },
+          { key: 'comment', type: 'textarea', label: '备注' },
+        ],
+      }),
+      status: 'PUBLISHED',
+      version: 3,
+      parentTemplateId: 'template_v2',
+      rootTemplateId: 'template_v1',
+      createdById: 'user_owner_zhang_man',
+    });
+    const archivedTemplate = {
+      ...currentTemplate,
+      status: 'ARCHIVED' as const,
+      archivedAt: '2026-05-22T00:00:00.000Z',
+    };
+    const versionList = [
+      createTemplateVersionDto(currentTemplate, { activeUsageCount: 1, isCurrent: true, usageCount: 1 }),
+      createTemplateVersionDto(middleTemplate, { activeUsageCount: 0, isCurrent: false, usageCount: 0 }),
+      createTemplateVersionDto(restoredTemplate, { activeUsageCount: 0, isCurrent: false, usageCount: 0 }),
+    ];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({ data: [currentTemplate] });
+      }
+
+      if (path === '/templates/template_v3/versions' && method === 'GET') {
+        return jsonResponse({ data: versionList });
+      }
+
+      if (path === '/templates/template_v3/versions/template_v1/diff' && method === 'GET') {
+        return jsonResponse({
+          data: {
+            summary: { added: 1, removed: 1, changed: 1 },
+            sections: [
+              {
+                type: 'added',
+                title: '新增字段',
+                items: [{ fieldKey: 'comment', label: '备注', changeDescription: '新增字段 备注' }],
+              },
+              {
+                type: 'removed',
+                title: '删除字段',
+                items: [{ fieldKey: 'obsolete', label: '旧字段', changeDescription: '删除字段 旧字段' }],
+              },
+              {
+                type: 'changed',
+                title: '字段类型变化',
+                items: [
+                  {
+                    fieldKey: 'prompt',
+                    before: 'text',
+                    after: 'textarea',
+                    changeDescription: '字段类型由 text 调整为 textarea',
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      }
+
+      if (path === '/templates/template_v3/versions/template_v2/diff' && method === 'GET') {
+        return jsonResponse({
+          data: {
+            summary: { added: 1, removed: 0, changed: 0 },
+            sections: [
+              {
+                type: 'added',
+                title: '新增字段',
+                items: [{ fieldKey: 'comment', label: '备注', changeDescription: '新增字段 备注' }],
+              },
+            ],
+          },
+        });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+
+    const row = await screen.findByRole('button', { name: /打开模板 版本链模板/ });
+    await user.click(within(row).getByRole('button', { name: '查看 版本链模板 版本管理' }));
+
+    const modal = await screen.findByRole('dialog', { name: '模板版本管理' });
+    expect(within(modal).getByText('模板版本管理')).toBeInTheDocument();
+    expect(within(modal).getByText(/当前版本 v3/)).toBeInTheDocument();
+    expect(within(modal).getAllByText('张满')).toHaveLength(3);
+    expect(within(modal).getByText('1 个未完成任务')).toBeInTheDocument();
+    expect(within(modal).getAllByText('无未完成任务')).toHaveLength(2);
+    const versionTable = within(modal).getByRole('table', { name: '模板历史版本列表' });
+    expect(within(versionTable).getByRole('columnheader', { name: '版本' })).toBeInTheDocument();
+    expect(within(versionTable).queryByRole('columnheader', { name: '状态' })).not.toBeInTheDocument();
+    expect(within(versionTable).getAllByText('2026-05-21 08:00')).toHaveLength(3);
+    expect(within(versionTable).getByRole('columnheader', { name: '任务使用' })).toBeInTheDocument();
+    const v1Row = within(versionTable).getByRole('row', { name: /v1/ });
+    const diffButton = within(v1Row).getByRole('button', { name: 'Diff' });
+    expect(diffButton).toHaveClass('template-manager-row-action', 'template-version-table__icon-action');
+    expect(diffButton).toHaveTextContent('');
+    expect(diffButton.querySelector('.template-manager-row-action__icon')).not.toBeNull();
+    expect(diffButton.querySelector('img')).toHaveAttribute('src', diffIcon);
+    expect(within(versionTable).getAllByRole('button', { name: 'Diff' })).toHaveLength(2);
+    expect(within(versionTable).queryByRole('button', { name: '当前版本' })).not.toBeInTheDocument();
+    expect(within(versionTable).queryByRole('button', { name: '已是当前' })).not.toBeInTheDocument();
+    const restoreButton = within(v1Row).getByRole('button', { name: '恢复' });
+    expect(within(versionTable).getAllByRole('button', { name: '恢复' })).toHaveLength(2);
+    expect(restoreButton).toHaveClass('template-manager-row-action', 'template-version-table__icon-action');
+    expect(restoreButton).toBeDisabled();
+    expect(restoreButton).toHaveAttribute('title', '模板正在被未完成任务使用，暂不可恢复历史版本');
+    expect(restoreButton).toHaveTextContent('');
+    expect(restoreButton.querySelector('.template-manager-row-action__icon')).not.toBeNull();
+    expect(restoreButton.querySelector('img')).toHaveAttribute('src', recoverIcon);
+    await user.click(restoreButton);
+
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/templates/template_v3/versions/template_v1/restore',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(screen.queryByRole('dialog', { name: '确认恢复版本' })).not.toBeInTheDocument();
+    expect(within(modal).queryByRole('region', { name: '版本详情' })).not.toBeInTheDocument();
+    expect(within(modal).queryByText('版本差异对比')).not.toBeInTheDocument();
+    expect(within(modal).queryByText('请选择旧版本查看与当前版本的差异')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+
+    await user.click(diffButton);
+
+    const collapsedSummary = await within(modal).findByRole('region', { name: '历史版本列表摘要' });
+    expect(within(collapsedSummary).getByText('历史版本列表')).toBeInTheDocument();
+    expect(within(collapsedSummary).getByText('正在对比 v1 和当前 v3')).toBeInTheDocument();
+    expect(within(collapsedSummary).getByRole('button', { name: '展开列表' })).toBeInTheDocument();
+    expect(collapsedSummary.closest('.template-version-modal__list')).toHaveClass(
+      'template-version-modal__list--collapsed',
+    );
+    expect(within(modal).queryByRole('table', { name: '模板历史版本列表' })).not.toBeInTheDocument();
+
+    const diffRegion = await within(modal).findByRole('region', { name: '版本差异' });
+    expect(within(diffRegion).getByRole('heading', { name: 'v1 对比 v3' })).toBeInTheDocument();
+    expect(within(diffRegion).getByText('新增 1')).toBeInTheDocument();
+    expect(within(diffRegion).getByText('删除 1')).toBeInTheDocument();
+    expect(within(diffRegion).getByText('变更 1')).toBeInTheDocument();
+    const renderedDiff = within(diffRegion).getByLabelText('旧版本与当前版本渲染对比');
+    const oldPreview = within(renderedDiff).getByRole('group', { name: '旧版本 v1 渲染预览' });
+    const currentPreview = within(renderedDiff).getByRole('group', { name: '当前版本 v3 渲染预览' });
+
+    const oldOwnerPreviewShell = oldPreview.querySelector('.template-version-side-by-side-diff__owner-preview-shell');
+    const currentOwnerPreviewShell = currentPreview.querySelector('.template-version-side-by-side-diff__owner-preview-shell');
+
+    expect(oldOwnerPreviewShell).toHaveClass('designer-canvas', 'is-previewing-labeler');
+    expect(currentOwnerPreviewShell).toHaveClass('designer-canvas', 'is-previewing-labeler');
+    expect(oldOwnerPreviewShell?.querySelector('.template-version-side-by-side-diff__canvas')).toHaveClass(
+      'annotation-canvas-scroll',
+      'designer-canvas__labeler-preview-surface',
+    );
+    expect(currentOwnerPreviewShell?.querySelector('.template-version-side-by-side-diff__canvas')).toHaveClass(
+      'annotation-canvas-scroll',
+      'designer-canvas__labeler-preview-surface',
+    );
+    expect(oldPreview.querySelector('.schema-renderer')).toHaveAttribute('data-mode', 'review');
+    expect(currentPreview.querySelector('.schema-renderer')).toHaveAttribute('data-mode', 'review');
+    expect(within(oldPreview).getByRole('heading', { name: '旧版本 v1' })).toBeInTheDocument();
+    expect(within(currentPreview).getByRole('heading', { name: '当前版本 v3' })).toBeInTheDocument();
+    expect(within(oldPreview).getByText('题目材料')).toBeInTheDocument();
+    expect(within(oldPreview).getByText('prompt 样例值')).toBeInTheDocument();
+    expect(within(currentPreview).getByText('prompt 样例值')).toBeInTheDocument();
+    expect(within(oldPreview).getByLabelText('题目')).toBeDisabled();
+    expect(within(currentPreview).getByLabelText('题目文本')).toBeDisabled();
+    expect(within(currentPreview).getByLabelText('备注')).toBeDisabled();
+    expect(within(oldPreview).getByLabelText('旧字段')).toBeDisabled();
+    expect(within(currentPreview).queryByLabelText('旧字段')).not.toBeInTheDocument();
+
+    const addedNode = currentPreview.querySelector('[data-field-key="comment"]');
+    const removedNode = oldPreview.querySelector('[data-field-key="obsolete"]');
+    const oldChangedNode = oldPreview.querySelector('[data-field-key="prompt"]');
+    const currentChangedNode = currentPreview.querySelector('[data-field-key="prompt"]');
+
+    expect(addedNode).toHaveAttribute('data-diff-state', 'added');
+    expect(removedNode).toHaveAttribute('data-diff-state', 'removed');
+    expect(oldChangedNode).toHaveAttribute('data-diff-state', 'changed');
+    expect(currentChangedNode).toHaveAttribute('data-diff-state', 'changed');
+    expect(within(addedNode as HTMLElement).getByText('新增')).toBeInTheDocument();
+    expect(within(removedNode as HTMLElement).getByText('已删除')).toBeInTheDocument();
+    expect(within(oldChangedNode as HTMLElement).getByText('已修改')).toBeInTheDocument();
+    expect(within(currentChangedNode as HTMLElement).getByText('已修改')).toBeInTheDocument();
+    expect(within(diffRegion).queryByText('新增字段 备注')).not.toBeInTheDocument();
+
+    await user.click(within(collapsedSummary).getByRole('button', { name: '展开列表' }));
+
+    const expandedVersionTable = within(modal).getByRole('table', { name: '模板历史版本列表' });
+    expect(expandedVersionTable.closest('.template-version-modal__list')).toHaveClass(
+      'template-version-modal__list--expanded',
+    );
+    expect(within(expandedVersionTable).getByRole('columnheader', { name: '版本' })).toBeInTheDocument();
+    expect(within(modal).queryByRole('region', { name: '历史版本列表摘要' })).not.toBeInTheDocument();
+    expect(within(modal).getByLabelText('旧版本与当前版本渲染对比')).toBeInTheDocument();
+    expect(within(modal).getByRole('region', { name: '版本差异' })).toHaveTextContent('新增 1');
+
+    const expandedV2Row = within(expandedVersionTable).getByRole('row', { name: /v2/ });
+    await user.click(within(expandedV2Row).getByRole('button', { name: 'Diff' }));
+
+    const nextCollapsedSummary = await within(modal).findByRole('region', { name: '历史版本列表摘要' });
+    expect(within(nextCollapsedSummary).getByText('正在对比 v2 和当前 v3')).toBeInTheDocument();
+    expect(within(modal).queryByRole('table', { name: '模板历史版本列表' })).not.toBeInTheDocument();
+    expect(within(modal).getByRole('heading', { name: 'v2 对比 v3' })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/templates/template_v3/versions/template_v2/diff',
+      expect.objectContaining({ method: 'GET' }),
+    );
+
+    await user.click(within(nextCollapsedSummary).getByRole('button', { name: '展开列表' }));
+
+    const finalVersionTable = within(modal).getByRole('table', { name: '模板历史版本列表' });
+    await user.click(within(finalVersionTable).getByRole('button', { name: 'v3' }));
+
+    expect(within(modal).getByRole('table', { name: '模板历史版本列表' })).toBeInTheDocument();
+    expect(within(modal).queryByRole('region', { name: '历史版本列表摘要' })).not.toBeInTheDocument();
+    expect(within(modal).queryByRole('region', { name: '版本差异' })).not.toBeInTheDocument();
+  });
+
+  it('模板版本链没有未完成任务占用时允许确认恢复历史版本', async () => {
+    const user = userEvent.setup();
+    const restoredTemplate = createTemplateDto({
+      id: 'template_v1',
+      name: '可恢复版本链模板',
+      schema: createLabelHubSchema({
+        schemaVersion: 'v1',
+        datasetKind: 'generic_json',
+        fields: [{ key: 'prompt', type: 'text', label: '题目' }],
+      }),
+      status: 'PUBLISHED',
+      version: 1,
+      rootTemplateId: 'template_v1',
+      createdById: 'user_owner_zhang_man',
+    });
+    const currentTemplate = createTemplateDto({
+      id: 'template_v2',
+      name: '可恢复版本链模板',
+      schema: createLabelHubSchema({
+        schemaVersion: 'v2',
+        datasetKind: 'generic_json',
+        fields: [{ key: 'prompt', type: 'textarea', label: '题目文本' }],
+      }),
+      status: 'PUBLISHED',
+      version: 2,
+      parentTemplateId: 'template_v1',
+      rootTemplateId: 'template_v1',
+      createdById: 'user_owner_zhang_man',
+    });
+    const archivedTemplate = {
+      ...currentTemplate,
+      status: 'ARCHIVED' as const,
+      archivedAt: '2026-05-22T00:00:00.000Z',
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({ data: [currentTemplate] });
+      }
+
+      if (path === '/templates/template_v2/versions' && method === 'GET') {
+        return jsonResponse({
+          data: [
+            createTemplateVersionDto(currentTemplate, { activeUsageCount: 0, isCurrent: true, usageCount: 1 }),
+            createTemplateVersionDto(restoredTemplate, { activeUsageCount: 0, isCurrent: false, usageCount: 1 }),
+          ],
+        });
+      }
+
+      if (path === '/templates/template_v2/versions/template_v1/restore' && method === 'POST') {
+        return jsonResponse({
+          data: {
+            restoredTemplate,
+            archivedVersions: [archivedTemplate],
+            affectedActiveTasks: [],
+            message: '模板版本已恢复。',
+          },
+        });
+      }
+
+      if (path === '/templates/template_v1/versions' && method === 'GET') {
+        return jsonResponse({
+          data: [
+            createTemplateVersionDto(restoredTemplate, { activeUsageCount: 0, isCurrent: true, usageCount: 1 }),
+            createTemplateVersionDto(archivedTemplate, {
+              activeUsageCount: 0,
+              isArchived: true,
+              isCurrent: false,
+              usageCount: 1,
+            }),
+          ],
+        });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+
+    const row = await screen.findByRole('button', { name: /打开模板 可恢复版本链模板/ });
+    await user.click(within(row).getByRole('button', { name: '查看 可恢复版本链模板 版本管理' }));
+    const modal = await screen.findByRole('dialog', { name: '模板版本管理' });
+    const versionTable = within(modal).getByRole('table', { name: '模板历史版本列表' });
+    const restoreButton = within(versionTable).getByRole('button', { name: '恢复' });
+
+    expect(restoreButton).toBeEnabled();
+
+    await user.click(restoreButton);
+    expect(screen.getByText('恢复到 v1 后，v1 之后的版本将被归档，不再作为当前可用版本展示。请确认是否继续？')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '确认恢复' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/templates/template_v2/versions/template_v1/restore',
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    );
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/templates/template_v1/versions',
+        expect.objectContaining({ method: 'GET' }),
+      ),
+    );
+    expect(await within(modal).findByText(/当前版本 v1/)).toBeInTheDocument();
+  });
+
+  it('模板配置抽屉顶部提供版本管理入口，未保存新模板不展示入口', async () => {
+    const user = userEvent.setup();
+    const savedTemplate = createTemplateDto({
+      id: 'template_saved',
+      name: '已保存模板',
+      schema: qaQualitySampleSchema,
+      status: 'PUBLISHED',
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({ data: [savedTemplate] });
+      }
+
+      if (path === '/templates/template_saved/versions' && method === 'GET') {
+        return jsonResponse({
+          data: [createTemplateVersionDto(savedTemplate, { isCurrent: true })],
+        });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+    await openTemplateByName(user, '已保存模板');
+
+    const drawer = screen.getByRole('dialog', { name: '模板配置' });
+    const drawerVersionButton = within(drawer).getByRole('button', { name: '版本管理' });
+    expect(drawerVersionButton.querySelector('img')).toHaveAttribute('src', versionIcon);
+    expect(drawerVersionButton.querySelector('img')).toHaveAttribute('alt', '');
+    await user.click(drawerVersionButton);
+    const modal = await screen.findByRole('dialog', { name: '模板版本管理' });
+    const modalShell = modal.closest('.template-version-modal');
+    expect(modalShell?.parentElement).toBe(document.body);
+    expect(modalShell).toHaveClass('template-version-modal--entering');
+    expect(modalShell).not.toHaveClass('template-version-modal--closing');
+    expect(fetchMock).toHaveBeenCalledWith('/templates/template_saved/versions', expect.objectContaining({ method: 'GET' }));
+
+    await user.click(modalShell as HTMLElement);
+    expect(modalShell).toHaveClass('template-version-modal--closing');
+    expect(screen.getByRole('dialog', { name: '模板版本管理' })).toBeInTheDocument();
+    fireEvent.animationEnd(modal);
+    expect(screen.queryByRole('dialog', { name: '模板版本管理' })).not.toBeInTheDocument();
+
+    await user.click(drawerVersionButton);
+    const reopenedModal = await screen.findByRole('dialog', { name: '模板版本管理' });
+    const reopenedModalShell = reopenedModal.closest('.template-version-modal');
+    await user.click(screen.getByRole('button', { name: '关闭版本管理' }));
+    expect(reopenedModalShell).toHaveClass('template-version-modal--closing');
+    fireEvent.animationEnd(reopenedModal);
+    expect(screen.queryByRole('dialog', { name: '模板版本管理' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('template-designer-backdrop'));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: '新增模板' }));
+
+    expect(await screen.findByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '版本管理' })).not.toBeInTheDocument();
+  });
+
   it('物料面板点击不新增字段，字段只能通过拖拽流程进入画布', async () => {
     const user = userEvent.setup();
 
@@ -1002,6 +1540,8 @@ describe('TemplateDesignerPage', () => {
     const dialog = screen.getByRole('dialog', { name: '模板配置' });
     expect(within(dialog).getByText('0 个字段')).toBeInTheDocument();
     expect(within(dialog).queryByText('0 个顶层字段')).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '撤销' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: '重做' })).toBeDisabled();
 
     const textMaterial = screen.getByLabelText('单行输入');
     expect(screen.queryByText('基础物料')).not.toBeInTheDocument();
@@ -1085,14 +1625,101 @@ describe('TemplateDesignerPage', () => {
     expect(deleteButton.querySelector('path')).toHaveAttribute('fill', 'currentColor');
     expect(screen.queryByRole('button', { name: '上移 单行输入' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '下移 单行输入' })).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: '撤销' })).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: '重做' })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '撤销' })).toBeEnabled();
+    expect(within(dialog).getByRole('button', { name: '重做' })).toBeDisabled();
 
     await user.click(
       within(fieldCard as HTMLElement).getByText((_, node) => node?.textContent === '字段名：text_1'),
     );
     expect(screen.getByRole('heading', { name: '属性配置' })).toBeInTheDocument();
     expect(screen.queryByText('属性配置 · text_1')).not.toBeInTheDocument();
+  });
+
+  it('模板配置标题旁的撤销重做按钮和快捷键可以回滚画布操作', async () => {
+    const user = userEvent.setup();
+
+    render(<TemplateDesignerPage />);
+    await openNewTemplate(user);
+    const dialog = screen.getByRole('dialog', { name: '模板配置' });
+    const undoButton = within(dialog).getByRole('button', { name: '撤销' });
+    const redoButton = within(dialog).getByRole('button', { name: '重做' });
+
+    expect(undoButton).toBeDisabled();
+    expect(redoButton).toBeDisabled();
+
+    addDesignerField('text');
+    expect(undoButton).toBeEnabled();
+    expect(redoButton).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(1);
+
+    await user.click(screen.getByRole('button', { name: '复制 单行输入' }));
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(2);
+
+    await user.click(undoButton);
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(1);
+    expect(redoButton).toBeEnabled();
+
+    await user.click(redoButton);
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(2);
+
+    fireEvent.keyDown(window, { key: 'z', ctrlKey: true });
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(1);
+
+    fireEvent.keyDown(window, { key: 'y', ctrlKey: true });
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(2);
+
+    fireEvent.keyDown(window, { key: 'z', ctrlKey: true });
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(1);
+
+    fireEvent.keyDown(window, { key: 'z', ctrlKey: true, shiftKey: true });
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(2);
+
+    fireEvent.keyDown(window, { key: 'z', metaKey: true });
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(1);
+
+    fireEvent.keyDown(window, { key: 'z', metaKey: true, shiftKey: true });
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(2);
+
+    fireEvent.keyDown(window, { key: 'z', metaKey: true });
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(1);
+
+    fireEvent.keyDown(window, { key: 'y', metaKey: true });
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(2);
+
+    const titleInput = screen.getByLabelText('标题');
+    titleInput.focus();
+    fireEvent.keyDown(titleInput, { key: 'z', ctrlKey: true });
+    expect(screen.getAllByRole('button', { name: /^选择 / })).toHaveLength(2);
+    expect(undoButton).toBeEnabled();
+  });
+
+  it('撤销删除会把画布物料恢复到原位置，并可重做删除', async () => {
+    const user = userEvent.setup();
+
+    render(<TemplateDesignerPage />);
+    await openNewTemplate(user);
+    const dialog = screen.getByRole('dialog', { name: '模板配置' });
+
+    addDesignerField('text');
+    addDesignerField('textarea');
+    expect(topLevelDesignerFieldLabels()).toEqual(['单行输入', '多行文本']);
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole('button', { name: '删除 单行输入' }));
+
+    act(() => {
+      vi.advanceTimersByTime(320);
+    });
+
+    expect(screen.queryByRole('button', { name: '选择 单行输入' })).not.toBeInTheDocument();
+    expect(topLevelDesignerFieldLabels()).toEqual(['多行文本']);
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '撤销' }));
+    expect(topLevelDesignerFieldLabels()).toEqual(['单行输入', '多行文本']);
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '重做' }));
+    expect(screen.queryByRole('button', { name: '选择 单行输入' })).not.toBeInTheDocument();
+    expect(topLevelDesignerFieldLabels()).toEqual(['多行文本']);
   });
 
   it('开启 LLM 提示的画布物料在复制按钮左侧展示可测试的星标按钮', async () => {
@@ -2218,7 +2845,7 @@ describe('TemplateDesignerPage', () => {
     addDesignerField('text');
 
     expect(screen.queryByRole('button', { name: '保存草稿' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '关闭模板配置' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '关闭模板配置' })).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('template-designer-backdrop'));
 
@@ -2244,14 +2871,14 @@ describe('TemplateDesignerPage', () => {
     );
   });
 
-  it('点击模板配置右上角关闭按钮时展示保存草稿确认弹窗', async () => {
+  it('点击模板配置抽屉外侧时展示保存草稿确认弹窗', async () => {
     const user = userEvent.setup();
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({ data: [] })));
 
     render(<TemplateDesignerPage />);
     await openNewTemplate(user);
 
-    await user.click(screen.getByRole('button', { name: '关闭模板配置' }));
+    await user.click(screen.getByTestId('template-designer-backdrop'));
 
     expect(screen.getByText('需要保存成草稿吗？')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '关闭保存草稿确认弹窗' }));
@@ -2336,13 +2963,180 @@ describe('TemplateDesignerPage', () => {
       '/templates',
       expect.objectContaining({
         method: 'POST',
+        body: expect.stringContaining('"actorId":"user_owner_zhang_man"'),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/templates',
+      expect.objectContaining({
+        method: 'POST',
         body: expect.stringContaining('"name":"客服问答质量模板"'),
       }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
       '/templates/template_1/publish',
-      expect.objectContaining({ method: 'POST', body: JSON.stringify({ versionName: 'v1' }) }),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ versionName: 'v1', actorId: 'user_owner_zhang_man' }),
+      }),
+    );
+  });
+
+  it('模板正在被任务使用时，点击发布会提示另存为新模板且不调用发布接口', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({
+          data: [
+            createTemplateDto({
+              id: 'template_locked',
+              name: '锁定模板',
+              schema: qaQualitySampleSchema,
+              status: 'PUBLISHED',
+              version: 1,
+              rootTemplateId: 'template_locked',
+              createdById: 'user_owner_zhang_man',
+              activeUsageCount: 1,
+            }),
+          ],
+        });
+      }
+
+      if (path === '/templates' && method === 'POST') {
+        return jsonResponse({
+          data: createTemplateDto({
+            id: 'template_new',
+            name: '锁定模板 - 新模板',
+            schema: qaQualitySampleSchema,
+            status: 'DRAFT',
+            version: 0,
+            createdById: 'user_owner_zhang_man',
+          }),
+        });
+      }
+
+      throw new Error(`Unexpected request: ${method} ${path}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+    await openTemplateByName(user, '锁定模板');
+    await user.click(screen.getByRole('button', { name: '保存并发布版本 v2' }));
+
+    const modal = await screen.findByRole('dialog', { name: '模板正在使用中' });
+    expect(within(modal).getByText(/该模板当前正在被未完成任务使用，不能直接发布新版本。/)).toBeInTheDocument();
+    expect(within(modal).getByText(/请先修改模板名后，另存为一个新模板继续编辑。/)).toBeInTheDocument();
+    const templateNameInput = within(modal).getByRole('textbox', { name: '模板名称' });
+    expect(templateNameInput).toHaveValue('锁定模板 副本');
+    await user.clear(templateNameInput);
+    await user.type(templateNameInput, '锁定模板 - 新模板');
+    await user.click(within(modal).getByRole('button', { name: '另存为新模板' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '模板正在使用中' })).not.toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/templates',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"name":"锁定模板 - 新模板"'),
+      }),
+    );
+    expect(
+      fetchMock.mock.calls.some(
+        ([input, init]) => input.toString() === '/templates/template_locked/publish' && init?.method === 'POST',
+      ),
+    ).toBe(false);
+  });
+
+  it('发布现有模板的新版本后列表只展示版本链最新版本', async () => {
+    const user = userEvent.setup();
+    const originalTemplate = createTemplateDto({
+      id: 'template_v1',
+      name: '版本链模板',
+      schema: createLabelHubSchema({
+        schemaVersion: 'v1',
+        datasetKind: 'generic_json',
+        fields: [{ key: 'prompt', fieldKey: 'prompt', type: 'text', label: '题目' }],
+      }),
+      status: 'PUBLISHED',
+      version: 1,
+      rootTemplateId: 'template_v1',
+      createdById: 'user_owner_zhang_man',
+    });
+    const draftTemplate = createTemplateDto({
+      id: 'template_v2',
+      name: '版本链模板',
+      schema: {
+        ...originalTemplate.schema,
+        schemaVersion: 'draft',
+      },
+      status: 'DRAFT',
+      version: 1,
+      parentTemplateId: 'template_v1',
+      rootTemplateId: 'template_v1',
+      createdById: 'user_owner_zhang_man',
+    });
+    const publishedTemplate = createTemplateDto({
+      ...draftTemplate,
+      status: 'PUBLISHED',
+      version: 2,
+      schema: {
+        ...draftTemplate.schema,
+        schemaVersion: 'v2',
+      },
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({ data: [originalTemplate] });
+      }
+
+      if (path === '/templates' && method === 'POST') {
+        return jsonResponse({ data: draftTemplate });
+      }
+
+      if (path === '/templates/template_v2/publish' && method === 'POST') {
+        return jsonResponse({
+          data: {
+            template: publishedTemplate,
+            compatibilityReport: {
+              addedFieldKeys: [],
+              removedFieldKeys: [],
+              changedFieldTypes: [],
+              compatible: true,
+              riskMessages: [],
+            },
+          },
+        });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+    await openTemplateByName(user, '版本链模板');
+    await user.click(screen.getByRole('button', { name: '保存并发布版本 v2' }));
+
+    expect(await screen.findByText('"版本链模板" 模版已发布为v2')).toBeInTheDocument();
+    const templateTable = screen.getByRole('table', { name: '模板列表' });
+    const templateRows = within(templateTable).getAllByRole('button', { name: '打开模板 版本链模板' });
+
+    expect(templateRows).toHaveLength(1);
+    expect(within(templateRows[0]).getByText('v2')).toBeInTheDocument();
+    expect(within(templateTable).queryByText('v1')).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/templates',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"parentTemplateId":"template_v1"'),
+      }),
     );
   });
 
@@ -2415,6 +3209,11 @@ const addDesignerField = (type: FieldType) => {
   });
 };
 
+const topLevelDesignerFieldLabels = (): string[] =>
+  Array.from(document.querySelectorAll('.designer-canvas__fields > .designer-field-card .designer-field-card__type-label'))
+    .map((node) => node.textContent?.replace('*', '').trim() ?? '')
+    .filter(Boolean);
+
 const findDesignerField = (fieldKey: string) => {
   return useTemplateDesignerStore
     .getState()
@@ -2431,12 +3230,26 @@ const createTemplateDto = ({
   }),
   status = 'DRAFT',
   version = status === 'PUBLISHED' ? 1 : 0,
+  parentTemplateId = null,
+  rootTemplateId = null,
+  archivedAt = null,
+  restoredFromTemplateId = null,
+  createdById = null,
+  usageCount = 0,
+  activeUsageCount = 0,
 }: {
   id?: string;
   name?: string;
   schema?: ReturnType<typeof createLabelHubSchema>;
   status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
   version?: number;
+  parentTemplateId?: string | null;
+  rootTemplateId?: string | null;
+  archivedAt?: string | null;
+  restoredFromTemplateId?: string | null;
+  createdById?: string | null;
+  usageCount?: number;
+  activeUsageCount?: number;
 }) => ({
   id,
   name,
@@ -2446,9 +3259,30 @@ const createTemplateDto = ({
   schema,
   status,
   version,
-  parentTemplateId: null,
-  createdById: null,
+  parentTemplateId,
+  rootTemplateId,
+  archivedAt,
+  restoredFromTemplateId,
+  createdById,
   publishedAt: status === 'PUBLISHED' ? '2026-05-21T00:00:00.000Z' : null,
   createdAt: '2026-05-21T00:00:00.000Z',
   updatedAt: '2026-05-21T00:00:00.000Z',
+  usageCount,
+  activeUsageCount,
+});
+
+const createTemplateVersionDto = (
+  template: ReturnType<typeof createTemplateDto>,
+  overrides: Partial<{
+    activeUsageCount: number;
+    isArchived: boolean;
+    isCurrent: boolean;
+    usageCount: number;
+  }> = {},
+) => ({
+  ...template,
+  usageCount: overrides.usageCount ?? 0,
+  activeUsageCount: overrides.activeUsageCount ?? 0,
+  isCurrent: overrides.isCurrent ?? false,
+  isArchived: overrides.isArchived ?? template.status === 'ARCHIVED',
 });

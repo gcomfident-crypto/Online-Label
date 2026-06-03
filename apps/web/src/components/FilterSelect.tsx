@@ -10,6 +10,8 @@ type FilterSelectProps<TValue extends string> = {
   options: ReadonlyArray<FilterSelectOption<TValue>>;
   value: TValue;
   onChange: (value: TValue) => void;
+  menuHiddenValues?: ReadonlyArray<TValue>;
+  placeholder?: string;
 };
 
 export function FilterSelect<TValue extends string>({
@@ -17,10 +19,14 @@ export function FilterSelect<TValue extends string>({
   options,
   value,
   onChange,
+  menuHiddenValues = [],
+  placeholder,
 }: FilterSelectProps<TValue>) {
   const [isOpen, setIsOpen] = useState(false);
   const selectRef = useRef<HTMLDivElement>(null);
-  const selectedOption = options.find((option) => option.value === value) ?? options[0];
+  const selectedOption = options.find((option) => option.value === value);
+  const displayedLabel = selectedOption?.label ?? placeholder ?? options[0]?.label ?? '';
+  const menuOptions = options.filter((option) => !menuHiddenValues.includes(option.value));
 
   useEffect(() => {
     if (!isOpen) {
@@ -66,14 +72,14 @@ export function FilterSelect<TValue extends string>({
         onClick={() => setIsOpen((current) => !current)}
         onKeyDown={handleTriggerKeyDown}
       >
-        <span key={selectedOption.value} className="task-filter-select__label">
-          {selectedOption.label}
+        <span key={selectedOption?.value ?? '__placeholder__'} className="task-filter-select__label">
+          {displayedLabel}
         </span>
         <span className="task-filter-select__chevron" aria-hidden="true" />
       </button>
       {isOpen ? (
         <div className="task-filter-select__menu" role="listbox" aria-label={`${ariaLabel}选项`}>
-          {options.map((option) => (
+          {menuOptions.map((option) => (
             <button
               key={option.value}
               className={option.value === value ? 'is-selected' : ''}
@@ -86,9 +92,6 @@ export function FilterSelect<TValue extends string>({
               }}
             >
               <span>{option.label}</span>
-              {option.value === value ? (
-                <span className="task-filter-select__check" aria-hidden="true" />
-              ) : null}
             </button>
           ))}
         </div>

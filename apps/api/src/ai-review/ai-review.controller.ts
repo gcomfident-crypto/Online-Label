@@ -72,7 +72,7 @@ function isAiReviewStatus(value: unknown): value is AiReviewStatus {
 }
 
 function isAiReviewBatchStatus(value: unknown): value is AiReviewBatchStatus {
-  return value === 'PENDING' || value === 'PASSED' || value === 'REJECTED' || value === 'MANUAL' || value === 'FAILED';
+  return value === 'PENDING' || value === 'PASSED' || value === 'REJECTED' || value === 'FAILED';
 }
 
 function normalizeCompleteBody(body: CompleteAiReviewJobDto): CompleteAiReviewJobInput {
@@ -93,7 +93,7 @@ function decisionValue(value: unknown): CompleteAiReviewJobInput['decision'] | u
     return undefined;
   }
   const normalized = value.trim();
-  return normalized === 'pass' || normalized === 'reject' || normalized === 'manual' ? normalized : undefined;
+  return normalized === 'pass' || normalized === 'reject' ? normalized : undefined;
 }
 
 function stringValue(value: unknown): string | undefined {

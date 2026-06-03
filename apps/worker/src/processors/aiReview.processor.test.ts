@@ -5,7 +5,27 @@ import type { LlmProvider } from '../llm/LlmProvider.ts';
 
 describe('processAiReviewJob', () => {
   it('Mock pass 写入 AI 评分并进入人工待审', async () => {
-    const { client, reviewRecords, submissionUpdates, jobUpdates } = createClient();
+    const { client, reviewRecords, submissionUpdates, jobUpdates } = createClient({
+      submissionAnswers: { quality: 'pass', internal_note: '这段不需要机审。' },
+      templateSchema: {
+        fields: [
+          {
+            key: 'quality_field',
+            fieldKey: 'quality',
+            type: 'radio',
+            label: '质量',
+            aiReview: { enabled: true },
+          },
+          {
+            key: 'internal_note_field',
+            fieldKey: 'internal_note',
+            type: 'textarea',
+            label: '内部备注',
+            aiReview: { enabled: false },
+          },
+        ],
+      },
+    });
     const provider = createProvider({ verdict: 'pass', scores: { overall: 91 } });
 
     const result = await processAiReviewJob(
@@ -22,6 +42,8 @@ describe('processAiReviewJob', () => {
         idempotencyKey: 'submission_1:1:ai-review',
       }),
     );
+    expect(String(reviewRecords[0].rawPrompt)).toContain('"quality": "pass"');
+    expect(String(reviewRecords[0].rawPrompt)).not.toContain('internal_note');
     expect(submissionUpdates.at(-1)).toEqual({ id: 'submission_1', status: 'HUMAN_PENDING' });
     expect(jobUpdates.at(-1)).toEqual(expect.objectContaining({ status: 'SUCCEEDED' }));
   });
@@ -40,7 +62,7 @@ describe('processAiReviewJob', () => {
     expect(reviewRecords).toHaveLength(0);
   });
 
-  it('结构化输出异常会记录失败并在超过次数后转人工兜底', async () => {
+  it('结构化输出异常会记录最终失败，不再进入第三种状态', async () => {
     const { client, jobUpdates, submissionUpdates } = createClient({ jobAttempts: 2 });
     const provider: LlmProvider = {
       capabilities: { supportsFunctionCalling: true, supportsJsonSchemaOutput: true },
@@ -56,12 +78,12 @@ describe('processAiReviewJob', () => {
       ),
     ).rejects.toThrow('结构化输出异常');
 
-    expect(jobUpdates.at(-1)).toEqual(expect.objectContaining({ status: 'MANUAL_FALLBACK' }));
-    expect(submissionUpdates.at(-1)).toEqual({ id: 'submission_1', status: 'HUMAN_PENDING' });
+    expect(jobUpdates.at(-1)).toEqual(expect.objectContaining({ status: 'FAILED_FINAL' }));
+    expect(submissionUpdates).toEqual([]);
   });
 });
 
-function createProvider(output: { verdict: 'pass' | 'reject' | 'manual'; scores: Record<string, number> }): LlmProvider {
+function createProvider(output: { verdict: 'pass' | 'reject'; scores: Record<string, number> }): LlmProvider {
   return {
     capabilities: { supportsFunctionCalling: true, supportsJsonSchemaOutput: true },
     review: vi.fn(async () => ({
@@ -76,7 +98,14 @@ function createProvider(output: { verdict: 'pass' | 'reject' | 'manual'; scores:
   };
 }
 
-function createClient(input: { existingRecord?: Record<string, unknown>; jobAttempts?: number } = {}) {
+function createClient(
+  input: {
+    existingRecord?: Record<string, unknown>;
+    jobAttempts?: number;
+    submissionAnswers?: Record<string, unknown>;
+    templateSchema?: Record<string, unknown>;
+  } = {},
+) {
   const reviewRecords: Array<Record<string, unknown>> = [];
   const submissionUpdates: Array<{ id: string; status: string }> = [];
   const jobUpdates: Array<Record<string, unknown>> = [];
@@ -111,11 +140,11 @@ function createClient(input: { existingRecord?: Record<string, unknown>; jobAtte
         id: 'submission_1',
         status: 'AI_QUEUED',
         round: 1,
-        answers: { quality: 'pass' },
+        answers: input.submissionAnswers ?? { quality: 'pass' },
         assignment: {
           task: {
-          id: 'task_qa',
-          template: { datasetKind: 'qa_quality' as const },
+            id: 'task_qa',
+            template: { datasetKind: 'qa_quality' as const, schema: input.templateSchema ?? null },
             reviewRules: [
               {
                 id: 'rule_1',

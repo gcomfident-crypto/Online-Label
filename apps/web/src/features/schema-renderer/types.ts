@@ -12,6 +12,7 @@ export type SchemaRendererProps = {
   onChange: (next: Record<string, unknown>) => void;
   activeFieldKey?: string | null;
   onActiveFieldChange?: (fieldKey: string) => void;
+  getFieldNodeDecoration?: (field: SchemaField) => FieldNodeDecoration | null;
 };
 
 export type FieldValueUpdater = (currentValue: unknown) => unknown;
@@ -28,9 +29,17 @@ export type FieldRendererProps = {
   hiddenFieldKeys: ReadonlySet<string>;
   disabledFieldKeys: ReadonlySet<string>;
   requiredFieldKeys: ReadonlySet<string>;
+  allowedOptionsByFieldKey: ReadonlyMap<string, ReadonlySet<string>>;
   validationMessagesByField: ReadonlyMap<string, readonly string[]>;
   onFieldChange: (field: SchemaField, nextValue: FieldNextValue) => void;
   activeFieldKey?: string | null;
   onActiveFieldChange?: (fieldKey: string) => void;
   disabled?: boolean;
+  optionLimitActive?: boolean;
+  getFieldNodeDecoration?: (field: SchemaField) => FieldNodeDecoration | null;
+};
+
+export type FieldNodeDecoration = {
+  state: 'added' | 'removed' | 'changed';
+  label: string;
 };

@@ -118,7 +118,9 @@ describe('TaskMarketPage', () => {
     expect(within(taskRow as HTMLElement).getByText('T-0001')).toBeInTheDocument();
     expect(within(taskRow as HTMLElement).getByText('张满')).toBeInTheDocument();
     expect(within(taskRow as HTMLElement).getByText('可领取')).toBeInTheDocument();
-    expect(within(taskRow as HTMLElement).getByText('整任务')).toBeInTheDocument();
+    expect(within(taskRow as HTMLElement).getByText('0.30 元 / 条')).toBeInTheDocument();
+    expect(within(taskRow as HTMLElement).queryByText('整任务')).not.toBeInTheDocument();
+    expect(within(taskRow as HTMLElement).queryByText('问答质量官方模板')).not.toBeInTheDocument();
     expect(within(taskRow as HTMLElement).getByText('8 / 30')).toBeInTheDocument();
     expect(within(taskRow as HTMLElement).getByRole('button', { name: '预览 问答质量标注' })).toBeInTheDocument();
 

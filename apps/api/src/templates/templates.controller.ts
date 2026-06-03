@@ -14,6 +14,9 @@ import {
   type DeleteTemplateResult,
   type PublishTemplateResult,
   type TemplateDto,
+  type RestoreTemplateVersionResult,
+  type TemplateVersionDiff,
+  type TemplateVersionDto,
 } from './templates.service.ts';
 
 @Controller('templates')
@@ -22,7 +25,16 @@ export class TemplatesController {
     @Inject(TemplatesService)
     private readonly templatesService: Pick<
       TemplatesService,
-      'create' | 'list' | 'get' | 'update' | 'publish' | 'createFromProfile' | 'deleteTemplate'
+      | 'create'
+      | 'list'
+      | 'get'
+      | 'update'
+      | 'publish'
+      | 'createFromProfile'
+      | 'deleteTemplate'
+      | 'listVersions'
+      | 'diffVersion'
+      | 'restoreVersion'
     >,
   ) {}
 
@@ -39,6 +51,27 @@ export class TemplatesController {
   @Get()
   list(): Promise<TemplateDto[]> {
     return this.templatesService.list();
+  }
+
+  @Get(':id/versions')
+  listVersions(@Param('id') id: string): Promise<TemplateVersionDto[]> {
+    return this.templatesService.listVersions(id);
+  }
+
+  @Get(':id/versions/:versionId/diff')
+  diffVersion(
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+  ): Promise<TemplateVersionDiff> {
+    return this.templatesService.diffVersion(id, versionId);
+  }
+
+  @Post(':id/versions/:versionId/restore')
+  restoreVersion(
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+  ): Promise<RestoreTemplateVersionResult> {
+    return this.templatesService.restoreVersion(id, versionId);
   }
 
   @Get(':id')
@@ -69,6 +102,7 @@ const normalizeCreateTemplateBody = (body: CreateTemplateDto): CreateTemplateInp
     datasetKind: isDatasetKind(body.datasetKind) ? body.datasetKind : 'generic_json',
     schema: isLabelHubSchema(body.schema) ? body.schema : undefined,
     actorId: typeof body.actorId === 'string' ? body.actorId : undefined,
+    parentTemplateId: typeof body.parentTemplateId === 'string' ? body.parentTemplateId : undefined,
   };
 };
 
