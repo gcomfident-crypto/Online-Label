@@ -284,12 +284,17 @@ describe('global styles', () => {
     expect(taskLastRowRule).toContain('border-bottom: 1px solid #e6eaf2;');
   });
 
-  it('桌面大屏断点限制后台列表阅读宽度并放大登录面板', () => {
+  it('桌面大屏断点限制后台列表阅读宽度并保持登录页单卡片布局', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
 
     expect(styles).toContain('@media (min-width: 2200px)');
-    expect(styles).toContain('width: min(1840px, calc(100vw - 192px));');
-    expect(styles).toContain('min-height: min(960px, calc(100vh - 144px));');
+    expect(styles).toContain('width: min(540px, calc(100vw - 32px));');
+    expect(styles).toContain('grid-template-columns: 1fr;');
+    expect(styles).toContain('min-height: clamp(520px, 42vh, 600px);');
+    expect(styles).toContain('padding: 48px 34px;');
+    expect(styles).not.toContain('.login-platform-overview');
+    expect(styles).not.toContain('.login-overview-card');
+    expect(styles).not.toContain('.login-metric-card');
     expect(styles).toContain('width: min(2560px, calc(100% - 64px));');
     expect(styles).toContain('width: min(2720px, calc(100% - 64px));');
     expect(styles).toContain('margin-left: 32px;');
@@ -297,6 +302,106 @@ describe('global styles', () => {
     expect(styles).toContain('width: min(2800px, calc(100% - 160px));');
     expect(styles).toContain('width: min(2960px, calc(100% - 160px));');
     expect(styles).toContain('margin-left: 80px;');
+  });
+
+  it('登录页使用 back.png 作为页面背景图', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const loginPageRule = styles.match(/\.login-page\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(loginPageRule).toContain("url('./assets/back.png')");
+    expect(loginPageRule).toContain('background-size: cover;');
+    expect(loginPageRule).toContain('background-position: center;');
+  });
+
+  it('登录页顶部品牌图标使用放大的横向 Logo', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const lockupRule = styles.match(/\.login-brand-lockup\s*\{[^}]+\}/)?.[0] ?? '';
+    const logoRule = styles.match(/\.login-brand-lockup__mark\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(lockupRule).toContain('justify-content: center;');
+    expect(lockupRule).toContain('width: 100%;');
+    expect(lockupRule).not.toContain('width: fit-content;');
+    expect(logoRule).toContain('width: min(470px, 100%);');
+    expect(logoRule).toContain('height: auto;');
+    expect(logoRule).not.toContain('width: 34px;');
+    expect(logoRule).not.toContain('height: 34px;');
+  });
+
+  it('登录卡片使用克制的轻玻璃 To B SaaS 视觉样式', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const shellRule = styles.match(/\.login-shell\s*\{[^}]+\}/)?.[0] ?? '';
+    const panelRule = styles.match(/\.login-form-panel\s*\{[^}]+\}/)?.[0] ?? '';
+    const headingRule = styles.match(/\.login-form-heading\s*\{[^}]+\}/)?.[0] ?? '';
+    const headingTextRule = styles.match(/\.login-form-heading p\s*\{[^}]+\}/)?.[0] ?? '';
+    const headingPhraseRule = styles.match(/\.login-form-heading__phrase\s*\{[^}]+\}/)?.[0] ?? '';
+    const headingBreatheRule = styles.match(/\.login-form-heading p\s*\{[^}]+\}/)?.[0] ?? '';
+    const formRule = styles.match(/\.login-form\s*\{[^}]+\}/)?.[0] ?? '';
+    const inputRule = styles.match(/\.login-form input,\s*\.login-form select\s*\{[^}]+\}/)?.[0] ?? '';
+    const focusRule = styles.match(/\.login-form input:focus,\s*\.login-form select:focus\s*\{[^}]+\}/)?.[0] ?? '';
+    const buttonRule = styles.match(/\.login-submit-button\s*\{[^}]+\}/)?.[0] ?? '';
+    const buttonHoverRule = styles.match(/\.login-submit-button:hover:not\(:disabled\)\s*\{[^}]+\}/)?.[0] ?? '';
+    const rememberRule = styles.match(/\.login-remember\s*\{[^}]+\}/)?.[0] ?? '';
+    const rememberInputRule = styles.match(/\.login-remember input\s*\{[^}]+\}/)?.[0] ?? '';
+    const rememberBoxRule = styles.match(/\.login-remember__box\s*\{[^}]+\}/)?.[0] ?? '';
+    const rememberCheckmarkRule = styles.match(/\.login-remember__box::after\s*\{[^}]+\}/)?.[0] ?? '';
+    const rememberCheckedRule = styles.match(/\.login-remember input:checked \+ \.login-remember__box\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(shellRule).toContain('width: min(540px, calc(100vw - 32px));');
+    expect(shellRule).toContain('overflow: visible;');
+    expect(shellRule).toContain('border-radius: 22px;');
+    expect(shellRule).toContain('background: rgba(255, 255, 255, 0.78);');
+    expect(shellRule).toContain('backdrop-filter: blur(18px);');
+    expect(shellRule).toContain('border: 1px solid rgba(255, 255, 255, 0.72);');
+    expect(shellRule).toContain(
+      'box-shadow: 0 24px 80px rgba(48, 109, 248, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);',
+    );
+
+    expect(panelRule).toContain('padding: 48px 34px;');
+    expect(panelRule).toContain('gap: 16px;');
+    expect(panelRule).toContain('background: transparent;');
+    expect(headingRule).toContain('justify-self: center;');
+    expect(headingRule).toContain('width: min(460px, 100%);');
+    expect(headingBreatheRule).toContain('animation: login-form-heading-breathe 3.2s ease-in-out 420ms infinite;');
+    expect(headingTextRule).toContain('text-align: center;');
+    expect(headingTextRule).toContain('font-weight: 680;');
+    expect(headingPhraseRule).toContain('display: inline-block;');
+    expect(headingPhraseRule).toContain('background: repeating-linear-gradient(');
+    expect(headingPhraseRule).toContain('background-size: 144px 100%;');
+    expect(headingPhraseRule).toContain('background-clip: text;');
+    expect(headingPhraseRule).toContain('color: transparent;');
+    expect(headingPhraseRule).toContain('login-form-heading-shimmer 2.4s linear 520ms infinite;');
+    expect(styles).toContain('background-position: -144px 50%;');
+    expect(formRule).toContain('justify-self: center;');
+    expect(formRule).toContain('width: min(460px, 100%);');
+
+    expect(styles).not.toContain('.login-form-heading span');
+    expect(styles).not.toContain('.login-form-heading h1');
+
+    expect(inputRule).toContain('height: 44px;');
+    expect(inputRule).toContain('border: 1px solid rgba(148, 163, 184, 0.28);');
+    expect(inputRule).toContain('border-radius: 10px;');
+    expect(inputRule).toContain('background: rgba(255, 255, 255, 0.76);');
+    expect(focusRule).toContain('border-color: #306DF8;');
+    expect(focusRule).toContain('box-shadow: 0 0 0 4px rgba(48, 109, 248, 0.12);');
+
+    expect(buttonRule).toContain('background: linear-gradient(90deg, #306DF8 0%, #0EA5E9 52%, #19D3D3 100%);');
+    expect(buttonRule).toContain('box-shadow: 0 14px 28px rgba(48, 109, 248, 0.24);');
+    expect(buttonHoverRule).toContain(
+      'background: linear-gradient(90deg, #306DF8 0%, #0EA5E9 52%, #19D3D3 100%);',
+    );
+    expect(buttonHoverRule).toContain('transform: translateY(-1px);');
+    expect(rememberRule).toContain('gap: 8px !important;');
+    expect(rememberRule).toContain('min-height: 22px;');
+    expect(rememberInputRule).toContain('position: absolute;');
+    expect(rememberInputRule).toContain('width: 18px;');
+    expect(rememberInputRule).toContain('opacity: 0;');
+    expect(rememberBoxRule).toContain('width: 18px;');
+    expect(rememberBoxRule).toContain('border-radius: 5px;');
+    expect(rememberBoxRule).toContain('background: rgba(255, 255, 255, 0.78);');
+    expect(rememberCheckmarkRule).toContain('inset: 0;');
+    expect(rememberCheckmarkRule).toContain('center / 14px 14px no-repeat;');
+    expect(rememberCheckmarkRule).toContain('transform: scale(0.72);');
+    expect(rememberCheckedRule).toContain('background: #306df7;');
   });
 
   it('空状态表格行不显示最后一行边框，避免空白区域中间出现横线', () => {

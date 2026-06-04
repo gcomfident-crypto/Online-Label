@@ -8,7 +8,7 @@ describe('Vite 开发代理', () => {
     const configSource = readFileSync(configPath, 'utf8');
 
     expect(configSource).toContain("'/api': {");
-    expect(configSource).toContain("target: 'http://localhost:3000'");
+    expect(configSource).toContain("process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:3000'");
     expect(configSource).toContain("path.replace(/^\\/api/, '')");
   });
 

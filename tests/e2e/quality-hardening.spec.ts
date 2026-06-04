@@ -10,7 +10,8 @@ test.beforeEach(async ({ page }) => {
 
 test('四端路由隔离和无权限拦截稳定', async ({ page }) => {
   await page.goto('/owner/tasks');
-  await expect(page.getByRole('heading', { name: '登录 LabelHub' })).toBeVisible();
+  await expect(page.getByAltText('LabelHub')).toBeVisible();
+  await expect(page.getByRole('button', { name: '登录' })).toBeVisible();
 
   await setSession(page, 'LABELER');
   await page.goto('/owner/tasks');
@@ -111,7 +112,7 @@ test('主链路覆盖领取、草稿、提交、AI 转人工、打回、二次�
 
 test('关键页面四视口截图、中文文案和无横向溢出验收', async ({ page }, testInfo) => {
   const targets = [
-    { name: 'login', role: null, path: '/login', readyRole: 'heading', readyName: '登录 LabelHub', skipCopyCheck: true },
+    { name: 'login', role: null, path: '/login', readyRole: 'button', readyName: '登录', skipCopyCheck: true },
     { name: 'owner-tasks', role: 'OWNER', path: '/owner/tasks', readyRole: 'table', readyName: '任务列表' },
     { name: 'owner-template', role: 'OWNER', path: '/owner/templates', readyRole: 'table', readyName: '模板列表' },
     { name: 'owner-exports', role: 'OWNER', path: '/owner/exports', readyRole: 'table', readyName: '导出记录列表' },
