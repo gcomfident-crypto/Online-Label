@@ -45,21 +45,66 @@ describe('Web 壳 smoke test', () => {
     expect(resolvePortalPageTransitionKey('/labeler/my-data')).toBe('/labeler/my-data');
   });
 
-  it('在 /login 渲染登录表单和 3D 动画展示区', async () => {
+  it('在 /login 渲染仅包含登录表单的背景图登录页', async () => {
     const user = userEvent.setup();
-    renderRoute('/login');
+    const { container } = renderRoute('/login');
 
-    expect(screen.getByRole('heading', { name: '登录 LabelHub' })).toBeInTheDocument();
+    const logo = screen.getByAltText('LabelHub');
+    expect(logo).toBeInTheDocument();
+    expect(logo).toHaveAttribute('src', expect.stringContaining('LabelHub_logo_closer_transparent'));
+    expect(screen.queryByText('登录 LabelHub')).not.toBeInTheDocument();
+    expect(screen.queryByText('智能标注工作台')).not.toBeInTheDocument();
+    expect(screen.queryByText('进入 LabelHub 多角色工作台，集中处理项目任务。')).not.toBeInTheDocument();
+    expect(screen.queryByText('面向团队的数据标注平台，统一完成数据导入、任务分发、智能预审与人工质检')).not.toBeInTheDocument();
+    expect(container.querySelector('.login-form-heading')).toHaveTextContent(
+      '团队级数据标注平台，统一导入、分发、预审与质检',
+    );
+    expect(screen.queryByText('Intelligent Annotation Platform')).not.toBeInTheDocument();
     expect(screen.getByLabelText('账号')).toBeInTheDocument();
     expect(screen.getByLabelText('密码')).toBeInTheDocument();
-    expect(screen.getByLabelText('登录身份')).toBeInTheDocument();
-    expect(screen.getByLabelText('3D 数据流动画')).toBeInTheDocument();
+    expect(container.querySelector('select#login-role')).not.toBeInTheDocument();
+    const roleCombobox = screen.getByRole('combobox', { name: '登录身份' });
+    expect(roleCombobox).toBeInTheDocument();
+    expect(roleCombobox).toHaveAttribute('aria-expanded', 'false');
+    expect(container.querySelector('.login-role-trigger__cue')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('3D 数据流动画')).not.toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'LabelHub 平台能力总览' })).not.toBeInTheDocument();
+    expect(screen.queryByText('流程总览')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '任务流转' })).not.toBeInTheDocument();
+    expect(screen.queryByText('从任务创建到终审交付的完整数据生产链路')).not.toBeInTheDocument();
+    expect(screen.queryByText('92.4%')).not.toBeInTheDocument();
+    expect(screen.queryByText('通过率')).not.toBeInTheDocument();
+    expect(screen.queryByText('AI 预审完成 · 2 分钟前')).not.toBeInTheDocument();
+    expect(screen.queryByText('审核员已接收 · 8 分钟前')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '登录平台' })).toBeInTheDocument();
     expect(screen.getByText('记住登录状态')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: '记住登录状态' })).not.toBeChecked();
+    expect(container.querySelector('.login-remember__box')).toBeInTheDocument();
+    expect(screen.queryByText('Owner 端')).not.toBeInTheDocument();
+
+    await user.click(roleCombobox);
+    expect(roleCombobox).toHaveAttribute('aria-expanded', 'true');
+    await user.click(screen.getByRole('option', { name: 'AI Agent 预审' }));
+    expect(roleCombobox).toHaveTextContent('AI Agent 预审');
+    expect(roleCombobox).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('AI Agent 端')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '登录平台' }));
     expect(screen.getByText('请输入账号和密码')).toBeInTheDocument();
+  });
+
+  it('登录身份自定义下拉选择的角色会用于登录跳转', async () => {
+    const user = userEvent.setup();
+    const { container } = renderRoute('/login');
+
+    expect(container.querySelector('select#login-role')).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('账号'), 'demo-user');
+    await user.type(screen.getByLabelText('密码'), 'password');
+    await user.click(screen.getByRole('combobox', { name: '登录身份' }));
+    await user.click(screen.getByRole('option', { name: 'AI Agent 预审' }));
+    await user.click(screen.getByRole('button', { name: '登录平台' }));
+
+    expect(await screen.findByRole('navigation', { name: 'AI Agent 端导航' })).toBeInTheDocument();
   });
 
   it('根路径不会复用历史 Agent 会话自动进入 Agent 页面', () => {
@@ -69,7 +114,7 @@ describe('Web 壳 smoke test', () => {
 
     renderRoute('/');
 
-    expect(screen.getByRole('heading', { name: '登录 LabelHub' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '登录平台' })).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'AI Agent 端导航' })).not.toBeInTheDocument();
   });
 
@@ -223,7 +268,7 @@ describe('Web 壳 smoke test', () => {
 
     await user.click(screen.getByRole('menuitem', { name: '退出' }));
 
-    expect(screen.getByRole('heading', { name: '登录 LabelHub' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '登录平台' })).toBeInTheDocument();
   });
 });
 
@@ -231,7 +276,7 @@ describe('Web 路由守卫', () => {
   it('未登录访问 /owner/tasks 跳转 /login', () => {
     renderRoute('/owner/tasks');
 
-    expect(screen.getByRole('heading', { name: '登录 LabelHub' })).toBeInTheDocument();
+    expect(screen.queryByText('登录 LabelHub')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '登录平台' })).toBeInTheDocument();
   });
 
