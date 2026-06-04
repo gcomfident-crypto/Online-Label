@@ -120,7 +120,7 @@ describe('TemplateDesignerPage', () => {
     await user.clear(screen.getByLabelText('最大长度'));
     await user.type(screen.getByLabelText('最大长度'), '42');
     fireEvent.change(screen.getByLabelText('正则'), { target: { value: '^[^#]+$' } });
-    await user.selectOptions(screen.getByLabelText('自定义函数'), 'valid_json');
+    await user.selectOptions(screen.getByLabelText('预置校验'), 'valid_json');
 
     expect(findDesignerField('summary')?.validation).toMatchObject({
       maxLength: 42,
@@ -132,8 +132,11 @@ describe('TemplateDesignerPage', () => {
     expect(screen.getByLabelText('隐藏字段联动')).toBeChecked();
     await user.click(screen.getByRole('button', { name: '新增联动规则' }));
     expect(screen.getByText('联动 1')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '控制显隐' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: '规则 1 条件字段' })).toHaveTextContent('请选择字段');
+    expect(screen.getByRole('group', { name: '联动 1 条件' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '联动 1 动作' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '规则 1 动作 1 类型' })).toHaveTextContent('显示');
+    expect(screen.queryByRole('combobox', { name: '规则 1 条件字段 1' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '规则 1 条件字段 1' })).toHaveTextContent('选择字段');
 
     expect(screen.queryByRole('region', { name: 'Renderer 预览' })).not.toBeInTheDocument();
   });

@@ -207,10 +207,50 @@ describe('template validation', () => {
           fieldKey: 'margin',
           message: '限制选项 不存在的选项 不属于目标字段 优劣程度 的已有选项。',
         },
+      ],
+    });
+  });
+
+  it('结构化联动规则未完成时不能通过模板校验', () => {
+    const schema = baseSchema([
+      {
+        key: 'preferred',
+        type: 'radio',
+        label: '偏好选择',
+        options: [{ label: 'A', value: 'A' }],
+      },
+      {
+        key: 'margin',
+        type: 'radio',
+        label: '优劣程度',
+        options: [{ label: '明显优于', value: '明显优于' }],
+      },
+    ]);
+
+    expect(
+      validateTemplateSchema({
+        ...schema,
+        linkageRules: [
+          {
+            id: 'rule_incomplete',
+            combinator: 'and',
+            conditions: [{ fieldKey: '', operator: 'equals', value: '' }],
+            actions: [{ type: 'show', targetFieldKey: '' }],
+          },
+        ],
+      }),
+    ).toEqual({
+      valid: false,
+      errors: [
         {
-          code: 'TEMPLATE_LINKAGE_CONFLICT',
-          fieldKey: 'margin',
-          message: '字段 margin 存在多条限制选项联动，请合并成一张条件值表。',
+          code: 'TEMPLATE_LINKAGE_SOURCE_MISSING',
+          fieldKey: '',
+          message: '联动条件字段 未设置。',
+        },
+        {
+          code: 'TEMPLATE_LINKAGE_TARGET_MISSING',
+          fieldKey: '',
+          message: '联动目标字段 未设置。',
         },
       ],
     });

@@ -12,9 +12,22 @@ import {
   type ReactNode,
 } from 'react';
 
-import { getSchemaFieldKey, type FieldAiReviewRole, type SchemaField, type ShowItemDisplayField } from '@labelhub/shared';
+import {
+  collectFieldLinkageRuleFieldKeys,
+  expandFieldLinkageRule,
+  type CustomValidatorKey,
+  type FieldLinkageRule as PersistedFieldLinkageRule,
+  getSchemaFieldKey,
+  type FieldAiReviewRole,
+  type SchemaField,
+  type ShowItemDisplayField,
+  type StructuredFieldLinkageRule,
+} from '@labelhub/shared';
 
 import { FilterSelect } from '../../components/FilterSelect';
+import { LinkageRuleEditor } from './rule-editor/LinkageRuleEditor';
+import type { LinkageRuleFieldOption } from './rule-editor/ruleEditorAst';
+import { validateStructuredLinkageRuleDraft } from './rule-editor/ruleEditorValidation';
 import { CUSTOM_VALIDATOR_OPTIONS } from './templateStore';
 
 type PropertyPanelProps = {
@@ -38,10 +51,23 @@ const SHOW_ITEM_FORMAT_OPTIONS = [
   { label: '文本', value: 'text' },
   { label: '代码', value: 'code' },
 ] as const;
+const CUSTOM_VALIDATOR_LABELS: Record<CustomValidatorKey, string> = {
+  non_empty_json: '结构化 JSON 必填',
+  safe_url: '安全链接',
+  valid_json: '合法 JSON',
+  valid_email: '邮箱格式',
+  valid_file_type: '有效上传文件',
+};
+const TEXT_CUSTOM_VALIDATORS: readonly CustomValidatorKey[] = [
+  'valid_email',
+  'safe_url',
+  'valid_json',
+];
+const JSON_CUSTOM_VALIDATORS: readonly CustomValidatorKey[] = ['non_empty_json'];
+const FILE_CUSTOM_VALIDATORS: readonly CustomValidatorKey[] = ['valid_file_type'];
 const FIELD_DESCRIPTION_MAX_LENGTH = 20;
 
-type LinkageOperator = NonNullable<SchemaField['linkageRules']>[number]['when']['operator'];
-type LinkageRule = NonNullable<SchemaField['linkageRules']>[number];
+type LinkageRule = StructuredFieldLinkageRule;
 
 export const PropertyPanel = ({
   field,
@@ -796,6 +822,30 @@ const defaultAiReviewRole = (field: SchemaField): FieldAiReviewRole => {
 const supportsLengthLimit = (field: SchemaField): boolean =>
   field.type === 'text' || field.type === 'textarea' || field.type === 'rich_text';
 
+const customValidatorOptionsForField = (field: SchemaField): readonly CustomValidatorKey[] => {
+  let options: readonly CustomValidatorKey[] = [];
+
+  if (field.type === 'text' || field.type === 'textarea' || field.type === 'rich_text') {
+    options = TEXT_CUSTOM_VALIDATORS;
+  } else if (field.type === 'json_editor') {
+    options = JSON_CUSTOM_VALIDATORS;
+  } else if (field.type === 'file_upload') {
+    options = FILE_CUSTOM_VALIDATORS;
+  }
+
+  const selectedValidator = field.validation?.customValidatorKey;
+
+  if (
+    selectedValidator &&
+    CUSTOM_VALIDATOR_OPTIONS.includes(selectedValidator) &&
+    !options.includes(selectedValidator)
+  ) {
+    return [selectedValidator, ...options];
+  }
+
+  return options;
+};
+
 const shouldExpandValidation = (field: SchemaField): boolean =>
   Boolean(
     field.validation?.minLength !== undefined ||
@@ -1031,6 +1081,8 @@ const ValidationProperties = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(() => shouldExpandValidation(field));
   const selectedFieldKey = field.fieldKey ?? field.key;
+  const customValidatorOptions = customValidatorOptionsForField(field);
+  const shouldShowCustomValidator = customValidatorOptions.length > 0 || Boolean(field.validation?.customValidatorKey);
 
   useEffect(() => {
     setIsExpanded(shouldExpandValidation(field));
@@ -1079,26 +1131,28 @@ const ValidationProperties = ({
             onChange={(event) => onUpdateValidation({ pattern: event.target.value })}
           />
           </PropertyRow>
-          <PropertyRow label="自定义函数">
-          <select
-            aria-label="自定义函数"
-            value={field.validation?.customValidatorKey ?? ''}
-            onChange={(event) =>
-              onUpdateValidation({
-                customValidatorKey: event.target.value
-                  ? (event.target.value as NonNullable<SchemaField['validation']>['customValidatorKey'])
-                  : undefined,
-              })
-            }
-          >
-            <option value="">不使用</option>
-            {CUSTOM_VALIDATOR_OPTIONS.map((key) => (
-              <option key={key} value={key}>
-                {key}
-              </option>
-            ))}
-          </select>
-          </PropertyRow>
+          {shouldShowCustomValidator ? (
+            <PropertyRow label="预置校验">
+            <select
+              aria-label="预置校验"
+              value={field.validation?.customValidatorKey ?? ''}
+              onChange={(event) =>
+                onUpdateValidation({
+                  customValidatorKey: event.target.value
+                    ? (event.target.value as NonNullable<SchemaField['validation']>['customValidatorKey'])
+                    : undefined,
+                })
+              }
+            >
+              <option value="">不使用</option>
+              {customValidatorOptions.map((key) => (
+                <option key={key} value={key}>
+                  {CUSTOM_VALIDATOR_LABELS[key]}
+                </option>
+              ))}
+            </select>
+            </PropertyRow>
+          ) : null}
         </div>
       </PropertyCollapse>
     </PropertySection>
@@ -1122,6 +1176,10 @@ const LinkageProperties = ({
     () => buildLinkageFieldEntries(schemaFields, field.linkageRules ?? []),
     [field.linkageRules, schemaFields],
   );
+  const editableRules = useMemo(
+    () => (field.linkageRules ?? []).flatMap((rule, index) => expandFieldLinkageRule(rule, index)),
+    [field.linkageRules],
+  );
   const fieldsByKey = useMemo(
     () => new Map(linkageFieldEntries.map((entry) => [entry.value, entry.field])),
     [linkageFieldEntries],
@@ -1136,26 +1194,8 @@ const LinkageProperties = ({
     [linkageFieldEntries],
   );
 
-  const updateRule = (index: number, patch: Partial<LinkageRule>) => {
-    const currentRules = field.linkageRules ?? [];
-    const nextRules = [...currentRules];
-
-    nextRules[index] = {
-      ...nextRules[index],
-      ...patch,
-      when: {
-        ...nextRules[index]?.when,
-        ...(patch.when ?? {}),
-      },
-    };
-
-    onUpdateField({ linkageRules: nextRules });
-  };
-
   const replaceRule = (index: number, rule: LinkageRule) => {
-    const currentRules = field.linkageRules ?? [];
-    const nextRules = [...currentRules];
-
+    const nextRules = [...editableRules];
     nextRules[index] = rule;
     onUpdateField({ linkageRules: nextRules });
   };
@@ -1166,7 +1206,7 @@ const LinkageProperties = ({
 
   const removeLinkageRule = (index: number) => {
     onUpdateField({
-      linkageRules: (field.linkageRules ?? []).filter((_, currentIndex) => currentIndex !== index),
+      linkageRules: editableRules.filter((_, currentIndex) => currentIndex !== index),
     });
   };
 
@@ -1184,9 +1224,9 @@ const LinkageProperties = ({
     >
       <PropertyCollapse dataTestId="designer-linkage-collapse" expanded={isExpanded}>
         <div className="designer-linkage">
-          {(field.linkageRules ?? []).map((rule, index) => (
+          {editableRules.map((rule, index) => (
             <LinkageRuleCard
-              key={`${rule.targetFieldKey}:${index}`}
+              key={`${rule.id ?? 'linkage'}:${index}`}
               conditionFieldOptions={conditionFieldOptions}
               fieldsByKey={fieldsByKey}
               index={index}
@@ -1194,8 +1234,7 @@ const LinkageProperties = ({
               rule={rule}
               targetFieldOptions={targetFieldOptions}
               onRemove={() => removeLinkageRule(index)}
-              onReplace={(nextRule) => replaceRule(index, nextRule)}
-              onUpdate={(patch) => updateRule(index, patch)}
+              onChange={(nextRule) => replaceRule(index, nextRule)}
             />
           ))}
           <button
@@ -1212,14 +1251,6 @@ const LinkageProperties = ({
   );
 };
 
-type LinkageFieldOption = {
-  value: string;
-  label: string;
-  field: SchemaField;
-};
-
-type LinkageMode = 'limitOptions' | 'visibility';
-
 const LinkageRuleCard = ({
   conditionFieldOptions,
   fieldsByKey,
@@ -1227,76 +1258,26 @@ const LinkageRuleCard = ({
   limitTargetFieldOptions,
   rule,
   targetFieldOptions,
+  onChange,
   onRemove,
-  onReplace,
-  onUpdate,
 }: {
-  conditionFieldOptions: readonly LinkageFieldOption[];
+  conditionFieldOptions: readonly LinkageRuleFieldOption[];
   fieldsByKey: ReadonlyMap<string, SchemaField>;
   index: number;
-  limitTargetFieldOptions: readonly LinkageFieldOption[];
+  limitTargetFieldOptions: readonly LinkageRuleFieldOption[];
   rule: LinkageRule;
-  targetFieldOptions: readonly LinkageFieldOption[];
+  targetFieldOptions: readonly LinkageRuleFieldOption[];
   onRemove: () => void;
-  onReplace: (rule: LinkageRule) => void;
-  onUpdate: (patch: Partial<LinkageRule>) => void;
+  onChange: (rule: LinkageRule) => void;
 }) => {
-  const mode: LinkageMode = rule.action === 'limitOptions' ? 'limitOptions' : 'visibility';
-  const sourceField = fieldsByKey.get(rule.when.fieldKey);
-  const targetField = fieldsByKey.get(rule.targetFieldKey);
-
-  const switchMode = (nextMode: LinkageMode) => {
-    if (nextMode === mode) {
-      return;
-    }
-
-    if (nextMode === 'limitOptions') {
-      const nextTargetFieldKey = isLimitOptionTargetField(targetField)
-        ? rule.targetFieldKey
-        : limitTargetFieldOptions[0]?.value ?? '';
-      const nextTargetField = fieldsByKey.get(nextTargetFieldKey);
-
-      onReplace({
-        when: {
-          fieldKey: rule.when.fieldKey,
-          operator: 'exists',
-        },
-        action: 'limitOptions',
-        targetFieldKey: nextTargetFieldKey,
-        cases: buildLimitOptionCases(sourceField, nextTargetField, rule),
-      });
-      return;
-    }
-
-    onReplace({
-      when: {
-        fieldKey: rule.when.fieldKey,
-        operator: 'equals',
-        value: firstConditionValue(sourceField, rule.when.value),
-      },
-      action: 'show',
-      targetFieldKey: isSubmittableField(targetField)
-        ? rule.targetFieldKey
-        : targetFieldOptions[0]?.value ?? '',
-    });
-  };
+  const hasValidationErrors = validateStructuredLinkageRuleDraft(rule, fieldsByKey).length > 0;
 
   return (
     <fieldset className="designer-linkage__rule">
       <div className="designer-linkage__rule-header">
-        <strong>联动 {index + 1}</strong>
-        <div className="designer-linkage__mode-switch" role="group" aria-label={`联动 ${index + 1} 类型`}>
-          {LINKAGE_MODE_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              aria-pressed={mode === option.value}
-              className={mode === option.value ? 'is-active' : ''}
-              type="button"
-              onClick={() => switchMode(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="designer-linkage__rule-title">
+          <strong>联动 {index + 1}</strong>
+          {hasValidationErrors ? <span className="designer-linkage__rule-status">未完成</span> : null}
         </div>
         <button
           aria-label={`删除联动规则 ${index + 1}`}
@@ -1308,348 +1289,34 @@ const LinkageRuleCard = ({
           <PropertyPanelDeleteIcon />
         </button>
       </div>
-      {mode === 'limitOptions' ? (
-        <LimitOptionsRuleEditor
-          conditionFieldOptions={conditionFieldOptions}
-          fieldsByKey={fieldsByKey}
-          index={index}
-          limitTargetFieldOptions={limitTargetFieldOptions}
-          rule={rule}
-          sourceField={sourceField}
-          targetField={targetField}
-          onReplace={onReplace}
-          onUpdate={onUpdate}
-        />
-      ) : (
-        <VisibilityRuleEditor
-          conditionFieldOptions={conditionFieldOptions}
-          index={index}
-          rule={rule}
-          sourceField={sourceField}
-          targetFieldOptions={targetFieldOptions}
-          onUpdate={onUpdate}
-        />
-      )}
+      <LinkageRuleEditor
+        conditionFieldOptions={conditionFieldOptions}
+        fieldsByKey={fieldsByKey}
+        index={index}
+        limitTargetFieldOptions={limitTargetFieldOptions}
+        rule={rule}
+        targetFieldOptions={targetFieldOptions}
+        onChange={onChange}
+      />
     </fieldset>
   );
 };
 
-const VisibilityRuleEditor = ({
-  conditionFieldOptions,
-  index,
-  rule,
-  sourceField,
-  targetFieldOptions,
-  onUpdate,
-}: {
-  conditionFieldOptions: readonly LinkageFieldOption[];
-  index: number;
-  rule: LinkageRule;
-  sourceField: SchemaField | undefined;
-  targetFieldOptions: readonly LinkageFieldOption[];
-  onUpdate: (patch: Partial<LinkageRule>) => void;
-}) => {
-  return (
-    <div className="designer-linkage__sentence">
-      <span>当</span>
-      <LinkageFieldSelect
-        ariaLabel={`规则 ${index + 1} 条件字段`}
-        options={conditionFieldOptions}
-        value={rule.when.fieldKey}
-        onChange={(fieldKey) => {
-          const nextSourceField = conditionFieldOptions.find((option) => option.value === fieldKey)?.field;
-
-          onUpdate({
-            when: {
-              fieldKey,
-              operator: rule.when.operator,
-              value: firstConditionValue(nextSourceField, rule.when.value),
-            },
-          });
-        }}
-      />
-      <select
-        aria-label={`规则 ${index + 1} 条件表达式`}
-        value={rule.when.operator}
-        onChange={(event) => {
-          const operator = event.target.value as LinkageOperator;
-
-          onUpdate({
-            when: {
-              ...rule.when,
-              operator,
-              value: operator === 'exists' || operator === 'notExists'
-                ? undefined
-                : firstConditionValue(sourceField, rule.when.value),
-            },
-          });
-        }}
-      >
-        {LINKAGE_OPERATOR_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <ConditionValueControl
-        index={index}
-        rule={rule}
-        sourceField={sourceField}
-        onChange={(value) =>
-          onUpdate({
-            when: {
-              ...rule.when,
-              value,
-            },
-          })
-        }
-      />
-      <span>让</span>
-      <LinkageFieldSelect
-        ariaLabel={`规则 ${index + 1} 目标字段`}
-        options={targetFieldOptions}
-        value={rule.targetFieldKey}
-        onChange={(targetFieldKey) => onUpdate({ targetFieldKey })}
-      />
-      <select
-        aria-label={`规则 ${index + 1} 显隐动作`}
-        value={rule.action === 'hide' ? 'hide' : 'show'}
-        onChange={(event) => onUpdate({ action: event.target.value as 'hide' | 'show' })}
-      >
-        {VISIBILITY_ACTION_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-};
-
-const LimitOptionsRuleEditor = ({
-  conditionFieldOptions,
-  fieldsByKey,
-  index,
-  limitTargetFieldOptions,
-  rule,
-  sourceField,
-  targetField,
-  onReplace,
-  onUpdate,
-}: {
-  conditionFieldOptions: readonly LinkageFieldOption[];
-  fieldsByKey: ReadonlyMap<string, SchemaField>;
-  index: number;
-  limitTargetFieldOptions: readonly LinkageFieldOption[];
-  rule: LinkageRule;
-  sourceField: SchemaField | undefined;
-  targetField: SchemaField | undefined;
-  onReplace: (rule: LinkageRule) => void;
-  onUpdate: (patch: Partial<LinkageRule>) => void;
-}) => {
-  const caseRows = buildLimitOptionCases(sourceField, targetField, rule);
-  const targetOptions = targetField?.options ?? [];
-
-  return (
-    <div className="designer-linkage__limit">
-      <div className="designer-linkage__sentence">
-        <span>当</span>
-        <LinkageFieldSelect
-          ariaLabel={`规则 ${index + 1} 条件字段`}
-          options={conditionFieldOptions}
-          value={rule.when.fieldKey}
-          onChange={(fieldKey) => {
-            const nextSourceField = fieldsByKey.get(fieldKey);
-
-            onReplace({
-              ...rule,
-              when: {
-                fieldKey,
-                operator: 'exists',
-              },
-              cases: buildLimitOptionCases(nextSourceField, targetField, {
-                ...rule,
-                when: { fieldKey, operator: 'exists' },
-              }),
-            });
-          }}
-        />
-        <span>的值变化时，控制</span>
-        <LinkageFieldSelect
-          ariaLabel={`规则 ${index + 1} 目标字段`}
-          options={limitTargetFieldOptions}
-          value={rule.targetFieldKey}
-          onChange={(targetFieldKey) => {
-            const nextTargetField = fieldsByKey.get(targetFieldKey);
-
-            onReplace({
-              ...rule,
-              targetFieldKey,
-              cases: buildLimitOptionCases(sourceField, nextTargetField, {
-                ...rule,
-                targetFieldKey,
-              }),
-            });
-          }}
-        />
-        <span>的可选项</span>
-      </div>
-      <div className="designer-linkage__matrix">
-        <div className="designer-linkage__matrix-head">
-          <span>条件值</span>
-          <span>目标字段可选项</span>
-        </div>
-        {caseRows.length > 0 ? (
-          caseRows.map((ruleCase) => (
-            <div className="designer-linkage__matrix-row" key={formatRuleValue(ruleCase.value)}>
-              <span className="designer-linkage__condition-chip">
-                {formatConditionCaseLabel(sourceField, ruleCase.value)}
-              </span>
-              <div className="designer-linkage__option-chips" role="group" aria-label={`${formatConditionCaseLabel(sourceField, ruleCase.value)} 可选项`}>
-                {targetOptions.map((option) => {
-                  const selected = ruleCase.optionValues.includes(option.value);
-
-                  return (
-                    <button
-                      key={option.value}
-                      aria-pressed={selected}
-                      className={selected ? 'is-selected' : ''}
-                      type="button"
-                      onClick={() => {
-                        const nextCases = caseRows.map((currentCase) => {
-                          if (!areLinkageCaseValuesEqual(currentCase.value, ruleCase.value)) {
-                            return currentCase;
-                          }
-
-                          const nextOptionValues = selected
-                            ? currentCase.optionValues.filter((value) => value !== option.value)
-                            : [...currentCase.optionValues, option.value];
-
-                          return {
-                            ...currentCase,
-                            optionValues: nextOptionValues,
-                          };
-                        });
-
-                        onUpdate({ cases: nextCases });
-                      }}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="designer-linkage__empty">先选择条件字段和目标字段。</div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const LinkageFieldSelect = ({
-  ariaLabel,
-  options,
-  value,
-  onChange,
-}: {
-  ariaLabel: string;
-  options: readonly LinkageFieldOption[];
-  value: string;
-  onChange: (value: string) => void;
-}) => (
-  <div className="designer-linkage__field-select">
-    <FilterSelect
-      ariaLabel={ariaLabel}
-      options={options}
-      value={value}
-      placeholder="请选择字段"
-      onChange={onChange}
-    />
-  </div>
-);
-
-const ConditionValueControl = ({
-  index,
-  rule,
-  sourceField,
-  onChange,
-}: {
-  index: number;
-  rule: LinkageRule;
-  sourceField: SchemaField | undefined;
-  onChange: (value: unknown) => void;
-}) => {
-  if (rule.when.operator === 'exists' || rule.when.operator === 'notExists') {
-    return <span className="designer-linkage__value-placeholder">无需条件值</span>;
-  }
-
-  if (sourceField?.options && sourceField.options.length > 0) {
-    return (
-      <div className="designer-linkage__value-chips" role="group" aria-label={`规则 ${index + 1} 条件值`}>
-        {sourceField.options.map((option) => {
-          const selected = areLinkageCaseValuesEqual(rule.when.value, option.value);
-
-          return (
-            <button
-              key={option.value}
-              aria-pressed={selected}
-              className={selected ? 'is-selected' : ''}
-              type="button"
-              onClick={() => onChange(option.value)}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
-
-  return (
-    <input
-      aria-label={`规则 ${index + 1} 条件值`}
-      value={formatRuleValue(rule.when.value)}
-      onChange={(event) => onChange(parseLinkageValueInput(event.target.value))}
-    />
-  );
-};
-
-const LINKAGE_OPERATOR_OPTIONS = [
-  { value: 'equals' as const, label: '等于' },
-  { value: 'notEquals' as const, label: '不等于' },
-  { value: 'contains' as const, label: '包含' },
-  { value: 'notContains' as const, label: '不包含' },
-  { value: 'exists' as const, label: '存在' },
-  { value: 'notExists' as const, label: '不存在' },
-] as const;
-
-const LINKAGE_MODE_OPTIONS = [
-  { value: 'visibility' as const, label: '控制显隐' },
-  { value: 'limitOptions' as const, label: '限制选项' },
-] as const;
-
-const VISIBILITY_ACTION_OPTIONS = [
-  { value: 'show' as const, label: '显示' },
-  { value: 'hide' as const, label: '隐藏' },
-] as const;
-
 const buildLinkageFieldEntries = (
   fields: readonly SchemaField[],
-  rules: readonly LinkageRule[],
-): LinkageFieldOption[] => {
+  rules: readonly PersistedFieldLinkageRule[],
+): LinkageRuleFieldOption[] => {
   const entries = collectLinkageFieldEntries(fields);
-  const options = entries.map((entry) => ({
+  const options: LinkageRuleFieldOption[] = entries.map((entry) => ({
     value: entry.fieldKey,
-    label: `${entry.field.label} · ${entry.fieldKey}`,
+    label: entry.field.label,
+    description: entry.fieldKey,
     field: entry.field,
   }));
   const knownFieldValues = new Set(options.map((option) => option.value));
 
   for (const rule of rules) {
-    for (const fieldKey of [rule.when.fieldKey, rule.targetFieldKey]) {
+    for (const fieldKey of collectFieldLinkageRuleFieldKeys(rule)) {
       if (!fieldKey || knownFieldValues.has(fieldKey)) {
         continue;
       }
@@ -1702,103 +1369,6 @@ const isSubmittableField = (field: SchemaField | undefined): field is SchemaFiel
 const isLimitOptionTargetField = (field: SchemaField | undefined): field is SchemaField =>
   field !== undefined &&
   (field.type === 'radio' || field.type === 'checkbox' || field.type === 'tag_select');
-
-const buildLimitOptionCases = (
-  sourceField: SchemaField | undefined,
-  targetField: SchemaField | undefined,
-  rule: LinkageRule,
-): NonNullable<LinkageRule['cases']> => {
-  const existingCases = rule.cases ?? [];
-  const targetOptionValues = new Set((targetField?.options ?? []).map((option) => option.value));
-  const sourceOptions = sourceField?.options ?? [];
-
-  if (sourceOptions.length > 0) {
-    return sourceOptions.map((option) => {
-      const existingCase = existingCases.find((ruleCase) =>
-        areLinkageCaseValuesEqual(ruleCase.value, option.value),
-      );
-
-      return {
-        value: option.value,
-        optionValues: (existingCase?.optionValues ?? []).filter((value) => targetOptionValues.has(value)),
-      };
-    });
-  }
-
-  return existingCases.map((ruleCase) => ({
-    value: ruleCase.value,
-    optionValues: ruleCase.optionValues.filter((value) => targetOptionValues.has(value)),
-  }));
-};
-
-const firstConditionValue = (
-  sourceField: SchemaField | undefined,
-  currentValue: unknown,
-): unknown => {
-  if (sourceField?.options?.some((option) => areLinkageCaseValuesEqual(option.value, currentValue))) {
-    return currentValue;
-  }
-
-  return sourceField?.options?.[0]?.value ?? currentValue ?? '';
-};
-
-const formatConditionCaseLabel = (
-  sourceField: SchemaField | undefined,
-  value: unknown,
-): string => {
-  const option = sourceField?.options?.find((item) => areLinkageCaseValuesEqual(item.value, value));
-  const fallback = formatRuleValue(value);
-
-  return option?.label ?? (fallback || '空值');
-};
-
-const areLinkageCaseValuesEqual = (left: unknown, right: unknown): boolean => {
-  if (Object.is(left, right)) {
-    return true;
-  }
-
-  return formatRuleValue(left) === formatRuleValue(right);
-};
-
-const parseLinkageValueInput = (value: string): unknown => {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return undefined;
-  }
-
-  if ((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']'))) {
-    try {
-      return JSON.parse(trimmed);
-    } catch {
-      // ignore
-    }
-  }
-
-  if (trimmed === 'true') {
-    return true;
-  }
-
-  if (trimmed === 'false') {
-    return false;
-  }
-
-  const numberValue = Number(trimmed);
-
-  return Number.isNaN(numberValue) ? value : numberValue;
-};
-
-const formatRuleValue = (value: unknown): string => {
-  if (value === undefined || value === null || value === '') {
-    return '';
-  }
-
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-
-  return JSON.stringify(value);
-};
 
 const numericValue = (value: string): number | undefined => {
   return value === '' ? undefined : Number(value);

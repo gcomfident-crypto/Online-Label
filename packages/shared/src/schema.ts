@@ -70,7 +70,9 @@ export type FieldLinkageOptionCase = {
   optionValues: readonly string[];
 };
 
-export type FieldLinkageRule = {
+export type FieldLinkageRuleCombinator = 'and' | 'or';
+
+export type LegacyFieldLinkageRule = {
   when: FieldLinkageCondition;
   action: FieldLinkageAction;
   targetFieldKey: string;
@@ -81,6 +83,25 @@ export type FieldLinkageRule = {
   autoSelectWhenSingleOption?: boolean;
   message?: string;
 };
+
+export type StructuredFieldLinkageAction = {
+  type: FieldLinkageAction;
+  targetFieldKey: string;
+  value?: unknown;
+  optionValues?: readonly string[];
+  clearInvalidValue?: boolean;
+  autoSelectWhenSingleOption?: boolean;
+  message?: string;
+};
+
+export type StructuredFieldLinkageRule = {
+  id?: string;
+  combinator?: FieldLinkageRuleCombinator;
+  conditions: readonly FieldLinkageCondition[];
+  actions: readonly StructuredFieldLinkageAction[];
+};
+
+export type FieldLinkageRule = LegacyFieldLinkageRule | StructuredFieldLinkageRule;
 
 export type FieldOption = {
   label: string;
@@ -202,4 +223,104 @@ export const createLabelHubSchema = <TSchema extends LabelHubSchema>(
   schema: TSchema,
 ): TSchema => {
   return schema;
+};
+
+export const isStructuredFieldLinkageRule = (
+  rule: FieldLinkageRule,
+): rule is StructuredFieldLinkageRule => {
+  return 'conditions' in rule && Array.isArray(rule.conditions) && 'actions' in rule && Array.isArray(rule.actions);
+};
+
+export const isLegacyFieldLinkageRule = (
+  rule: FieldLinkageRule,
+): rule is LegacyFieldLinkageRule => {
+  return 'when' in rule && 'action' in rule && 'targetFieldKey' in rule;
+};
+
+const defaultStructuredRuleId = (
+  rule: FieldLinkageRule,
+  ruleIndex: number,
+  actionIndex = 0,
+): string => {
+  if (isStructuredFieldLinkageRule(rule) && rule.id) {
+    return rule.id;
+  }
+
+  if (isLegacyFieldLinkageRule(rule)) {
+    return `legacy:${rule.targetFieldKey}:${rule.when.fieldKey || 'unknown'}:${ruleIndex}:${actionIndex}`;
+  }
+
+  return `linkage:${ruleIndex}:${actionIndex}`;
+};
+
+export const expandFieldLinkageRule = (
+  rule: FieldLinkageRule,
+  ruleIndex = 0,
+): StructuredFieldLinkageRule[] => {
+  if (isStructuredFieldLinkageRule(rule)) {
+    return [
+      {
+        id: rule.id ?? defaultStructuredRuleId(rule, ruleIndex),
+        combinator: rule.combinator ?? 'and',
+        conditions: [...rule.conditions],
+        actions: [...rule.actions],
+      },
+    ];
+  }
+
+  if (rule.action === 'limitOptions' && rule.cases && rule.cases.length > 0) {
+    return rule.cases.map((ruleCase, caseIndex) => ({
+      id: defaultStructuredRuleId(rule, ruleIndex, caseIndex),
+      combinator: 'and',
+      conditions: [
+        {
+          fieldKey: rule.when.fieldKey,
+          operator: 'equals',
+          value: ruleCase.value,
+        },
+      ],
+      actions: [
+        {
+          type: 'limitOptions',
+          targetFieldKey: rule.targetFieldKey,
+          optionValues: [...ruleCase.optionValues],
+          clearInvalidValue: rule.clearInvalidValue,
+          autoSelectWhenSingleOption: rule.autoSelectWhenSingleOption,
+          message: rule.message,
+        },
+      ],
+    }));
+  }
+
+  return [
+    {
+      id: defaultStructuredRuleId(rule, ruleIndex),
+      combinator: 'and',
+      conditions: [{ ...rule.when }],
+      actions: [
+        {
+          type: rule.action,
+          targetFieldKey: rule.targetFieldKey,
+          value: rule.value,
+          optionValues: rule.optionValues ? [...rule.optionValues] : undefined,
+          clearInvalidValue: rule.clearInvalidValue,
+          autoSelectWhenSingleOption: rule.autoSelectWhenSingleOption,
+          message: rule.message,
+        },
+      ],
+    },
+  ];
+};
+
+export const collectFieldLinkageRuleFieldKeys = (
+  rule: FieldLinkageRule,
+): string[] => {
+  if (isStructuredFieldLinkageRule(rule)) {
+    return [
+      ...rule.conditions.map((condition) => condition.fieldKey),
+      ...rule.actions.map((action) => action.targetFieldKey),
+    ];
+  }
+
+  return [rule.when.fieldKey, rule.targetFieldKey];
 };

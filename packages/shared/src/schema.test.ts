@@ -95,6 +95,8 @@ describe('动态表单 Schema 协议', () => {
     });
 
     expect(schema.datasetKind).toBe('qa_quality');
-    expect(schema.fields[0]?.linkageRules?.[0]?.action).toBe('show');
+    const linkageRule = schema.fields[0]?.linkageRules?.[0];
+
+    expect(linkageRule && 'action' in linkageRule ? linkageRule.action : undefined).toBe('show');
   });
 });

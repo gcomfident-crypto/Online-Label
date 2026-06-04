@@ -91,6 +91,82 @@ describe('schema runtime', () => {
     expect(errors).toEqual([{ fieldKey: 'review_result', message: '字段 review_result 未满足联动约束。' }]);
   });
 
+  it('预置校验函数覆盖邮箱、安全链接、JSON 和上传文件类型', () => {
+    const schema = baseSchema([
+      {
+        key: 'email',
+        type: 'text',
+        label: '邮箱',
+        validation: { customValidatorKey: 'valid_email' },
+      },
+      {
+        key: 'link',
+        type: 'text',
+        label: '资料链接',
+        validation: { customValidatorKey: 'safe_url' },
+      },
+      {
+        key: 'json_text',
+        type: 'textarea',
+        label: 'JSON 文本',
+        validation: { customValidatorKey: 'valid_json' },
+      },
+      {
+        key: 'payload',
+        type: 'json_editor',
+        label: '结构化信息',
+        validation: { customValidatorKey: 'non_empty_json' },
+      },
+      {
+        key: 'attachment',
+        type: 'file_upload',
+        label: '附件',
+        fileConstraints: {
+          maxFiles: 1,
+          maxSizeMb: 10,
+          acceptedMimeTypes: ['image/*'],
+        },
+        validation: { customValidatorKey: 'valid_file_type' },
+      },
+    ]);
+
+    expect(
+      validateSchemaAnswers(schema, {
+        email: 'bad-email',
+        link: 'javascript:alert(1)',
+        json_text: '{bad json}',
+        payload: {},
+        attachment: {
+          name: 'note.txt',
+          url: 'https://example.com/note.txt',
+          mimeType: 'text/plain',
+          size: 12,
+        },
+      }),
+    ).toEqual([
+      { fieldKey: 'email', message: '邮箱格式不正确。' },
+      { fieldKey: 'link', message: '资料链接必须是安全链接。' },
+      { fieldKey: 'json_text', message: 'JSON 文本必须是合法 JSON。' },
+      { fieldKey: 'payload', message: '结构化信息必须填写结构化 JSON。' },
+      { fieldKey: 'attachment', message: '附件文件类型不符合要求。' },
+    ]);
+
+    expect(
+      validateSchemaAnswers(schema, {
+        email: 'owner@example.com',
+        link: 'https://example.com/doc',
+        json_text: '{"ok":true}',
+        payload: { ok: true },
+        attachment: {
+          name: 'photo.png',
+          url: 'https://example.com/photo.png',
+          mimeType: 'image/png',
+          size: 12,
+        },
+      }),
+    ).toEqual([]);
+  });
+
   it('limitOptions 按条件值限制可选项并自动清理非法值', () => {
     const schema = {
       ...baseSchema([
@@ -187,6 +263,53 @@ describe('schema runtime', () => {
     ]);
   });
 
+  it('结构化 limitOptions 规则在运行时仍然生效', () => {
+    const schema = {
+      ...baseSchema([
+        {
+          key: 'preferred',
+          type: 'radio',
+          label: '偏好选择',
+          options: [
+            { label: 'A', value: 'A' },
+            { label: 'B', value: 'B' },
+          ],
+        },
+        {
+          key: 'margin',
+          type: 'radio',
+          label: '优劣程度',
+          options: [
+            { label: '明显优于', value: '明显优于' },
+            { label: '略优于', value: '略优于' },
+            { label: '明显逊于', value: '明显逊于' },
+          ],
+        },
+      ]),
+      linkageRules: [
+        {
+          id: 'rule_limit_structured',
+          combinator: 'and',
+          conditions: [{ fieldKey: 'preferred', operator: 'equals', value: 'A' }],
+          actions: [
+            {
+              type: 'limitOptions',
+              targetFieldKey: 'margin',
+              optionValues: ['明显优于', '略优于'],
+              clearInvalidValue: true,
+              autoSelectWhenSingleOption: false,
+            },
+          ],
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    const linkage = applySchemaLinkage(schema, { preferred: 'A', margin: '明显逊于' });
+
+    expect([...(linkage.allowedOptionsByFieldKey.get('margin') ?? [])]).toEqual(['明显优于', '略优于']);
+    expect(linkage.answers).toEqual({ preferred: 'A' });
+  });
+
   it('隐藏字段保留草稿值但 normalizedAnswers 会从正式提交中移除', () => {
     const schema = {
       ...baseSchema([
@@ -238,6 +361,67 @@ describe('schema runtime', () => {
     expect(applySchemaLinkage(schema, { ...hidden.answers, hasRisk: 'yes' }).answers.riskDetail).toBe(
       '草稿里的风险说明',
     );
+  });
+
+  it('多动作 show/hide 规则可以同时生效', () => {
+    const schema = {
+      ...baseSchema([
+        { key: 'category', type: 'text', label: '类目' },
+        { key: 'size_table', type: 'text', label: '尺寸表' },
+        { key: 'shelf_life', type: 'text', label: '保质期' },
+      ]),
+      linkageRules: [
+        {
+          id: 'rule_multi_action',
+          combinator: 'and',
+          conditions: [{ fieldKey: 'category', operator: 'equals', value: '食品生鲜' }],
+          actions: [
+            { type: 'hide', targetFieldKey: 'size_table' },
+            { type: 'show', targetFieldKey: 'shelf_life' },
+          ],
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    const matched = applySchemaLinkage(schema, { category: '食品生鲜' });
+    expect(matched.hiddenFieldKeys.has('size_table')).toBe(true);
+    expect(matched.visibleFieldKeys.has('shelf_life')).toBe(true);
+
+    const unmatched = applySchemaLinkage(schema, { category: '服饰' });
+    expect(unmatched.hiddenFieldKeys.has('size_table')).toBe(false);
+    expect(unmatched.hiddenFieldKeys.has('shelf_life')).toBe(true);
+  });
+
+  it('结构化规则支持 or 条件组合', () => {
+    const schema = {
+      ...baseSchema([
+        { key: 'preferred', type: 'radio', label: '偏好选择', options: [{ label: 'A', value: 'A' }] },
+        {
+          key: 'margin',
+          type: 'radio',
+          label: '优劣程度',
+          options: [
+            { label: '明显优于', value: '明显优于' },
+            { label: '略优于', value: '略优于' },
+          ],
+        },
+        { key: 'note', type: 'textarea', label: '备注' },
+      ]),
+      linkageRules: [
+        {
+          id: 'rule_or',
+          combinator: 'or',
+          conditions: [
+            { fieldKey: 'preferred', operator: 'equals', value: 'A' },
+            { fieldKey: 'margin', operator: 'equals', value: '明显优于' },
+          ],
+          actions: [{ type: 'hide', targetFieldKey: 'note' }],
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    expect(applySchemaLinkage(schema, { preferred: 'B', margin: '明显优于' }).hiddenFieldKeys.has('note')).toBe(true);
+    expect(applySchemaLinkage(schema, { preferred: 'B', margin: '略优于' }).hiddenFieldKeys.has('note')).toBe(false);
   });
 
   it('文件类字段拒绝不安全链接', () => {

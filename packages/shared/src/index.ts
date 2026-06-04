@@ -29,7 +29,11 @@ export {
   FIELD_TYPES,
   CUSTOM_VALIDATOR_KEYS,
   createLabelHubSchema,
+  collectFieldLinkageRuleFieldKeys,
+  expandFieldLinkageRule,
   isAllowedCustomValidatorKey,
+  isLegacyFieldLinkageRule,
+  isStructuredFieldLinkageRule,
   type AiReviewPromptConfig,
   type AiReviewPromptSectionKey,
   type AiReviewPromptSectionOverrides,
@@ -39,7 +43,9 @@ export {
   type FieldAiReviewConfig,
   type FieldAiReviewRole,
   type FieldLinkageAction,
+  type FieldLinkageRuleCombinator,
   type FieldLinkageCondition,
+  type LegacyFieldLinkageRule,
   type FieldLinkageRule,
   type FieldOption,
   type FieldType,
@@ -50,6 +56,8 @@ export {
   type SchemaField,
   type ShowItemDisplayConfig,
   type ShowItemDisplayField,
+  type StructuredFieldLinkageAction,
+  type StructuredFieldLinkageRule,
 } from './schema.ts';
 
 export {

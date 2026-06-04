@@ -184,13 +184,21 @@ export const useTemplateDesignerStore = create<TemplateDesignerState>((set, get)
     }
 
     const rule: FieldLinkageRule = {
-      when: {
-        fieldKey: '',
-        operator: 'equals',
-        value: '',
-      },
-      action: 'show',
-      targetFieldKey: selectedField.fieldKey ?? selectedField.key,
+      id: `linkage:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`,
+      combinator: 'and',
+      conditions: [
+        {
+          fieldKey: '',
+          operator: 'equals',
+          value: '',
+        },
+      ],
+      actions: [
+        {
+          type: 'show',
+          targetFieldKey: selectedField.fieldKey ?? selectedField.key,
+        },
+      ],
     };
 
     get().updateSelectedField({

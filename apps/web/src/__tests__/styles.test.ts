@@ -1475,4 +1475,142 @@ describe('global styles', () => {
     expect(styles).toContain('@keyframes taskDeadlineTitleIn');
     expect(styles).toContain('.task-deadline-picker__title-text');
   });
+
+  it('字段联动规则在属性面板内拆成条件动作色块并自然换行', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const blocksRule = styles.match(/\.designer-linkage-rule-editor__blocks\s*\{[^}]+\}/)?.[0] ?? '';
+    const blockRule = styles.match(/\.designer-linkage-rule-editor__block\s*\{[^}]+\}/)?.[0] ?? '';
+    const conditionBlockRule =
+      styles.match(/\.designer-linkage-rule-editor__block--conditions\s*\{[^}]+\}/)?.[0] ?? '';
+    const actionBlockRule =
+      styles.match(/\.designer-linkage-rule-editor__block--actions\s*\{[^}]+\}/)?.[0] ?? '';
+    const blockTitleRule = styles.match(/\.designer-linkage-rule-editor__block-title\s*\{[^}]+\}/)?.[0] ?? '';
+    const blockTitleIconRule =
+      styles.match(/\.designer-linkage-rule-editor__block-title-icon\s*\{[^}]+\}/)?.[0] ?? '';
+    const rowRule = styles.match(/\.designer-linkage-rule-editor__row\s*\{[^}]+\}/)?.[0] ?? '';
+    const conditionStackRule =
+      styles.match(/\.designer-linkage-rule-editor__condition-stack\s*\{[^}]+\}/)?.[0] ?? '';
+    const joinedConditionStackRule =
+      styles.match(/\.designer-linkage-rule-editor__condition-stack--joined\s*\{[^}]+\}/)?.[0] ?? '';
+    const conditionCombinatorRule =
+      styles.match(/\.designer-linkage-rule-editor__condition-combinator\s*\{[^}]+\}/)?.[0] ?? '';
+    const conditionCurveRule =
+      styles.match(/\.designer-linkage-rule-editor__condition-curve\s*\{[^}]+\}/)?.[0] ?? '';
+    const conditionCurveTopRule =
+      styles.match(/\.designer-linkage-rule-editor__condition-curve--top\s*\{[^}]+\}/)?.[0] ?? '';
+    const conditionCurveBottomRule =
+      styles.match(/\.designer-linkage-rule-editor__condition-curve--bottom\s*\{[^}]+\}/)?.[0] ?? '';
+    const conditionRowsRule =
+      styles.match(
+        /\.designer-linkage-rule-editor__rows--conditions \.designer-linkage-rule-editor__row--condition\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+    const primaryConditionRowRule =
+      styles.match(/\.designer-linkage-rule-editor__row--condition-primary\s*\{[^}]+\}/)?.[0] ?? '';
+    const primaryConditionBodyRule =
+      styles.match(
+        /\.designer-linkage-rule-editor__row--condition-primary \.designer-linkage-rule-editor__row-body\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+    const combinatorToggleRule =
+      styles.match(/\.designer-linkage-rule-editor__combinator-toggle\s*\{[^}]+\}/)?.[0] ?? '';
+    const combinatorToggleIconRule =
+      styles.match(/\.designer-linkage-rule-editor__combinator-toggle-icon\s*\{[^}]+\}/)?.[0] ?? '';
+    const combinatorToggleHoverRule =
+      styles.match(
+        /\.designer-linkage-rule-editor__combinator-toggle:hover,\s*\.designer-linkage-rule-editor__combinator-toggle:focus-visible\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+    const removeRowRule = styles.match(/\.designer-linkage-rule-editor__remove-row\s*\{[^}]+\}/)?.[0] ?? '';
+    const addRowRule = styles.match(/\.designer-linkage-rule-editor__add-row\s*\{[^}]+\}/)?.[0] ?? '';
+    const surfaceRule = styles.match(/\.designer-linkage-rule-editor__surface--sentence\s*\{[^}]+\}/)?.[0] ?? '';
+    const sentenceRule = styles.match(/\.designer-linkage-rule-editor__sentence\s*\{[^}]+\}/)?.[0] ?? '';
+    const valueTriggerRule =
+      styles.match(
+        /\.designer-linkage-rule-editor__inline-choice--value \.designer-linkage-rule-editor__inline-choice-trigger\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+    const inlineChoiceTriggerRule =
+      styles.match(/\.designer-linkage-rule-editor__inline-choice-trigger\s*\{[^}]+\}/)?.[0] ?? '';
+    const fieldChoiceRule =
+      styles.match(
+        /\.designer-linkage-rule-editor__inline-choice--field \.designer-linkage-rule-editor__inline-choice-trigger\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+    const actionKeywordRule =
+      styles.match(/\.designer-linkage-rule-editor__keyword--action\s*\{[^}]+\}/)?.[0] ?? '';
+    const conditionRule = styles.match(/\.designer-linkage-rule-editor__condition\s*\{[^}]+\}/)?.[0] ?? '';
+    const conditionFragmentRule =
+      styles.match(
+        /\.designer-linkage-rule-editor__condition \.designer-linkage-rule-editor__fragment\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+    const inlineChoiceMenuRule =
+      styles.match(/\.designer-linkage-rule-editor__inline-choice-menu\s*\{[^}]+\}/)?.[0] ?? '';
+    const inlineChoiceMenuButtonRule =
+      styles.match(
+        /\.designer-linkage-rule-editor__inline-choice-menu button,\s*\.designer-linkage-rule-editor__inline-choice-empty\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+
+    expect(blocksRule).toContain('min-width: 0;');
+    expect(blockRule).toContain('border-radius: 10px;');
+    expect(conditionBlockRule).toContain('background: #f4f8ff;');
+    expect(actionBlockRule).toContain('background: #effcff;');
+    expect(blockTitleRule).not.toContain('background:');
+    expect(blockTitleRule).not.toContain('border-radius: 999px;');
+    expect(blockTitleRule).toContain('gap: 4px;');
+    expect(blockTitleIconRule).toContain('width: 13px;');
+    expect(blockTitleIconRule).toContain('height: 13px;');
+    expect(rowRule).toContain('grid-template-columns: auto minmax(0, 1fr) auto;');
+    expect(rowRule).toContain('min-width: 0;');
+    expect(conditionStackRule).toContain('display: grid;');
+    expect(conditionStackRule).toContain('position: relative;');
+    expect(joinedConditionStackRule).toContain('grid-template-columns: minmax(0, 1fr);');
+    expect(joinedConditionStackRule).toContain('column-gap: 0;');
+    expect(conditionCombinatorRule).toContain('position: absolute;');
+    expect(conditionCombinatorRule).toContain('left: 0;');
+    expect(conditionCombinatorRule).toContain('width: 20px;');
+    expect(conditionCombinatorRule).toContain('grid-template-rows: minmax(12px, 1fr) auto minmax(12px, 1fr);');
+    expect(conditionCurveRule).toContain('border-color: rgba(48, 109, 250, 0.42);');
+    expect(conditionCurveTopRule).toContain('border-top-left-radius: 10px;');
+    expect(conditionCurveBottomRule).toContain('border-bottom-left-radius: 10px;');
+    expect(conditionRowsRule).toContain('grid-template-columns: minmax(0, 1fr) auto;');
+    expect(primaryConditionRowRule).toContain('grid-template-columns: minmax(0, 1fr) auto;');
+    expect(primaryConditionBodyRule).toContain('flex-wrap: nowrap;');
+    expect(primaryConditionBodyRule).toContain('padding-left: 28px;');
+    expect(combinatorToggleRule).toContain('background: transparent;');
+    expect(combinatorToggleRule).toContain('border: 0;');
+    expect(combinatorToggleRule).toContain('font-size: 11px;');
+    expect(combinatorToggleRule).not.toContain('transform:');
+    expect(combinatorToggleIconRule).toContain('font-size: 10px;');
+    expect(combinatorToggleHoverRule).toContain('background: transparent !important;');
+    expect(removeRowRule).toContain('border-radius: 999px;');
+    expect(addRowRule).toContain('justify-self: end;');
+    expect(addRowRule).toContain('min-height: 24px;');
+    expect(addRowRule).toContain('font-size: 11px;');
+    expect(surfaceRule).toContain('overflow: visible;');
+    expect(surfaceRule).not.toContain('overflow-x: auto;');
+    expect(sentenceRule).toContain('width: 100%;');
+    expect(sentenceRule).toContain('min-width: 0;');
+    expect(sentenceRule).toContain('align-items: center;');
+    expect(sentenceRule).toContain('font-size: 13px;');
+    expect(inlineChoiceTriggerRule).toContain('min-height: 28px;');
+    expect(inlineChoiceTriggerRule).toContain('border-radius: 8px;');
+    expect(inlineChoiceTriggerRule).toContain('font-size: 10px;');
+    expect(fieldChoiceRule).toContain('border-color: #bfd2ff;');
+    expect(fieldChoiceRule).toContain('background: #eef4ff;');
+    expect(fieldChoiceRule).toContain('color: #2456c7;');
+    expect(actionKeywordRule).toContain('border-color: #9deaf5;');
+    expect(actionKeywordRule).toContain('background: #e9fbff;');
+    expect(actionKeywordRule).toContain('color: #0891b2;');
+    expect(actionKeywordRule).toContain('font-size: 10px;');
+    expect(conditionRule).toContain('flex-wrap: nowrap;');
+    expect(conditionFragmentRule).toContain('flex-wrap: nowrap;');
+    expect(inlineChoiceMenuRule).toContain('width: max-content;');
+    expect(inlineChoiceMenuRule).toContain('min-width: 100%;');
+    expect(inlineChoiceMenuRule).toContain('max-width: min(260px, calc(100vw - 48px));');
+    expect(inlineChoiceMenuRule).toContain('max-height: 108px;');
+    expect(inlineChoiceMenuRule).toContain('overflow-y: auto;');
+    expect(inlineChoiceMenuRule).not.toContain('min-width: 168px;');
+    expect(inlineChoiceMenuButtonRule).toContain('width: 100%;');
+    expect(inlineChoiceMenuButtonRule).toContain('max-width: 100%;');
+    expect(inlineChoiceMenuButtonRule).toContain('min-height: 30px;');
+    expect(inlineChoiceMenuButtonRule).toContain('font-size: 12px;');
+    expect(valueTriggerRule).toContain('max-width: 100%;');
+    expect(valueTriggerRule).toContain('font-size: 10px;');
+  });
 });

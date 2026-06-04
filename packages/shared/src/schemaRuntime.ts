@@ -1,4 +1,11 @@
-import type { FieldLinkageRule, LabelHubSchema, SchemaField } from './schema.ts';
+import {
+  expandFieldLinkageRule,
+  type FieldLinkageCondition,
+  type FieldLinkageRule,
+  type LabelHubSchema,
+  type SchemaField,
+  type StructuredFieldLinkageRule,
+} from './schema.ts';
 
 export type SchemaLinkageResult = {
   visibleFieldKeys: Set<string>;
@@ -106,12 +113,14 @@ const areJsonValuesEqual = (left: unknown, right: unknown): boolean => {
   }
 };
 
-const collectRules = (schema: LabelHubSchema): FieldLinkageRule[] => {
+const collectRules = (schema: LabelHubSchema): StructuredFieldLinkageRule[] => {
   const fieldRules = collectFields(schema.fields).flatMap((field) => [
     ...(field.linkageRules ?? []),
   ]);
 
-  return [...(schema.linkageRules ?? []), ...fieldRules];
+  return [...(schema.linkageRules ?? []), ...fieldRules].flatMap((rule, index) =>
+    expandFieldLinkageRule(rule, index),
+  );
 };
 
 const createFieldByKeyMap = (fields: readonly SchemaField[]): Map<string, SchemaField> => {
@@ -141,24 +150,40 @@ const containsValue = (sourceValue: unknown, expectedValue: unknown): boolean =>
 
 const matchesCondition = (
   answers: Record<string, unknown>,
-  rule: FieldLinkageRule,
+  condition: FieldLinkageCondition,
 ): boolean => {
-  const sourceValue = answers[rule.when.fieldKey];
+  const sourceValue = answers[condition.fieldKey];
 
-  switch (rule.when.operator) {
+  switch (condition.operator) {
     case 'equals':
-      return Object.is(sourceValue, rule.when.value);
+      return Object.is(sourceValue, condition.value);
     case 'notEquals':
-      return !Object.is(sourceValue, rule.when.value);
+      return !Object.is(sourceValue, condition.value);
     case 'contains':
-      return containsValue(sourceValue, rule.when.value);
+      return containsValue(sourceValue, condition.value);
     case 'notContains':
-      return !containsValue(sourceValue, rule.when.value);
+      return !containsValue(sourceValue, condition.value);
     case 'exists':
       return !isEmptyValue(sourceValue);
     case 'notExists':
       return isEmptyValue(sourceValue);
   }
+};
+
+const matchesRule = (
+  answers: Record<string, unknown>,
+  rule: StructuredFieldLinkageRule,
+): boolean => {
+  const combinator = rule.combinator ?? 'and';
+  const conditions = rule.conditions ?? [];
+
+  if (conditions.length === 0) {
+    return false;
+  }
+
+  return combinator === 'or'
+    ? conditions.some((condition) => matchesCondition(answers, condition))
+    : conditions.every((condition) => matchesCondition(answers, condition));
 };
 
 const matchesCaseValue = (sourceValue: unknown, caseValue: unknown): boolean => {
@@ -170,31 +195,15 @@ const matchesCaseValue = (sourceValue: unknown, caseValue: unknown): boolean => 
 };
 
 const resolveLimitOptions = (
-  rule: FieldLinkageRule,
-  answers: Record<string, unknown>,
+  rule: StructuredFieldLinkageRule,
 ): Set<string> | null => {
-  if (rule.action !== 'limitOptions') {
+  const limitActions = rule.actions.filter((action) => action.type === 'limitOptions');
+
+  if (limitActions.length === 0) {
     return null;
   }
 
-  if (rule.cases && rule.cases.length > 0) {
-    const sourceValue = answers[rule.when.fieldKey];
-    const matchedCases = rule.cases.filter((ruleCase) =>
-      matchesCaseValue(sourceValue, ruleCase.value),
-    );
-
-    if (matchedCases.length === 0) {
-      return null;
-    }
-
-    return new Set(matchedCases.flatMap((ruleCase) => ruleCase.optionValues));
-  }
-
-  if (!rule.optionValues || !matchesCondition(answers, rule)) {
-    return null;
-  }
-
-  return new Set(rule.optionValues);
+  return new Set(limitActions.flatMap((action) => action.optionValues ?? []));
 };
 
 const intersectOptionSets = (
@@ -275,18 +284,26 @@ export const applySchemaLinkage = (
   const descendantsByFieldKey = collectDescendantKeysByFieldKey(schema.fields);
   const nextAnswers = { ...answers };
   const rules = collectRules(schema);
-  const setValueRules = rules.filter((rule) => rule.action === 'setValue');
 
-  for (let passIndex = 0; passIndex <= setValueRules.length; passIndex += 1) {
+  const setValuePassLimit = rules.reduce((count, rule) => {
+    return count + rule.actions.filter((action) => action.type === 'setValue').length;
+  }, 0);
+
+  for (let passIndex = 0; passIndex <= setValuePassLimit; passIndex += 1) {
     let changed = false;
 
-    for (const rule of setValueRules) {
+    for (const rule of rules) {
+      if (!matchesRule(nextAnswers, rule)) {
+        continue;
+      }
+
+      for (const action of rule.actions.filter((item) => item.type === 'setValue')) {
       if (
-        matchesCondition(nextAnswers, rule) &&
-        !areJsonValuesEqual(nextAnswers[rule.targetFieldKey], rule.value)
+          !areJsonValuesEqual(nextAnswers[action.targetFieldKey], action.value)
       ) {
-        nextAnswers[rule.targetFieldKey] = rule.value;
+        nextAnswers[action.targetFieldKey] = action.value;
         changed = true;
+      }
       }
     }
 
@@ -302,7 +319,7 @@ export const applySchemaLinkage = (
   const allowedOptionsByFieldKey = new Map<string, Set<string>>();
   const assertionErrors: SchemaValidationError[] = [];
   const showTargetFieldKeys = new Set(
-    rules.filter((rule) => rule.action === 'show').map((rule) => rule.targetFieldKey),
+    rules.flatMap((rule) => rule.actions.filter((action) => action.type === 'show').map((action) => action.targetFieldKey)),
   );
 
   for (const fieldKey of showTargetFieldKeys) {
@@ -313,69 +330,81 @@ export const applySchemaLinkage = (
   }
 
   for (const rule of rules) {
-    if (!matchesCondition(nextAnswers, rule)) {
+    if (!matchesRule(nextAnswers, rule)) {
       continue;
     }
 
-    if (rule.action === 'show') {
-      applyToFieldKeys(
-        getTargetFieldKeys(descendantsByFieldKey, rule.targetFieldKey),
-        (targetFieldKey) => {
-          visibleFieldKeys.add(targetFieldKey);
-          hiddenFieldKeys.delete(targetFieldKey);
-        },
-      );
-    }
-
-    if (rule.action === 'hide') {
-      applyToFieldKeys(
-        getTargetFieldKeys(descendantsByFieldKey, rule.targetFieldKey),
-        (targetFieldKey) => {
-          visibleFieldKeys.delete(targetFieldKey);
-          hiddenFieldKeys.add(targetFieldKey);
-        },
-      );
-    }
-
-    if (rule.action === 'require') {
-      requiredFieldKeys.add(rule.targetFieldKey);
-    }
-
-    if (rule.action === 'assertValue') {
-      if (!areJsonValuesEqual(nextAnswers[rule.targetFieldKey], rule.value)) {
-        assertionErrors.push({
-          fieldKey: rule.targetFieldKey,
-          message: rule.message ?? `字段 ${rule.targetFieldKey} 未满足联动约束。`,
-        });
+    for (const action of rule.actions) {
+      if (action.type === 'show') {
+        applyToFieldKeys(
+          getTargetFieldKeys(descendantsByFieldKey, action.targetFieldKey),
+          (targetFieldKey) => {
+            visibleFieldKeys.add(targetFieldKey);
+            hiddenFieldKeys.delete(targetFieldKey);
+          },
+        );
       }
-    }
 
-    if (rule.action === 'disable') {
-      applyToFieldKeys(
-        getTargetFieldKeys(descendantsByFieldKey, rule.targetFieldKey),
-        (targetFieldKey) => disabledFieldKeys.add(targetFieldKey),
-      );
+      if (action.type === 'hide') {
+        applyToFieldKeys(
+          getTargetFieldKeys(descendantsByFieldKey, action.targetFieldKey),
+          (targetFieldKey) => {
+            visibleFieldKeys.delete(targetFieldKey);
+            hiddenFieldKeys.add(targetFieldKey);
+          },
+        );
+      }
+
+      if (action.type === 'require') {
+        requiredFieldKeys.add(action.targetFieldKey);
+      }
+
+      if (action.type === 'assertValue') {
+        if (!areJsonValuesEqual(nextAnswers[action.targetFieldKey], action.value)) {
+          assertionErrors.push({
+            fieldKey: action.targetFieldKey,
+            message: action.message ?? `字段 ${action.targetFieldKey} 未满足联动约束。`,
+          });
+        }
+      }
+
+      if (action.type === 'disable') {
+        applyToFieldKeys(
+          getTargetFieldKeys(descendantsByFieldKey, action.targetFieldKey),
+          (targetFieldKey) => disabledFieldKeys.add(targetFieldKey),
+        );
+      }
     }
   }
 
   for (const rule of rules) {
-    const resolvedAllowedOptions = resolveLimitOptions(rule, nextAnswers);
+    if (!matchesRule(nextAnswers, rule)) {
+      continue;
+    }
+
+    const resolvedAllowedOptions = resolveLimitOptions(rule);
 
     if (!resolvedAllowedOptions) {
       continue;
     }
 
-    const targetOptionValues = new Set(optionValues(fieldsByKey.get(rule.targetFieldKey) ?? {
-      key: rule.targetFieldKey,
+    const targetFieldKey = rule.actions.find((action) => action.type === 'limitOptions')?.targetFieldKey;
+
+    if (!targetFieldKey) {
+      continue;
+    }
+
+    const targetOptionValues = new Set(optionValues(fieldsByKey.get(targetFieldKey) ?? {
+      key: targetFieldKey,
       type: 'text',
-      label: rule.targetFieldKey,
+      label: targetFieldKey,
     }));
     const allowedOptions = targetOptionValues.size > 0
       ? new Set([...resolvedAllowedOptions].filter((value) => targetOptionValues.has(value)))
       : resolvedAllowedOptions;
-    const currentAllowedOptions = allowedOptionsByFieldKey.get(rule.targetFieldKey);
+    const currentAllowedOptions = allowedOptionsByFieldKey.get(targetFieldKey);
     allowedOptionsByFieldKey.set(
-      rule.targetFieldKey,
+      targetFieldKey,
       intersectOptionSets(currentAllowedOptions, allowedOptions),
     );
   }
@@ -467,6 +496,29 @@ const isUploadedFile = (value: unknown): value is {
   );
 };
 
+const matchesAcceptedMimeType = (
+  mimeType: string,
+  acceptedMimeTypes: readonly string[] | undefined,
+): boolean => {
+  const acceptedTypes = (acceptedMimeTypes ?? [])
+    .map((acceptedType) => acceptedType.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (acceptedTypes.length === 0) {
+    return true;
+  }
+
+  const normalizedMimeType = mimeType.trim().toLowerCase();
+
+  return acceptedTypes.some((acceptedType) => {
+    if (acceptedType.endsWith('/*')) {
+      return normalizedMimeType.startsWith(acceptedType.slice(0, -1));
+    }
+
+    return normalizedMimeType === acceptedType;
+  });
+};
+
 const fieldMessage = (label: string, message: string): string => {
   return /[A-Za-z0-9]$/.test(label) ? `${label} ${message}` : `${label}${message}`;
 };
@@ -524,18 +576,34 @@ const validateCustomKey = (
         };
       }
     case 'non_empty_json':
-      return value && typeof value === 'object'
+      if (
+        field.type === 'json_editor' &&
+        (!value || typeof value !== 'object' || Array.isArray(value))
+      ) {
+        return null;
+      }
+
+      return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0
         ? null
         : {
             fieldKey,
             message: validationMessage(field, fieldMessage(field.label, '必须填写结构化 JSON。')),
           };
     case 'valid_file_type':
-      return isUploadedFile(value)
+      if (!isUploadedFile(value)) {
+        return field.type === 'file_upload' || field.type === 'image_upload'
+          ? null
+          : {
+              fieldKey,
+              message: validationMessage(field, `${field.label}需要上传有效文件。`),
+            };
+      }
+
+      return matchesAcceptedMimeType(value.mimeType, field.fileConstraints?.acceptedMimeTypes)
         ? null
         : {
             fieldKey,
-            message: validationMessage(field, `${field.label}需要上传有效文件。`),
+            message: validationMessage(field, `${field.label}文件类型不符合要求。`),
           };
     case undefined:
       return null;

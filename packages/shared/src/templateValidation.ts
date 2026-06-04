@@ -1,7 +1,11 @@
 import {
   CUSTOM_VALIDATOR_KEYS,
+  expandFieldLinkageRule,
   isAllowedCustomValidatorKey,
+  isLegacyFieldLinkageRule,
+  isStructuredFieldLinkageRule,
   type FieldLinkageRule,
+  type StructuredFieldLinkageRule,
   type FieldType,
   type LabelHubSchema,
   type SchemaField,
@@ -62,6 +66,19 @@ const SUBMITTABLE_FIELD_TYPES = new Set<SchemaField['type']>([
   'json_editor',
 ]);
 const LIMIT_OPTION_TARGET_TYPES = new Set<SchemaField['type']>(['radio', 'checkbox', 'tag_select']);
+
+const missingLinkageFieldMessage = (
+  kind: 'source' | 'target',
+  fieldKey: string,
+): string => {
+  if (!fieldKey) {
+    return kind === 'source' ? '联动条件字段 未设置。' : '联动目标字段 未设置。';
+  }
+
+  return kind === 'source'
+    ? `联动条件字段 ${fieldKey} 不存在。`
+    : `联动目标字段 ${fieldKey} 不存在。`;
+};
 
 export const validateTemplateSchema = (
   schema: LabelHubSchema,
@@ -222,6 +239,22 @@ const validateLinkageRule = (
   fieldKeySet: ReadonlySet<string>,
   errors: TemplateSchemaValidationError[],
 ) => {
+  if (isStructuredFieldLinkageRule(rule)) {
+    validateStructuredLinkageRule(rule, fieldsByKey, fieldKeySet, errors);
+    return;
+  }
+
+  if (isLegacyFieldLinkageRule(rule)) {
+    validateLegacyLinkageRule(rule, fieldsByKey, fieldKeySet, errors);
+  }
+};
+
+const validateLegacyLinkageRule = (
+  rule: Extract<FieldLinkageRule, { when: unknown }>,
+  fieldsByKey: ReadonlyMap<string, SchemaField>,
+  fieldKeySet: ReadonlySet<string>,
+  errors: TemplateSchemaValidationError[],
+) => {
   const sourceFieldKey = rule.when.fieldKey;
   const targetFieldKey = rule.targetFieldKey;
   const sourceField = fieldsByKey.get(sourceFieldKey);
@@ -231,7 +264,7 @@ const validateLinkageRule = (
     errors.push({
       code: 'TEMPLATE_LINKAGE_SOURCE_MISSING',
       fieldKey: sourceFieldKey,
-      message: `联动条件字段 ${sourceFieldKey} 不存在。`,
+      message: missingLinkageFieldMessage('source', sourceFieldKey),
     });
   }
 
@@ -239,7 +272,7 @@ const validateLinkageRule = (
     errors.push({
       code: 'TEMPLATE_LINKAGE_TARGET_MISSING',
       fieldKey: targetFieldKey,
-      message: `联动目标字段 ${targetFieldKey} 不存在。`,
+      message: missingLinkageFieldMessage('target', targetFieldKey),
     });
   }
 
@@ -297,46 +330,125 @@ const validateLinkageRule = (
   }
 };
 
+const validateStructuredLinkageRule = (
+  rule: StructuredFieldLinkageRule,
+  fieldsByKey: ReadonlyMap<string, SchemaField>,
+  fieldKeySet: ReadonlySet<string>,
+  errors: TemplateSchemaValidationError[],
+) => {
+  if (rule.conditions.length === 0 || rule.actions.length === 0) {
+    errors.push({
+      code: 'TEMPLATE_LINKAGE_CONFLICT',
+      message: '联动规则至少需要一个条件和一个动作。',
+    });
+    return;
+  }
+
+  for (const condition of rule.conditions) {
+    const sourceField = fieldsByKey.get(condition.fieldKey);
+
+    if (!fieldKeySet.has(condition.fieldKey)) {
+      errors.push({
+        code: 'TEMPLATE_LINKAGE_SOURCE_MISSING',
+        fieldKey: condition.fieldKey,
+        message: missingLinkageFieldMessage('source', condition.fieldKey),
+      });
+      continue;
+    }
+
+    if (sourceField && !SUBMITTABLE_FIELD_TYPES.has(sourceField.type)) {
+      errors.push({
+        code: 'TEMPLATE_LINKAGE_SOURCE_INVALID',
+        fieldKey: condition.fieldKey,
+        message: `联动条件字段 ${sourceField.label} 不是可提交字段，不能作为条件字段。`,
+      });
+    }
+  }
+
+  for (const action of rule.actions) {
+    const targetField = fieldsByKey.get(action.targetFieldKey);
+
+    if (!fieldKeySet.has(action.targetFieldKey)) {
+      errors.push({
+        code: 'TEMPLATE_LINKAGE_TARGET_MISSING',
+        fieldKey: action.targetFieldKey,
+        message: missingLinkageFieldMessage('target', action.targetFieldKey),
+      });
+      continue;
+    }
+
+    if (
+      targetField &&
+      (action.type === 'show' || action.type === 'hide') &&
+      !SUBMITTABLE_FIELD_TYPES.has(targetField.type)
+    ) {
+      errors.push({
+        code: 'TEMPLATE_LINKAGE_TARGET_INVALID',
+        fieldKey: action.targetFieldKey,
+        message: `联动目标字段 ${targetField.label} 不是可提交字段，不能用于控制显隐。`,
+      });
+    }
+
+    if (action.type !== 'limitOptions') {
+      continue;
+    }
+
+    if (targetField && !LIMIT_OPTION_TARGET_TYPES.has(targetField.type)) {
+      errors.push({
+        code: 'TEMPLATE_LINKAGE_OPTIONS_TARGET_INVALID',
+        fieldKey: action.targetFieldKey,
+        message: `限制选项的目标字段 ${targetField.label} 必须是单选、多选或标签选择。`,
+      });
+      continue;
+    }
+
+    if (!targetField) {
+      continue;
+    }
+
+    const targetOptionValues = new Set((targetField.options ?? []).map((option) => option.value));
+
+    for (const optionValue of action.optionValues ?? []) {
+      if (!targetOptionValues.has(optionValue)) {
+        errors.push({
+          code: 'TEMPLATE_LINKAGE_OPTION_INVALID',
+          fieldKey: action.targetFieldKey,
+          message: `限制选项 ${optionValue} 不属于目标字段 ${targetField.label} 的已有选项。`,
+        });
+      }
+    }
+  }
+};
+
 const validateLinkageConflicts = (
   rules: readonly FieldLinkageRule[],
   errors: TemplateSchemaValidationError[],
 ) => {
-  const limitTargets = new Map<string, FieldLinkageRule>();
-  const visibilityRules = new Map<string, FieldLinkageRule>();
+  const visibilityRules = new Map<string, string>();
+  const expandedRules = rules.flatMap((rule, ruleIndex) => expandFieldLinkageRule(rule, ruleIndex));
 
-  for (const rule of rules) {
-    if (rule.action === 'limitOptions') {
-      const existingRule = limitTargets.get(rule.targetFieldKey);
-
-      if (existingRule) {
-        errors.push({
-          code: 'TEMPLATE_LINKAGE_CONFLICT',
-          fieldKey: rule.targetFieldKey,
-          message: `字段 ${rule.targetFieldKey} 存在多条限制选项联动，请合并成一张条件值表。`,
-        });
+  for (const rule of expandedRules) {
+    for (const action of rule.actions) {
+      if (action.type !== 'show' && action.type !== 'hide') {
+        continue;
       }
 
-      limitTargets.set(rule.targetFieldKey, rule);
-    }
-
-    if (rule.action === 'show' || rule.action === 'hide') {
       const visibilityKey = [
-        rule.when.fieldKey,
-        rule.targetFieldKey,
-        rule.when.operator,
-        JSON.stringify(rule.when.value ?? null),
+        action.targetFieldKey,
+        rule.combinator ?? 'and',
+        JSON.stringify(rule.conditions),
       ].join('::');
-      const existingRule = visibilityRules.get(visibilityKey);
+      const existingActionType = visibilityRules.get(visibilityKey);
 
-      if (existingRule && existingRule.action !== rule.action) {
+      if (existingActionType && existingActionType !== action.type) {
         errors.push({
           code: 'TEMPLATE_LINKAGE_CONFLICT',
-          fieldKey: rule.targetFieldKey,
-          message: `字段 ${rule.targetFieldKey} 存在互相冲突的显示/隐藏联动。`,
+          fieldKey: action.targetFieldKey,
+          message: `字段 ${action.targetFieldKey} 存在互相冲突的显示/隐藏联动。`,
         });
       }
 
-      visibilityRules.set(visibilityKey, rule);
+      visibilityRules.set(visibilityKey, action.type);
     }
   }
 };
