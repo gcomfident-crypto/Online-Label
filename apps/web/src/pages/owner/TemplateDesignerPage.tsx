@@ -2178,6 +2178,9 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
         <div>
           <h1 id="owner-templates-title">评测模板</h1>
         </div>
+        <p className="task-management-table-description">
+          管理数据标注评测模板的创建、状态、版本、字段数和负责人，支持模板从配置到发布复用的全流程管理
+        </p>
       </div>
 
       <section

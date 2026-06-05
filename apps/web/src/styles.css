@@ -6488,6 +6488,83 @@ video.schema-field__show-resource-media {
   justify-content: flex-end;
 }
 
+.designer-property-row--length-limit {
+  min-height: 78px;
+  align-items: start;
+  padding: 8px 0;
+}
+
+.designer-property-row--length-limit > .designer-property-row__label {
+  padding-top: 8px;
+}
+
+.designer-length-limit-editor {
+  width: min(260px, 100%);
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.designer-length-limit-mode {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  border: 1px solid #d8e2f3;
+  border-radius: 8px;
+  padding: 3px;
+  background: #f8fbff;
+}
+
+.designer-length-limit-mode button {
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 6px;
+  color: #64748b;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.designer-length-limit-mode button[aria-pressed='true'] {
+  color: #ffffff;
+  background: #306df8;
+  box-shadow: 0 4px 10px rgba(48, 109, 248, 0.18);
+}
+
+.designer-length-limit-value {
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  border: 1px solid #d8e2f3;
+  border-radius: 8px;
+  padding: 0 8px;
+  background: #ffffff;
+  color: #334155;
+}
+
+.designer-property-row .designer-length-limit-value input {
+  width: 52px;
+  min-height: 28px;
+  padding: 0;
+  color: #172033;
+  text-align: center;
+}
+
+.designer-length-limit-prefix,
+.designer-length-limit-separator,
+.designer-length-limit-unit,
+.designer-length-limit-empty {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .designer-property-row__control.designer-option-editor__bubbles {
   width: 100%;
   display: flex;
@@ -8051,6 +8128,7 @@ video.schema-field__show-resource-media {
 }
 
 .task-management-header {
+  position: relative;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -8064,6 +8142,26 @@ video.schema-field__show-resource-media {
   color: #172033;
   font-size: 24px;
   font-weight: 800;
+}
+
+.task-management-table-description {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: min(760px, 100%);
+  height: var(--table-page-title-height);
+  margin: 0;
+  display: block;
+  color: #64748B;
+  background: var(--table-page-background);
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: var(--table-page-title-height);
+  pointer-events: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .task-management-header__create {
@@ -12458,6 +12556,7 @@ video.schema-field__show-resource-media {
 }
 
 .export-center-header {
+  position: relative;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -14150,12 +14249,23 @@ video.schema-field__show-resource-media {
 }
 
 .workbench-topline {
+  position: relative;
   min-height: 70px;
   align-items: center;
   border: 1px solid #e6eaf2;
   border-radius: 10px 10px 0 0;
   padding: 16px 18px;
   background: #ffffff;
+}
+
+.workbench-topline .task-management-table-description {
+  top: 16px;
+  left: 52px;
+  right: 160px;
+  width: auto;
+  height: auto;
+  background: #ffffff;
+  line-height: 1.35;
 }
 
 .workbench-topline h1 {
@@ -17427,6 +17537,18 @@ video.schema-field__show-resource-media {
   font-weight: 700;
 }
 
+.task-market-page-title .task-management-table-description,
+.labeler-task-workspace .my-data-header .task-management-table-description,
+.workbench-topline .task-management-table-description,
+.agent-review-page__header .task-management-table-description,
+.manual-review-list-header .task-management-table-description,
+.manual-review-detail-toolbar .task-management-table-description {
+  margin: 0;
+  color: #64748B;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .task-management-page,
 .template-manager-page,
 .export-center-page,
@@ -17450,6 +17572,7 @@ video.schema-field__show-resource-media {
 .labeler-task-workspace .my-data-header,
 .agent-review-page__header,
 .manual-review-list-header {
+  position: relative;
   flex: 0 0 auto;
   align-items: center;
   min-height: var(--table-page-title-height);
@@ -17481,7 +17604,7 @@ video.schema-field__show-resource-media {
   margin: 0;
 }
 
-.manual-review-list-header p {
+.manual-review-list-header p:not(.task-management-table-description) {
   display: none;
 }
 
@@ -17740,6 +17863,7 @@ video.schema-field__show-resource-media {
 }
 
 .manual-review-detail-toolbar {
+  position: relative;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -17749,6 +17873,14 @@ video.schema-field__show-resource-media {
   border-radius: 8px;
   margin-bottom: 10px;
   padding: 10px 12px;
+  background: #ffffff;
+}
+
+.manual-review-detail-toolbar .task-management-table-description {
+  top: 10px;
+  left: 12px;
+  right: 340px;
+  width: auto;
   background: #ffffff;
 }
 
@@ -18958,9 +19090,22 @@ video.schema-field__show-resource-media {
   .task-market-header,
   .task-market-card__header,
   .workbench-topline,
-  .my-data-header {
+  .my-data-header,
+  .manual-review-detail-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .workbench-topline .task-management-table-description {
+    right: 18px;
+  }
+
+  .manual-review-detail-toolbar .task-management-table-description {
+    right: 12px;
+  }
+
+  .manual-review-detail-toolbar__actions {
+    flex-wrap: wrap;
   }
 
   .login-page {

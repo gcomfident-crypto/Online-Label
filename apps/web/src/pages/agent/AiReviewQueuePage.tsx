@@ -188,6 +188,9 @@ export const AiReviewQueuePage = () => {
       <header className="agent-review-page__header">
         <div>
           <h1 id="ai-review-title">AI 自动预审队列</h1>
+          <p className="task-management-table-description">
+            集中查看待 AI 预审的任务提交批次、标注员、题目数量和审核结论，支持快速定位预审结果
+          </p>
         </div>
       </header>
 

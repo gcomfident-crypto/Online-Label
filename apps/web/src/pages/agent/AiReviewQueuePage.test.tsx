@@ -84,6 +84,11 @@ describe('AiReviewQueuePage', () => {
     render(<AiReviewQueuePage />);
 
     expect(await screen.findByRole('heading', { name: 'AI 自动预审队列' })).toBeInTheDocument();
+    const pageDescription = screen.getByText(
+      '集中查看待 AI 预审的任务提交批次、标注员、题目数量和审核结论，支持快速定位预审结果',
+    );
+    expect(pageDescription).toHaveClass('task-management-table-description');
+    expect(pageDescription.closest('.agent-review-page__header')).not.toBeNull();
     expect(screen.queryByRole('tablist', { name: 'AI 预审状态筛选' })).not.toBeInTheDocument();
     const searchInput = screen.getByPlaceholderText('搜索任务名 / 标注员 / 题目ID');
     expect(searchInput.closest('.task-management-table-card')).toHaveClass('agent-review-table-panel');

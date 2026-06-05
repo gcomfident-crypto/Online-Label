@@ -1017,6 +1017,9 @@ export const TaskListPage = () => {
         <div>
           <h1 id="owner-tasks-title">任务管理</h1>
         </div>
+        <p className="task-management-table-description">
+          展示数据标注任务的创建、状态、进度、负责人和截止时间，支持任务从发布到交付的全流程管理
+        </p>
       </div>
 
       <section className="task-management-table-card" aria-label="任务列表工作区">

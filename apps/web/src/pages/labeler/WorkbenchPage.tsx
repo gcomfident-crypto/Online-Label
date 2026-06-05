@@ -621,6 +621,9 @@ export const WorkbenchPage = () => {
             ×
           </button>
           <h1 id="labeler-workbench-title">{workbench.task.title}</h1>
+          <p className="task-management-table-description">
+            围绕当前题目展示原始数据、标注表单、审核反馈和任务进度，支持逐题完成并提交标注结果
+          </p>
         </div>
         <div className="workbench-topline__actions">
           <span className="autosave-indicator" aria-live="polite">

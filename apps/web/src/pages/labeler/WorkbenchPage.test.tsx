@@ -266,6 +266,11 @@ describe('WorkbenchPage', () => {
     renderWorkbenchPage();
 
     expect(await screen.findByRole('heading', { name: '问答质量标注' })).toBeInTheDocument();
+    const pageDescription = screen.getByText(
+      '围绕当前题目展示原始数据、标注表单、审核反馈和任务进度，支持逐题完成并提交标注结果',
+    );
+    expect(pageDescription).toHaveClass('task-management-table-description');
+    expect(pageDescription.closest('.workbench-topline')).not.toBeNull();
     expect(screen.getByRole('button', { name: '返回我的工作台' })).toBeInTheDocument();
     expect(screen.queryByText(/模板 r1/)).not.toBeInTheDocument();
     expect(screen.queryByText(/题目 ID/)).not.toBeInTheDocument();

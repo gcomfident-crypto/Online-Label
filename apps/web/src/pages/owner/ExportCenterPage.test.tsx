@@ -142,6 +142,12 @@ describe('ExportCenterPage', () => {
     );
 
     expect(await screen.findByRole('heading', { name: '导出中心' })).toBeInTheDocument();
+    const pageHeader = screen.getByRole('heading', { name: '导出中心' }).closest('.export-center-header');
+    expect(pageHeader).not.toBeNull();
+    const pageDescription = within(pageHeader as HTMLElement).getByText(
+      '管理数据标注结果的可导出任务、导出数量、模板来源和文件格式，支持多任务批量导出交付',
+    );
+    expect(pageDescription).toHaveClass('task-management-table-description');
     expect(screen.queryByText('排队中')).not.toBeInTheDocument();
     expect(screen.queryByText('已成功')).not.toBeInTheDocument();
     expect(screen.queryByText('可下载')).not.toBeInTheDocument();
@@ -151,6 +157,7 @@ describe('ExportCenterPage', () => {
     const exportPanel = exportableTaskTable.closest('.export-task-table-panel');
     expect(exportPanel).not.toBeNull();
     expect(exportPanel).toHaveClass('task-management-table-card');
+    expect(within(exportPanel as HTMLElement).queryByText(pageDescription.textContent ?? '')).not.toBeInTheDocument();
     const exportableTotal = within(exportPanel as HTMLElement).getByLabelText('可导出数据总数');
     expect(exportableTotal).toHaveTextContent('可导出6');
     expect(exportableTotal).toHaveClass('task-summary-card', 'task-summary-card--total');

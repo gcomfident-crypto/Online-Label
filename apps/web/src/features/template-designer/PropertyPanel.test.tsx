@@ -108,7 +108,12 @@ describe('PropertyPanel', () => {
     expect(validationSwitch).toHaveAttribute('aria-expanded', 'true');
     expect(validationSwitch).toBeChecked();
     expect(screen.getByTestId('designer-validation-collapse')).toHaveAttribute('aria-hidden', 'false');
+    const lengthLimitEditor = screen.getByRole('group', { name: '长度限制' });
+    expect(screen.getByText('长度限制')).toHaveClass('designer-property-row__label');
+    expect(within(lengthLimitEditor).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(lengthLimitEditor).getByRole('button', { name: '最多' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByLabelText('最大长度')).toHaveValue(35);
+    expect(within(lengthLimitEditor).getByText('字符')).toBeInTheDocument();
     expect(screen.getByLabelText('正则')).toHaveValue('/^[^@#$]+$/');
     const presetValidationSelect = screen.getByLabelText('预置校验');
     expect(presetValidationSelect).toHaveValue('valid_json');
@@ -163,6 +168,8 @@ describe('PropertyPanel', () => {
 
     fireEvent.change(screen.getByLabelText('最大长度'), { target: { value: '40' } });
     expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: 40 });
+    fireEvent.click(within(lengthLimitEditor).getByRole('button', { name: '最少' }));
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ minLength: 35, maxLength: undefined });
 
     fireEvent.click(validationSwitch);
     expect(screen.getByLabelText('显示校验规则')).toHaveAttribute('aria-expanded', 'false');
@@ -205,6 +212,42 @@ describe('PropertyPanel', () => {
       },
     });
     expect(screen.getByLabelText('审核要求')).toHaveValue('必须保留商品核心信息，不得新增不存在的信息。');
+  });
+
+  it('长度限制使用分段控件并支持区间和不限制模式', () => {
+    const onUpdateValidation = vi.fn();
+    const field: SchemaField = {
+      key: 'summary',
+      type: 'text',
+      label: '一句话总评',
+      validation: {
+        minLength: 2,
+        maxLength: 20,
+      },
+    };
+
+    render(
+      <PropertyPanel
+        field={field}
+        onAddLinkageRule={vi.fn()}
+        onUpdateField={vi.fn()}
+        onUpdateValidation={onUpdateValidation}
+      />,
+    );
+
+    const lengthLimitEditor = screen.getByRole('group', { name: '长度限制' });
+    expect(within(lengthLimitEditor).getByRole('button', { name: '区间' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(lengthLimitEditor).getByLabelText('最小长度')).toHaveValue(2);
+    expect(within(lengthLimitEditor).getByLabelText('最大长度')).toHaveValue(20);
+    expect(within(lengthLimitEditor).getByText('字符')).toBeInTheDocument();
+
+    fireEvent.change(within(lengthLimitEditor).getByLabelText('最小长度'), { target: { value: '3' } });
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ minLength: 3 });
+    fireEvent.change(within(lengthLimitEditor).getByLabelText('最大长度'), { target: { value: '18' } });
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: 18 });
+
+    fireEvent.click(within(lengthLimitEditor).getByRole('button', { name: '不限制' }));
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ minLength: undefined, maxLength: undefined });
   });
 
   it('预置校验按照字段类型展示中文选项', () => {

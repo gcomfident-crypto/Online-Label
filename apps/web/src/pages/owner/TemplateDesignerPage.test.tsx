@@ -117,8 +117,11 @@ describe('TemplateDesignerPage', () => {
     expect(screen.getByRole('heading', { name: '属性配置' })).toBeInTheDocument();
     expect(screen.queryByText('属性配置 · summary')).not.toBeInTheDocument();
 
-    await user.clear(screen.getByLabelText('最大长度'));
-    await user.type(screen.getByLabelText('最大长度'), '42');
+    const lengthLimitEditor = screen.getByRole('group', { name: '长度限制' });
+    await user.click(within(lengthLimitEditor).getByRole('button', { name: '最多' }));
+    const maxLengthInput = await screen.findByLabelText('最大长度');
+    await user.clear(maxLengthInput);
+    await user.type(maxLengthInput, '42');
     fireEvent.change(screen.getByLabelText('正则'), { target: { value: '^[^#]+$' } });
     await user.selectOptions(screen.getByLabelText('预置校验'), 'valid_json');
 
@@ -769,6 +772,12 @@ describe('TemplateDesignerPage', () => {
     render(<TemplateDesignerPage />);
 
     expect(screen.getByRole('heading', { name: '评测模板' })).toBeInTheDocument();
+    const pageHeader = screen.getByRole('heading', { name: '评测模板' }).closest('.task-management-header');
+    expect(pageHeader).not.toBeNull();
+    const pageDescription = within(pageHeader as HTMLElement).getByText(
+      '管理数据标注评测模板的创建、状态、版本、字段数和负责人，支持模板从配置到发布复用的全流程管理',
+    );
+    expect(pageDescription).toHaveClass('task-management-table-description');
     expect(screen.queryByText('管理标注模板、字段结构与版本配置')).not.toBeInTheDocument();
     expect(document.querySelector('.template-manager-toolbar')).toBeNull();
     expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
@@ -792,6 +801,7 @@ describe('TemplateDesignerPage', () => {
     const templateListPanel = templateTable.closest('.template-manager-list');
     expect(templateListPanel).not.toBeNull();
     expect(templateListPanel).toHaveClass('task-management-table-card', 'template-manager-table-panel');
+    expect(within(templateListPanel as HTMLElement).queryByText(pageDescription.textContent ?? '')).not.toBeInTheDocument();
     const summaryRegion = within(templateListPanel as HTMLElement).getByLabelText('模板状态筛选');
     expect(summaryRegion).toHaveClass('task-summary-grid', 'template-summary-grid');
     expect(within(summaryRegion).getByText('总模版')).toBeInTheDocument();

@@ -186,6 +186,9 @@ export const ExportCenterPage = () => {
         <div>
           <h1 id="export-center-title">导出中心</h1>
         </div>
+        <p className="task-management-table-description">
+          管理数据标注结果的可导出任务、导出数量、模板来源和文件格式，支持多任务批量导出交付
+        </p>
       </div>
 
       {isLoading ? (

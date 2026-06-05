@@ -239,12 +239,20 @@ describe('TaskListPage', () => {
     expect(screen.queryByRole('button', { name: '分发策略筛选' })).not.toBeInTheDocument();
     const tableCard = screen.getByLabelText('任务列表工作区');
     const filterBar = screen.getByPlaceholderText('搜索任务名 / ID / 负责人').closest('.task-filter-bar');
+    const pageHeader = screen.getByRole('heading', { name: '任务管理' }).closest('.task-management-header');
+    expect(pageHeader).not.toBeNull();
+    const tableDescription = within(pageHeader as HTMLElement).getByText(
+      '展示数据标注任务的创建、状态、进度、负责人和截止时间，支持任务从发布到交付的全流程管理',
+    );
     expect(filterBar).not.toBeNull();
     expect(tableCard).toHaveClass('task-management-table-card');
+    expect(within(tableCard).queryByText(tableDescription.textContent ?? '')).not.toBeInTheDocument();
+    expect(tableDescription).toHaveClass('task-management-table-description');
     expect(screen.getByRole('button', { name: '新建任务' })).toHaveClass('task-filter-bar__create');
     expect(filterBar).toContainElement(screen.getByRole('button', { name: '新建任务' }));
 
     const table = screen.getByRole('table', { name: '任务列表' });
+    expect(tableDescription.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const rows = within(table).getAllByRole('row');
     const headers = within(rows[0])
       .getAllByRole('columnheader')

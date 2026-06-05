@@ -167,6 +167,9 @@ export const TaskMarketPage = () => {
       <ToastViewport messages={messages} onDismiss={dismissToast} />
       <div className="task-market-page-title">
         <h1 id="labeler-market-title">任务广场</h1>
+        <p className="task-management-table-description">
+          浏览可领取的数据标注任务，查看任务要求、奖励、截止时间和领取状态，快速进入标注工作
+        </p>
       </div>
 
       <div className="task-management-table-card task-market-table-panel" ref={marketTableContainerRef}>
