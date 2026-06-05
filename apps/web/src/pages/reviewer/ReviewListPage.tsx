@@ -105,7 +105,9 @@ export const ReviewListPage = () => {
         <div>
           <span>审核任务列表</span>
           <h1 id="manual-review-list-title">人工审核</h1>
-          <p>按任务聚合展示当前需要人工审核的批次，进入后查看题目明细、AI 预审结果和审计时间线。</p>
+          <p className="task-management-table-description">
+            汇总进入人工复审的任务、审核阶段、待审数量、审核员和最近提交时间，支持复审任务分派与进入处理
+          </p>
         </div>
       </header>
 

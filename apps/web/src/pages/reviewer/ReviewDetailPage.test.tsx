@@ -65,6 +65,11 @@ describe('ReviewDetailPage', () => {
     );
 
     expect(await screen.findByRole('heading', { name: '真实人工审核任务' })).toBeInTheDocument();
+    const pageDescription = screen.getByText(
+      '展示当前人工复审任务的题目内容、标注答案、AI 预审结果和审核决策，支持逐题通过、修订或打回',
+    );
+    expect(pageDescription).toHaveClass('task-management-table-description');
+    expect(pageDescription.closest('.manual-review-detail-toolbar')).not.toBeNull();
     expect(screen.queryByRole('link', { name: '复审视角' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '切换：终审' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '导出审计日志' })).not.toBeInTheDocument();

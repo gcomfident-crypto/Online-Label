@@ -63,7 +63,11 @@ describe('MyDataPage', () => {
 
     const workspaceTitle = await screen.findByRole('heading', { name: '工作台' });
     expect(workspaceTitle).toBeInTheDocument();
-    expect(workspaceTitle.closest('.my-data-header')?.querySelector('p')).toBeNull();
+    const pageDescription = screen.getByText(
+      '汇总已领取任务的标注进度、状态、截止时间和待处理数量，帮助标注员快速回到下一条任务',
+    );
+    expect(pageDescription).toHaveClass('task-management-table-description');
+    expect(pageDescription.closest('.my-data-header')).not.toBeNull();
     expect(screen.queryByLabelText('工作台统计')).not.toBeInTheDocument();
     expect(screen.queryByText('已完成')).not.toBeInTheDocument();
     expect(screen.queryByText('全部类型')).not.toBeInTheDocument();

@@ -336,6 +336,9 @@ export const ReviewTaskDetailContent = ({
         <div>
           <span>审核与质检 / 人工审核 / {task?.taskName ?? '加载中'}</span>
           <h1 id="manual-review-detail-title">{task?.taskName ?? '人工审核'}</h1>
+          <p className="task-management-table-description">
+            展示当前人工复审任务的题目内容、标注答案、AI 预审结果和审核决策，支持逐题通过、修订或打回
+          </p>
         </div>
         <div className="manual-review-detail-toolbar__actions" aria-label="人工审核视角操作">
           {onClose ? (

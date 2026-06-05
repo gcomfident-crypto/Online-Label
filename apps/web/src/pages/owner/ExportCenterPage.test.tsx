@@ -142,6 +142,12 @@ describe('ExportCenterPage', () => {
     );
 
     expect(await screen.findByRole('heading', { name: '导出中心' })).toBeInTheDocument();
+    const pageHeader = screen.getByRole('heading', { name: '导出中心' }).closest('.export-center-header');
+    expect(pageHeader).not.toBeNull();
+    const pageDescription = within(pageHeader as HTMLElement).getByText(
+      '本页面支持导出已标注任务的数据，格式涵盖 JSON、JSONL、CSV 及 XLSX',
+    );
+    expect(pageDescription).toHaveClass('task-management-table-description');
     expect(screen.queryByText('排队中')).not.toBeInTheDocument();
     expect(screen.queryByText('已成功')).not.toBeInTheDocument();
     expect(screen.queryByText('可下载')).not.toBeInTheDocument();
@@ -151,6 +157,7 @@ describe('ExportCenterPage', () => {
     const exportPanel = exportableTaskTable.closest('.export-task-table-panel');
     expect(exportPanel).not.toBeNull();
     expect(exportPanel).toHaveClass('task-management-table-card');
+    expect(within(exportPanel as HTMLElement).queryByText(pageDescription.textContent ?? '')).not.toBeInTheDocument();
     const exportableTotal = within(exportPanel as HTMLElement).getByLabelText('可导出数据总数');
     expect(exportableTotal).toHaveTextContent('可导出6');
     expect(exportableTotal).toHaveClass('task-summary-card', 'task-summary-card--total');
@@ -163,6 +170,9 @@ describe('ExportCenterPage', () => {
     expect(within(exportableTaskTable).getByRole('checkbox', { name: '选择当前页导出记录' })).toBeInTheDocument();
     expect(within(exportableTaskTable).getByRole('checkbox', { name: '选择导出任务 T-0001' })).toBeInTheDocument();
     expect(within(exportableTaskTable).getByText('任务ID')).toBeInTheDocument();
+    expect(within(exportableTaskTable).getByText('结束时间')).toBeInTheDocument();
+    expect(within(exportableTaskTable).queryByText('已完成/总题目数')).not.toBeInTheDocument();
+    expect(within(exportableTaskTable).queryByText('模板')).not.toBeInTheDocument();
     expect(within(exportableTaskTable).getByText('T-0001')).toBeInTheDocument();
     expect(within(exportableTaskTable).getByText('T-0002')).toBeInTheDocument();
     const taskNameCell = within(exportableTaskTable).getByText('偏好对比评测').closest('td');
@@ -170,7 +180,9 @@ describe('ExportCenterPage', () => {
     expect(taskNameCell).not.toHaveTextContent('Owner：张满');
     expect(within(exportableTaskTable).queryByText(/Owner：/)).not.toBeInTheDocument();
     expect(within(exportableTaskTable).getByText('2026-05-21 08:00')).toBeInTheDocument();
-    expect(within(exportableTaskTable).getByText('1 / 2')).toBeInTheDocument();
+    expect(within(exportableTaskTable).getAllByText('2026-06-01 15:59')).toHaveLength(2);
+    expect(within(exportableTaskTable).queryByText('1 / 2')).not.toBeInTheDocument();
+    expect(within(exportableTaskTable).queryByText('问答质量官方模板')).not.toBeInTheDocument();
     expect(screen.getByLabelText('可导出任务分页')).toHaveTextContent('第 1 / 1 页');
     expect(screen.queryByRole('table', { name: '导出历史' })).not.toBeInTheDocument();
     expect(screen.queryByText('暂无导出任务。')).not.toBeInTheDocument();

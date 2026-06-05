@@ -4,7 +4,9 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ROLE_HOME_METADATA, USER_ROLE, USER_ROLES } from '@labelhub/shared';
+import databoardIconAsset from '../assets/databoard.svg';
 import exportIconAsset from '../assets/export.svg';
+import foldIconAsset from '../assets/fold.svg';
 import llmIconAsset from '../assets/llm.svg';
 import logoIconAsset from '../assets/logo.svg';
 import missionSquareIconAsset from '../assets/mission_square.svg';
@@ -135,6 +137,13 @@ describe('Web 壳 smoke test', () => {
     });
     renderRoute('/labeler/my-data');
     await waitFor(() => expect(document.title).toBe('标注员工作台 / 工作台 - LabelHub'));
+    cleanup();
+
+    act(() => {
+      sessionStore.loginAs(USER_ROLE.AI_AGENT);
+    });
+    renderRoute('/agent/dashboard');
+    await waitFor(() => expect(document.title).toBe('AI 预审后台 / 数据看板 - LabelHub'));
   });
 
   it('四端 Portal Layout 各自渲染对应导航', async () => {
@@ -181,6 +190,7 @@ describe('Web 壳 smoke test', () => {
     const collapseButton = screen.getByRole('button', { name: '收起侧边栏' });
     expect(collapseButton).toHaveTextContent('收起');
     expect(collapseButton.querySelector('.portal-sidebar__toggle-icon')).not.toBeNull();
+    expect(collapseButton.querySelector('.portal-sidebar__toggle-icon img')).toHaveAttribute('src', foldIconAsset);
     await userEvent.click(collapseButton);
     expect(document.querySelector('.owner-shell')).toHaveClass('is-sidebar-collapsed');
     const collapsedNavLabel = screen.getByRole('link', { name: '任务管理' }).querySelector('.portal-nav__label');
@@ -188,6 +198,10 @@ describe('Web 壳 smoke test', () => {
     const expandButton = screen.getByRole('button', { name: '展开侧边栏' });
     expect(expandButton).toBeInTheDocument();
     expect(expandButton.querySelector('.portal-sidebar__toggle-icon.is-collapsed')).not.toBeNull();
+    expect(expandButton.querySelector('.portal-sidebar__toggle-icon.is-collapsed img')).toHaveAttribute(
+      'src',
+      foldIconAsset,
+    );
     expect(expandButton.querySelector('.portal-sidebar__toggle-label')).toHaveClass('is-hidden');
     expect(screen.queryByText('当前使用 seed 演示数据')).not.toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Labeler 端导航' })).not.toBeInTheDocument();
@@ -219,9 +233,19 @@ describe('Web 壳 smoke test', () => {
     act(() => {
       sessionStore.loginAs(USER_ROLE.AI_AGENT);
     });
-    const agentView = renderRoute('/agent/ai-review');
-    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('AI 预审后台 / 机审队列');
-    expect(screen.getByRole('navigation', { name: 'AI Agent 端导航' })).toHaveTextContent('机审队列');
+    const agentView = renderRoute('/agent/dashboard');
+    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('AI 预审后台 / 数据看板');
+    const agentNav = screen.getByRole('navigation', { name: 'AI Agent 端导航' });
+    expect(agentNav).toHaveTextContent('数据看板');
+    expect(agentNav).toHaveTextContent('机审队列');
+    expect(
+      within(agentNav).getAllByRole('link').map((link) => link.getAttribute('aria-label')),
+    ).toEqual(['数据看板', '机审队列']);
+    expect(screen.getByRole('heading', { name: '数据看板' })).toBeInTheDocument();
+    const agentDashboardIcon = screen.getByRole('link', { name: '数据看板' }).querySelector('.portal-nav__icon--dashboard');
+    expect(agentDashboardIcon).toHaveClass('portal-nav__icon--asset');
+    expect(agentDashboardIcon?.getAttribute('style')).toContain('url("');
+    expect(agentDashboardIcon?.getAttribute('style')).toContain(databoardIconAsset);
     const agentReviewIcon = screen.getByRole('link', { name: '机审队列' }).querySelector('.portal-nav__icon--ai-review');
     expect(agentReviewIcon).toHaveClass('portal-nav__icon--asset');
     expect(agentReviewIcon?.getAttribute('style')).toContain('url("');

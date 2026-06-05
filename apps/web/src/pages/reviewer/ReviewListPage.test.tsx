@@ -37,6 +37,11 @@ describe('ReviewListPage', () => {
     );
 
     expect(await screen.findByRole('heading', { name: '人工审核' })).toBeInTheDocument();
+    const pageDescription = screen.getByText(
+      '汇总进入人工复审的任务、审核阶段、待审数量、审核员和最近提交时间，支持复审任务分派与进入处理',
+    );
+    expect(pageDescription).toHaveClass('task-management-table-description');
+    expect(pageDescription.closest('.manual-review-list-header')).not.toBeNull();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/reviews/pending', expect.anything()));
     const table = screen.getByRole('table', { name: '人工审核任务列表' });
     [

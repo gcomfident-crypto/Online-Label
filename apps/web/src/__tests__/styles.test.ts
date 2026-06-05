@@ -684,6 +684,20 @@ describe('global styles', () => {
     expect(hoverIconRule).toContain('box-shadow: none;');
   });
 
+  it('侧边栏收起按钮使用图片图标并通过镜像表示展开态', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const imageRule = styles.match(/\.portal-sidebar__toggle-icon img\s*\{[^}]+\}/)?.[0] ?? '';
+    const collapsedImageRule = styles.match(/\.portal-sidebar__toggle-icon\.is-collapsed img\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(imageRule).toContain('width: 20px;');
+    expect(imageRule).toContain('height: 20px;');
+    expect(imageRule).toContain('object-fit: contain;');
+    expect(imageRule).toContain('transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);');
+    expect(collapsedImageRule).toContain('transform: scaleX(-1);');
+    expect(styles).toContain('.portal-sidebar__toggle-icon img');
+    expect(styles).not.toContain('.portal-sidebar__toggle-icon svg');
+  });
+
   it('侧边栏激活项使用浅蓝全宽背景并保留左侧蓝色竖线', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const activeLinkRule = styles.match(/\.portal-nav a\s*\{[^}]+\}/)?.[0] ?? '';
@@ -824,10 +838,45 @@ describe('global styles', () => {
     expect(exportBatchFilterActionRules.some((rule) => rule.includes('font-size: inherit;'))).toBe(true);
   });
 
+  it('Agent 数据看板使用克制的 12 栅格 SaaS 后台布局和响应式规则', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const pageRule = styles.match(/\.agent-dashboard-page\s*\{[^}]+\}/)?.[0] ?? '';
+    const gridRule = styles.match(/\.agent-dashboard-grid\s*\{[^}]+\}/)?.[0] ?? '';
+    const kpiRule = styles.match(/\.agent-dashboard-kpi-grid\s*\{[^}]+\}/)?.[0] ?? '';
+    const cardRule = styles.match(/\.agent-dashboard-card\s*\{[^}]+\}/)?.[0] ?? '';
+    const mediaRule = styles.match(/@media\s*\(max-width:\s*900px\)\s*\{[\s\S]*?\.agent-dashboard-page\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(pageRule).toContain('padding: 18px 24px 16px;');
+    expect(pageRule).toContain('background: #f8fafc;');
+    expect(pageRule).not.toContain('overflow: hidden;');
+    expect(gridRule).toContain('grid-template-columns: repeat(12, minmax(0, 1fr));');
+    expect(gridRule).toContain('gap: 14px;');
+    expect(kpiRule).toContain('grid-template-columns: repeat(5, minmax(0, 1fr));');
+    expect(cardRule).toContain('border-radius: 16px;');
+    expect(cardRule).toContain('border: 1px solid #e2e8f0;');
+    expect(cardRule).toContain('box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);');
+    expect(mediaRule).toContain('padding: 16px;');
+  });
+
   it('任务管理表格使用大卡片、顶部胶囊筛选和更高表格行', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const cardRule = styles.match(/\.task-management-table-card\s*\{[^}]+\}/)?.[0] ?? '';
+    const ownerHeaderRule = styles.match(/\.task-management-header\s*\{[^}]+\}/)?.[0] ?? '';
+    const exportHeaderRule = styles.match(/\.export-center-header\s*\{[^}]+\}/)?.[0] ?? '';
     const toolbarRule = styles.match(/\.task-management-table-toolbar\s*\{[^}]+\}/)?.[0] ?? '';
+    const descriptionRule = styles.match(/\.task-management-table-description\s*\{[^}]+\}/)?.[0] ?? '';
+    const workbenchDescriptionRule =
+      [...styles.matchAll(/\.workbench-topline \.task-management-table-description\s*\{[^}]+\}/g)]
+        .map((match) => match[0])
+        .find((rule) => rule.includes('right: 160px;')) ?? '';
+    const reviewDetailDescriptionRule =
+      [...styles.matchAll(/\.manual-review-detail-toolbar \.task-management-table-description\s*\{[^}]+\}/g)]
+        .map((match) => match[0])
+        .find((rule) => rule.includes('right: 340px;')) ?? '';
+    const rolePageDescriptionRule =
+      styles.match(
+        /\.task-market-page-title \.task-management-table-description,[\s\S]*?\.manual-review-detail-toolbar \.task-management-table-description\s*\{[^}]+\}/,
+      )?.[0] ?? '';
     const summaryGridRule = styles.match(/\.task-summary-grid\s*\{[^}]+\}/)?.[0] ?? '';
     const summaryRule = styles.match(/\.task-summary-card\s*\{[^}]+\}/)?.[0] ?? '';
     const totalSummaryRule =
@@ -857,6 +906,21 @@ describe('global styles', () => {
 
     expect(cardRule).toContain('border-radius: var(--table-card-radius);');
     expect(cardRule).toContain('background: #ffffff;');
+    expect(ownerHeaderRule).toContain('position: relative;');
+    expect(exportHeaderRule).toContain('position: relative;');
+    expect(descriptionRule).toContain('position: absolute;');
+    expect(descriptionRule).toContain('top: 0;');
+    expect(descriptionRule).toContain('left: 0;');
+    expect(descriptionRule).toContain('color: #64748B;');
+    expect(descriptionRule).toContain('font-size: 14px;');
+    expect(descriptionRule).toContain('line-height: var(--table-page-title-height);');
+    expect(descriptionRule).toContain('pointer-events: none;');
+    expect(workbenchDescriptionRule).toContain('left: 52px;');
+    expect(workbenchDescriptionRule).toContain('right: 160px;');
+    expect(reviewDetailDescriptionRule).toContain('right: 340px;');
+    expect(rolePageDescriptionRule).toContain('color: #64748B;');
+    expect(rolePageDescriptionRule).toContain('font-size: 14px;');
+    expect(rolePageDescriptionRule).toContain('font-weight: 600;');
     expect(toolbarRule).toContain('grid-template-columns: minmax(560px, 680px) minmax(0, 1fr);');
     expect(summaryGridRule).toContain('display: grid;');
     expect(summaryGridRule).toContain('grid-template-columns: repeat(5, minmax(0, 1fr));');
@@ -913,6 +977,10 @@ describe('global styles', () => {
       styles.match(
         /\.task-management-header,\s*\.export-center-header,\s*\.task-market-page-title,\s*\.labeler-task-workspace \.my-data-header,\s*\.agent-review-page__header,\s*\.manual-review-list-header\s*\{[^}]+\}/,
       )?.[0] ?? '';
+    const workbenchHeaderRule = [...styles.matchAll(/\.workbench-topline\s*\{[^}]+\}/g)]
+      .map((match) => match[0])
+      .find((rule) => rule.includes('position: relative;')) ?? '';
+    const reviewDetailToolbarRule = styles.match(/\.manual-review-detail-toolbar\s*\{[^}]+\}/)?.[0] ?? '';
     const titleRule =
       styles.match(
         /\.task-management-header h1,\s*\.export-center-header h1,\s*\.task-market-page-title h1,\s*\.labeler-task-workspace \.my-data-header h1,\s*\.agent-review-page__header h1,\s*\.manual-review-list-header h1\s*\{[^}]+\}/,
@@ -937,6 +1005,9 @@ describe('global styles', () => {
     expect(pageRule).toContain('background: var(--table-page-background);');
     expect(headerRule).toContain('min-height: var(--table-page-title-height);');
     expect(headerRule).toContain('margin: 0 0 var(--table-page-header-gap);');
+    expect(headerRule).toContain('position: relative;');
+    expect(workbenchHeaderRule).toContain('position: relative;');
+    expect(reviewDetailToolbarRule).toContain('position: relative;');
     expect(titleRule).toContain('font-size: var(--table-page-title-font-size);');
     expect(titleRule).toContain('font-weight: 700;');
     expect(panelRule).toContain('margin-top: 0;');
@@ -1605,6 +1676,35 @@ describe('global styles', () => {
     expect(collapseRule).toContain('transition:');
     expect(expandedRule).toContain('grid-template-rows: 1fr;');
     expect(expandedRule).toContain('opacity: 1;');
+  });
+
+  it('模板属性长度限制使用紧凑分段控件和带单位数字输入', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const rowRule = styles.match(/\.designer-property-row--length-limit\s*\{[^}]+\}/)?.[0] ?? '';
+    const editorRule = styles.match(/\.designer-length-limit-editor\s*\{[^}]+\}/)?.[0] ?? '';
+    const modeRule = styles.match(/\.designer-length-limit-mode\s*\{[^}]+\}/)?.[0] ?? '';
+    const buttonRule = styles.match(/\.designer-length-limit-mode button\s*\{[^}]+\}/)?.[0] ?? '';
+    const activeButtonRule =
+      styles.match(/\.designer-length-limit-mode button\[aria-pressed='true'\]\s*\{[^}]+\}/)?.[0] ?? '';
+    const valueRule = styles.match(/\.designer-length-limit-value\s*\{[^}]+\}/)?.[0] ?? '';
+    const inputRule = styles.match(/\.designer-property-row \.designer-length-limit-value input\s*\{[^}]+\}/)?.[0] ?? '';
+    const unitRule =
+      styles.match(/\.designer-length-limit-prefix,[\s\S]*?\.designer-length-limit-empty\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(rowRule).toContain('align-items: start;');
+    expect(editorRule).toContain('display: grid;');
+    expect(editorRule).toContain('justify-items: end;');
+    expect(modeRule).toContain('display: grid;');
+    expect(modeRule).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');
+    expect(buttonRule).toContain('border-radius: 6px;');
+    expect(buttonRule).toContain('font-size: 12px;');
+    expect(activeButtonRule).toContain('background: #306df8;');
+    expect(activeButtonRule).toContain('color: #ffffff;');
+    expect(valueRule).toContain('display: inline-grid;');
+    expect(valueRule).toContain('grid-auto-flow: column;');
+    expect(inputRule).toContain('width: 52px;');
+    expect(inputRule).toContain('text-align: center;');
+    expect(unitRule).toContain('color: #94a3b8;');
   });
 
   it('模板配置选项编辑器把新增按钮放在选项下方并沿用任务标签胶囊规格', () => {

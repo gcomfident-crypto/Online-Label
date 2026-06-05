@@ -132,6 +132,9 @@ export const MyDataPage = () => {
         <div>
           <h1 id="my-data-title">工作台</h1>
         </div>
+        <p className="task-management-table-description">
+          汇总已领取任务的标注进度、状态、截止时间和待处理数量，帮助标注员快速回到下一条任务
+        </p>
       </div>
 
       <div className="task-management-table-card my-data-table-scroll" ref={myDataTableContainerRef}>

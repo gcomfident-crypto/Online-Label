@@ -84,6 +84,11 @@ describe('AiReviewQueuePage', () => {
     render(<AiReviewQueuePage />);
 
     expect(await screen.findByRole('heading', { name: 'AI 自动预审队列' })).toBeInTheDocument();
+    const pageDescription = screen.getByText(
+      '集中查看待 AI 预审的任务提交批次、标注员、题目数量和审核结论，支持快速定位预审结果',
+    );
+    expect(pageDescription).toHaveClass('task-management-table-description');
+    expect(pageDescription.closest('.agent-review-page__header')).not.toBeNull();
     expect(screen.queryByRole('tablist', { name: 'AI 预审状态筛选' })).not.toBeInTheDocument();
     const searchInput = screen.getByPlaceholderText('搜索任务名 / 标注员 / 题目ID');
     expect(searchInput.closest('.task-management-table-card')).toHaveClass('agent-review-table-panel');
@@ -92,13 +97,17 @@ describe('AiReviewQueuePage', () => {
     expect(screen.queryByRole('button', { name: '刷新' })).not.toBeInTheDocument();
 
     const table = screen.getByRole('table', { name: '任务级 AI 预审队列表格' });
-    ['任务名称', '标注员', '提交时间', '题目数', '当前状态', 'AI 建议', '综合分 / 失败原因', '操作']
+    ['任务名称', '标注员', '提交时间', '题目数', 'AI 建议']
       .forEach((header) => expect(within(table).getByText(header)).toBeInTheDocument());
+    ['当前状态', '综合分 / 失败原因', '操作']
+      .forEach((header) => expect(within(table).queryByText(header)).not.toBeInTheDocument());
     expect(within(table).queryByText('批次 ID')).not.toBeInTheDocument();
     expect(within(table).queryByText(/SUB-/)).not.toBeInTheDocument();
     expect(within(table).getAllByRole('row')).toHaveLength(3);
     expect(within(table).getByText('问答质量标注')).toBeInTheDocument();
     expect(within(table).getByText('偏好安全评测')).toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '问答质量标注' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '查看详情' })).not.toBeInTheDocument();
     expect(within(table).getByText('3 题')).toBeInTheDocument();
     expect(within(table).queryByText('qa_1')).not.toBeInTheDocument();
   });
@@ -129,7 +138,7 @@ describe('AiReviewQueuePage', () => {
     render(<AiReviewQueuePage />);
 
     const table = await screen.findByRole('table', { name: '任务级 AI 预审队列表格' });
-    await user.click(within(table).getByRole('button', { name: '问答质量标注' }));
+    await user.click(within(table).getByRole('row', { name: /问答质量标注/ }));
 
     const dialog = await screen.findByRole('dialog', { name: /AI 预审详情 · 问答质量标注/ });
     expect(dialog).toHaveClass('agent-review-batch-sheet');
@@ -214,7 +223,7 @@ describe('AiReviewQueuePage', () => {
     render(<AiReviewQueuePage />);
 
     const table = await screen.findByRole('table', { name: '任务级 AI 预审队列表格' });
-    await user.click(within(table).getByRole('button', { name: '偏好安全评测' }));
+    await user.click(within(table).getByRole('row', { name: /偏好安全评测/ }));
 
     const dialog = await screen.findByRole('dialog', { name: /AI 预审详情 · 偏好安全评测/ });
     const questionTabList = within(dialog).getByRole('tablist', { name: '批次内题目切换' });
@@ -240,7 +249,7 @@ describe('AiReviewQueuePage', () => {
     render(<AiReviewQueuePage />);
 
     const table = await screen.findByRole('table', { name: '任务级 AI 预审队列表格' });
-    await user.click(within(table).getByRole('button', { name: '问答质量标注' }));
+    await user.click(within(table).getByRole('row', { name: /问答质量标注/ }));
 
     const dialog = await screen.findByRole('dialog', { name: /AI 预审详情 · 问答质量标注/ });
     await user.click(document.body);

@@ -52,16 +52,6 @@ const SHOW_ITEM_FORMAT_OPTIONS = [
 const FIELD_DESCRIPTION_MAX_LENGTH = 20;
 
 type LinkageRule = StructuredFieldLinkageRule;
-type LengthLimitKind = 'maxLength' | 'minLength';
-
-const LENGTH_LIMIT_OPTIONS: ReadonlyArray<{ label: string; value: LengthLimitKind }> = [
-  { label: '最大长度', value: 'maxLength' },
-  { label: '最小长度', value: 'minLength' },
-];
-const LENGTH_LIMIT_LABELS: Record<LengthLimitKind, string> = {
-  maxLength: '最大长度',
-  minLength: '最小长度',
-};
 
 export const PropertyPanel = ({
   field,
@@ -827,10 +817,26 @@ const defaultAiReviewRole = (field: SchemaField): FieldAiReviewRole => {
 const supportsLengthLimit = (field: SchemaField): boolean =>
   field.type === 'text' || field.type === 'textarea' || field.type === 'rich_text';
 
-const resolveLengthLimitKind = (field: SchemaField): LengthLimitKind =>
-  field.validation?.minLength !== undefined && field.validation.maxLength === undefined
-    ? 'minLength'
-    : 'maxLength';
+const DEFAULT_LENGTH_LIMIT_VALUE = 1;
+
+const lengthLimitMode = (field: SchemaField): LengthLimitMode => {
+  const hasMinLength = field.validation?.minLength !== undefined;
+  const hasMaxLength = field.validation?.maxLength !== undefined;
+
+  if (hasMinLength && hasMaxLength) {
+    return 'range';
+  }
+
+  if (hasMinLength) {
+    return 'min';
+  }
+
+  if (hasMaxLength) {
+    return 'max';
+  }
+
+  return 'none';
+};
 
 const shouldExpandValidation = (field: SchemaField): boolean =>
   Boolean(
@@ -1066,43 +1072,10 @@ const ValidationProperties = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(() => shouldExpandValidation(field));
   const selectedFieldKey = field.fieldKey ?? field.key;
-  const [lengthLimitKind, setLengthLimitKind] = useState<LengthLimitKind>(() => resolveLengthLimitKind(field));
-  const lengthLimitLabel = LENGTH_LIMIT_LABELS[lengthLimitKind];
-  const lengthLimitValue = field.validation?.[lengthLimitKind];
-
-  const updateLengthLimitKind = (nextKind: LengthLimitKind) => {
-    if (nextKind === lengthLimitKind) {
-      return;
-    }
-
-    const nextValue = lengthLimitValue;
-    setLengthLimitKind(nextKind);
-
-    onUpdateValidation(
-      nextKind === 'maxLength'
-        ? { maxLength: nextValue, minLength: undefined }
-        : { maxLength: undefined, minLength: nextValue },
-    );
-  };
-
-  const updateLengthLimitValue = (value: string) => {
-    const nextValue = numericValue(value);
-
-    if (lengthLimitKind === 'maxLength') {
-      onUpdateValidation({ maxLength: nextValue });
-      return;
-    }
-
-    onUpdateValidation({ maxLength: undefined, minLength: nextValue });
-  };
 
   useEffect(() => {
     setIsExpanded(shouldExpandValidation(field));
   }, [selectedFieldKey]);
-
-  useEffect(() => {
-    setLengthLimitKind(resolveLengthLimitKind(field));
-  }, [field.validation?.maxLength, field.validation?.minLength, selectedFieldKey]);
 
   return (
     <PropertySection
@@ -1120,21 +1093,7 @@ const ValidationProperties = ({
         <div className="designer-form-grid">
           {supportsLengthLimit(field) ? (
             <PropertyRow className="designer-property-row--length-limit" label="长度限制">
-              <div className="designer-length-limit-control">
-                <FilterSelect
-                  ariaLabel="长度限制类型"
-                  options={LENGTH_LIMIT_OPTIONS}
-                  value={lengthLimitKind}
-                  onChange={updateLengthLimitKind}
-                />
-                <input
-                  aria-label={lengthLimitLabel}
-                  min="0"
-                  type="number"
-                  value={lengthLimitValue ?? ''}
-                  onChange={(event) => updateLengthLimitValue(event.target.value)}
-                />
-              </div>
+              <LengthLimitEditor field={field} onUpdateValidation={onUpdateValidation} />
             </PropertyRow>
           ) : null}
           <PropertyRow label="正则">
@@ -1147,6 +1106,116 @@ const ValidationProperties = ({
         </div>
       </PropertyCollapse>
     </PropertySection>
+  );
+};
+
+type LengthLimitMode = 'none' | 'min' | 'max' | 'range';
+
+const LENGTH_LIMIT_MODES: Array<{ label: string; value: LengthLimitMode }> = [
+  { label: '不限制', value: 'none' },
+  { label: '最少', value: 'min' },
+  { label: '最多', value: 'max' },
+  { label: '区间', value: 'range' },
+];
+
+const LengthLimitEditor = ({
+  field,
+  onUpdateValidation,
+}: {
+  field: SchemaField;
+  onUpdateValidation: (patch: NonNullable<SchemaField['validation']>) => void;
+}) => {
+  const selectedFieldKey = field.fieldKey ?? field.key;
+  const storedMode = lengthLimitMode(field);
+  const [draftMode, setDraftMode] = useState<LengthLimitMode | null>(null);
+  const mode = draftMode ?? storedMode;
+  const minLength = field.validation?.minLength;
+  const maxLength = field.validation?.maxLength;
+
+  useEffect(() => {
+    setDraftMode(null);
+  }, [selectedFieldKey]);
+
+  const handleModeChange = (nextMode: LengthLimitMode) => {
+    setDraftMode(nextMode);
+
+    if (nextMode === 'none') {
+      onUpdateValidation({ minLength: undefined, maxLength: undefined });
+      return;
+    }
+
+    if (nextMode === 'min') {
+      onUpdateValidation({
+        minLength: minLength ?? maxLength ?? DEFAULT_LENGTH_LIMIT_VALUE,
+        maxLength: undefined,
+      });
+      return;
+    }
+
+    if (nextMode === 'max') {
+      onUpdateValidation({
+        minLength: undefined,
+        maxLength: maxLength ?? minLength ?? DEFAULT_LENGTH_LIMIT_VALUE,
+      });
+      return;
+    }
+
+    const nextMinLength = minLength ?? DEFAULT_LENGTH_LIMIT_VALUE;
+    onUpdateValidation({
+      minLength: nextMinLength,
+      maxLength: maxLength ?? Math.max(nextMinLength + 1, DEFAULT_LENGTH_LIMIT_VALUE),
+    });
+  };
+
+  const handleLengthValueChange = (patch: NonNullable<SchemaField['validation']>) => {
+    setDraftMode(mode);
+    onUpdateValidation(patch);
+  };
+
+  return (
+    <div className="designer-length-limit-editor" role="group" aria-label="长度限制">
+      <div className="designer-length-limit-mode" role="group" aria-label="长度限制方式">
+        {LENGTH_LIMIT_MODES.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={mode === option.value}
+            onClick={() => handleModeChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'none' ? (
+        <span className="designer-length-limit-empty">不限制字符数</span>
+      ) : (
+        <div className="designer-length-limit-value">
+          {mode === 'min' ? <span className="designer-length-limit-prefix">最少</span> : null}
+          {mode === 'max' ? <span className="designer-length-limit-prefix">最多</span> : null}
+          {mode === 'min' || mode === 'range' ? (
+            <input
+              aria-label="最小长度"
+              min="0"
+              type="number"
+              value={minLength ?? ''}
+              onChange={(event) => handleLengthValueChange({ minLength: numericValue(event.target.value) })}
+            />
+          ) : null}
+          {mode === 'range' ? <span className="designer-length-limit-separator">-</span> : null}
+          {mode === 'max' || mode === 'range' ? (
+            <input
+              aria-label="最大长度"
+              min="0"
+              type="number"
+              value={maxLength ?? ''}
+              onChange={(event) => handleLengthValueChange({ maxLength: numericValue(event.target.value) })}
+            />
+          ) : null}
+          <span className="designer-length-limit-unit">字符</span>
+        </div>
+      )}
+    </div>
   );
 };
 

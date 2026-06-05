@@ -47,7 +47,11 @@ export const resolvePagePathTitle = (pathname: string): string => {
     return '标注员工作台 / 工作台';
   }
 
-  if (pathname === '/agent' || pathname === '/agent/ai-review') {
+  if (pathname === '/agent' || pathname === '/agent/dashboard') {
+    return 'AI 预审后台 / 数据看板';
+  }
+
+  if (pathname === '/agent/ai-review') {
     return 'AI 预审后台 / 机审队列';
   }
 

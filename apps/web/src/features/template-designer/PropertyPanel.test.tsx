@@ -117,10 +117,12 @@ describe('PropertyPanel', () => {
     expect(validationSwitch).toHaveAttribute('aria-expanded', 'true');
     expect(validationSwitch).toBeChecked();
     expect(screen.getByTestId('designer-validation-collapse')).toHaveAttribute('aria-hidden', 'false');
-    const lengthLimitTypeButton = screen.getByRole('button', { name: '长度限制类型' });
-    expect(lengthLimitTypeButton.closest('.task-filter-select')).not.toBeNull();
-    expect(lengthLimitTypeButton).toHaveTextContent('最大长度');
+    const lengthLimitEditor = screen.getByRole('group', { name: '长度限制' });
+    expect(screen.getByText('长度限制')).toHaveClass('designer-property-row__label');
+    expect(within(lengthLimitEditor).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(lengthLimitEditor).getByRole('button', { name: '最多' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByLabelText('最大长度')).toHaveValue(35);
+    expect(within(lengthLimitEditor).getByText('字符')).toBeInTheDocument();
     expect(screen.getByLabelText('正则')).toHaveValue('/^[^@#$]+$/');
     expect(screen.queryByLabelText('预置校验')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('自定义函数')).not.toBeInTheDocument();
@@ -173,10 +175,8 @@ describe('PropertyPanel', () => {
 
     fireEvent.change(screen.getByLabelText('最大长度'), { target: { value: '40' } });
     expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: 40 });
-
-    fireEvent.click(lengthLimitTypeButton);
-    fireEvent.click(screen.getByRole('option', { name: '最小长度' }));
-    expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: undefined, minLength: 35 });
+    fireEvent.click(within(lengthLimitEditor).getByRole('button', { name: '最少' }));
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ minLength: 35, maxLength: undefined });
 
     fireEvent.click(validationSwitch);
     expect(screen.getByLabelText('显示校验规则')).toHaveAttribute('aria-expanded', 'false');
@@ -221,14 +221,44 @@ describe('PropertyPanel', () => {
     expect(screen.getByLabelText('审核要求')).toHaveValue('必须保留商品核心信息，不得新增不存在的信息。');
   });
 
-  it('长度限制类型使用项目下拉菜单切换最大和最小长度', () => {
+  it('长度限制使用分段控件并支持区间和不限制模式', () => {
     const onUpdateValidation = vi.fn();
     const baseProps = {
       onAddLinkageRule: vi.fn(),
       onUpdateField: vi.fn(),
       onUpdateValidation,
     };
+
     const { rerender } = render(
+      <PropertyPanel
+        {...baseProps}
+        field={{
+          key: 'summary',
+          type: 'text',
+          label: '一句话总评',
+          validation: {
+            minLength: 2,
+            maxLength: 20,
+          },
+        }}
+      />,
+    );
+
+    const lengthLimitEditor = screen.getByRole('group', { name: '长度限制' });
+    expect(within(lengthLimitEditor).getByRole('button', { name: '区间' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(lengthLimitEditor).getByLabelText('最小长度')).toHaveValue(2);
+    expect(within(lengthLimitEditor).getByLabelText('最大长度')).toHaveValue(20);
+    expect(within(lengthLimitEditor).getByText('字符')).toBeInTheDocument();
+
+    fireEvent.change(within(lengthLimitEditor).getByLabelText('最小长度'), { target: { value: '3' } });
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ minLength: 3 });
+    fireEvent.change(within(lengthLimitEditor).getByLabelText('最大长度'), { target: { value: '18' } });
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: 18 });
+
+    fireEvent.click(within(lengthLimitEditor).getByRole('button', { name: '不限制' }));
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ minLength: undefined, maxLength: undefined });
+
+    rerender(
       <PropertyPanel
         {...baseProps}
         field={{
@@ -242,15 +272,14 @@ describe('PropertyPanel', () => {
       />,
     );
 
-    const lengthLimitTypeButton = screen.getByRole('button', { name: '长度限制类型' });
-    expect(lengthLimitTypeButton.closest('.task-filter-select')).not.toBeNull();
-    expect(lengthLimitTypeButton).toHaveTextContent('最大长度');
+    const maxLengthEditor = screen.getByRole('group', { name: '长度限制' });
+    expect(within(maxLengthEditor).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(maxLengthEditor).getByRole('button', { name: '最多' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByLabelText('最大长度')).toHaveValue(20);
     expect(screen.queryByLabelText('预置校验')).not.toBeInTheDocument();
 
-    fireEvent.click(lengthLimitTypeButton);
-    fireEvent.click(screen.getByRole('option', { name: '最小长度' }));
-    expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: undefined, minLength: 20 });
+    fireEvent.click(within(maxLengthEditor).getByRole('button', { name: '最少' }));
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ minLength: 20, maxLength: undefined });
 
     rerender(
       <PropertyPanel
@@ -265,11 +294,12 @@ describe('PropertyPanel', () => {
         }}
       />,
     );
-    expect(screen.getByRole('button', { name: '长度限制类型' })).toHaveTextContent('最小长度');
+    const minLengthEditor = screen.getByRole('group', { name: '长度限制' });
+    expect(within(minLengthEditor).getByRole('button', { name: '最少' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByLabelText('最小长度')).toHaveValue(3);
 
     fireEvent.change(screen.getByLabelText('最小长度'), { target: { value: '4' } });
-    expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: undefined, minLength: 4 });
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ minLength: 4 });
 
     rerender(
       <PropertyPanel
@@ -282,17 +312,14 @@ describe('PropertyPanel', () => {
       />,
     );
     fireEvent.click(screen.getByLabelText('显示校验规则'));
-    const emptyLengthLimitTypeButton = screen.getByRole('button', { name: '长度限制类型' });
-    expect(emptyLengthLimitTypeButton).toHaveTextContent('最大长度');
+    const emptyLengthLimitEditor = screen.getByRole('group', { name: '长度限制' });
+    expect(within(emptyLengthLimitEditor).getByRole('button', { name: '不限制' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
 
-    fireEvent.click(emptyLengthLimitTypeButton);
-    fireEvent.click(screen.getByRole('option', { name: '最小长度' }));
-    expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: undefined, minLength: undefined });
-    expect(screen.getByRole('button', { name: '长度限制类型' })).toHaveTextContent('最小长度');
-    expect((screen.getByLabelText('最小长度') as HTMLInputElement).value).toBe('');
-
-    fireEvent.change(screen.getByLabelText('最小长度'), { target: { value: '2' } });
-    expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: undefined, minLength: 2 });
+    fireEvent.click(within(emptyLengthLimitEditor).getByRole('button', { name: '最少' }));
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ minLength: 1, maxLength: undefined });
 
     rerender(
       <PropertyPanel
@@ -305,7 +332,7 @@ describe('PropertyPanel', () => {
         }}
       />,
     );
-    expect(screen.queryByRole('button', { name: '长度限制类型' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: '长度限制' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('最大长度')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('最小长度')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('预置校验')).not.toBeInTheDocument();

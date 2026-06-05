@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import foldIcon from '../assets/fold.svg';
 
 export type PortalSidebarItem = {
   icon: string;
@@ -71,11 +72,7 @@ export const PortalSidebar = ({
           }
           aria-hidden="true"
         >
-          <svg viewBox="0 0 24 24" focusable="false">
-            <rect x="4.5" y="5" width="15" height="14" rx="3" />
-            <path d="M10 5.5V18.5" />
-            <path className="portal-sidebar__toggle-arrow" d="M15.2 9.2L12.4 12L15.2 14.8" />
-          </svg>
+          <img src={foldIcon} alt="" draggable="false" />
         </span>
         <span className={`portal-sidebar__toggle-label${hiddenLabelClass}`} aria-hidden="true">
           {isCollapsed ? '展开' : '收起'}

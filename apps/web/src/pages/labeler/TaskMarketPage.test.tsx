@@ -88,6 +88,11 @@ describe('TaskMarketPage', () => {
     renderTaskMarketPage();
 
     expect(await screen.findByRole('heading', { name: '任务广场' })).toBeInTheDocument();
+    const pageDescription = screen.getByText(
+      '浏览可领取的数据标注任务，查看任务要求、奖励、截止时间和领取状态，快速进入标注工作',
+    );
+    expect(pageDescription).toHaveClass('task-management-table-description');
+    expect(pageDescription.closest('.task-market-page-title')).not.toBeNull();
     expect(screen.queryByText('全部 Owner 发布任务')).not.toBeInTheDocument();
     expect(screen.queryByText('演示标注员')).not.toBeInTheDocument();
     expect(screen.queryByText('李雷')).not.toBeInTheDocument();
