@@ -97,13 +97,17 @@ describe('AiReviewQueuePage', () => {
     expect(screen.queryByRole('button', { name: '刷新' })).not.toBeInTheDocument();
 
     const table = screen.getByRole('table', { name: '任务级 AI 预审队列表格' });
-    ['任务名称', '标注员', '提交时间', '题目数', '当前状态', 'AI 建议', '综合分 / 失败原因', '操作']
+    ['任务名称', '标注员', '提交时间', '题目数', 'AI 建议']
       .forEach((header) => expect(within(table).getByText(header)).toBeInTheDocument());
+    ['当前状态', '综合分 / 失败原因', '操作']
+      .forEach((header) => expect(within(table).queryByText(header)).not.toBeInTheDocument());
     expect(within(table).queryByText('批次 ID')).not.toBeInTheDocument();
     expect(within(table).queryByText(/SUB-/)).not.toBeInTheDocument();
     expect(within(table).getAllByRole('row')).toHaveLength(3);
     expect(within(table).getByText('问答质量标注')).toBeInTheDocument();
     expect(within(table).getByText('偏好安全评测')).toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '问答质量标注' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '查看详情' })).not.toBeInTheDocument();
     expect(within(table).getByText('3 题')).toBeInTheDocument();
     expect(within(table).queryByText('qa_1')).not.toBeInTheDocument();
   });
@@ -134,7 +138,7 @@ describe('AiReviewQueuePage', () => {
     render(<AiReviewQueuePage />);
 
     const table = await screen.findByRole('table', { name: '任务级 AI 预审队列表格' });
-    await user.click(within(table).getByRole('button', { name: '问答质量标注' }));
+    await user.click(within(table).getByRole('row', { name: /问答质量标注/ }));
 
     const dialog = await screen.findByRole('dialog', { name: /AI 预审详情 · 问答质量标注/ });
     expect(dialog).toHaveClass('agent-review-batch-sheet');
@@ -213,7 +217,7 @@ describe('AiReviewQueuePage', () => {
     render(<AiReviewQueuePage />);
 
     const table = await screen.findByRole('table', { name: '任务级 AI 预审队列表格' });
-    await user.click(within(table).getByRole('button', { name: '偏好安全评测' }));
+    await user.click(within(table).getByRole('row', { name: /偏好安全评测/ }));
 
     const dialog = await screen.findByRole('dialog', { name: /AI 预审详情 · 偏好安全评测/ });
     expect(within(dialog).getByText(/本题建议打回/)).toBeInTheDocument();
@@ -237,7 +241,7 @@ describe('AiReviewQueuePage', () => {
     render(<AiReviewQueuePage />);
 
     const table = await screen.findByRole('table', { name: '任务级 AI 预审队列表格' });
-    await user.click(within(table).getByRole('button', { name: '问答质量标注' }));
+    await user.click(within(table).getByRole('row', { name: /问答质量标注/ }));
 
     const dialog = await screen.findByRole('dialog', { name: /AI 预审详情 · 问答质量标注/ });
     await user.click(document.body);

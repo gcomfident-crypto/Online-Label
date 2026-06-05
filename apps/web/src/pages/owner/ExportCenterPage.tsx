@@ -187,7 +187,7 @@ export const ExportCenterPage = () => {
           <h1 id="export-center-title">导出中心</h1>
         </div>
         <p className="task-management-table-description">
-          管理数据标注结果的可导出任务、导出数量、模板来源和文件格式，支持多任务批量导出交付
+          本页面支持导出已标注任务的数据，格式涵盖 JSON、JSONL、CSV 及 XLSX
         </p>
       </div>
 
@@ -304,8 +304,7 @@ const ExportableTaskTable = ({
             <col className="export-task-table__col-id" />
             <col className="export-task-table__col-title" />
             <col className="export-task-table__col-created" />
-            <col className="export-task-table__col-progress" />
-            <col className="export-task-table__col-template" />
+            <col className="export-task-table__col-ended" />
             <col className="export-task-table__col-actions" />
           </colgroup>
         <thead>
@@ -322,8 +321,7 @@ const ExportableTaskTable = ({
             <th>任务ID</th>
             <th>任务</th>
             <th>创建时间</th>
-            <th>已完成/总题目数</th>
-            <th>模板</th>
+            <th>结束时间</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -350,10 +348,7 @@ const ExportableTaskTable = ({
                     <small>Owner：张满</small>
                   </td>
                   <td>{formatDateTimeMinute(task.createdAt)}</td>
-                  <td>
-                    {(task.exportableItemCount ?? 0).toLocaleString()} / {task.itemCount.toLocaleString()}
-                  </td>
-                  <td>{task.template.name}</td>
+                  <td>{task.deadline ? formatDateTimeMinute(task.deadline) : '—'}</td>
                   <td>
                     <button
                       type="button"
@@ -369,7 +364,7 @@ const ExportableTaskTable = ({
             })
           ) : (
             <tr className="task-table__empty-row">
-              <td colSpan={7}>
+              <td colSpan={6}>
                 <TableEmptyState title="暂无可导出任务" illustrationAlt="空导出记录列表插画" />
               </td>
             </tr>

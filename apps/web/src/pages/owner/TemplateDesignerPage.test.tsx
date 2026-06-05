@@ -775,7 +775,7 @@ describe('TemplateDesignerPage', () => {
     const pageHeader = screen.getByRole('heading', { name: '评测模板' }).closest('.task-management-header');
     expect(pageHeader).not.toBeNull();
     const pageDescription = within(pageHeader as HTMLElement).getByText(
-      '管理数据标注评测模板的创建、状态、版本、字段数和负责人，支持模板从配置到发布复用的全流程管理',
+      '提供模板创建、字段配置、版本管理等核心功能，实现从配置到发布复用的全流程管理',
     );
     expect(pageDescription).toHaveClass('task-management-table-description');
     expect(screen.queryByText('管理标注模板、字段结构与版本配置')).not.toBeInTheDocument();

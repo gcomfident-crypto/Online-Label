@@ -9,19 +9,11 @@ import {
   type AiReviewBatchDto,
   type AiReviewFieldDto,
   type AiReviewBatchItemDto,
-  type AiReviewBatchStatus,
   type AiReviewLogDto,
 } from '../../api/aiReview';
 import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
-
-const STATUS_LABELS: Record<AiReviewBatchStatus, string> = {
-  PENDING: '待审核',
-  PASSED: '已通过',
-  REJECTED: '已打回',
-  FAILED: '失败',
-};
 
 const DECISION_LABELS: Record<AiReviewBatchDecision, string> = {
   pending: '等待预审',
@@ -296,10 +288,7 @@ const AiReviewBatchTable = ({
             <col className="agent-review-batch-table__col-labeler" />
             <col className="agent-review-batch-table__col-submitted" />
             <col className="agent-review-batch-table__col-count" />
-            <col className="agent-review-batch-table__col-status" />
             <col className="agent-review-batch-table__col-decision" />
-            <col className="agent-review-batch-table__col-score" />
-            <col className="agent-review-batch-table__col-actions" />
           </colgroup>
           <thead>
             <tr>
@@ -307,10 +296,7 @@ const AiReviewBatchTable = ({
               <th>标注员</th>
               <th>提交时间</th>
               <th>题目数</th>
-              <th>当前状态</th>
               <th>AI 建议</th>
-              <th>综合分 / 失败原因</th>
-              <th>操作</th>
             </tr>
           </thead>
           <tbody key={currentPage} className="task-table__body">
@@ -323,22 +309,14 @@ const AiReviewBatchTable = ({
                     'agent-review-batch-table__row',
                     selectedBatchId === batch.batchId ? 'is-active' : '',
                   ].filter(Boolean).join(' ')}
+                  aria-label={`查看 ${batch.taskTitle} AI 预审详情`}
                   tabIndex={0}
                   onClick={(event) => handleRowClick(event, batch)}
                   onKeyDown={(event) => handleRowKeyDown(event, batch)}
                 >
                   <td>
                     <TableCellInner>
-                      <button
-                        className="task-title-link"
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOpenBatch(batch);
-                        }}
-                      >
-                        {batch.taskTitle}
-                      </button>
+                      <span className="task-title-link">{batch.taskTitle}</span>
                     </TableCellInner>
                   </td>
                   <td>
@@ -354,42 +332,14 @@ const AiReviewBatchTable = ({
                   </td>
                   <td>
                     <TableCellInner>
-                      <BatchStatusPill status={batch.status} />
-                    </TableCellInner>
-                  </td>
-                  <td>
-                    <TableCellInner>
                       <DecisionPill decision={batch.aggregateDecision} label={batch.aiSuggestionLabel} />
-                    </TableCellInner>
-                  </td>
-                  <td>
-                    <TableCellInner>
-                      <span className="agent-review-score-summary">
-                        {batch.failureReason ?? (batch.aggregateScore === null ? '—' : `综合 ${batch.aggregateScore}`)}
-                      </span>
-                    </TableCellInner>
-                  </td>
-                  <td>
-                    <TableCellInner>
-                      <div className="task-table__actions agent-review-batch-table__actions">
-                        <button
-                          className="task-table-action task-table-action--primary"
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onOpenBatch(batch);
-                          }}
-                        >
-                          查看详情
-                        </button>
-                      </div>
                     </TableCellInner>
                   </td>
                 </tr>
               ))
             ) : (
               <tr className="task-table__empty-row">
-                <td colSpan={8}>
+                <td colSpan={5}>
                   <TableEmptyState title="暂无任务级 AI 预审记录" illustrationAlt="空预审队列插画" />
                 </td>
               </tr>
@@ -426,10 +376,6 @@ const DateTimeCell = ({ value }: { value?: string | null }) => {
     </span>
   );
 };
-
-const BatchStatusPill = ({ status }: { status: AiReviewBatchStatus }) => (
-  <span className={`agent-review-status-pill is-${status.toLowerCase()}`}>{STATUS_LABELS[status]}</span>
-);
 
 const AiReviewBatchSheet = ({
   batch,

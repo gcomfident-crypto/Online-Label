@@ -604,6 +604,20 @@ describe('global styles', () => {
     expect(hoverIconRule).toContain('box-shadow: none;');
   });
 
+  it('侧边栏收起按钮使用图片图标并通过镜像表示展开态', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const imageRule = styles.match(/\.portal-sidebar__toggle-icon img\s*\{[^}]+\}/)?.[0] ?? '';
+    const collapsedImageRule = styles.match(/\.portal-sidebar__toggle-icon\.is-collapsed img\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(imageRule).toContain('width: 20px;');
+    expect(imageRule).toContain('height: 20px;');
+    expect(imageRule).toContain('object-fit: contain;');
+    expect(imageRule).toContain('transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);');
+    expect(collapsedImageRule).toContain('transform: scaleX(-1);');
+    expect(styles).toContain('.portal-sidebar__toggle-icon img');
+    expect(styles).not.toContain('.portal-sidebar__toggle-icon svg');
+  });
+
   it('侧边栏激活项使用浅蓝全宽背景并保留左侧蓝色竖线', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const activeLinkRule = styles.match(/\.portal-nav a\s*\{[^}]+\}/)?.[0] ?? '';

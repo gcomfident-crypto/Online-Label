@@ -1381,32 +1381,16 @@ p {
   color: #306df7;
 }
 
-.portal-sidebar__toggle-icon svg {
+.portal-sidebar__toggle-icon img {
   width: 20px;
   height: 20px;
-  overflow: visible;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
+  display: block;
+  object-fit: contain;
   transform-origin: center;
   transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.portal-sidebar__toggle-icon rect {
-  opacity: 0.95;
-}
-
-.portal-sidebar__toggle-icon path {
-  opacity: 0.52;
-}
-
-.portal-sidebar__toggle-icon .portal-sidebar__toggle-arrow {
-  opacity: 1;
-}
-
-.portal-sidebar__toggle-icon.is-collapsed svg {
+.portal-sidebar__toggle-icon.is-collapsed img {
   transform: scaleX(-1);
 }
 
@@ -12758,7 +12742,7 @@ video.schema-field__show-resource-media {
 
 .export-task-table {
   width: 100%;
-  min-width: 1120px;
+  min-width: 920px;
 }
 
 .export-task-table__col-select {
@@ -12766,27 +12750,23 @@ video.schema-field__show-resource-media {
 }
 
 .export-task-table__col-id {
-  width: 13%;
-}
-
-.export-task-table__col-title {
-  width: 24%;
-}
-
-.export-task-table__col-created {
-  width: 15%;
-}
-
-.export-task-table__col-progress {
   width: 14%;
 }
 
-.export-task-table__col-template {
-  width: 22%;
+.export-task-table__col-title {
+  width: 30%;
+}
+
+.export-task-table__col-created {
+  width: 18%;
+}
+
+.export-task-table__col-ended {
+  width: 18%;
 }
 
 .export-task-table__col-actions {
-  width: 9%;
+  width: 10%;
 }
 
 .export-task-table tr.is-selected td {
@@ -15707,84 +15687,32 @@ video.schema-field__show-resource-media {
 }
 
 .agent-review-batch-table {
-  min-width: 1120px;
+  min-width: 820px;
 }
 
 .agent-review-batch-table__col-title {
-  width: 24%;
+  width: 34%;
 }
 
 .agent-review-batch-table__col-labeler {
-  width: 10%;
+  width: 14%;
 }
 
 .agent-review-batch-table__col-submitted {
-  width: 13%;
+  width: 20%;
 }
 
 .agent-review-batch-table__col-count {
-  width: 8%;
-}
-
-.agent-review-batch-table__col-status {
-  width: 10%;
-}
-
-.agent-review-batch-table__col-decision {
   width: 12%;
 }
 
-.agent-review-batch-table__col-score {
-  width: 16%;
-}
-
-.agent-review-batch-table__col-actions {
-  width: 7%;
+.agent-review-batch-table__col-decision {
+  width: 20%;
 }
 
 .agent-review-batch-table__row.is-active {
   background: #eaf1ff;
   box-shadow: inset 3px 0 0 #306df8;
-}
-
-.agent-review-batch-table__actions {
-  justify-content: center;
-}
-
-.agent-review-score-summary {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.agent-review-status-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 64px;
-  border-radius: 999px;
-  padding: 4px 9px;
-  color: #475569;
-  background: #f1f5f9;
-  font-size: 12px;
-  font-weight: 900;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.agent-review-status-pill.is-passed {
-  color: #047857;
-  background: #dcfce7;
-}
-
-.agent-review-status-pill.is-rejected {
-  color: #c2410c;
-  background: #ffedd5;
-}
-
-.agent-review-status-pill.is-failed {
-  color: #b42318;
-  background: #fee2e2;
 }
 
 .agent-review-sheet-overlay {
@@ -18703,7 +18631,7 @@ video.schema-field__show-resource-media {
     height: 26px;
   }
 
-  .portal-sidebar__toggle-icon svg {
+  .portal-sidebar__toggle-icon img {
     width: 24px;
     height: 24px;
   }
@@ -18811,7 +18739,7 @@ video.schema-field__show-resource-media {
     height: 30px;
   }
 
-  .portal-sidebar__toggle-icon svg {
+  .portal-sidebar__toggle-icon img {
     width: 27px;
     height: 27px;
   }
@@ -19408,8 +19336,7 @@ video.schema-field__show-resource-media {
 .task-market-table__template,
 .template-manager-table__name,
 .manual-review-task-title,
-.manual-review-task-time,
-.agent-review-score-summary {
+.manual-review-task-time {
   text-align: center;
 }
 
