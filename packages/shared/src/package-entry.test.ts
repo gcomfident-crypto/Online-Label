@@ -33,6 +33,6 @@ describe('共享包名入口', () => {
       { cwd: new URL('..', import.meta.url), encoding: 'utf8' },
     );
 
-    expect(output.trim()).toBe('/agent/ai-review');
+    expect(output.trim()).toBe('/agent/dashboard');
   });
 });

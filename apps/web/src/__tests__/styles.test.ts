@@ -758,6 +758,26 @@ describe('global styles', () => {
     expect(exportBatchFilterActionRules.some((rule) => rule.includes('font-size: inherit;'))).toBe(true);
   });
 
+  it('Agent 数据看板使用克制的 12 栅格 SaaS 后台布局和响应式规则', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const pageRule = styles.match(/\.agent-dashboard-page\s*\{[^}]+\}/)?.[0] ?? '';
+    const gridRule = styles.match(/\.agent-dashboard-grid\s*\{[^}]+\}/)?.[0] ?? '';
+    const kpiRule = styles.match(/\.agent-dashboard-kpi-grid\s*\{[^}]+\}/)?.[0] ?? '';
+    const cardRule = styles.match(/\.agent-dashboard-card\s*\{[^}]+\}/)?.[0] ?? '';
+    const mediaRule = styles.match(/@media\s*\(max-width:\s*900px\)\s*\{[\s\S]*?\.agent-dashboard-page\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(pageRule).toContain('padding: 18px 24px 16px;');
+    expect(pageRule).toContain('background: #f8fafc;');
+    expect(pageRule).not.toContain('overflow: hidden;');
+    expect(gridRule).toContain('grid-template-columns: repeat(12, minmax(0, 1fr));');
+    expect(gridRule).toContain('gap: 14px;');
+    expect(kpiRule).toContain('grid-template-columns: repeat(5, minmax(0, 1fr));');
+    expect(cardRule).toContain('border-radius: 16px;');
+    expect(cardRule).toContain('border: 1px solid #e2e8f0;');
+    expect(cardRule).toContain('box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);');
+    expect(mediaRule).toContain('padding: 16px;');
+  });
+
   it('任务管理表格使用大卡片、顶部胶囊筛选和更高表格行', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const cardRule = styles.match(/\.task-management-table-card\s*\{[^}]+\}/)?.[0] ?? '';

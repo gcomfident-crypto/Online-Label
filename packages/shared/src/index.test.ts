@@ -33,7 +33,7 @@ describe('共享角色协议', () => {
       AI_AGENT: {
         displayName: 'AI Agent 端',
         routePrefix: '/agent',
-        homePath: '/agent/ai-review',
+        homePath: '/agent/dashboard',
       },
       REVIEWER: {
         displayName: 'Reviewer 端',

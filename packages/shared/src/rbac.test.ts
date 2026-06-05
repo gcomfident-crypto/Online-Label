@@ -21,7 +21,7 @@ describe('Portal 路由 RBAC', () => {
     const routesByRole = {
       OWNER: ['/owner', '/owner/tasks'],
       LABELER: ['/labeler', '/labeler/tasks'],
-      AI_AGENT: ['/agent', '/agent/reviews'],
+      AI_AGENT: ['/agent', '/agent/dashboard', '/agent/ai-review'],
       REVIEWER: ['/reviewer', '/reviewer/reviews'],
     } as const;
 
@@ -57,7 +57,7 @@ describe('Portal 路由 RBAC', () => {
       {
         path: '/agent',
         allowedRoles: ['AI_AGENT'],
-        defaultHomePath: '/agent/ai-review',
+        defaultHomePath: '/agent/dashboard',
         navName: 'AI 审核台',
       },
       {

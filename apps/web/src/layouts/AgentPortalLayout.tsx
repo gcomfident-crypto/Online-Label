@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import databoardIcon from '../assets/databoard.svg';
 import llmIcon from '../assets/llm.svg';
 import { DemoDataBanner } from '../components/DemoDataBanner';
 import { PortalPageTransitionOutlet } from './PortalPageTransitionOutlet';
@@ -7,6 +8,13 @@ import { PortalSidebar } from './PortalSidebar';
 import { PortalTopbar } from './PortalTopbar';
 
 const AGENT_NAV_ITEMS = [
+  {
+    to: '/agent/dashboard',
+    label: '数据看板',
+    parts: ['数', '据', '看', '板'],
+    icon: 'dashboard',
+    iconAsset: databoardIcon,
+  },
   {
     to: '/agent/ai-review',
     label: '机审队列',

@@ -10,6 +10,7 @@ import { OwnerPortalLayout } from './layouts/OwnerPortalLayout';
 import { ReviewerPortalLayout } from './layouts/ReviewerPortalLayout';
 import { ForbiddenPage } from './pages/ForbiddenPage';
 import { LoginPage } from './pages/LoginPage';
+import { AgentDashboardPage } from './pages/agent/AgentDashboardPage';
 import { AiReviewQueuePage } from './pages/agent/AiReviewQueuePage';
 import { RendererPlaygroundPage } from './pages/dev/RendererPlaygroundPage';
 import { LabelerMarketPage } from './pages/labeler/LabelerMarketPage';
@@ -77,7 +78,8 @@ export const AppRouter = () => {
             </RequireAuth>
           }
         >
-          <Route index element={<Navigate to="/agent/ai-review" replace />} />
+          <Route index element={<Navigate to="/agent/dashboard" replace />} />
+          <Route path="dashboard" element={<AgentDashboardPage />} />
           <Route path="ai-review" element={<AiReviewQueuePage />} />
         </Route>
         <Route
