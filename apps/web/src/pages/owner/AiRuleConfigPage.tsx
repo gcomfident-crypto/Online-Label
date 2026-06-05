@@ -242,9 +242,9 @@ export const AiRuleConfigPage = () => {
                   value={form.provider}
                   onChange={(event) => setForm((current) => current && { ...current, provider: event.target.value })}
                 >
-                  <option value="mock">mock</option>
                   <option value="deepseek">deepseek</option>
-                  <option value="openai-compatible">openai-compatible</option>
+                  <option value="openai">openai</option>
+                  <option value="custom">custom</option>
                 </select>
               </label>
               <label>
@@ -370,19 +370,52 @@ const SummaryMetric = ({ label, value }: { label: string; value: number }) => (
   </div>
 );
 
-const ruleToForm = (rule: ReviewRuleDto): RuleForm => ({
-  name: rule.name,
-  promptTemplate: rule.promptTemplate,
-  promptVersion: rule.promptVersion,
-  dimensions: rule.dimensions,
-  dimensionVersion: rule.dimensionVersion,
-  passThreshold: rule.passThreshold,
-  manualThreshold: rule.manualThreshold,
-  provider: rule.provider,
-  model: rule.model,
-  temperature: rule.temperature,
-  structuredOutputMode: rule.structuredOutputMode,
-});
+const ruleToForm = (rule: ReviewRuleDto): RuleForm => {
+  const provider = normalizeProvider(rule.provider);
+  const isLegacyMockRule = rule.provider.trim().toLowerCase() === 'mock';
+
+  return {
+    name: rule.name,
+    promptTemplate: rule.promptTemplate,
+    promptVersion: rule.promptVersion,
+    dimensions: rule.dimensions,
+    dimensionVersion: rule.dimensionVersion,
+    passThreshold: rule.passThreshold,
+    manualThreshold: rule.manualThreshold,
+    provider,
+    model: normalizeModel(rule.model, provider),
+    temperature: rule.temperature,
+    structuredOutputMode: isLegacyMockRule ? 'json_schema' : rule.structuredOutputMode,
+  };
+};
+
+const normalizeProvider = (provider: string): string => {
+  const normalized = provider.trim().toLowerCase();
+
+  if (normalized === 'mock' || normalized === '') {
+    return 'deepseek';
+  }
+
+  return normalized === 'openai-compatible' ? 'custom' : normalized;
+};
+
+const normalizeModel = (model: string, provider: string): string => {
+  const normalized = model.trim();
+
+  if (normalized && normalized !== 'mock-stable-reviewer') {
+    return normalized;
+  }
+
+  if (provider === 'openai') {
+    return 'gpt-4o-mini';
+  }
+
+  if (provider === 'custom') {
+    return 'custom-ai-reviewer';
+  }
+
+  return 'deepseek-chat';
+};
 
 const modeLabel = (mode: RuleForm['structuredOutputMode']): string =>
   mode === 'json_schema' ? 'json_schema · 结构化' : 'function_calling · 结构化';

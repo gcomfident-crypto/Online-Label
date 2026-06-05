@@ -6,7 +6,7 @@ import { requestApi } from '../../../api/request';
 import starIcon from '../../../assets/star.svg';
 import { ToastViewport, useToastController } from '../../../components/ToastViewport';
 import type { BaseFieldProps } from './common';
-import { getStringArrayValue, stringifyDisplayValue } from './common';
+import { createLlmAssistPayload, getStringArrayValue, stringifyDisplayValue } from './common';
 import { getSchemaFieldKey } from '../types';
 
 type LlmAssistResult = {
@@ -32,7 +32,7 @@ export const InlineLlmSuggestionControl = ({
   const targetFieldKey = getSchemaFieldKey(field);
   const [assistResult, setAssistResult] = useState<LlmAssistResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { dismissToast, messages, showErrorToast } = useToastController();
+  const { dismissToast, messages, showErrorToast, showStatusToast } = useToastController();
   const isReadonly = mode === 'review' || disabled;
 
   if (!isPromptEnabled) {
@@ -44,35 +44,32 @@ export const InlineLlmSuggestionControl = ({
 
     try {
       const data = await requestApi<Partial<LlmAssistResult>>(
-        '/llm/assist/mock',
+        '/llm/assist',
         {
           method: 'POST',
-          body: JSON.stringify({
+          body: JSON.stringify(createLlmAssistPayload({
             datasetKind,
             rawData,
             answers: value,
             targetFieldKey,
             promptTemplate,
-          }),
+          })),
         },
         DEFAULT_ERROR_MESSAGE,
       );
 
-      setAssistResult(resolveAssistResult(data, datasetKind, targetFieldKey));
+      const nextAssistResult = resolveAssistResult(data, datasetKind, targetFieldKey);
+      const nextValue = coerceSuggestionForField(field, nextAssistResult.suggestion);
+
+      setAssistResult(nextAssistResult);
+      onFieldChange(field, nextValue);
+      showStatusToast('模型生成完毕');
     } catch (error) {
       setAssistResult(null);
       showErrorToast(error instanceof Error ? error.message : DEFAULT_ERROR_MESSAGE);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const adoptSuggestion = () => {
-    if (!assistResult) {
-      return;
-    }
-
-    onFieldChange(field, coerceSuggestionForField(field, assistResult.suggestion));
   };
 
   return (
@@ -88,16 +85,7 @@ export const InlineLlmSuggestionControl = ({
           <img src={starIcon} alt="" aria-hidden="true" draggable={false} />
           {assistResult ? '重新生成' : '生成建议'}
         </button>
-        <button disabled={isReadonly || !assistResult} type="button" onClick={adoptSuggestion}>
-          采纳建议
-        </button>
       </div>
-      {assistResult ? (
-        <div className="schema-field__assist-result">
-          <span>{assistResult.summary}</span>
-          <pre>{stringifyDisplayValue(coerceSuggestionForField(field, assistResult.suggestion))}</pre>
-        </div>
-      ) : null}
     </section>
   );
 };

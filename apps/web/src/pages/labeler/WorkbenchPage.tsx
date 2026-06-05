@@ -17,6 +17,7 @@ const LABELER_ID = 'user_labeler_li_lei';
 type WorkbenchNavigationState = {
   source?: 'my-data-table';
 };
+type WorkbenchCanvasTab = 'annotation' | 'ai-review';
 
 export const WorkbenchPage = () => {
   const navigate = useNavigate();
@@ -36,6 +37,7 @@ export const WorkbenchPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeCanvasTab, setActiveCanvasTab] = useState<WorkbenchCanvasTab>('annotation');
   const [submittedTaskIds, setSubmittedTaskIds] = useState<ReadonlySet<string>>(() => new Set());
   const { dismissToast, messages, showErrorToast, showInfoToast, showStatusToast } = useToastController();
   const aiReviewPollTimerRef = useRef<number | null>(null);
@@ -101,7 +103,7 @@ export const WorkbenchPage = () => {
       lastSavedSnapshotRef.current = JSON.stringify(nextWorkbench.draft?.answers ?? {});
       hydratedRef.current = true;
       setDraftStatus(
-        cachedAnswers ? '检测到本地未同步草稿，已恢复到当前表单。' : '草稿已载入。',
+        cachedAnswers ? '检测到本地未同步草稿，已恢复到当前表单。' : '草稿已载入',
       );
       setFatalErrorMessage(null);
     } catch (error) {
@@ -187,7 +189,7 @@ export const WorkbenchPage = () => {
   );
 
   const saveDraftNow = useCallback(
-    async (source: 'auto' | 'manual'): Promise<boolean> => {
+    async (source: 'auto' | 'manual' | 'submit'): Promise<boolean> => {
       if (!workbench) {
         return false;
       }
@@ -211,7 +213,9 @@ export const WorkbenchPage = () => {
         setDraftStatus(
           source === 'auto'
             ? `草稿已自动保存 ${formatTime(draft.updatedAt)}`
-            : `草稿已手动保存 ${formatTime(draft.updatedAt)}`,
+            : source === 'manual'
+              ? `草稿已手动保存 ${formatTime(draft.updatedAt)}`
+              : `提交前草稿已同步 ${formatTime(draft.updatedAt)}`,
         );
         setDraftStatusRevision((current) => current + 1);
         if (source === 'manual') {
@@ -285,7 +289,7 @@ export const WorkbenchPage = () => {
     taskSubmitInFlightRef.current = true;
     setIsSubmitting(true);
     try {
-      const draftSaved = await saveDraftNow('manual');
+      const draftSaved = await saveDraftNow('submit');
       if (!draftSaved) {
         taskSubmitInFlightRef.current = false;
         return;
@@ -555,6 +559,7 @@ export const WorkbenchPage = () => {
     () => (workbench ? resolveLatestAiReviewReport(workbench.submissionHistory) : null),
     [workbench],
   );
+  const hasAiReviewReport = Boolean(aiReviewReport);
   const focusAnnotationForm = useCallback(() => {
     const form = document.querySelector<HTMLElement>('.schema-renderer');
     form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -564,6 +569,16 @@ export const WorkbenchPage = () => {
       )
       ?.focus();
   }, []);
+  const openAnnotationForm = useCallback(() => {
+    setActiveCanvasTab('annotation');
+    window.setTimeout(focusAnnotationForm, 0);
+  }, [focusAnnotationForm]);
+
+  useEffect(() => {
+    if (!hasAiReviewReport && activeCanvasTab === 'ai-review') {
+      setActiveCanvasTab('annotation');
+    }
+  }, [activeCanvasTab, hasAiReviewReport]);
 
   const workbenchPageEnterClass = useMemo(
     () =>
@@ -622,7 +637,8 @@ export const WorkbenchPage = () => {
           </button>
           <h1 id="labeler-workbench-title">{workbench.task.title}</h1>
         </div>
-        <div className="workbench-topline__actions">
+        <div className="workbench-topline__actions" aria-label="标注操作">
+          <span className="workbench-reward-pill">{workbench.task.rewardRule ?? '未设置'}</span>
           <span className="autosave-indicator" aria-live="polite">
             <span className="autosave-indicator__text" key={draftStatusRevision}>
               {draftStatus}
@@ -643,25 +659,59 @@ export const WorkbenchPage = () => {
         </aside>
 
         <main className="workbench-main-panel annotation-canvas-panel" aria-label="标注画布">
-          <div className="annotation-canvas-tabs annotation-canvas-toolbar" aria-label="标注操作栏">
-            <span className="workbench-reward-pill">{workbench.task.rewardRule ?? '未设置'}</span>
-            <button className="annotation-canvas-toolbar__report" type="button" onClick={reportCurrentIssue}>
-              报告题目
-            </button>
-          </div>
-          <div className="annotation-canvas-scroll">
-            <RejectNotice notice={workbench.rejectionNotice} />
-            <AiReviewReport report={aiReviewReport} onRelabel={focusAnnotationForm} />
-            <RawDataPanel workbench={workbench} />
-            <SchemaRenderer
-              schema={workbench.task.schema}
-              rawData={workbench.taskItem.rawData}
-              value={answers}
-              mode={isCurrentQuestionEditable ? 'answer' : 'review'}
-              onChange={setAnswers}
-              activeFieldKey={activeField ? getSchemaFieldKey(activeField) : activeFieldKey}
-              onActiveFieldChange={setActiveFieldKey}
-            />
+          {aiReviewReport ? (
+            <div className="annotation-canvas-tabs" role="tablist" aria-label="标注画布视图">
+              <button
+                id="annotation-canvas-tab-annotation"
+                type="button"
+                role="tab"
+                aria-selected={activeCanvasTab === 'annotation'}
+                aria-controls="annotation-canvas-panel-annotation"
+                onClick={() => setActiveCanvasTab('annotation')}
+              >
+                标注内容
+              </button>
+              <button
+                id="annotation-canvas-tab-ai-review"
+                type="button"
+                role="tab"
+                aria-selected={activeCanvasTab === 'ai-review'}
+                aria-controls="annotation-canvas-panel-ai-review"
+                onClick={() => setActiveCanvasTab('ai-review')}
+              >
+                AI 预审
+              </button>
+            </div>
+          ) : null}
+          <div
+            id={activeCanvasTab === 'ai-review' && aiReviewReport
+              ? 'annotation-canvas-panel-ai-review'
+              : 'annotation-canvas-panel-annotation'}
+            className="annotation-canvas-scroll"
+            role={aiReviewReport ? 'tabpanel' : undefined}
+            aria-labelledby={activeCanvasTab === 'ai-review' && aiReviewReport
+              ? 'annotation-canvas-tab-ai-review'
+              : aiReviewReport
+                ? 'annotation-canvas-tab-annotation'
+                : undefined}
+          >
+            {activeCanvasTab === 'ai-review' && aiReviewReport ? (
+              <AiReviewWorkbenchTab report={aiReviewReport} workbench={workbench} onRelabel={openAnnotationForm} />
+            ) : (
+              <>
+                <RejectNotice notice={workbench.rejectionNotice} />
+                <RawDataPanel workbench={workbench} />
+                <SchemaRenderer
+                  schema={workbench.task.schema}
+                  rawData={workbench.taskItem.rawData}
+                  value={answers}
+                  mode={isCurrentQuestionEditable ? 'answer' : 'review'}
+                  onChange={setAnswers}
+                  activeFieldKey={activeField ? getSchemaFieldKey(activeField) : activeFieldKey}
+                  onActiveFieldChange={setActiveFieldKey}
+                />
+              </>
+            )}
           </div>
           <div className="workbench-footer-actions annotation-submit-bar">
             <div className="annotation-submit-bar__navigation" aria-label="切题操作">
@@ -673,6 +723,9 @@ export const WorkbenchPage = () => {
               </button>
             </div>
             <div className="annotation-submit-bar__actions">
+              <button type="button" onClick={reportCurrentIssue}>
+                报告题目
+              </button>
               <button
                 type="button"
                 disabled={isSaving || !isCurrentQuestionEditable}
@@ -701,73 +754,148 @@ export const WorkbenchPage = () => {
 type AiReviewReportData = {
   submissionRound: number;
   submittedAt: string;
+  answers: Record<string, unknown>;
   decision: string | null;
   comment: string | null;
   scores: Record<string, unknown>;
+  fieldReviews: AiReviewFieldReview[];
+  overallComment: string | null;
 };
 
-const AiReviewReport = ({
-  report,
-  onRelabel,
-}: {
-  report: AiReviewReportData | null;
-  onRelabel: () => void;
-}) => {
-  if (!report) {
-    return null;
-  }
+type AiReviewFieldReview = {
+  fieldKey: string;
+  label: string;
+  score: number | null;
+  decision: string | null;
+  comment: string | null;
+  suggestions: string[];
+};
 
-  const overallScore = scoreValue(report.scores.overall);
+type AiReviewAnswerFieldSnapshot = {
+  fieldKey: string;
+  label: string;
+  value: unknown;
+  displayValue: string;
+  requirement: string;
+  review: AiReviewFieldReview | null;
+};
+
+const AiReviewWorkbenchTab = ({
+  onRelabel,
+  report,
+  workbench,
+}: {
+  onRelabel: () => void;
+  report: AiReviewReportData;
+  workbench: WorkbenchDto;
+}) => {
+  const flattenedFields = useMemo(() => getFlattenedSchemaFields(workbench.task.schema.fields), [workbench.task.schema.fields]);
+  const showItemSchema = useMemo(
+    () => buildAiReviewShowItemSchema(workbench.task.schema),
+    [workbench.task.schema],
+  );
+  const reviewFields = useMemo(
+    () => buildAiReviewAnswerFieldSnapshots(flattenedFields, report.answers, report.fieldReviews),
+    [flattenedFields, report.answers, report.fieldReviews],
+  );
+  const handleReadonlyShowItemChange = useCallback(() => undefined, []);
+  const hasRejectedReviewField = reviewFields.some((field) => field.review?.decision === 'reject');
   const reason = typeof report.scores.reason === 'string' ? report.scores.reason : '';
   const decisionClass = report.decision === 'pass' ? 'is-pass' : report.decision === 'manual' ? 'is-manual' : 'is-reject';
+  const comment = report.overallComment || report.comment || reason;
 
   return (
-    <section className="ai-review-report" aria-label="AI 预审报告">
-      <div className="ai-review-report__header">
-        <div>
-          <h2>AI 预审报告</h2>
-          <p>
-            第 {report.submissionRound} 轮 · {formatDateTime(report.submittedAt)}
-          </p>
-        </div>
-        <div className="ai-review-report__summary">
-          <span className={`ai-review-report__decision ${decisionClass}`}>
-            {AI_REVIEW_DECISION_LABELS[report.decision ?? ''] ?? '待判断'}
-          </span>
-          <strong>综合 {overallScore ?? '-'}</strong>
-        </div>
-      </div>
+    <div className="ai-review-tab">
+      <section className="ai-review-context" aria-label="AI 预审结果">
+        <header className="ai-review-context__summary">
+          <div>
+            <h2>AI 预审</h2>
+            <p>
+              第 {report.submissionRound} 轮 · {formatDateTime(report.submittedAt)}
+            </p>
+            {comment ? <small>{comment}</small> : null}
+          </div>
+          <div className="ai-review-context__summary-actions">
+            <span className={`ai-review-report__decision ${decisionClass}`}>
+              {AI_REVIEW_DECISION_LABELS[report.decision ?? ''] ?? '待判断'}
+            </span>
+            {hasRejectedReviewField ? (
+              <button type="button" onClick={onRelabel}>
+                重新标注
+              </button>
+            ) : null}
+          </div>
+        </header>
 
-      <div className="ai-review-report__scores" aria-label="AI 评分维度">
-        {AI_REVIEW_SCORE_DIMENSIONS.map((dimension) => {
-          const value = scoreValue(report.scores[dimension.key]);
+        <section className="ai-review-context__show-item-panel" aria-label="展示项 ShowItem">
+          {showItemSchema.fields.length > 0 ? (
+            <SchemaRenderer
+              schema={showItemSchema}
+              rawData={workbench.taskItem.rawData}
+              value={{}}
+              mode="review"
+              onChange={handleReadonlyShowItemChange}
+            />
+          ) : (
+            <p className="ai-review-context__empty">当前模板没有配置展示项。</p>
+          )}
+        </section>
 
-          return (
-            <div className="ai-review-report__score-row" key={dimension.key}>
-              <span>{dimension.label}</span>
-              <div className="ai-review-report__score-track" aria-hidden="true">
-                <span style={{ width: `${value ?? 0}%` }} />
-              </div>
-              <strong>{value ?? '-'}</strong>
+        <section className="ai-review-context__section">
+          <div className="ai-review-context__heading">
+            <h3>需要 AI 预审的字段</h3>
+            <span>{reviewFields.length.toLocaleString()} 项</span>
+          </div>
+          {reviewFields.length > 0 ? (
+            <div className="ai-review-context__field-list">
+              {reviewFields.map((field) => (
+                <article className={aiReviewFieldCardClass(field.review)} key={field.fieldKey}>
+                  <header className="ai-review-context__field-header">
+                    <div className="ai-review-context__field-title">
+                      <strong>{field.label}</strong>
+                      <small className="ai-review-context__field-key">{field.fieldKey}</small>
+                    </div>
+                    <div className="ai-review-context__field-result">
+                      {field.review ? (
+                        <>
+                          <span className={`ai-review-report__decision ${field.review.decision === 'pass' ? 'is-pass' : 'is-reject'}`}>
+                            {field.review.decision === 'pass' ? '通过' : '未通过'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="ai-review-report__decision is-manual">待返回</span>
+                      )}
+                    </div>
+                  </header>
+                  <dl className="ai-review-context__field-details">
+                    <div className="ai-review-context__field-row ai-review-context__field-row--answer">
+                      <dt>当前标注内容</dt>
+                      <dd>{field.displayValue}</dd>
+                    </div>
+                    <div className="ai-review-context__field-row ai-review-context__field-row--standard">
+                      <dt>AI 预审标准</dt>
+                      <dd>{field.requirement}</dd>
+                    </div>
+                    <div className="ai-review-context__field-row ai-review-context__field-row--comment">
+                      <dt>AI 对当前字段的评语</dt>
+                      <dd>{field.review?.comment ?? 'AI 暂未返回该字段评语。'}</dd>
+                    </div>
+                    {field.review?.suggestions.length ? (
+                      <div className="ai-review-context__field-row ai-review-context__field-row--suggestions">
+                        <dt>修改建议</dt>
+                        <dd>{field.review.suggestions.join('；')}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </article>
+              ))}
             </div>
-          );
-        })}
-      </div>
-
-      {report.comment || reason ? (
-        <div className="ai-review-report__comment">
-          <span>AI 评语</span>
-          <p>{report.comment ?? reason}</p>
-          {report.comment && reason && report.comment !== reason ? <small>{reason}</small> : null}
-        </div>
-      ) : null}
-
-      <div className="ai-review-report__actions">
-        <button type="button" onClick={onRelabel}>
-          重新标注
-        </button>
-      </div>
-    </section>
+          ) : (
+            <p className="ai-review-context__empty">当前模板没有开启 AI 预审的标注字段。</p>
+          )}
+        </section>
+      </section>
+    </div>
   );
 };
 
@@ -933,13 +1061,6 @@ const AI_REVIEW_DECISION_LABELS: Record<string, string> = {
   manual: '转人工复核',
 };
 
-const AI_REVIEW_SCORE_DIMENSIONS = [
-  { key: 'relevance', label: '相关性' },
-  { key: 'accuracy', label: '准确性' },
-  { key: 'format', label: '格式合规' },
-  { key: 'safety', label: '安全性' },
-] as const;
-
 const AI_REVIEW_POLL_INTERVAL_MS = 300;
 const AI_REVIEW_MAX_POLL_ATTEMPTS = 10;
 const AI_REVIEW_PENDING_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING']);
@@ -1008,14 +1129,115 @@ function resolveLatestAiReviewReport(history: WorkbenchDto['submissionHistory'])
       return {
         submissionRound: submission.round,
         submittedAt: submission.submittedAt,
+        answers: submission.answers,
         decision: reviewRecord.decision,
         comment: reviewRecord.comment ?? null,
-        scores: reviewRecord.scores,
+        scores: normalizeAiReviewScores(reviewRecord.scores, reviewRecord.structuredOutput),
+        fieldReviews: normalizeAiReviewFieldReviews(reviewRecord.structuredOutput),
+        overallComment: normalizeAiReviewOverallComment(reviewRecord.structuredOutput),
       };
     }
   }
 
   return null;
+}
+
+function buildAiReviewShowItemSchema(schema: WorkbenchDto['task']['schema']): WorkbenchDto['task']['schema'] {
+  return {
+    ...schema,
+    fields: getFlattenedSchemaFields(schema.fields).filter((field) => field.type === 'show_item'),
+  };
+}
+
+function buildAiReviewAnswerFieldSnapshots(
+  fields: readonly SchemaField[],
+  answers: Record<string, unknown>,
+  fieldReviews: readonly AiReviewFieldReview[],
+): AiReviewAnswerFieldSnapshot[] {
+  const reviewByFieldKey = new Map(fieldReviews.map((review) => [review.fieldKey, review]));
+
+  return getAnswerFields(fields)
+    .filter((field) => field.aiReview?.enabled)
+    .map((field) => {
+      const fieldKey = getSchemaFieldKey(field);
+      const value = Object.prototype.hasOwnProperty.call(answers, fieldKey) ? answers[fieldKey] : null;
+
+      return {
+        fieldKey,
+        label: field.label,
+        value,
+        displayValue: formatReviewFieldValue(field, value),
+        requirement: field.aiReview?.requirement?.trim() || '请判断该字段标注结果是否符合题目事实和任务要求。',
+        review: reviewByFieldKey.get(fieldKey) ?? null,
+      };
+    });
+}
+
+function aiReviewFieldCardClass(review: AiReviewFieldReview | null): string {
+  if (review?.decision === 'pass') {
+    return 'ai-review-context__field-card is-pass';
+  }
+
+  if (review?.decision === 'reject') {
+    return 'ai-review-context__field-card is-reject';
+  }
+
+  return 'ai-review-context__field-card is-pending';
+}
+
+function normalizeAiReviewScores(
+  scores: Record<string, unknown>,
+  structuredOutput: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  if (!isRecord(structuredOutput)) {
+    return scores;
+  }
+
+  const overallScore = scoreValue(structuredOutput.overallScore);
+  return overallScore === null ? scores : { ...scores, overall: overallScore };
+}
+
+function normalizeAiReviewFieldReviews(
+  structuredOutput: Record<string, unknown> | null | undefined,
+): AiReviewFieldReview[] {
+  if (!isRecord(structuredOutput) || !Array.isArray(structuredOutput.fieldReviews)) {
+    return [];
+  }
+
+  return structuredOutput.fieldReviews
+    .filter(isRecord)
+    .map((fieldReview, index) => {
+      const rawFieldKey = typeof fieldReview.fieldKey === 'string' ? fieldReview.fieldKey.trim() : '';
+      const fieldKey = rawFieldKey || `field_${index + 1}`;
+      const rawLabel = typeof fieldReview.label === 'string' ? fieldReview.label.trim() : '';
+      const rawComment = typeof fieldReview.comment === 'string' ? fieldReview.comment.trim() : '';
+      const suggestions = Array.isArray(fieldReview.suggestions)
+        ? fieldReview.suggestions
+            .filter((suggestion): suggestion is string => typeof suggestion === 'string' && suggestion.trim().length > 0)
+            .map((suggestion) => suggestion.trim())
+        : [];
+
+      return {
+        fieldKey,
+        label: rawLabel || fieldKey,
+        score: scoreValue(fieldReview.score),
+        decision: fieldReview.decision === 'pass' || fieldReview.decision === 'reject' ? fieldReview.decision : null,
+        comment: rawComment || null,
+        suggestions,
+      };
+    });
+}
+
+function normalizeAiReviewOverallComment(
+  structuredOutput: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!isRecord(structuredOutput)) {
+    return null;
+  }
+
+  return typeof structuredOutput.overallComment === 'string' && structuredOutput.overallComment.trim()
+    ? structuredOutput.overallComment.trim()
+    : null;
 }
 
 function isHumanRecheckRecord(
@@ -1127,6 +1349,46 @@ function scoreValue(value: unknown): number | null {
   }
 
   return null;
+}
+
+function formatReviewFieldValue(field: SchemaField, value: unknown): string {
+  if (field.options && field.options.length > 0) {
+    const optionLabelByValue = new Map(field.options.map((option) => [option.value, option.label]));
+
+    if (Array.isArray(value)) {
+      const labels = value.map((item) =>
+        typeof item === 'string' ? optionLabelByValue.get(item) ?? item : formatReviewDisplayValue(item),
+      );
+
+      return labels.length > 0 ? labels.join('、') : '未填写';
+    }
+
+    if (typeof value === 'string') {
+      return optionLabelByValue.get(value) ?? value;
+    }
+  }
+
+  return formatReviewDisplayValue(value);
+}
+
+function formatReviewDisplayValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') {
+    return '未填写';
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value.map(formatReviewDisplayValue).join('、') : '未填写';
+  }
+
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function getFlattenedSchemaFields(fields: readonly SchemaField[]): SchemaField[] {

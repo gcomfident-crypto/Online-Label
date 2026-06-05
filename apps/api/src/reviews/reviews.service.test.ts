@@ -64,6 +64,7 @@ type Assignment = {
       name: string;
       datasetKind: 'qa_quality';
       schemaVersion: string;
+      schema: Record<string, unknown>;
     } | null;
   };
   taskItem: {
@@ -127,8 +128,23 @@ describe('ReviewsService', () => {
       expect.objectContaining({
         datasetKind: 'qa_quality',
         templateName: '未关联模板',
+        schema: null,
       }),
     );
+  });
+
+  it('人工复审详情返回模板 schema，供前端展示中文字段标题', async () => {
+    const { service } = createService();
+
+    const detail = await service.getReview('submission_1');
+
+    expect(detail.task.schema).toMatchObject({
+      schemaVersion: 'qa-r1',
+      fields: [
+        expect.objectContaining({ key: 'quality', label: '质量判断' }),
+        expect.objectContaining({ key: 'reason', label: '判断理由' }),
+      ],
+    });
   });
 
   it('开始复审后 submission 进入 RECHECK_REVIEWING 且 assignment 进入 UNDER_RECHECK', async () => {
@@ -422,6 +438,14 @@ function createAssignment(id: string, externalId: string, status: AssignmentStat
         name: '问答质量官方模板',
         datasetKind: 'qa_quality',
         schemaVersion: 'qa-r1',
+        schema: {
+          schemaVersion: 'qa-r1',
+          datasetKind: 'qa_quality',
+          fields: [
+            { key: 'quality', type: 'radio', label: '质量判断' },
+            { key: 'reason', type: 'textarea', label: '判断理由' },
+          ],
+        },
       },
     },
     taskItem: {

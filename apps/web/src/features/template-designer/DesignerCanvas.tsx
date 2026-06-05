@@ -57,6 +57,7 @@ type DesignerCanvasProps = {
   activeTabByFieldKey?: Readonly<Record<string, string>>;
   onActiveTabChange?: (tabsKey: string, tabKey: string) => void;
   onTemplateNameChange?: (name: string) => void;
+  onTemplateNameDraftChange?: (name: string | null) => void;
   onPreviewUploadedFile?: () => void;
   onAiPromptConfigChange?: (config: AiReviewPromptConfig | undefined) => void;
   onTestLlmPrompt?: (field: SchemaField) => Promise<void> | void;
@@ -72,7 +73,7 @@ const FIELD_TYPE_LABELS: Record<SchemaField['type'], string> = {
   textarea: '多行文本',
   radio: '单选',
   checkbox: '多选',
-  tag_select: '标签选择',
+  tag_select: '标签',
   rich_text: '富文本',
   file_upload: '文件上传',
   image_upload: '图片上传',
@@ -87,12 +88,21 @@ const isParsedAnnotationField = (field: SchemaField): boolean =>
 
 const formatFieldTypeTitle = (field: SchemaField): string => {
   const materialName = FIELD_TYPE_LABELS[field.type];
+  const fieldLabel = field.label.trim() || materialName;
 
   if (field.type === 'group' || field.type === 'tabs') {
-    return `${materialName} - ${field.label}`;
+    return `${materialName} - ${fieldLabel}`;
   }
 
-  return isParsedAnnotationField(field) ? `${materialName} - ${field.label}` : materialName;
+  if (isParsedAnnotationField(field)) {
+    return `${materialName} - ${fieldLabel}`;
+  }
+
+  if (field.type === 'show_item' || fieldLabel === materialName) {
+    return materialName;
+  }
+
+  return `${materialName} - ${fieldLabel}`;
 };
 
 const isRequiredField = (field: SchemaField): boolean =>
@@ -279,6 +289,7 @@ export const DesignerCanvas = ({
   activeTabByFieldKey = {},
   onActiveTabChange = () => undefined,
   onTemplateNameChange = () => undefined,
+  onTemplateNameDraftChange = () => undefined,
   onPreviewUploadedFile,
   onAiPromptConfigChange = () => undefined,
   onTestLlmPrompt,
@@ -503,6 +514,7 @@ export const DesignerCanvas = ({
     templateNameEditBaseRef.current = templateName;
     skipTemplateNameBlurCommitRef.current = false;
     setTemplateNameDraft(templateName);
+    onTemplateNameDraftChange(templateName);
     setIsTemplateNameEditing(true);
   };
 
@@ -516,6 +528,7 @@ export const DesignerCanvas = ({
       onTemplateNameChange(committedName);
     }
 
+    onTemplateNameDraftChange(null);
     setIsTemplateNameEditing(false);
     skipTemplateNameBlurCommitRef.current = false;
   };
@@ -523,6 +536,7 @@ export const DesignerCanvas = ({
   const cancelTemplateNameEditing = () => {
     skipTemplateNameBlurCommitRef.current = true;
     setTemplateNameDraft(templateNameEditBaseRef.current);
+    onTemplateNameDraftChange(null);
     setIsTemplateNameEditing(false);
 
     window.setTimeout(() => {
@@ -690,7 +704,10 @@ export const DesignerCanvas = ({
                 value={templateNameDraft}
                 placeholder="请输入模板名称"
                 onBlur={handleTemplateNameBlur}
-                onChange={(event) => setTemplateNameDraft(event.target.value)}
+                onChange={(event) => {
+                  setTemplateNameDraft(event.target.value);
+                  onTemplateNameDraftChange(event.target.value);
+                }}
                 onKeyDown={handleTemplateNameKeyDown}
               />
             ) : (

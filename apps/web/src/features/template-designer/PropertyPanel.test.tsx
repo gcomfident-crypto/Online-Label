@@ -85,6 +85,15 @@ describe('PropertyPanel', () => {
     expect(screen.getByLabelText('字段名')).toHaveValue('cleaned_title');
     expect(screen.getByLabelText('标题')).toHaveValue('商品标题清洗结果');
     expect(screen.getByLabelText('字段说明')).toHaveValue('填写最终清洗标题');
+    expect(screen.getByLabelText('字段名').closest('.designer-property-row')).toHaveClass(
+      'designer-property-row--metadata',
+    );
+    expect(screen.getByLabelText('标题').closest('.designer-property-row')).toHaveClass(
+      'designer-property-row--metadata',
+    );
+    expect(screen.getByLabelText('字段说明').closest('.designer-property-row')).toHaveClass(
+      'designer-property-row--metadata',
+    );
     expect(screen.getByLabelText('字段说明')).toHaveAttribute('maxlength', '20');
     expect(screen.getByLabelText('必填')).toBeChecked();
     expect(screen.getByLabelText('占位符')).toHaveValue('请填写清洗后的标题...');
@@ -108,11 +117,12 @@ describe('PropertyPanel', () => {
     expect(validationSwitch).toHaveAttribute('aria-expanded', 'true');
     expect(validationSwitch).toBeChecked();
     expect(screen.getByTestId('designer-validation-collapse')).toHaveAttribute('aria-hidden', 'false');
+    const lengthLimitTypeButton = screen.getByRole('button', { name: '长度限制类型' });
+    expect(lengthLimitTypeButton.closest('.task-filter-select')).not.toBeNull();
+    expect(lengthLimitTypeButton).toHaveTextContent('最大长度');
     expect(screen.getByLabelText('最大长度')).toHaveValue(35);
     expect(screen.getByLabelText('正则')).toHaveValue('/^[^@#$]+$/');
-    const presetValidationSelect = screen.getByLabelText('预置校验');
-    expect(presetValidationSelect).toHaveValue('valid_json');
-    expect(within(presetValidationSelect).getByRole('option', { name: '合法 JSON' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('预置校验')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('自定义函数')).not.toBeInTheDocument();
     expect(screen.getByText('字段联动')).toBeInTheDocument();
     const linkageSwitch = screen.getByLabelText('隐藏字段联动');
@@ -164,6 +174,10 @@ describe('PropertyPanel', () => {
     fireEvent.change(screen.getByLabelText('最大长度'), { target: { value: '40' } });
     expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: 40 });
 
+    fireEvent.click(lengthLimitTypeButton);
+    fireEvent.click(screen.getByRole('option', { name: '最小长度' }));
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: undefined, minLength: 35 });
+
     fireEvent.click(validationSwitch);
     expect(screen.getByLabelText('显示校验规则')).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByLabelText('显示校验规则')).not.toBeChecked();
@@ -207,7 +221,7 @@ describe('PropertyPanel', () => {
     expect(screen.getByLabelText('审核要求')).toHaveValue('必须保留商品核心信息，不得新增不存在的信息。');
   });
 
-  it('预置校验按照字段类型展示中文选项', () => {
+  it('长度限制类型使用项目下拉菜单切换最大和最小长度', () => {
     const onUpdateValidation = vi.fn();
     const baseProps = {
       onAddLinkageRule: vi.fn(),
@@ -221,18 +235,64 @@ describe('PropertyPanel', () => {
           key: 'email',
           type: 'text',
           label: '邮箱',
+          validation: {
+            maxLength: 20,
+          },
         }}
       />,
     );
 
-    const textSelect = screen.getByLabelText('预置校验');
-    expect(Array.from(textSelect.querySelectorAll('option')).map((option) => option.textContent)).toEqual([
-      '不使用',
-      '邮箱格式',
-      '安全链接',
-      '合法 JSON',
-    ]);
-    expect(screen.queryByRole('option', { name: 'valid_json' })).not.toBeInTheDocument();
+    const lengthLimitTypeButton = screen.getByRole('button', { name: '长度限制类型' });
+    expect(lengthLimitTypeButton.closest('.task-filter-select')).not.toBeNull();
+    expect(lengthLimitTypeButton).toHaveTextContent('最大长度');
+    expect(screen.getByLabelText('最大长度')).toHaveValue(20);
+    expect(screen.queryByLabelText('预置校验')).not.toBeInTheDocument();
+
+    fireEvent.click(lengthLimitTypeButton);
+    fireEvent.click(screen.getByRole('option', { name: '最小长度' }));
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: undefined, minLength: 20 });
+
+    rerender(
+      <PropertyPanel
+        {...baseProps}
+        field={{
+          key: 'email',
+          type: 'text',
+          label: '邮箱',
+          validation: {
+            minLength: 3,
+          },
+        }}
+      />,
+    );
+    expect(screen.getByRole('button', { name: '长度限制类型' })).toHaveTextContent('最小长度');
+    expect(screen.getByLabelText('最小长度')).toHaveValue(3);
+
+    fireEvent.change(screen.getByLabelText('最小长度'), { target: { value: '4' } });
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: undefined, minLength: 4 });
+
+    rerender(
+      <PropertyPanel
+        {...baseProps}
+        field={{
+          key: 'note',
+          type: 'textarea',
+          label: '备注',
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('显示校验规则'));
+    const emptyLengthLimitTypeButton = screen.getByRole('button', { name: '长度限制类型' });
+    expect(emptyLengthLimitTypeButton).toHaveTextContent('最大长度');
+
+    fireEvent.click(emptyLengthLimitTypeButton);
+    fireEvent.click(screen.getByRole('option', { name: '最小长度' }));
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: undefined, minLength: undefined });
+    expect(screen.getByRole('button', { name: '长度限制类型' })).toHaveTextContent('最小长度');
+    expect((screen.getByLabelText('最小长度') as HTMLInputElement).value).toBe('');
+
+    fireEvent.change(screen.getByLabelText('最小长度'), { target: { value: '2' } });
+    expect(onUpdateValidation).toHaveBeenLastCalledWith({ maxLength: undefined, minLength: 2 });
 
     rerender(
       <PropertyPanel
@@ -245,26 +305,10 @@ describe('PropertyPanel', () => {
         }}
       />,
     );
+    expect(screen.queryByRole('button', { name: '长度限制类型' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('最大长度')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('最小长度')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('预置校验')).not.toBeInTheDocument();
-
-    rerender(
-      <PropertyPanel
-        {...baseProps}
-        field={{
-          key: 'attachment',
-          type: 'file_upload',
-          label: '附件',
-        }}
-      />,
-    );
-    const fileSelect = screen.getByLabelText('预置校验');
-    expect(Array.from(fileSelect.querySelectorAll('option')).map((option) => option.textContent)).toEqual([
-      '不使用',
-      '有效上传文件',
-    ]);
-
-    fireEvent.change(fileSelect, { target: { value: 'valid_file_type' } });
-    expect(onUpdateValidation).toHaveBeenLastCalledWith({ customValidatorKey: 'valid_file_type' });
   });
 
   it('字段联动可以自然配置控制显隐规则', () => {
@@ -725,6 +769,13 @@ describe('PropertyPanel', () => {
     expect(screen.getByRole('button', { name: '规则 1 条件字段 1' })).toHaveTextContent('偏好选择');
     expect(screen.getByRole('button', { name: '规则 1 动作字段 1' })).toHaveTextContent('优劣程度');
     expect(screen.getByRole('button', { name: '规则 1 动作 1 类型' })).toHaveTextContent('限制');
+    expect(screen.getByLabelText('规则 1 动作 1 双向约束')).toBeChecked();
+
+    fireEvent.click(screen.getByLabelText('规则 1 动作 1 双向约束'));
+    expect(onUpdateField.mock.lastCall?.[0].linkageRules?.[0]).toMatchObject({
+      conditions: [{ fieldKey: 'preferred', operator: 'equals', value: 'A' }],
+      actions: [{ type: 'limitOptions', targetFieldKey: 'margin', bidirectional: false }],
+    });
 
     fireEvent.click(within(screen.getByRole('group', { name: '规则 1 限制选项' })).getByRole('button', { name: '略优于' }));
     expect(onUpdateField.mock.lastCall?.[0]).toMatchObject({
@@ -952,16 +1003,26 @@ describe('PropertyPanel', () => {
     ).toBeTruthy();
     expect(screen.getByLabelText('关闭 LLM 提示')).toBeChecked();
     expect(screen.getByTestId('designer-llm-prompt-collapse')).toHaveAttribute('aria-hidden', 'false');
-    expect(screen.getByLabelText('LLM提示内容')).toHaveValue('请根据 #prompt 输出清洗标题。');
+    const llmPromptTextarea = screen.getByLabelText('LLM提示内容') as HTMLTextAreaElement;
+    expect(llmPromptTextarea).toHaveValue('请根据 #prompt 输出清洗标题。');
+    expect(llmPromptTextarea).toHaveClass('designer-llm-prompt-textarea');
+    expect(llmPromptTextarea.closest('.designer-property-row')).not.toHaveClass(
+      'designer-property-row--metadata',
+    );
     expect(screen.getByRole('button', { name: '#Prompt' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '#回答 A' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '#回答 A' }));
     expect(onUpdateField).toHaveBeenLastCalledWith({ promptTemplate: '请根据 #prompt 输出清洗标题。 #response_a' });
 
-    fireEvent.change(screen.getByLabelText('LLM提示内容'), {
+    Object.defineProperty(llmPromptTextarea, 'scrollHeight', {
+      configurable: true,
+      value: 132,
+    });
+    fireEvent.change(llmPromptTextarea, {
       target: { value: '请根据 #prompt 输出标签。' },
     });
+    expect(llmPromptTextarea.style.height).toBe('132px');
     expect(onUpdateField).toHaveBeenLastCalledWith({ promptTemplate: '请根据 #prompt 输出标签。' });
 
     fireEvent.click(screen.getByLabelText('关闭 LLM 提示'));

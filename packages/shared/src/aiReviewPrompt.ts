@@ -85,12 +85,12 @@ export const compileAiReviewPrompt = ({
     },
     {
       key: 'answers',
-      title: '标注员提交内容',
+      title: '需要AI预审的字段',
       content: stringifyJson(answerData),
     },
     {
       key: 'field_requirements',
-      title: '字段级审核标准',
+      title: '字段审核标准',
       content:
         fieldRequirements.length > 0
           ? stringifyJson(fieldRequirements)
@@ -104,7 +104,7 @@ export const compileAiReviewPrompt = ({
         'fieldReviews 必须覆盖字段级审核标准中的每一个字段。',
         'fieldReviews 内每一项必须包含 fieldKey、label、score、decision、comment 和 suggestions。',
         'verdict 只能是 pass 或 reject。',
-        '不要输出固定的相关性、准确性、格式合规、安全性、综合等维度评分；只评价开启 AI 预审的字段。',
+        '只评价开启 AI 预审的字段。',
         '输出 JSON Schema 示例：',
         stringifyJson(OUTPUT_SCHEMA),
       ].join('\n'),

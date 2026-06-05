@@ -81,6 +81,7 @@ export type LegacyFieldLinkageRule = {
   cases?: readonly FieldLinkageOptionCase[];
   clearInvalidValue?: boolean;
   autoSelectWhenSingleOption?: boolean;
+  bidirectional?: boolean;
   message?: string;
 };
 
@@ -91,6 +92,7 @@ export type StructuredFieldLinkageAction = {
   optionValues?: readonly string[];
   clearInvalidValue?: boolean;
   autoSelectWhenSingleOption?: boolean;
+  bidirectional?: boolean;
   message?: string;
 };
 
@@ -286,6 +288,7 @@ export const expandFieldLinkageRule = (
           optionValues: [...ruleCase.optionValues],
           clearInvalidValue: rule.clearInvalidValue,
           autoSelectWhenSingleOption: rule.autoSelectWhenSingleOption,
+          bidirectional: rule.bidirectional,
           message: rule.message,
         },
       ],
@@ -305,6 +308,7 @@ export const expandFieldLinkageRule = (
           optionValues: rule.optionValues ? [...rule.optionValues] : undefined,
           clearInvalidValue: rule.clearInvalidValue,
           autoSelectWhenSingleOption: rule.autoSelectWhenSingleOption,
+          bidirectional: rule.bidirectional,
           message: rule.message,
         },
       ],

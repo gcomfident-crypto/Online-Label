@@ -4,6 +4,7 @@ import {
   type FieldLinkageRule,
   type LabelHubSchema,
   type SchemaField,
+  type StructuredFieldLinkageAction,
   type StructuredFieldLinkageRule,
 } from './schema.ts';
 
@@ -17,6 +18,10 @@ export type SchemaLinkageResult = {
   normalizedAnswers: Record<string, unknown>;
   assertionErrors: SchemaValidationError[];
   validationErrors: SchemaValidationError[];
+};
+
+export type SchemaLinkageOptions = {
+  changedFieldKey?: string;
 };
 
 export type SchemaValidationError = {
@@ -186,24 +191,50 @@ const matchesRule = (
     : conditions.every((condition) => matchesCondition(answers, condition));
 };
 
-const matchesCaseValue = (sourceValue: unknown, caseValue: unknown): boolean => {
-  if (Array.isArray(sourceValue)) {
-    return sourceValue.some((item) => Object.is(item, caseValue));
-  }
+type LimitOptionsLinkageAction = StructuredFieldLinkageAction & { type: 'limitOptions' };
 
-  return Object.is(sourceValue, caseValue);
+const getLimitOptionActions = (
+  rule: StructuredFieldLinkageRule,
+): LimitOptionsLinkageAction[] => {
+  return rule.actions.filter((action): action is LimitOptionsLinkageAction => action.type === 'limitOptions');
 };
 
-const resolveLimitOptions = (
-  rule: StructuredFieldLinkageRule,
-): Set<string> | null => {
-  const limitActions = rule.actions.filter((action) => action.type === 'limitOptions');
+const isBidirectionalLimitAction = (action: StructuredFieldLinkageAction): boolean => {
+  return action.type === 'limitOptions' && action.bidirectional !== false;
+};
 
-  if (limitActions.length === 0) {
+const resolveBidirectionalSourceCondition = (
+  rule: StructuredFieldLinkageRule,
+): { fieldKey: string; value: string } | null => {
+  if ((rule.combinator ?? 'and') !== 'and' || rule.conditions.length !== 1) {
     return null;
   }
 
-  return new Set(limitActions.flatMap((action) => action.optionValues ?? []));
+  const condition = rule.conditions[0];
+
+  if (condition.operator !== 'equals' || typeof condition.value !== 'string') {
+    return null;
+  }
+
+  return {
+    fieldKey: condition.fieldKey,
+    value: condition.value,
+  };
+};
+
+const valueMatchesAllowedOptions = (
+  value: unknown,
+  allowedOptions: ReadonlySet<string>,
+): boolean => {
+  if (typeof value === 'string') {
+    return allowedOptions.has(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => typeof item === 'string' && allowedOptions.has(item));
+  }
+
+  return false;
 };
 
 const intersectOptionSets = (
@@ -277,6 +308,7 @@ const omitHiddenAnswers = (
 export const applySchemaLinkage = (
   schema: LabelHubSchema,
   answers: Record<string, unknown>,
+  options: SchemaLinkageOptions = {},
 ): SchemaLinkageResult => {
   const fields = collectFields(schema.fields);
   const fieldsByKey = createFieldByKeyMap(fields);
@@ -284,6 +316,7 @@ export const applySchemaLinkage = (
   const descendantsByFieldKey = collectDescendantKeysByFieldKey(schema.fields);
   const nextAnswers = { ...answers };
   const rules = collectRules(schema);
+  const changedFieldKey = options.changedFieldKey;
 
   const setValuePassLimit = rules.reduce((count, rule) => {
     return count + rule.actions.filter((action) => action.type === 'setValue').length;
@@ -298,12 +331,12 @@ export const applySchemaLinkage = (
       }
 
       for (const action of rule.actions.filter((item) => item.type === 'setValue')) {
-      if (
+        if (
           !areJsonValuesEqual(nextAnswers[action.targetFieldKey], action.value)
-      ) {
-        nextAnswers[action.targetFieldKey] = action.value;
-        changed = true;
-      }
+        ) {
+          nextAnswers[action.targetFieldKey] = action.value;
+          changed = true;
+        }
       }
     }
 
@@ -382,29 +415,60 @@ export const applySchemaLinkage = (
       continue;
     }
 
-    const resolvedAllowedOptions = resolveLimitOptions(rule);
+    for (const action of getLimitOptionActions(rule)) {
+      if (isBidirectionalLimitAction(action) && changedFieldKey === action.targetFieldKey) {
+        continue;
+      }
 
-    if (!resolvedAllowedOptions) {
+      const targetFieldKey = action.targetFieldKey;
+      const resolvedAllowedOptions = new Set(action.optionValues ?? []);
+      const targetOptionValues = new Set(optionValues(fieldsByKey.get(targetFieldKey) ?? {
+        key: targetFieldKey,
+        type: 'text',
+        label: targetFieldKey,
+      }));
+      const allowedOptions = targetOptionValues.size > 0
+        ? new Set([...resolvedAllowedOptions].filter((value) => targetOptionValues.has(value)))
+        : resolvedAllowedOptions;
+      const currentAllowedOptions = allowedOptionsByFieldKey.get(targetFieldKey);
+      allowedOptionsByFieldKey.set(
+        targetFieldKey,
+        intersectOptionSets(currentAllowedOptions, allowedOptions),
+      );
+    }
+  }
+
+  const reverseAllowedOptionsByFieldKey = new Map<string, Set<string>>();
+
+  for (const rule of rules) {
+    const sourceCondition = resolveBidirectionalSourceCondition(rule);
+
+    if (!sourceCondition || changedFieldKey === sourceCondition.fieldKey) {
       continue;
     }
 
-    const targetFieldKey = rule.actions.find((action) => action.type === 'limitOptions')?.targetFieldKey;
+    for (const action of getLimitOptionActions(rule)) {
+      if (!isBidirectionalLimitAction(action) || changedFieldKey !== action.targetFieldKey) {
+        continue;
+      }
 
-    if (!targetFieldKey) {
-      continue;
+      const actionOptionValues = new Set(action.optionValues ?? []);
+
+      if (!valueMatchesAllowedOptions(nextAnswers[action.targetFieldKey], actionOptionValues)) {
+        continue;
+      }
+
+      const allowedSourceOptions = reverseAllowedOptionsByFieldKey.get(sourceCondition.fieldKey) ?? new Set<string>();
+      allowedSourceOptions.add(sourceCondition.value);
+      reverseAllowedOptionsByFieldKey.set(sourceCondition.fieldKey, allowedSourceOptions);
     }
+  }
 
-    const targetOptionValues = new Set(optionValues(fieldsByKey.get(targetFieldKey) ?? {
-      key: targetFieldKey,
-      type: 'text',
-      label: targetFieldKey,
-    }));
-    const allowedOptions = targetOptionValues.size > 0
-      ? new Set([...resolvedAllowedOptions].filter((value) => targetOptionValues.has(value)))
-      : resolvedAllowedOptions;
-    const currentAllowedOptions = allowedOptionsByFieldKey.get(targetFieldKey);
+  for (const [fieldKey, allowedOptions] of reverseAllowedOptionsByFieldKey) {
+    const currentAllowedOptions = allowedOptionsByFieldKey.get(fieldKey);
+
     allowedOptionsByFieldKey.set(
-      targetFieldKey,
+      fieldKey,
       intersectOptionSets(currentAllowedOptions, allowedOptions),
     );
   }

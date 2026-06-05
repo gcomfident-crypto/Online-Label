@@ -1,5 +1,5 @@
 import { BadRequestException, HttpException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import type { DatasetKind } from '@labelhub/shared';
+import type { DatasetKind, LabelHubSchema } from '@labelhub/shared';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
 import { resolveErrorEnvelope } from '../common/filters/http-error-envelope.filter.ts';
@@ -79,6 +79,7 @@ type ReviewSubmissionRecord = {
         name: string;
         datasetKind: DatasetKind;
         schemaVersion: string;
+        schema: LabelHubSchema | null;
       } | null;
     };
     taskItem: {
@@ -147,6 +148,7 @@ export type ReviewDetailDto = {
     title: string;
     datasetKind: DatasetKind;
     templateName: string;
+    schema: LabelHubSchema | null;
   };
   taskItem: {
     id: string;
@@ -240,6 +242,7 @@ const REVIEW_SUBMISSION_INCLUDE = {
               name: true,
               datasetKind: true,
               schemaVersion: true,
+              schema: true,
             },
           },
         },
@@ -760,6 +763,7 @@ function toReviewDetailDto(submission: ReviewSubmissionRecord): ReviewDetailDto 
       title: submission.assignment.task.title,
       datasetKind,
       templateName,
+      schema: (submission.assignment.task.template?.schema ?? null) as LabelHubSchema | null,
     },
     taskItem: {
       id: submission.assignment.taskItem.id,

@@ -13,6 +13,46 @@ const baseSchema = (fields: LabelHubSchema['fields']): LabelHubSchema => ({
   fields,
 });
 
+const preferenceLimitSchema = (bidirectional?: boolean): LabelHubSchema => ({
+  ...baseSchema([
+    {
+      key: 'preferred',
+      type: 'radio',
+      label: '偏好选择',
+      options: [
+        { label: 'A', value: 'A' },
+        { label: 'B', value: 'B' },
+        { label: 'tie', value: 'tie' },
+      ],
+    },
+    {
+      key: 'margin',
+      type: 'radio',
+      label: '优劣程度',
+      options: [
+        { label: '明显优于', value: '明显优于' },
+        { label: '略优于', value: '略优于' },
+        { label: '明显逊于', value: '明显逊于' },
+        { label: '略逊于', value: '略逊于' },
+        { label: '相当', value: '相当' },
+      ],
+    },
+  ]),
+  linkageRules: [
+    {
+      when: { fieldKey: 'preferred', operator: 'exists' },
+      action: 'limitOptions',
+      targetFieldKey: 'margin',
+      ...(bidirectional === undefined ? {} : { bidirectional }),
+      cases: [
+        { value: 'A', optionValues: ['明显优于', '略优于'] },
+        { value: 'B', optionValues: ['明显逊于', '略逊于'] },
+        { value: 'tie', optionValues: ['相当'] },
+      ],
+    },
+  ],
+});
+
 describe('schema runtime', () => {
   it('按 fieldKey 解析 answers 键', () => {
     expect(getSchemaFieldKey({ key: 'display_key', fieldKey: 'answer_key', type: 'text', label: '答案' })).toBe(
@@ -226,6 +266,42 @@ describe('schema runtime', () => {
 
     expect(preferredTie.answers).toEqual({ preferred: 'tie', margin: '相当' });
     expect(preferredTie.normalizedAnswers).toEqual({ preferred: 'tie', margin: '相当' });
+  });
+
+  it('limitOptions 支持目标字段反向约束源字段，并让最后改动的字段优先', () => {
+    const schema = preferenceLimitSchema();
+    const changedTarget = applySchemaLinkage(schema, { margin: '相当' }, { changedFieldKey: 'margin' });
+
+    expect([...(changedTarget.allowedOptionsByFieldKey.get('preferred') ?? [])]).toEqual(['tie']);
+    expect(changedTarget.answers).toEqual({ margin: '相当', preferred: 'tie' });
+
+    const targetWins = applySchemaLinkage(
+      schema,
+      { preferred: 'A', margin: '相当' },
+      { changedFieldKey: 'margin' },
+    );
+
+    expect(targetWins.answers).toEqual({ preferred: 'tie', margin: '相当' });
+
+    const sourceWins = applySchemaLinkage(
+      schema,
+      { preferred: 'A', margin: '相当' },
+      { changedFieldKey: 'preferred' },
+    );
+
+    expect([...(sourceWins.allowedOptionsByFieldKey.get('margin') ?? [])]).toEqual([
+      '明显优于',
+      '略优于',
+    ]);
+    expect(sourceWins.answers).toEqual({ preferred: 'A' });
+  });
+
+  it('limitOptions 关闭双向约束后不会反向约束源字段', () => {
+    const schema = preferenceLimitSchema(false);
+    const changedTarget = applySchemaLinkage(schema, { margin: '相当' }, { changedFieldKey: 'margin' });
+
+    expect(changedTarget.allowedOptionsByFieldKey.has('preferred')).toBe(false);
+    expect(changedTarget.answers).toEqual({ margin: '相当' });
   });
 
   it('limitOptions 校验提交值必须在当前允许范围内', () => {

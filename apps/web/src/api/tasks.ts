@@ -44,6 +44,7 @@ export type TaskDto = {
     datasetKind: DatasetKind;
     schemaVersion: string;
     status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+    version?: number;
   };
   createdById: string | null;
   itemCount: number;

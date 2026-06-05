@@ -187,7 +187,7 @@ describe('TaskListPage', () => {
     expect(reopenedTemplateInput).toHaveAttribute('placeholder', '请选择评测模板');
     expect(reopenedTemplateInput).toHaveValue('');
     await user.click(reopenedTemplateInput);
-    expect(screen.getByRole('option', { name: 'M-001 · 问答质量模板' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'M-001 · 问答质量模板 · v1' })).toBeInTheDocument();
   });
 
   it('点击删除任务会调用删除接口并从列表移除', async () => {
@@ -756,9 +756,9 @@ describe('TaskListPage', () => {
     expect(await screen.findByText('qa_keep.json')).toBeInTheDocument();
     expect(screen.getByText('题目数：1')).toBeInTheDocument();
 
-    await chooseTaskTemplate(user, 'M-001 · 问答质量模板');
+    await chooseTaskTemplate(user, 'M-001 · 问答质量模板 · v1');
 
-    expect(screen.getByLabelText('关联模板')).toHaveValue('M-001 · 问答质量模板');
+    expect(screen.getByLabelText('关联模板')).toHaveValue('M-001 · 问答质量模板 · v1');
     expect(screen.getByText('qa_keep.json')).toBeInTheDocument();
     expect(screen.getByText('题目数：1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '预览' })).toBeInTheDocument();
@@ -874,7 +874,7 @@ describe('TaskListPage', () => {
     await screen.findByRole('table', { name: '任务列表' });
     await user.click(screen.getByRole('button', { name: '新建任务' }));
     await user.type(screen.getByLabelText('任务标题'), '带题目数据草稿');
-    await chooseTaskTemplate(user, 'M-001 · 商品清洗 · v3');
+    await chooseTaskTemplate(user, 'M-001 · 商品清洗 · v3 · v1');
     await user.upload(
       screen.getByLabelText('题目数据文件'),
       new File([JSON.stringify([{ id: 'qa_1', prompt: '题目' }])], 'qa_draft.json', {
@@ -1185,16 +1185,16 @@ describe('TaskListPage', () => {
     expect(screen.getByLabelText('关联模板')).toHaveAttribute('placeholder', '请选择评测模板');
     expect(screen.getByLabelText('关联模板')).toHaveValue('');
     await user.click(screen.getByLabelText('关联模板'));
-    expect(screen.getByRole('option', { name: 'M-001 · 偏好对比模板' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'M-002 · 问答质量模板' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'M-003 · 草稿评测模板' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'M-001 · 偏好对比模板 · v1' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'M-002 · 问答质量模板 · v1' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'M-003 · 草稿评测模板 · v1' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'M-001 · 商品清洗 · v3' })).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText('关联模板'), '问答');
-    expect(screen.getByRole('option', { name: 'M-002 · 问答质量模板' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'M-001 · 偏好对比模板' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('option', { name: 'M-002 · 问答质量模板' }));
-    expect(screen.getByLabelText('关联模板')).toHaveValue('M-002 · 问答质量模板');
+    expect(screen.getByRole('option', { name: 'M-002 · 问答质量模板 · v1' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'M-001 · 偏好对比模板 · v1' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: 'M-002 · 问答质量模板 · v1' }));
+    expect(screen.getByLabelText('关联模板')).toHaveValue('M-002 · 问答质量模板 · v1');
   });
 
   it('关联模板菜单可通过眼睛按钮直接查看已有模板配置', async () => {
@@ -1228,7 +1228,7 @@ describe('TaskListPage', () => {
     await user.click(screen.getByLabelText('关联模板'));
     expect(screen.getByLabelText('关联模板')).toHaveValue('');
 
-    await user.click(screen.getByRole('button', { name: '查看 M-002 · 问答质量模板 模板配置' }));
+    await user.click(screen.getByRole('button', { name: '查看 M-002 · 问答质量模板 · v1 模板配置' }));
 
     const dialog = await screen.findByRole('dialog', { name: '模板配置' });
     expect(within(dialog).getByRole('button', { name: '编辑模板名称' })).toHaveTextContent('问答质量模板');
@@ -1244,7 +1244,109 @@ describe('TaskListPage', () => {
     expect(within(restoredDrawer).getByLabelText('关联模板')).toHaveValue('');
   });
 
-  it('从关联模板查看已有模板并保存修改后关闭配置不再恢复任务抽屉', async () => {
+  it('从关联模板预览已有模板且未修改时可直接选择该模板并恢复任务抽屉', async () => {
+    const user = userEvent.setup();
+    const templateOptions = [
+      createTemplateDto({
+        id: 'template_preference',
+        name: '偏好对比模板',
+        datasetKind: 'preference_compare',
+        schemaVersion: 'pref-r1',
+      }),
+      createTemplateDto({
+        id: 'template_qa',
+        name: '问答质量模板',
+        datasetKind: 'qa_quality',
+        schemaVersion: 'r1',
+      }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: [{ ...baseTask, status: 'DRAFT' }] }))
+      .mockResolvedValueOnce(jsonResponse({ data: templateOptions }))
+      .mockResolvedValueOnce(jsonResponse({ data: templateOptions }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderTaskListPageWithTemplateRoute();
+
+    await screen.findByRole('table', { name: '任务列表' });
+    await user.click(screen.getByRole('button', { name: '新建任务' }));
+    await user.type(screen.getByLabelText('任务标题'), '直接选择预览模板的任务');
+    await user.click(screen.getByLabelText('关联模板'));
+    await user.click(screen.getByRole('button', { name: '查看 M-002 · 问答质量模板 · v1 模板配置' }));
+
+    const dialog = await screen.findByRole('dialog', { name: '模板配置' });
+    expect(within(dialog).getByRole('button', { name: '选择该模板' })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: '保存并发布版本 v2' })).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: '选择该模板' }));
+
+    const restoredDrawer = await screen.findByRole('complementary', { name: '发布任务抽屉' });
+    expect(screen.getByRole('heading', { name: '任务管理' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+    expect(within(restoredDrawer).getByLabelText('任务标题')).toHaveValue('直接选择预览模板的任务');
+    expect(within(restoredDrawer).getByLabelText('关联模板')).toHaveValue('M-002 · 问答质量模板 · v1');
+    expect(screen.queryByText('没有任何变更，无法保存为新的版本')).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith('/templates', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('从关联模板查看已有模板并修改后点击外侧会恢复任务抽屉', async () => {
+    const user = userEvent.setup();
+    const editableSchema = createLabelHubSchema({
+      schemaVersion: 'r1',
+      datasetKind: 'qa_quality',
+      fields: [{ key: 'prompt', type: 'text', label: '题目' }],
+    });
+    const existingTemplate = {
+      ...createTemplateDto({
+        id: 'template_qa',
+        name: '问答质量模板',
+        datasetKind: 'qa_quality',
+        schemaVersion: 'r1',
+      }),
+      schema: editableSchema,
+      version: 1,
+    };
+    const templateOptions = [
+      createTemplateDto({
+        id: 'template_preference',
+        name: '偏好对比模板',
+        datasetKind: 'preference_compare',
+        schemaVersion: 'pref-r1',
+      }),
+      existingTemplate,
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: [{ ...baseTask, status: 'DRAFT' }] }))
+      .mockResolvedValueOnce(jsonResponse({ data: templateOptions }))
+      .mockResolvedValueOnce(jsonResponse({ data: templateOptions }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderTaskListPageWithTemplateRoute();
+
+    await screen.findByRole('table', { name: '任务列表' });
+    await user.click(screen.getByRole('button', { name: '新建任务' }));
+    await user.type(screen.getByLabelText('任务标题'), '查看模板后仍应恢复的任务');
+    await user.click(screen.getByLabelText('关联模板'));
+    await user.click(screen.getByRole('button', { name: '查看 M-002 · 问答质量模板 · v1 模板配置' }));
+
+    const dialog = await screen.findByRole('dialog', { name: '模板配置' });
+    await user.click(within(dialog).getByRole('button', { name: '选择 题目' }));
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: '题目修改' },
+    });
+    await user.click(screen.getByTestId('template-designer-backdrop'));
+
+    const restoredDrawer = await screen.findByRole('complementary', { name: '发布任务抽屉' });
+    expect(screen.getByRole('heading', { name: '任务管理' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+    expect(document.querySelector('.task-publish-drawer-shell')).toHaveClass('is-returning-from-template');
+    expect(within(restoredDrawer).getByLabelText('任务标题')).toHaveValue('查看模板后仍应恢复的任务');
+    expect(within(restoredDrawer).getByLabelText('关联模板')).toHaveValue('');
+  });
+
+  it('从关联模板查看已有模板并保存发布后恢复任务抽屉并选中新版本', async () => {
     const user = userEvent.setup();
     const editableSchema = createLabelHubSchema({
       schemaVersion: 'r1',
@@ -1335,9 +1437,9 @@ describe('TaskListPage', () => {
 
     await screen.findByRole('table', { name: '任务列表' });
     await user.click(screen.getByRole('button', { name: '新建任务' }));
-    await user.type(screen.getByLabelText('任务标题'), '查看模板后不应恢复的任务');
+    await user.type(screen.getByLabelText('任务标题'), '查看模板后应恢复的任务');
     await user.click(screen.getByLabelText('关联模板'));
-    await user.click(screen.getByRole('button', { name: '查看 M-002 · 问答质量模板 模板配置' }));
+    await user.click(screen.getByRole('button', { name: '查看 M-002 · 问答质量模板 · v1 模板配置' }));
 
     const dialog = await screen.findByRole('dialog', { name: '模板配置' });
     const canvas = within(dialog).getByRole('main', { name: '模板编辑区域' });
@@ -1347,16 +1449,106 @@ describe('TaskListPage', () => {
     await user.type(templateNameInput, '改动后的问答模板');
     await user.click(within(dialog).getByRole('button', { name: '保存并发布版本 v2' }));
 
-    expect(await screen.findByText('"改动后的问答模板" 模版已发布为v2')).toBeInTheDocument();
-    expect(screen.getByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
-
-    await user.click(screen.getByTestId('template-designer-backdrop'));
-
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument(),
+    const restoredDrawer = await screen.findByRole('complementary', { name: '发布任务抽屉' });
+    expect(screen.getByRole('heading', { name: '任务管理' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+    expect(within(restoredDrawer).getByLabelText('任务标题')).toHaveValue('查看模板后应恢复的任务');
+    expect(within(restoredDrawer).getByLabelText('关联模板')).toHaveValue(
+      'M-001 · 改动后的问答模板 · v2',
     );
-    expect(screen.getByRole('heading', { name: '评测模板' })).toBeInTheDocument();
-    expect(screen.queryByRole('complementary', { name: '发布任务抽屉' })).not.toBeInTheDocument();
+  });
+
+  it('从关联模板查看使用中的模板并另存后恢复任务抽屉并选中新模板', async () => {
+    const user = userEvent.setup();
+    const editableSchema = createLabelHubSchema({
+      schemaVersion: 'r1',
+      datasetKind: 'qa_quality',
+      fields: [{ key: 'prompt', type: 'text', label: '题目' }],
+    });
+    const existingTemplate = {
+      ...createTemplateDto({
+        id: 'template_qa',
+        name: '问答质量模板',
+        datasetKind: 'qa_quality',
+        schemaVersion: 'r1',
+      }),
+      activeUsageCount: 1,
+      schema: editableSchema,
+      usageCount: 1,
+      version: 1,
+    };
+    const templateOptions = [
+      createTemplateDto({
+        id: 'template_preference',
+        name: '偏好对比模板',
+        datasetKind: 'preference_compare',
+        schemaVersion: 'pref-r1',
+      }),
+      existingTemplate,
+    ];
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: templateOptions }));
+      }
+
+      if (path === '/templates' && method === 'POST') {
+        const body = JSON.parse(String(init?.body ?? '{}')) as {
+          name: string;
+          schema: typeof editableSchema;
+        };
+
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              ...existingTemplate,
+              activeUsageCount: 0,
+              id: 'template_qa_copy',
+              name: body.name,
+              parentTemplateId: null,
+              rootTemplateId: null,
+              schema: body.schema,
+              status: 'DRAFT',
+              usageCount: 0,
+              version: 1,
+            },
+          }),
+        );
+      }
+
+      return Promise.resolve(jsonResponse({ data: [] }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderTaskListPageWithTemplateRoute();
+
+    await screen.findByRole('table', { name: '任务列表' });
+    await user.click(screen.getByRole('button', { name: '新建任务' }));
+    await user.type(screen.getByLabelText('任务标题'), '使用中模板另存后应恢复的任务');
+    await user.click(screen.getByLabelText('关联模板'));
+    await user.click(screen.getByRole('button', { name: '查看 M-002 · 问答质量模板 · v1 模板配置' }));
+
+    const dialog = await screen.findByRole('dialog', { name: '模板配置' });
+    const canvas = within(dialog).getByRole('main', { name: '模板编辑区域' });
+    await user.click(within(canvas).getByRole('button', { name: '编辑模板名称' }));
+    const templateNameInput = within(canvas).getByRole('textbox', { name: '模板名称' });
+    await user.clear(templateNameInput);
+    await user.type(templateNameInput, '使用中的问答模板');
+    await user.click(within(dialog).getByRole('button', { name: '保存并发布版本 v2' }));
+
+    const saveAsDialog = await screen.findByRole('dialog', { name: '模板正在使用中' });
+    expect(within(saveAsDialog).getByLabelText('模板名称')).toHaveValue('使用中的问答模板 副本');
+    await user.click(within(saveAsDialog).getByRole('button', { name: '另存为新模板' }));
+
+    const restoredDrawer = await screen.findByRole('complementary', { name: '发布任务抽屉' });
+    expect(screen.getByRole('heading', { name: '任务管理' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+    expect(within(restoredDrawer).getByLabelText('任务标题')).toHaveValue('使用中模板另存后应恢复的任务');
+    expect(within(restoredDrawer).getByLabelText('关联模板')).toHaveValue(
+      'M-001 · 使用中的问答模板 副本 · v1',
+    );
   });
 
   it('已保存草稿重新打开后仍可切换关联模板', async () => {
@@ -1424,9 +1616,9 @@ describe('TaskListPage', () => {
     expect(templateInput).toHaveValue('M-001 · 问答质量 副本');
 
     await user.click(templateInput);
-    expect(await screen.findByRole('option', { name: 'M-002 · 偏好对比模板' })).toBeInTheDocument();
-    await user.click(screen.getByRole('option', { name: 'M-002 · 偏好对比模板' }));
-    expect(templateInput).toHaveValue('M-002 · 偏好对比模板');
+    expect(await screen.findByRole('option', { name: 'M-002 · 偏好对比模板 · v1' })).toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: 'M-002 · 偏好对比模板 · v1' }));
+    expect(templateInput).toHaveValue('M-002 · 偏好对比模板 · v1');
 
     await user.click(screen.getByRole('button', { name: '存为草稿' }));
 
@@ -1489,8 +1681,8 @@ describe('TaskListPage', () => {
     expect(screen.getByLabelText('关联模板')).toHaveAttribute('placeholder', '请选择评测模板');
     expect(screen.getByLabelText('关联模板')).toHaveValue('');
     await user.click(screen.getByLabelText('关联模板'));
-    expect(screen.getByRole('option', { name: 'M-001 · 问答质量模板' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'M-002 · 偏好对比模板' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'M-001 · 问答质量模板 · v1' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'M-002 · 偏好对比模板 · v1' })).toBeInTheDocument();
     expect(screen.queryByText('暂无可用模板，无法创建任务。')).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/templates', expect.objectContaining({ method: 'GET' }));
   });
@@ -2130,7 +2322,7 @@ describe('TaskListPage', () => {
     expect(screen.getByLabelText('单条奖励')).toHaveValue('');
     expect(screen.getByRole('button', { name: '选择截止时间' })).toBeInTheDocument();
     await user.type(screen.getByLabelText('任务标题'), '待发布');
-    await chooseTaskTemplate(user, 'M-001 · 商品清洗 · v3');
+    await chooseTaskTemplate(user, 'M-001 · 商品清洗 · v3 · v1');
     await user.click(screen.getByRole('button', { name: '新增标签' }));
     await user.type(screen.getByLabelText('新标签'), '质检{Enter}');
     expect(screen.getByText('点击上传文件')).toBeInTheDocument();
@@ -2604,10 +2796,12 @@ describe('TaskListPage', () => {
     expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
     expect(within(restoredDrawer).getByLabelText('任务标题')).toHaveValue('自动模板回填任务');
     expect(within(restoredDrawer).getByLabelText('关联模板')).toHaveValue(
-      'M-001 · 自动解析模板 · preference_compare.json',
+      'M-001 · 自动解析模板 · preference_compare.json · v1',
     );
     await user.click(within(restoredDrawer).getByLabelText('关联模板'));
-    expect(screen.getByRole('option', { name: 'M-001 · 自动解析模板 · preference_compare.json' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'M-001 · 自动解析模板 · preference_compare.json · v1' }),
+    ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       '/templates/template_auto_draft/publish',
       expect.objectContaining({ method: 'POST' }),
@@ -2740,7 +2934,7 @@ describe('TaskListPage', () => {
     await screen.findByRole('table', { name: '任务列表' });
     await user.click(screen.getByRole('button', { name: '新建任务' }));
     await user.type(screen.getByLabelText('任务标题'), '偏好');
-    await chooseTaskTemplate(user, 'M-001 · 偏好对比模板');
+    await chooseTaskTemplate(user, 'M-001 · 偏好对比模板 · v1');
     await user.upload(
       screen.getByLabelText('题目数据文件'),
       new File(

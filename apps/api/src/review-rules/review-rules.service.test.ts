@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ReviewRulesService } from './review-rules.service.ts';
@@ -22,8 +22,9 @@ describe('ReviewRulesService', () => {
       'safety',
       'overall',
     ]);
-    expect(rule.provider).toBe('mock');
-    expect(rule.structuredOutputMode).toBe('function_calling');
+    expect(rule.provider).toBe('deepseek');
+    expect(rule.model).toBe('deepseek-chat');
+    expect(rule.structuredOutputMode).toBe('json_schema');
     expect(reviewRules).toHaveLength(1);
     expect(prisma.task.update).toHaveBeenCalledWith({
       where: { id: 'task_qa' },
@@ -67,6 +68,34 @@ describe('ReviewRulesService', () => {
     expect(reviewRules[0]?.promptTemplate).toBe('旧 Prompt');
   });
 
+  it('保存规则时拒绝 mock 服务商，避免生成本地假评语', async () => {
+    const { service, reviewRules } = createService();
+
+    await expect(
+      service.saveRule('task_qa', {
+        name: '问答质量 AI 预审 v2',
+        promptTemplate: '请输出真实模型字段级评语。',
+        dimensions: [{ key: 'overall', label: '综合', maxScore: 100 }],
+        provider: 'mock',
+        model: 'mock-stable-reviewer',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.saveRule('task_qa', {
+        name: '问答质量 AI 预审 v2',
+        promptTemplate: '请输出真实模型字段级评语。',
+        dimensions: [{ key: 'overall', label: '综合', maxScore: 100 }],
+        provider: 'mock',
+        model: 'mock-stable-reviewer',
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'REVIEW_RULE_PROVIDER_MOCK_DISABLED',
+      }),
+    });
+    expect(reviewRules).toHaveLength(0);
+  });
+
   it('任务不存在时返回 NotFoundException', async () => {
     const { service } = createService({ task: null });
 
@@ -97,9 +126,10 @@ function createService(input: { task?: TaskRecord | null; reviewRules?: ReviewRu
           dimensionVersion: Number(data.dimensionVersion ?? 1),
           passThreshold: Number(data.passThreshold ?? 80),
           manualThreshold: Number(data.manualThreshold ?? 60),
-          provider: String(data.provider ?? 'mock'),
-          model: String(data.model ?? 'mock-stable-reviewer'),
+          provider: String(data.provider ?? 'deepseek'),
+          model: String(data.model ?? 'deepseek-chat'),
           temperature: Number(data.temperature ?? 0),
+          config: (data.config as Record<string, unknown> | null | undefined) ?? null,
           createdById: (data.createdById as string | null | undefined) ?? null,
           createdAt: now,
           updatedAt: now,
@@ -172,8 +202,8 @@ function createRuleRecord(input: Partial<ReviewRuleRecord> = {}): ReviewRuleReco
     dimensionVersion: input.dimensionVersion ?? 1,
     passThreshold: input.passThreshold ?? 80,
     manualThreshold: input.manualThreshold ?? 60,
-    provider: input.provider ?? 'mock',
-    model: input.model ?? 'mock-stable-reviewer',
+    provider: input.provider ?? 'deepseek',
+    model: input.model ?? 'deepseek-chat',
     temperature: input.temperature ?? 0,
     config: input.config ?? null,
     enabled: input.enabled ?? true,

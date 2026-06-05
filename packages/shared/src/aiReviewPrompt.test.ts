@@ -63,8 +63,8 @@ describe('compileAiReviewPrompt', () => {
 
     expect(compiled.prompt).toContain('# 1. 角色设定');
     expect(compiled.prompt).toContain('# 2. 题目展示信息 Show Item');
-    expect(compiled.prompt).toContain('# 3. 标注员提交内容');
-    expect(compiled.prompt).toContain('# 4. 字段级审核标准');
+    expect(compiled.prompt).toContain('# 3. 需要AI预审的字段');
+    expect(compiled.prompt).toContain('# 4. 字段审核标准');
     expect(compiled.prompt).toContain('# 5. 输出格式约束');
     expect(compiled.sections.find((section) => section.key === 'persona')?.content).toBe('');
     expect(compiled.prompt).not.toContain('你是一个专业的数据标注质检审核员');

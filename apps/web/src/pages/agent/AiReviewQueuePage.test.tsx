@@ -136,7 +136,7 @@ describe('AiReviewQueuePage', () => {
     expect(within(dialog).queryByText(/SUB-/)).not.toBeInTheDocument();
     expect(dialog.closest('.agent-review-sheet-overlay')?.parentElement).toBe(document.body);
     expect(within(dialog).getByText(/提交于/)).toHaveTextContent('共 3 题');
-    expect(within(dialog).getByText('AI 建议：通过')).toBeInTheDocument();
+    expect(within(dialog).queryByText('AI 建议：通过')).not.toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: '关闭 AI 预审详情' })).toHaveTextContent('×');
     expect(dialog.querySelector('.agent-review-question-tabs')).not.toBeInTheDocument();
     expect(dialog.querySelector('.agent-review-question-list')).toBeInTheDocument();
@@ -144,12 +144,15 @@ describe('AiReviewQueuePage', () => {
     expect(within(dialog).getByRole('tab', { name: /待审核\s*0/ })).toBeInTheDocument();
     expect(within(dialog).getByRole('tab', { name: /已通过\s*3/ })).toBeInTheDocument();
     expect(within(dialog).getByRole('tab', { name: /已打回\s*0/ })).toBeInTheDocument();
-    expect(within(dialog).getByRole('tab', { name: /失败\s*0/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('tab', { name: /失败\s*0/ })).not.toBeInTheDocument();
     expect(within(dialog).getByText('题目列表')).toBeInTheDocument();
     const questionTabList = within(dialog).getByRole('tablist', { name: '批次内题目切换' });
     expect(within(questionTabList).getByRole('tab', { name: /Q1/ })).toBeInTheDocument();
     expect(within(questionTabList).getByRole('tab', { name: /Q2/ })).toBeInTheDocument();
     expect(within(questionTabList).getByRole('tab', { name: /Q3/ })).toBeInTheDocument();
+    within(questionTabList)
+      .getAllByText('建议通过')
+      .forEach((label) => expect(label).toHaveClass('is-pass'));
 
     ['字段预审结果', 'AI 总评']
       .forEach((title) => expect(within(dialog).getByText(title)).toBeInTheDocument());
@@ -158,7 +161,7 @@ describe('AiReviewQueuePage', () => {
     expect(within(dialog).queryByText('审核字段')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('字段通过情况')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('整体分')).not.toBeInTheDocument();
-    expect(within(dialog).queryByText('标注员提交内容')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('需要AI预审的字段')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('维度评分（共 100）')).not.toBeInTheDocument();
     expect(within(dialog).getAllByText('qa_1').length).toBeGreaterThan(0);
     expect(within(dialog).getByText(/2 个字段/)).toBeInTheDocument();
@@ -169,8 +172,10 @@ describe('AiReviewQueuePage', () => {
     expect(within(fieldReviewList).getAllByRole('listitem')).toHaveLength(2);
     expect(within(fieldReviewList).getAllByText('Labeler 提交内容').length).toBeGreaterThan(0);
     expect(within(fieldReviewList).getAllByText('预审规则').length).toBeGreaterThan(0);
-    expect(within(dialog).getAllByText('选择更优回答').length).toBeGreaterThan(0);
-    expect(within(dialog).getAllByText('备注说明').length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText('选择更优回答 · preferred').length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText('备注说明 · note').length).toBeGreaterThan(0);
+    expect(within(dialog).queryByText('preferred')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('note')).not.toBeInTheDocument();
     expect(within(dialog).getByText(/必须选择与题目事实一致的更优回答/)).toBeInTheDocument();
     expect(within(dialog).getAllByText('通过').length).toBeGreaterThan(0);
     expect(within(dialog).queryByText(/查看未参与 AI 预审的提交字段/)).not.toBeInTheDocument();
@@ -181,7 +186,8 @@ describe('AiReviewQueuePage', () => {
     expect(within(dialog).getByText('查看审核 Prompt')).toBeInTheDocument();
     expect(within(dialog).queryByText('查看模型原始输出')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('模型原始输出')).not.toBeInTheDocument();
-    expect(within(dialog).getByText('查看处理日志')).toBeInTheDocument();
+    expect(within(dialog).queryByText('查看处理日志')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('处理日志 / 审计')).not.toBeInTheDocument();
     expect(within(dialog).getByText(/真实运行 Prompt：请只审核开启 AI 预审的字段/)).toBeInTheDocument();
     expect(within(dialog).queryByText(/解释什么是过拟合/)).not.toBeInTheDocument();
     expect(within(dialog).queryByText(/敏感 \/ 违规词/)).not.toBeInTheDocument();
@@ -211,13 +217,15 @@ describe('AiReviewQueuePage', () => {
     await user.click(within(table).getByRole('button', { name: '偏好安全评测' }));
 
     const dialog = await screen.findByRole('dialog', { name: /AI 预审详情 · 偏好安全评测/ });
+    const questionTabList = within(dialog).getByRole('tablist', { name: '批次内题目切换' });
+    expect(within(questionTabList).getByText('建议打回')).toHaveClass('is-reject');
     expect(within(dialog).getByText(/本题建议打回/)).toBeInTheDocument();
     expect(within(dialog).getByText(/AI 预审字段 2 个 · 通过 1 · 打回 1/)).toBeInTheDocument();
     expect(within(dialog).getByText(/打回字段：/)).toHaveTextContent('备注说明');
 
     expect(within(dialog).queryByRole('table', { name: '字段预审结果' })).not.toBeInTheDocument();
     const fieldReviewList = within(dialog).getByRole('list', { name: '字段预审结果列表' });
-    const rejectedBlock = within(fieldReviewList).getByRole('listitem', { name: /备注说明 AI 预审结果/ });
+    const rejectedBlock = within(fieldReviewList).getByRole('listitem', { name: /备注说明 · note AI 预审结果/ });
     expect(rejectedBlock).toHaveClass('is-reject');
     expect(within(rejectedBlock).getByText('打回')).toBeInTheDocument();
     expect(within(rejectedBlock).getByText(/缺少判断依据/)).toBeInTheDocument();

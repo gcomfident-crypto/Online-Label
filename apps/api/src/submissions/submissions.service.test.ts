@@ -127,6 +127,9 @@ describe('SubmissionsService', () => {
         round: 1,
         idempotencyKey: 'submission_1:1:ai-review',
         status: 'QUEUED',
+        structuredOutputMode: 'json_schema',
+        provider: 'deepseek',
+        model: 'deepseek-chat',
       }),
     ]);
   });

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StrictMode, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -1253,23 +1253,39 @@ describe('SchemaRenderer', () => {
     expect(screen.getByLabelText('结论')).toBeInTheDocument();
   });
 
-  it('LLM 触发组件可生成并采纳 mock 建议到目标字段', async () => {
+  it('LLM 触发组件可生成并直接写入目标字段', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        data: {
-          datasetKind: 'qa_quality',
-          targetFieldKey: 'structured_note',
-          summary: '建议补充关键依据，并复核准确性与完整性评分。',
-          suggestion: {
-            comment: '模型回答覆盖核心方向，但建议补充关键限定。',
-            issue_tags: ['missing_info'],
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            datasetKind: 'qa_quality',
+            targetFieldKey: 'structured_note',
+            summary: '建议补充关键依据，并复核准确性与完整性评分。',
+            suggestion: {
+              comment: '模型回答覆盖核心方向，但建议补充关键限定。',
+              issue_tags: ['missing_info'],
+            },
           },
-        },
-      }),
-    });
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            datasetKind: 'qa_quality',
+            targetFieldKey: 'structured_note',
+            summary: '已重新生成结构化记录。',
+            suggestion: {
+              comment: '第二版记录改为强调参考答案中的关键步骤。',
+              issue_tags: ['accuracy'],
+            },
+          },
+        }),
+      });
     const schema: LabelHubSchema = {
       ...baseSchema([
         {
@@ -1314,7 +1330,7 @@ describe('SchemaRenderer', () => {
     await user.click(screen.getByRole('button', { name: '生成建议' }));
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/llm/assist/mock',
+      '/llm/assist',
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1327,12 +1343,14 @@ describe('SchemaRenderer', () => {
         }),
       }),
     );
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '重新生成' })).toBeInTheDocument();
+    });
+    expect(await screen.findByText('模型生成完毕')).toBeInTheDocument();
     expect(
-      await screen.findByText('建议补充关键依据，并复核准确性与完整性评分。'),
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '重新生成' }));
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    await user.click(screen.getByRole('button', { name: '采纳为答案' }));
+      screen.queryByText(/建议补充关键依据，并复核准确性与完整性评分.*已写入/u),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '采纳为答案' })).not.toBeInTheDocument();
 
     expect(onChange).toHaveBeenLastCalledWith({
       structured_note: {
@@ -1343,9 +1361,39 @@ describe('SchemaRenderer', () => {
     expect((screen.getByLabelText('结构化记录') as HTMLTextAreaElement).value).toContain(
       'missing_info',
     );
+
+    await user.click(screen.getByRole('button', { name: '重新生成' }));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      '/llm/assist',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          datasetKind: 'qa_quality',
+          rawData: { prompt: '请说明光合作用的主要过程。' },
+          answers: {},
+          targetFieldKey: 'structured_note',
+          promptTemplate: '请给出结构化建议。',
+          previousTargetValue: {
+            comment: '模型回答覆盖核心方向，但建议补充关键限定。',
+            issue_tags: ['missing_info'],
+          },
+        }),
+      }),
+    );
+    await waitFor(() => {
+      expect((screen.getByLabelText('结构化记录') as HTMLTextAreaElement).value).toContain(
+        '第二版记录改为强调参考答案中的关键步骤',
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getAllByText('模型生成完毕')).toHaveLength(2);
+    });
+    expect(screen.queryByText(/已重新生成结构化记录.*已写入/u)).not.toBeInTheDocument();
   });
 
-  it('配置了 LLM 提示的单行输入和标签选择可直接生成并采纳建议', async () => {
+  it('配置了 LLM 提示的单行输入和标签选择可生成后直接写入', async () => {
     const user = userEvent.setup();
     const fetchMock = vi
       .fn()
@@ -1357,6 +1405,17 @@ describe('SchemaRenderer', () => {
             targetFieldKey: 'cleaned_title',
             summary: '已生成清洗标题。',
             suggestion: '轻量降噪蓝牙耳机',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            datasetKind: 'generic_json',
+            targetFieldKey: 'cleaned_title',
+            summary: '已重新生成清洗标题。',
+            suggestion: '轻量降噪蓝牙耳机第二版',
           },
         }),
       })
@@ -1413,7 +1472,7 @@ describe('SchemaRenderer', () => {
     const titleLlm = screen.getByLabelText('清洗标题 LLM 建议');
     await user.click(within(titleLlm).getByRole('button', { name: '生成建议' }));
     expect(fetchMock).toHaveBeenLastCalledWith(
-      '/llm/assist/mock',
+      '/llm/assist',
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1426,31 +1485,59 @@ describe('SchemaRenderer', () => {
         }),
       }),
     );
-    expect(await within(titleLlm).findByText('已生成清洗标题。')).toBeInTheDocument();
-    await user.click(within(titleLlm).getByRole('button', { name: '采纳建议' }));
+    await waitFor(() => {
+      expect(within(titleLlm).getByRole('button', { name: '重新生成' })).toBeInTheDocument();
+    });
+    expect(await screen.findByText('模型生成完毕')).toBeInTheDocument();
+    expect(screen.queryByText(/已生成清洗标题.*已写入/u)).not.toBeInTheDocument();
+    expect(within(titleLlm).queryByRole('button', { name: '采纳建议' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('清洗标题')).toHaveValue('轻量降噪蓝牙耳机');
 
-    const tagsLlm = screen.getByLabelText('质量标签 LLM 建议');
-    await user.click(within(tagsLlm).getByRole('button', { name: '生成建议' }));
+    await user.click(within(titleLlm).getByRole('button', { name: '重新生成' }));
     expect(fetchMock).toHaveBeenLastCalledWith(
-      '/llm/assist/mock',
+      '/llm/assist',
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           datasetKind: 'generic_json',
           rawData: { prompt: '请清洗蓝牙耳机商品标题。' },
-          answers: { cleaned_title: '轻量降噪蓝牙耳机' },
+          answers: {},
+          targetFieldKey: 'cleaned_title',
+          promptTemplate: '请根据 #prompt 输出清洗标题。',
+          previousTargetValue: '轻量降噪蓝牙耳机',
+        }),
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByLabelText('清洗标题')).toHaveValue('轻量降噪蓝牙耳机第二版');
+    });
+    await waitFor(() => {
+      expect(screen.getAllByText('模型生成完毕')).toHaveLength(2);
+    });
+    expect(screen.queryByText(/已重新生成清洗标题.*已写入/u)).not.toBeInTheDocument();
+
+    const tagsLlm = screen.getByLabelText('质量标签 LLM 建议');
+    await user.click(within(tagsLlm).getByRole('button', { name: '生成建议' }));
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      '/llm/assist',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          datasetKind: 'generic_json',
+          rawData: { prompt: '请清洗蓝牙耳机商品标题。' },
+          answers: { cleaned_title: '轻量降噪蓝牙耳机第二版' },
           targetFieldKey: 'quality_tags',
           promptTemplate: '请根据 #prompt 输出建议标签。',
         }),
       }),
     );
-    await user.click(await within(tagsLlm).findByRole('button', { name: '采纳建议' }));
+    expect(within(tagsLlm).queryByRole('button', { name: '采纳建议' })).not.toBeInTheDocument();
     expect(screen.getByText('准确性')).toHaveClass('task-tag-bubble__label');
   });
 
-  it('LLM 触发组件在 mock 请求失败时显示中文错误', async () => {
+  it('LLM 触发组件在请求失败时显示中文错误', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
@@ -1487,7 +1574,7 @@ describe('SchemaRenderer', () => {
     );
   });
 
-  it('LLM 触发组件拒绝采纳目标字段不一致的结果', async () => {
+  it('LLM 触发组件拒绝写入目标字段不一致的结果', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     const fetchMock = vi.fn().mockResolvedValue({
@@ -1530,7 +1617,7 @@ describe('SchemaRenderer', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('商品标题清洗 v3 示例触发长度计数、类目联动、标签必填和 LLM 采纳', async () => {
+  it('商品标题清洗 v3 示例触发长度计数、类目联动、标签必填和 LLM 直接写入', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     const fetchMock = vi.fn().mockResolvedValue({
@@ -1587,9 +1674,10 @@ describe('SchemaRenderer', () => {
     );
 
     await user.click(screen.getByRole('button', { name: '生成建议' }));
-    expect(await screen.findByText('已生成清洗标题。')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '采纳为答案' }));
-
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '重新生成' })).toBeInTheDocument();
+    });
+    expect(screen.queryByText('已生成清洗标题，已写入目标字段')).not.toBeInTheDocument();
     expect(screen.getByLabelText('清洗后标题')).toHaveValue('轻量降噪蓝牙耳机 Pro Max 黑色');
   });
 
@@ -2597,6 +2685,80 @@ describe('SchemaRenderer', () => {
 
     expect(screen.getByLabelText('相当')).toBeChecked();
     expect(onChange).toHaveBeenLastCalledWith({ preferred: 'tie', margin: '相当' });
+  });
+
+  it('Renderer 根据 limitOptions 反向约束源字段，并让最后改动的字段优先', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const schema = {
+      ...baseSchema([
+        {
+          key: 'preferred',
+          type: 'radio',
+          label: '偏好选择',
+          options: [
+            { label: 'A', value: 'A' },
+            { label: 'B', value: 'B' },
+            { label: 'tie', value: 'tie' },
+          ],
+        },
+        {
+          key: 'margin',
+          type: 'radio',
+          label: '优劣程度',
+          options: [
+            { label: '明显优于', value: '明显优于' },
+            { label: '略优于', value: '略优于' },
+            { label: '明显逊于', value: '明显逊于' },
+            { label: '略逊于', value: '略逊于' },
+            { label: '相当', value: '相当' },
+          ],
+        },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'preferred', operator: 'exists' },
+          action: 'limitOptions',
+          targetFieldKey: 'margin',
+          cases: [
+            { value: 'A', optionValues: ['明显优于', '略优于'] },
+            { value: 'B', optionValues: ['明显逊于', '略逊于'] },
+            { value: 'tie', optionValues: ['相当'] },
+          ],
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <SchemaRenderer
+          schema={schema}
+          rawData={{}}
+          value={answers}
+          mode="answer"
+          onChange={(next) => {
+            setAnswers(next);
+            onChange(next);
+          }}
+        />
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    await user.click(screen.getByLabelText('相当'));
+
+    expect(screen.getByLabelText('tie')).toBeChecked();
+    expect(onChange).toHaveBeenLastCalledWith({ margin: '相当', preferred: 'tie' });
+
+    await user.click(screen.getByLabelText('A'));
+
+    expect(screen.getByLabelText('明显优于')).toBeInTheDocument();
+    expect(screen.getByLabelText('略优于')).toBeInTheDocument();
+    expect(screen.queryByLabelText('相当')).not.toBeInTheDocument();
+    expect(onChange).toHaveBeenLastCalledWith({ preferred: 'A' });
   });
 
   it('隐藏字段不触发必填校验', () => {

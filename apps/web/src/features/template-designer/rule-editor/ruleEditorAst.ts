@@ -90,6 +90,7 @@ export const createEmptyLimitOptionsAction = (targetFieldKey = ''): StructuredFi
   optionValues: [],
   clearInvalidValue: true,
   autoSelectWhenSingleOption: true,
+  bidirectional: true,
 });
 
 export const createEmptySetValueAction = (

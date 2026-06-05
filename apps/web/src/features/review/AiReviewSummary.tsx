@@ -16,7 +16,7 @@ export const AiReviewSummary = ({ record, fallbackComment, fallbackScores }: AiR
           <span>AI 预审</span>
           <h3>{decisionLabel(record?.decision)}</h3>
         </div>
-        <small>{record?.modelMetadata?.model?.toString() ?? 'mock-stable-reviewer'}</small>
+        <small>{record?.modelMetadata?.model?.toString() ?? '未记录模型'}</small>
       </header>
       <p className="review-ai-comment">{record?.comment ?? fallbackComment ?? '暂无 AI 评语。'}</p>
       {scores.length > 0 ? (

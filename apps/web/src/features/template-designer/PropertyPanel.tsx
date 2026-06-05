@@ -15,7 +15,6 @@ import {
 import {
   collectFieldLinkageRuleFieldKeys,
   expandFieldLinkageRule,
-  type CustomValidatorKey,
   type FieldLinkageRule as PersistedFieldLinkageRule,
   getSchemaFieldKey,
   type FieldAiReviewRole,
@@ -28,7 +27,6 @@ import { FilterSelect } from '../../components/FilterSelect';
 import { LinkageRuleEditor } from './rule-editor/LinkageRuleEditor';
 import type { LinkageRuleFieldOption } from './rule-editor/ruleEditorAst';
 import { validateStructuredLinkageRuleDraft } from './rule-editor/ruleEditorValidation';
-import { CUSTOM_VALIDATOR_OPTIONS } from './templateStore';
 
 type PropertyPanelProps = {
   field: SchemaField | null;
@@ -51,23 +49,19 @@ const SHOW_ITEM_FORMAT_OPTIONS = [
   { label: '文本', value: 'text' },
   { label: '代码', value: 'code' },
 ] as const;
-const CUSTOM_VALIDATOR_LABELS: Record<CustomValidatorKey, string> = {
-  non_empty_json: '结构化 JSON 必填',
-  safe_url: '安全链接',
-  valid_json: '合法 JSON',
-  valid_email: '邮箱格式',
-  valid_file_type: '有效上传文件',
-};
-const TEXT_CUSTOM_VALIDATORS: readonly CustomValidatorKey[] = [
-  'valid_email',
-  'safe_url',
-  'valid_json',
-];
-const JSON_CUSTOM_VALIDATORS: readonly CustomValidatorKey[] = ['non_empty_json'];
-const FILE_CUSTOM_VALIDATORS: readonly CustomValidatorKey[] = ['valid_file_type'];
 const FIELD_DESCRIPTION_MAX_LENGTH = 20;
 
 type LinkageRule = StructuredFieldLinkageRule;
+type LengthLimitKind = 'maxLength' | 'minLength';
+
+const LENGTH_LIMIT_OPTIONS: ReadonlyArray<{ label: string; value: LengthLimitKind }> = [
+  { label: '最大长度', value: 'maxLength' },
+  { label: '最小长度', value: 'minLength' },
+];
+const LENGTH_LIMIT_LABELS: Record<LengthLimitKind, string> = {
+  maxLength: '最大长度',
+  minLength: '最小长度',
+};
 
 export const PropertyPanel = ({
   field,
@@ -162,21 +156,21 @@ const BasicProperties = ({
   return (
     <>
       <div className="designer-form-grid">
-        <PropertyRow label="字段名">
+        <PropertyRow className="designer-property-row--metadata" label="字段名">
           <input
             aria-label="字段名"
             value={field.fieldKey ?? field.key}
             onChange={(event) => onUpdateField({ fieldKey: event.target.value })}
           />
         </PropertyRow>
-        <PropertyRow label="标题">
+        <PropertyRow className="designer-property-row--metadata" label="标题">
           <input
             aria-label="标题"
             value={field.label}
             onChange={(event) => onUpdateField({ label: event.target.value })}
           />
         </PropertyRow>
-        <PropertyRow label="字段说明">
+        <PropertyRow className="designer-property-row--metadata" label="字段说明">
           <input
             aria-label="字段说明"
             maxLength={FIELD_DESCRIPTION_MAX_LENGTH}
@@ -570,6 +564,7 @@ const LlmPromptProperties = ({
   onUpdateField: (patch: Partial<SchemaField>) => void;
 }) => {
   const [isExpanded, setIsExpanded] = useState(() => field.promptTemplate !== undefined);
+  const promptTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selectedFieldKey = field.fieldKey ?? field.key;
   const showItemReferences = extractShowItemReferences(schemaFields);
   const promptTemplate = field.promptTemplate ?? '';
@@ -577,6 +572,10 @@ const LlmPromptProperties = ({
   useEffect(() => {
     setIsExpanded(field.promptTemplate !== undefined);
   }, [selectedFieldKey, field.promptTemplate]);
+
+  useLayoutEffect(() => {
+    resizeTextareaToContent(promptTextareaRef.current);
+  }, [promptTemplate, isExpanded, selectedFieldKey]);
 
   const toggleLlmPrompt = (enabled: boolean) => {
     setIsExpanded(enabled);
@@ -610,10 +609,16 @@ const LlmPromptProperties = ({
         <div className="designer-form-grid designer-llm-prompt-form">
           <PropertyRow label="提示词">
             <textarea
+              ref={promptTextareaRef}
               aria-label="LLM提示内容"
+              className="designer-auto-resize-textarea designer-llm-prompt-textarea"
               placeholder="例如：请根据 #prompt 和 #response 输出建议答案。"
+              rows={2}
               value={promptTemplate}
-              onChange={(event) => onUpdateField({ promptTemplate: event.target.value })}
+              onChange={(event) => {
+                scheduleTextareaResize(event.currentTarget);
+                onUpdateField({ promptTemplate: event.target.value });
+              }}
             />
           </PropertyRow>
           {showItemReferences.length > 0 ? (
@@ -822,36 +827,16 @@ const defaultAiReviewRole = (field: SchemaField): FieldAiReviewRole => {
 const supportsLengthLimit = (field: SchemaField): boolean =>
   field.type === 'text' || field.type === 'textarea' || field.type === 'rich_text';
 
-const customValidatorOptionsForField = (field: SchemaField): readonly CustomValidatorKey[] => {
-  let options: readonly CustomValidatorKey[] = [];
-
-  if (field.type === 'text' || field.type === 'textarea' || field.type === 'rich_text') {
-    options = TEXT_CUSTOM_VALIDATORS;
-  } else if (field.type === 'json_editor') {
-    options = JSON_CUSTOM_VALIDATORS;
-  } else if (field.type === 'file_upload') {
-    options = FILE_CUSTOM_VALIDATORS;
-  }
-
-  const selectedValidator = field.validation?.customValidatorKey;
-
-  if (
-    selectedValidator &&
-    CUSTOM_VALIDATOR_OPTIONS.includes(selectedValidator) &&
-    !options.includes(selectedValidator)
-  ) {
-    return [selectedValidator, ...options];
-  }
-
-  return options;
-};
+const resolveLengthLimitKind = (field: SchemaField): LengthLimitKind =>
+  field.validation?.minLength !== undefined && field.validation.maxLength === undefined
+    ? 'minLength'
+    : 'maxLength';
 
 const shouldExpandValidation = (field: SchemaField): boolean =>
   Boolean(
     field.validation?.minLength !== undefined ||
       field.validation?.maxLength !== undefined ||
-      field.validation?.pattern ||
-      field.validation?.customValidatorKey,
+      field.validation?.pattern,
   );
 
 const shouldExpandLinkage = (field: SchemaField): boolean => Boolean(field.linkageRules?.length);
@@ -1081,12 +1066,43 @@ const ValidationProperties = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(() => shouldExpandValidation(field));
   const selectedFieldKey = field.fieldKey ?? field.key;
-  const customValidatorOptions = customValidatorOptionsForField(field);
-  const shouldShowCustomValidator = customValidatorOptions.length > 0 || Boolean(field.validation?.customValidatorKey);
+  const [lengthLimitKind, setLengthLimitKind] = useState<LengthLimitKind>(() => resolveLengthLimitKind(field));
+  const lengthLimitLabel = LENGTH_LIMIT_LABELS[lengthLimitKind];
+  const lengthLimitValue = field.validation?.[lengthLimitKind];
+
+  const updateLengthLimitKind = (nextKind: LengthLimitKind) => {
+    if (nextKind === lengthLimitKind) {
+      return;
+    }
+
+    const nextValue = lengthLimitValue;
+    setLengthLimitKind(nextKind);
+
+    onUpdateValidation(
+      nextKind === 'maxLength'
+        ? { maxLength: nextValue, minLength: undefined }
+        : { maxLength: undefined, minLength: nextValue },
+    );
+  };
+
+  const updateLengthLimitValue = (value: string) => {
+    const nextValue = numericValue(value);
+
+    if (lengthLimitKind === 'maxLength') {
+      onUpdateValidation({ maxLength: nextValue });
+      return;
+    }
+
+    onUpdateValidation({ maxLength: undefined, minLength: nextValue });
+  };
 
   useEffect(() => {
     setIsExpanded(shouldExpandValidation(field));
   }, [selectedFieldKey]);
+
+  useEffect(() => {
+    setLengthLimitKind(resolveLengthLimitKind(field));
+  }, [field.validation?.maxLength, field.validation?.minLength, selectedFieldKey]);
 
   return (
     <PropertySection
@@ -1102,26 +1118,23 @@ const ValidationProperties = ({
     >
       <PropertyCollapse dataTestId="designer-validation-collapse" expanded={isExpanded}>
         <div className="designer-form-grid">
-          {field.validation?.minLength !== undefined ? (
-            <PropertyRow label="最小长度">
-              <input
-                aria-label="最小长度"
-                min="0"
-                type="number"
-                value={field.validation.minLength}
-                onChange={(event) => onUpdateValidation({ minLength: numericValue(event.target.value) })}
-              />
-            </PropertyRow>
-          ) : null}
           {supportsLengthLimit(field) ? (
-            <PropertyRow label="最大长度">
-              <input
-                aria-label="最大长度"
-                min="0"
-                type="number"
-                value={field.validation?.maxLength ?? ''}
-                onChange={(event) => onUpdateValidation({ maxLength: numericValue(event.target.value) })}
-              />
+            <PropertyRow className="designer-property-row--length-limit" label="长度限制">
+              <div className="designer-length-limit-control">
+                <FilterSelect
+                  ariaLabel="长度限制类型"
+                  options={LENGTH_LIMIT_OPTIONS}
+                  value={lengthLimitKind}
+                  onChange={updateLengthLimitKind}
+                />
+                <input
+                  aria-label={lengthLimitLabel}
+                  min="0"
+                  type="number"
+                  value={lengthLimitValue ?? ''}
+                  onChange={(event) => updateLengthLimitValue(event.target.value)}
+                />
+              </div>
             </PropertyRow>
           ) : null}
           <PropertyRow label="正则">
@@ -1131,28 +1144,6 @@ const ValidationProperties = ({
             onChange={(event) => onUpdateValidation({ pattern: event.target.value })}
           />
           </PropertyRow>
-          {shouldShowCustomValidator ? (
-            <PropertyRow label="预置校验">
-            <select
-              aria-label="预置校验"
-              value={field.validation?.customValidatorKey ?? ''}
-              onChange={(event) =>
-                onUpdateValidation({
-                  customValidatorKey: event.target.value
-                    ? (event.target.value as NonNullable<SchemaField['validation']>['customValidatorKey'])
-                    : undefined,
-                })
-              }
-            >
-              <option value="">不使用</option>
-              {customValidatorOptions.map((key) => (
-                <option key={key} value={key}>
-                  {CUSTOM_VALIDATOR_LABELS[key]}
-                </option>
-              ))}
-            </select>
-            </PropertyRow>
-          ) : null}
         </div>
       </PropertyCollapse>
     </PropertySection>

@@ -165,6 +165,10 @@ describe('ExportCenterPage', () => {
     expect(within(exportableTaskTable).getByText('任务ID')).toBeInTheDocument();
     expect(within(exportableTaskTable).getByText('T-0001')).toBeInTheDocument();
     expect(within(exportableTaskTable).getByText('T-0002')).toBeInTheDocument();
+    const taskNameCell = within(exportableTaskTable).getByText('偏好对比评测').closest('td');
+    expect(taskNameCell).toHaveTextContent('偏好对比评测');
+    expect(taskNameCell).not.toHaveTextContent('Owner：张满');
+    expect(within(exportableTaskTable).queryByText(/Owner：/)).not.toBeInTheDocument();
     expect(within(exportableTaskTable).getByText('2026-05-21 08:00')).toBeInTheDocument();
     expect(within(exportableTaskTable).getByText('1 / 2')).toBeInTheDocument();
     expect(screen.getByLabelText('可导出任务分页')).toHaveTextContent('第 1 / 1 页');

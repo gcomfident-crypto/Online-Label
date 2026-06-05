@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('Renderer 调试台覆盖示例切换、模式切换和 LLM 采纳', async ({ page }) => {
+test('Renderer 调试台覆盖示例切换、模式切换和答案保留', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => {
     if (message.type() === 'error') {
@@ -43,10 +43,7 @@ test('Renderer 调试台覆盖示例切换、模式切换和 LLM 采纳', async 
   await expect(page.getByLabel('清洗后标题')).toBeDisabled();
   await page.getByRole('button', { name: '作答' }).click();
 
-  await page.getByRole('button', { name: '生成建议' }).click();
-  await expect(page.getByText('已生成清洗标题。')).toBeVisible();
-  await page.getByRole('button', { name: '采纳为答案' }).click();
-  await expect(page.getByLabel('清洗后标题')).toHaveValue('轻量降噪蓝牙耳机 Pro Max 黑色');
+  await page.getByLabel('清洗后标题').fill('轻量降噪蓝牙耳机 Pro Max 黑色');
 
   await page.getByRole('button', { name: '偏好对比' }).click();
   await page.getByRole('button', { name: '商品标题清洗 v3' }).click();

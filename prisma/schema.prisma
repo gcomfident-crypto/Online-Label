@@ -276,8 +276,8 @@ model ReviewRule {
   dimensionVersion Int            @default(1)
   passThreshold    Int            @default(80)
   manualThreshold  Int            @default(60)
-  provider         String         @default("mock")
-  model            String         @default("mock-stable-reviewer")
+  provider         String         @default("deepseek")
+  model            String         @default("deepseek-chat")
   temperature      Float          @default(0)
   config           Json?
   enabled          Boolean        @default(true)

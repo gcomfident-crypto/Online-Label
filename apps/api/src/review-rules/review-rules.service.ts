@@ -1,6 +1,12 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { DatasetKind } from '@labelhub/shared';
 
+import {
+  normalizeAiReviewProvider,
+  resolveAiReviewRuntimeConfig,
+  resolveAiReviewRuntimeModel,
+  resolveAiReviewRuntimeProvider,
+} from '../common/ai-review-runtime.ts';
 import { PrismaService } from '../prisma/prisma.service.ts';
 
 type ReviewStage = 'AI_PRECHECK';
@@ -102,10 +108,11 @@ export class ReviewRulesService {
     const task = await this.findTaskOrThrow(taskId);
     const current = await this.findCurrentRule(taskId);
     if (current) {
-      return toReviewRuleDto(current);
+      return toReviewRuleDto(resolveRuntimeRuleDefaults(current));
     }
 
     const defaults = defaultRuleForDataset(task.template.datasetKind);
+    const runtimeConfig = resolveAiReviewRuntimeConfig(process.env);
     const rule = await this.prisma.reviewRule.create({
       data: {
         taskId,
@@ -117,11 +124,11 @@ export class ReviewRulesService {
         dimensionVersion: 1,
         passThreshold: defaults.passThreshold,
         manualThreshold: defaults.manualThreshold,
-        provider: 'mock',
-        model: 'mock-stable-reviewer',
+        provider: runtimeConfig.provider,
+        model: runtimeConfig.model,
         temperature: 0,
         config: {
-          structuredOutputMode: 'function_calling',
+          structuredOutputMode: runtimeConfig.structuredOutputMode,
           datasetKind: task.template.datasetKind,
         },
         enabled: true,
@@ -158,7 +165,7 @@ export class ReviewRulesService {
         model: normalized.model,
         temperature: normalized.temperature,
         config: {
-          structuredOutputMode: normalized.provider === 'mock' ? 'function_calling' : 'json_schema',
+          structuredOutputMode: 'json_schema',
         },
         enabled: true,
         createdById: input.actorId ?? null,
@@ -212,15 +219,74 @@ function normalizeRuleInput(input: SaveReviewRuleInput, current: ReviewRuleRecor
     });
   }
 
+  const provider = resolveRuleProvider(input.provider, current?.provider);
+
   return {
     name: input.name?.trim() || current?.name || 'AI 预审规则',
     promptTemplate: input.promptTemplate?.trim() || current?.promptTemplate || defaultRuleForDataset('generic_json').promptTemplate,
     dimensions,
     passThreshold: clampScore(input.passThreshold ?? current?.passThreshold ?? 80),
     manualThreshold: clampScore(input.manualThreshold ?? current?.manualThreshold ?? 60),
-    provider: input.provider?.trim() || current?.provider || 'mock',
-    model: input.model?.trim() || current?.model || 'mock-stable-reviewer',
+    provider,
+    model: resolveRuleModel(input.model, current, provider),
     temperature: clampTemperature(input.temperature ?? current?.temperature ?? 0),
+  };
+}
+
+function resolveRuleProvider(inputProvider: string | undefined, currentProvider: string | undefined): string {
+  if (inputProvider !== undefined) {
+    const provider = normalizeAiReviewProvider(inputProvider);
+    if (!provider || provider === 'mock') {
+      throw new BadRequestException({
+        code: 'REVIEW_RULE_PROVIDER_MOCK_DISABLED',
+        message: 'AI 预审不再支持 mock 服务商，请选择 deepseek、openai 或 custom。',
+      });
+    }
+
+    return provider;
+  }
+
+  const current = currentProvider ? normalizeAiReviewProvider(currentProvider) : '';
+
+  return current && current !== 'mock' ? current : resolveAiReviewRuntimeProvider(process.env);
+}
+
+function resolveRuleModel(
+  inputModel: string | undefined,
+  current: ReviewRuleRecord | null,
+  provider: string,
+): string {
+  const model = inputModel?.trim();
+  if (model && model !== 'mock-stable-reviewer') {
+    return model;
+  }
+
+  const currentProvider = current ? normalizeAiReviewProvider(current.provider) : '';
+  const currentModel = current?.model.trim();
+  if (currentProvider === provider && currentModel && currentModel !== 'mock-stable-reviewer') {
+    return currentModel;
+  }
+
+  return resolveAiReviewRuntimeModel(provider, process.env);
+}
+
+function resolveRuntimeRuleDefaults(record: ReviewRuleRecord): ReviewRuleRecord {
+  const provider = normalizeAiReviewProvider(record.provider);
+
+  if (provider !== 'mock') {
+    return provider === record.provider ? record : { ...record, provider };
+  }
+
+  const runtimeConfig = resolveAiReviewRuntimeConfig(process.env);
+
+  return {
+    ...record,
+    provider: runtimeConfig.provider,
+    model: runtimeConfig.model,
+    config: {
+      ...(record.config ?? {}),
+      structuredOutputMode: runtimeConfig.structuredOutputMode,
+    },
   };
 }
 

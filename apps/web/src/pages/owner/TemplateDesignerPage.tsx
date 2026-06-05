@@ -832,23 +832,33 @@ const resolveAutoClassificationSampleValue = (
 const updateTaskReturnHandoffTemplate = (template: TemplateDto): boolean => {
   const taskTemplate = toTaskTemplateSummary(template);
 
-  return updateTaskTemplateReturnHandoff((handoff) => ({
-    ...handoff,
-    form: {
-      ...handoff.form,
-      templateId: taskTemplate.id,
-    },
-    selectedTask: {
-      ...handoff.selectedTask,
-      templateId: taskTemplate.id,
-      template: taskTemplate,
-    },
-    templateOptions: [
-      taskTemplate,
-      ...handoff.templateOptions.filter((currentTemplate) => currentTemplate.id !== taskTemplate.id),
-    ],
-    isTaskFormDirty: true,
-  }));
+  return updateTaskTemplateReturnHandoff((handoff) => {
+    const hasExistingTemplateOption = handoff.templateOptions.some(
+      (currentTemplate) => currentTemplate.id === taskTemplate.id,
+    );
+
+    return {
+      ...handoff,
+      form: {
+        ...handoff.form,
+        templateId: taskTemplate.id,
+      },
+      selectedTask: {
+        ...handoff.selectedTask,
+        templateId: taskTemplate.id,
+        template: taskTemplate,
+      },
+      templateOptions: hasExistingTemplateOption
+        ? handoff.templateOptions.map((currentTemplate) =>
+          currentTemplate.id === taskTemplate.id ? taskTemplate : currentTemplate,
+        )
+        : [
+          taskTemplate,
+          ...handoff.templateOptions.filter((currentTemplate) => currentTemplate.id !== taskTemplate.id),
+        ],
+      isTaskFormDirty: true,
+    };
+  });
 };
 
 const toTaskTemplateSummary = (template: TemplateDto): TaskDto['template'] => ({
@@ -857,6 +867,7 @@ const toTaskTemplateSummary = (template: TemplateDto): TaskDto['template'] => ({
   datasetKind: template.datasetKind,
   schemaVersion: template.schemaVersion,
   status: template.status,
+  version: template.version,
 });
 
 const templateVersionChainKey = (template: TemplateDto): string =>
@@ -915,6 +926,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const [activeDesignerTabByFieldKey, setActiveDesignerTabByFieldKey] = useState<Record<string, string>>({});
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [templateDraftName, setTemplateDraftName] = useState<string | null>(null);
+  const [templateNameDraftOverride, setTemplateNameDraftOverride] = useState<string | null>(null);
   const { containerRef: templateTableContainerRef, pageSize: templatePageSize } = useAdaptiveTablePageSize({
     fallbackPageSize: TEMPLATE_FALLBACK_PAGE_SIZE,
     rowHeight: TEMPLATE_TABLE_ROW_HEIGHT,
@@ -979,6 +991,8 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   );
   const dragOverlayPortalTarget = typeof document === 'undefined' ? null : document.body;
   const currentTemplateName = templateDraftName ?? templateNameFromSchema(schema);
+  const effectiveTemplateName =
+    templateNameDraftOverride !== null ? templateNameDraftOverride.trim() || currentTemplateName : currentTemplateName;
   const activeSavedTemplate = useMemo(
     () => (templateId ? templates.find((template) => template.id === templateId) ?? null : null),
     [templateId, templates],
@@ -1015,7 +1029,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     }
 
     return baselineSnapshot !== createDesignerDirtySnapshot({
-      name: currentTemplateName,
+      name: effectiveTemplateName,
       previewRecords: designerPreviewRecords,
       schema,
       status: templateStatus,
@@ -1301,7 +1315,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
     try {
       const result = await requestApi<LlmAssistPreviewResult>(
-        '/llm/assist/mock',
+        '/llm/assist',
         {
           method: 'POST',
           body: JSON.stringify({
@@ -1585,6 +1599,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     resetDesigner();
     setTemplateId(null);
     setTemplateDraftName(null);
+    setTemplateNameDraftOverride(null);
     setTemplateVersion(0);
     setTemplateStatus('DRAFT');
     clearTemplateDraftReturn();
@@ -1608,6 +1623,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setSchema(template.schema);
     setTemplateId(template.id);
     setTemplateDraftName(template.name);
+    setTemplateNameDraftOverride(null);
     setTemplateVersion(template.version);
     setTemplateStatus(template.status);
     setTemplateDraftReturn(options.returnTo ?? null, options.returnTo ? 'task-template-preview' : null);
@@ -1812,7 +1828,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   };
 
   const openPublishSaveAsModal = () => {
-    const defaultName = `${currentTemplateName} 副本`;
+    const defaultName = `${effectiveTemplateName} 副本`;
 
     clearPublishSaveAsTimer();
     setPublishSaveAsTemplateName(defaultName);
@@ -1822,6 +1838,14 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
   const requestDesignerClose = () => {
     if (isDesignerClosing || isCloseConfirmOpen || isPublishSaveAsOpen || isPublishSaveAsClosing) {
+      return;
+    }
+
+    if (
+      templateDraftReturnRef.current.returnTo &&
+      templateDraftReturnRef.current.source === 'task-template-preview'
+    ) {
+      closeDesignerWithAnimation();
       return;
     }
 
@@ -1926,6 +1950,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
     setTemplateId(savedTemplate.id);
     setTemplateDraftName(savedTemplate.name);
+    setTemplateNameDraftOverride(null);
     setTemplateVersion(savedTemplate.version);
     setTemplateStatus(savedTemplate.status);
     setSchema(savedTemplate.schema);
@@ -2036,7 +2061,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
         sourceFileName: sourceContext.sourceFileName,
       },
     );
-    const draftName = resolveTemplateName(templateDraftName, draftSchema);
+    const draftName = resolveTemplateName(effectiveTemplateName, draftSchema);
     const savedTemplate =
       templateId && templateStatus !== 'PUBLISHED'
         ? await saveTemplateSchema(templateId, draftSchema, { name: draftName })
@@ -2058,7 +2083,9 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     return savedTemplate;
   };
 
-  const saveAsNewTemplate = async (): Promise<TemplateDto | null> => {
+  const saveAsNewTemplate = async (
+    options?: { preservePreviewReturn?: boolean },
+  ): Promise<TemplateDto | null> => {
     const validation = validateTemplateSchema(schema);
 
     if (!validation.valid) {
@@ -2082,11 +2109,49 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     });
 
     applySavedDesignerTemplate(savedTemplate);
-    clearTemplatePreviewReturnAfterSave();
+    if (!options?.preservePreviewReturn) {
+      clearTemplatePreviewReturnAfterSave();
+    }
     return savedTemplate;
   };
 
+  const handleSelectPreviewTemplate = () => {
+    const previewReturnState = templateDraftReturnRef.current;
+
+    if (
+      !activeSavedTemplate ||
+      !previewReturnState.returnTo ||
+      previewReturnState.source !== 'task-template-preview'
+    ) {
+      showErrorToast('任务抽屉状态恢复失败，请回到任务管理页后重新选择模板。');
+      return;
+    }
+
+    const didUpdateReturnHandoff = updateTaskReturnHandoffTemplate(activeSavedTemplate);
+
+    if (didUpdateReturnHandoff) {
+      onReturnTo?.(previewReturnState.returnTo);
+      return;
+    }
+
+    showErrorToast('任务抽屉状态恢复失败，请回到任务管理页后重新选择模板。');
+  };
+
   const handlePublish = async () => {
+    if (!hasDesignerContentChanges()) {
+      if (
+        activeSavedTemplate &&
+        templateDraftReturnRef.current.returnTo &&
+        templateDraftReturnRef.current.source === 'task-template-preview'
+      ) {
+        handleSelectPreviewTemplate();
+        return;
+      }
+
+      showInfoToast('没有任何变更，无法保存为新的版本');
+      return;
+    }
+
     if (isPublishBlockedByUsage) {
       openPublishSaveAsModal();
       return;
@@ -2107,6 +2172,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
       setTemplateId(result.template.id);
       setTemplateDraftName(result.template.name);
+      setTemplateNameDraftOverride(null);
       setTemplateVersion(result.template.version);
       setTemplateStatus(result.template.status);
       setSchema(result.template.schema);
@@ -2122,7 +2188,11 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       persistDesignerDraft(result.template);
       upsertTemplateInList(result.template, { collapseVersionChain: true });
 
-      if (publishReturnState.returnTo && publishReturnState.source === 'task-template-draft') {
+      if (
+        publishReturnState.returnTo &&
+        (publishReturnState.source === 'task-template-draft' ||
+          publishReturnState.source === 'task-template-preview')
+      ) {
         const didUpdateReturnHandoff = updateTaskReturnHandoffTemplate(result.template);
 
         if (didUpdateReturnHandoff) {
@@ -2132,10 +2202,6 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
         showErrorToast('任务抽屉状态恢复失败，请回到任务管理页后重新选择模板。');
         return;
-      }
-
-      if (publishReturnState.source === 'task-template-preview') {
-        clearTemplateDraftReturn();
       }
 
       const publishedVersionLabel =
@@ -2155,12 +2221,31 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setIsSaving(true);
 
     try {
-      const savedTemplate = await saveAsNewTemplate();
+      const saveAsReturnState = templateDraftReturnRef.current;
+      const savedTemplate = await saveAsNewTemplate({ preservePreviewReturn: true });
 
       if (!savedTemplate) {
         return;
       }
 
+      if (
+        saveAsReturnState.returnTo &&
+        (saveAsReturnState.source === 'task-template-draft' ||
+          saveAsReturnState.source === 'task-template-preview')
+      ) {
+        const returnTo = saveAsReturnState.returnTo;
+        const didUpdateReturnHandoff = updateTaskReturnHandoffTemplate(savedTemplate);
+
+        if (didUpdateReturnHandoff) {
+          closePublishSaveAsWithAnimation(() => onReturnTo?.(returnTo));
+          return;
+        }
+
+        showErrorToast('任务抽屉状态恢复失败，请回到任务管理页后重新选择模板。');
+        return;
+      }
+
+      clearTemplatePreviewReturnAfterSave();
       showStatusToast('模板已另存为新模板。');
       closePublishSaveAsWithAnimation();
     } catch (error) {
@@ -2169,6 +2254,13 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       setIsSaving(false);
     }
   };
+
+  const shouldSelectUnchangedPreviewTemplate = Boolean(
+    activeSavedTemplate &&
+      templateDraftReturnRef.current.returnTo &&
+      templateDraftReturnRef.current.source === 'task-template-preview' &&
+      !hasDesignerContentChanges(),
+  );
 
   return (
     <section className="template-manager-page" aria-labelledby="owner-templates-title">
@@ -2414,8 +2506,13 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                     <span>版本管理</span>
                   </button>
                 ) : null}
-                <button className="primary-action" type="button" disabled={isSaving} onClick={handlePublish}>
-                  保存并发布版本 {nextVersionName}
+                <button
+                  className="primary-action"
+                  type="button"
+                  disabled={isSaving}
+                  onClick={shouldSelectUnchangedPreviewTemplate ? handleSelectPreviewTemplate : handlePublish}
+                >
+                  {shouldSelectUnchangedPreviewTemplate ? '选择该模板' : `保存并发布版本 ${nextVersionName}`}
                 </button>
               </div>
             </header>
@@ -2445,6 +2542,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                   activeTabByFieldKey={activeDesignerTabByFieldKey}
                   onActiveTabChange={handleDesignerTabChange}
                   onTemplateNameChange={setTemplateDraftName}
+                  onTemplateNameDraftChange={setTemplateNameDraftOverride}
                   onPreviewUploadedFile={() => setIsDesignerPreviewOpen(true)}
                   onSelectField={selectField}
                   onDuplicateField={duplicateField}

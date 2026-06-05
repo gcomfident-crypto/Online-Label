@@ -10,8 +10,8 @@ type ManualReviewTaskStatus = '复审中' | '终审中' | '已完成';
 
 type ManualReviewTask = {
   taskId: string;
+  taskDisplayId: string;
   taskName: string;
-  batchNo: string;
   stage: ManualReviewStage;
   pendingCount: number;
   aiPassCount: number;
@@ -115,6 +115,7 @@ export const ReviewListPage = () => {
         <div className="task-table-scroll manual-review-task-table-scroll" data-adaptive-table-viewport="true">
           <table className="task-table manual-review-task-table" aria-label="人工审核任务列表">
             <colgroup>
+              <col className="manual-review-task-table__col-id" />
               <col className="manual-review-task-table__col-task" />
               <col className="manual-review-task-table__col-stage" />
               <col className="manual-review-task-table__col-count" />
@@ -124,11 +125,11 @@ export const ReviewListPage = () => {
               <col className="manual-review-task-table__col-reviewer" />
               <col className="manual-review-task-table__col-status" />
               <col className="manual-review-task-table__col-time" />
-              <col className="manual-review-task-table__col-action" />
             </colgroup>
             <thead>
               <tr>
-                <th scope="col">任务名称 / 批次</th>
+                <th scope="col">任务ID</th>
+                <th scope="col">名称</th>
                 <th scope="col">审核阶段</th>
                 <th scope="col">待审核</th>
                 <th scope="col">AI 通过</th>
@@ -137,7 +138,6 @@ export const ReviewListPage = () => {
                 <th scope="col">处理人</th>
                 <th scope="col">状态</th>
                 <th scope="col">创建 / 更新</th>
-                <th scope="col">操作</th>
               </tr>
             </thead>
             <tbody className="task-table__body">
@@ -166,9 +166,11 @@ export const ReviewListPage = () => {
                     className={selectedTaskId === task.taskId ? 'is-active' : undefined}
                   >
                     <td>
+                      <code className="manual-review-task-id">{task.taskDisplayId}</code>
+                    </td>
+                    <td>
                       <div className="manual-review-task-title">
                         <strong>{task.taskName}</strong>
-                        <small>{task.batchNo}</small>
                       </div>
                     </td>
                     <td>
@@ -195,18 +197,6 @@ export const ReviewListPage = () => {
                         <span>{task.createdAt}</span>
                         <small>{task.updatedAt}</small>
                       </span>
-                    </td>
-                    <td>
-                      <button
-                        className="manual-review-enter-button"
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openTask(task.taskId);
-                        }}
-                      >
-                        进入审核
-                      </button>
                     </td>
                   </tr>
                 ))
@@ -320,12 +310,12 @@ function buildManualReviewTasks(queueItems: ReviewQueueItemDto[]): ManualReviewT
       const latestItem = orderedItems[orderedItems.length - 1] ?? items[0];
       const createdAt = orderedItems[0]?.submittedAt ?? latestItem?.submittedAt ?? '';
       const updatedAt = latestItem?.updatedAt ?? latestItem?.submittedAt ?? createdAt;
-      const batchNo = `TASK-${taskId.slice(-8).toUpperCase()}`;
+      const taskDisplayId = formatManualReviewTaskDisplayId(taskId);
 
       return {
         taskId,
-        taskName: latestItem?.taskTitle?.trim() ? latestItem.taskTitle : `人工审核任务 ${batchNo}`,
-        batchNo,
+        taskDisplayId,
+        taskName: latestItem?.taskTitle?.trim() ? latestItem.taskTitle : `人工审核任务 ${taskDisplayId}`,
         stage: '复审',
         pendingCount: items.length,
         aiPassCount: items.filter((item) => item.aiDecision === 'pass').length,
@@ -338,6 +328,16 @@ function buildManualReviewTasks(queueItems: ReviewQueueItemDto[]): ManualReviewT
       } satisfies ManualReviewTask;
     })
     .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
+}
+
+function formatManualReviewTaskDisplayId(taskId: string): string {
+  const normalizedTaskId = taskId.trim();
+
+  if (/^TASK[-_]/i.test(normalizedTaskId)) {
+    return normalizedTaskId;
+  }
+
+  return `TASK-${normalizedTaskId.slice(-8).toUpperCase()}`;
 }
 
 function resolveReviewerName(reviewerId: string | null | undefined): string {

@@ -124,6 +124,40 @@ const taskAssignments = [
 const aiRejectedWorkbench = {
   ...qaWorkbench,
   assignment: { ...qaWorkbench.assignment, status: 'NEEDS_REVISION' },
+  task: {
+    ...qaWorkbench.task,
+    schema: {
+      ...qaWorkbench.task.schema,
+      fields: [
+        {
+          key: 'qa_show_item',
+          type: 'show_item',
+          label: '展示项',
+          displayConfig: {
+            layout: 'table',
+            fields: [
+              { sourceKey: 'prompt', label: 'Prompt', format: 'long_text' },
+              { sourceKey: 'model_answer', label: '模型回答', format: 'long_text' },
+            ],
+          },
+        },
+        {
+          ...qaWorkbench.task.schema.fields[0],
+          aiReview: {
+            enabled: true,
+            requirement: '判断整体质量是否与题目材料和任务要求一致。',
+          },
+        },
+        {
+          ...qaWorkbench.task.schema.fields[1],
+          aiReview: {
+            enabled: true,
+            requirement: '审核意见需说明关键事实依据。',
+          },
+        },
+      ],
+    },
+  },
   rejectionNotice: {
     submissionId: 'submission_ai_reject',
     round: 2,
@@ -153,7 +187,75 @@ const aiRejectedWorkbench = {
             overall: 62,
             reason: '关键词字段过于稀疏，未覆盖商品核心卖点。',
           },
+          structuredOutput: {
+            verdict: 'reject',
+            overallScore: 62,
+            fieldReviews: [
+              {
+                fieldKey: 'quality',
+                label: '整体质量',
+                score: 91,
+                decision: 'pass',
+                comment: '整体质量选择符合题目要求。',
+                suggestions: [],
+              },
+              {
+                fieldKey: 'comment',
+                label: '审核意见',
+                score: 48,
+                decision: 'reject',
+                comment: '审核意见过短，未解释核心判断依据。',
+                suggestions: ['补充事实性、完整性和表达清晰度的判断依据。'],
+              },
+            ],
+            overallComment: '审核意见未通过 AI 预审，建议打回给标注员修改。',
+          },
           createdAt: '2026-05-21T08:10:00.000Z',
+        },
+      ],
+    },
+  ],
+};
+
+const aiPassedWorkbench = {
+  ...aiRejectedWorkbench,
+  assignment: { ...aiRejectedWorkbench.assignment, status: 'SUBMITTED' },
+  rejectionNotice: null,
+  submissionHistory: [
+    {
+      ...aiRejectedWorkbench.submissionHistory[0],
+      status: 'HUMAN_PENDING',
+      reviewRecords: [
+        {
+          ...aiRejectedWorkbench.submissionHistory[0].reviewRecords[0],
+          decision: 'pass',
+          comment: '所有字段均通过 AI 预审。',
+          scores: {
+            overall: 92,
+          },
+          structuredOutput: {
+            verdict: 'pass',
+            overallScore: 92,
+            fieldReviews: [
+              {
+                fieldKey: 'quality',
+                label: '整体质量',
+                score: 91,
+                decision: 'pass',
+                comment: '整体质量选择符合题目要求。',
+                suggestions: [],
+              },
+              {
+                fieldKey: 'comment',
+                label: '审核意见',
+                score: 93,
+                decision: 'pass',
+                comment: '审核意见已说明关键判断依据。',
+                suggestions: [],
+              },
+            ],
+            overallComment: '所有开启 AI 预审的字段均通过。',
+          },
         },
       ],
     },
@@ -287,10 +389,22 @@ describe('WorkbenchPage', () => {
     expect(screen.queryByText('任务信息')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '基础信息' })).not.toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: '标注信息' })).toBeInTheDocument();
-    const canvasToolbar = screen.getByLabelText('标注操作栏');
-    expect(within(canvasToolbar).queryByText('基础信息')).not.toBeInTheDocument();
-    expect(within(canvasToolbar).getByText('0.30 元 / 条')).toHaveClass('workbench-reward-pill');
-    expect(within(canvasToolbar).getByRole('button', { name: '报告题目' })).toBeInTheDocument();
+    const workbenchActions = screen.getByLabelText('标注操作');
+    expect(screen.queryByLabelText('标注操作栏')).not.toBeInTheDocument();
+    expect(within(workbenchActions).queryByText('基础信息')).not.toBeInTheDocument();
+    expect(within(workbenchActions).getByText('0.30 元 / 条')).toHaveClass('workbench-reward-pill');
+    expect(within(workbenchActions).queryByRole('button', { name: '报告题目' })).not.toBeInTheDocument();
+    const annotationCanvas = screen.getByRole('main', { name: '标注画布' });
+    const submitActionButtons = within(annotationCanvas)
+      .getAllByRole('button')
+      .filter((button) =>
+        ['报告题目', '保存草稿', '提交任务'].includes(button.textContent?.trim() ?? ''),
+      );
+    expect(submitActionButtons.map((button) => button.textContent?.trim())).toEqual([
+      '报告题目',
+      '保存草稿',
+      '提交任务',
+    ]);
     expect(screen.queryByRole('tab', { name: '标注' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '+ 新 Tab' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '基础信息' })).not.toBeInTheDocument();
@@ -704,6 +818,7 @@ describe('WorkbenchPage', () => {
     await user.click(screen.getByRole('button', { name: '提交任务' }));
 
     expect(await screen.findByText('提交任务成功，1 条标注已提交至人工复审')).toBeInTheDocument();
+    expect(screen.queryByText('草稿已保存')).not.toBeInTheDocument();
     await new Promise((resolve) => window.setTimeout(resolve, 450));
     expect(fetchMock).toHaveBeenCalledTimes(6);
   });
@@ -760,11 +875,14 @@ describe('WorkbenchPage', () => {
     await screen.findByRole('heading', { name: /问答质量标注/ });
     await user.click(screen.getByRole('button', { name: '提交任务' }));
     expect(await screen.findByText('提交任务成功，1 条标注已进入 AI 预审队列')).toBeInTheDocument();
+    expect(screen.queryByText('草稿已保存')).not.toBeInTheDocument();
 
-    const report = await screen.findByRole('region', { name: 'AI 预审报告' });
-    expect(report).toHaveTextContent('建议打回');
-    expect(report).toHaveTextContent('综合 62');
-    expect(screen.getByText('AI 预审未通过，请根据报告修改后重新提交')).toBeInTheDocument();
+    await user.click(await screen.findByRole('tab', { name: /AI 预审/ }));
+    const reviewResult = await screen.findByRole('region', { name: 'AI 预审结果' });
+    expect(reviewResult).toHaveTextContent('建议打回');
+    expect(reviewResult).not.toHaveTextContent(/综合\s*\d+/);
+    expect(reviewResult).toHaveTextContent('审核意见未通过 AI 预审，建议打回给标注员修改。');
+    expect(screen.queryByRole('region', { name: 'AI 预审报告' })).not.toBeInTheDocument();
   });
 
   it('提交前会展示前端必填校验错误', async () => {
@@ -790,7 +908,8 @@ describe('WorkbenchPage', () => {
     expect(document.querySelector('.submission-validation-summary')).toBeNull();
   });
 
-  it('AI 预审打回时展示 Labeler 可读的五维报告和重新标注入口', async () => {
+  it('AI 预审打回时展示字段级评估结果和重新标注入口', async () => {
+    const user = userEvent.setup();
     vi.stubGlobal(
       'fetch',
       vi
@@ -802,15 +921,85 @@ describe('WorkbenchPage', () => {
 
     renderWorkbenchPage();
 
-    const report = await screen.findByRole('region', { name: 'AI 预审报告' });
-    expect(report).toHaveTextContent('建议打回');
-    expect(report).toHaveTextContent('综合 62');
-    expect(within(report).getByText('相关性')).toBeInTheDocument();
-    expect(within(report).getByText('准确性')).toBeInTheDocument();
-    expect(within(report).getByText('格式合规')).toBeInTheDocument();
-    expect(within(report).getByText('安全性')).toBeInTheDocument();
-    expect(within(report).getByText('关键词字段过于稀疏，建议补充至少 4 个关键词。')).toBeInTheDocument();
-    expect(within(report).getByRole('button', { name: '重新标注' })).toBeInTheDocument();
+    const tablist = await screen.findByRole('tablist', { name: '标注画布视图' });
+    expect(within(tablist).getByRole('tab', { name: '标注内容' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('region', { name: 'AI 预审报告' })).not.toBeInTheDocument();
+
+    await user.click(within(tablist).getByRole('tab', { name: /AI 预审/ }));
+
+    const context = await screen.findByRole('region', { name: 'AI 预审结果' });
+    expect(context).toHaveTextContent('建议打回');
+    expect(context).not.toHaveTextContent(/综合\s*\d+/);
+    expect(context).toHaveTextContent('第 2 轮');
+    expect(context).toHaveTextContent('审核意见未通过 AI 预审，建议打回给标注员修改。');
+    expect(within(context).getByRole('button', { name: '重新标注' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'AI 预审报告' })).not.toBeInTheDocument();
+    expect(context).toHaveTextContent('展示项 ShowItem');
+    const showItemRegion = within(context).getByRole('region', { name: '展示项 ShowItem' });
+    expect(within(showItemRegion).getByRole('table', { name: '展示项展示字段' })).toBeInTheDocument();
+    expect(showItemRegion.querySelector('.schema-field--show-item')).not.toBeNull();
+    expect(showItemRegion.querySelector('.ai-review-context__show-items')).toBeNull();
+    expect(context).toHaveTextContent('Prompt');
+    expect(context).toHaveTextContent('如何判断回答质量？');
+    expect(context).toHaveTextContent('模型回答');
+    expect(context).toHaveTextContent('检查事实性、完整性和表达清晰度。');
+    expect(context).toHaveTextContent('需要 AI 预审的字段');
+    expect(context).toHaveTextContent('整体质量');
+    expect(context).toHaveTextContent('合格');
+    expect(context).toHaveTextContent('AI 预审标准');
+    expect(context).toHaveTextContent('判断整体质量是否与题目材料和任务要求一致。');
+    expect(context).toHaveTextContent('AI 对当前字段的评语');
+    expect(context).toHaveTextContent('整体质量选择符合题目要求。');
+    expect(context).toHaveTextContent('审核意见');
+    expect(context).toHaveTextContent('可以通过。');
+    expect(context).toHaveTextContent('审核意见需说明关键事实依据。');
+    expect(context).toHaveTextContent('审核意见过短，未解释核心判断依据。');
+    expect(context).toHaveTextContent('补充事实性、完整性和表达清晰度的判断依据。');
+    expect(context).toHaveTextContent('通过');
+    expect(context).toHaveTextContent('未通过');
+    expect(context).not.toHaveTextContent('91');
+    expect(context).not.toHaveTextContent('48');
+    const passedFieldCard = within(context).getByText('整体质量').closest('.ai-review-context__field-card');
+    const rejectedFieldCard = within(context).getByText('审核意见').closest('.ai-review-context__field-card');
+    expect(passedFieldCard).toHaveClass('is-pass');
+    expect(rejectedFieldCard).toHaveClass('is-reject');
+    expect(rejectedFieldCard?.querySelector('.ai-review-context__field-header')).not.toBeNull();
+    expect(rejectedFieldCard?.querySelector('.ai-review-context__field-title')).toHaveTextContent('审核意见');
+    expect(rejectedFieldCard?.querySelector('.ai-review-context__field-key')).toHaveTextContent('comment');
+    expect(rejectedFieldCard?.querySelector('.ai-review-context__field-details')).not.toBeNull();
+    expect(rejectedFieldCard?.querySelector('.ai-review-context__field-row--answer')).toHaveTextContent('可以通过。');
+    expect(rejectedFieldCard?.querySelector('.ai-review-context__field-row--standard')).toHaveTextContent(
+      '审核意见需说明关键事实依据。',
+    );
+    expect(rejectedFieldCard?.querySelector('.ai-review-context__field-row--comment')).toHaveTextContent(
+      '审核意见过短，未解释核心判断依据。',
+    );
+    expect(context).not.toHaveTextContent('相关性');
+    expect(context).not.toHaveTextContent('准确性');
+    expect(context).not.toHaveTextContent('格式合规');
+    expect(context).not.toHaveTextContent('安全性');
+  });
+
+  it('AI 预审字段全部通过时不展示重新标注按钮', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse({ data: aiPassedWorkbench }))
+        .mockResolvedValueOnce(jsonResponse({ data: stats }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments })),
+    );
+
+    renderWorkbenchPage();
+
+    const tablist = await screen.findByRole('tablist', { name: '标注画布视图' });
+    await user.click(within(tablist).getByRole('tab', { name: /AI 预审/ }));
+
+    const context = await screen.findByRole('region', { name: 'AI 预审结果' });
+    expect(context).toHaveTextContent('所有开启 AI 预审的字段均通过。');
+    expect(within(context).getAllByText('通过')).toHaveLength(2);
+    expect(within(context).queryByRole('button', { name: '重新标注' })).not.toBeInTheDocument();
   });
 
   it('支持保存、切题和报告快捷键', async () => {

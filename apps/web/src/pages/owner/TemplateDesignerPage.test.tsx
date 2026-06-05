@@ -117,15 +117,15 @@ describe('TemplateDesignerPage', () => {
     expect(screen.getByRole('heading', { name: '属性配置' })).toBeInTheDocument();
     expect(screen.queryByText('属性配置 · summary')).not.toBeInTheDocument();
 
+    expect(screen.getByRole('button', { name: '长度限制类型' })).toHaveTextContent('最大长度');
+    expect(screen.queryByLabelText('预置校验')).not.toBeInTheDocument();
     await user.clear(screen.getByLabelText('最大长度'));
     await user.type(screen.getByLabelText('最大长度'), '42');
     fireEvent.change(screen.getByLabelText('正则'), { target: { value: '^[^#]+$' } });
-    await user.selectOptions(screen.getByLabelText('预置校验'), 'valid_json');
 
     expect(findDesignerField('summary')?.validation).toMatchObject({
       maxLength: 42,
       pattern: '^[^#]+$',
-      customValidatorKey: 'valid_json',
     });
 
     await user.click(screen.getByLabelText('显示字段联动'));
@@ -441,15 +441,15 @@ describe('TemplateDesignerPage', () => {
     expect(
       (within(promptPreview).getByLabelText('编辑题目展示信息 Show Item') as HTMLTextAreaElement).value,
     ).toContain('上传 Prompt：比较两个回答');
-    expect(promptPreview).toHaveTextContent('3. 标注员提交内容');
-    const answersTextarea = within(promptPreview).getByLabelText('编辑标注员提交内容') as HTMLTextAreaElement;
+    expect(promptPreview).toHaveTextContent('3. 需要AI预审的字段');
+    const answersTextarea = within(promptPreview).getByLabelText('编辑需要AI预审的字段') as HTMLTextAreaElement;
     expect(answersTextarea.value).toContain('"preferred": null');
     expect(answersTextarea.value).not.toContain('internal_note');
-    expect(promptPreview).toHaveTextContent('4. 字段级审核标准');
-    expect((within(promptPreview).getByLabelText('编辑字段级审核标准') as HTMLTextAreaElement).value).toContain(
+    expect(promptPreview).toHaveTextContent('4. 字段审核标准');
+    expect((within(promptPreview).getByLabelText('编辑字段审核标准') as HTMLTextAreaElement).value).toContain(
       '必须结合两个回答的事实准确性和完整性判断。',
     );
-    expect((within(promptPreview).getByLabelText('编辑字段级审核标准') as HTMLTextAreaElement).value).not.toContain(
+    expect((within(promptPreview).getByLabelText('编辑字段审核标准') as HTMLTextAreaElement).value).not.toContain(
       '关闭 AI 预审时不应该进入 Prompt。',
     );
     expect(promptPreview).toHaveTextContent('5. 输出格式约束');
@@ -1559,7 +1559,7 @@ describe('TemplateDesignerPage', () => {
       '多行文本',
       '单选',
       '多选',
-      '标签选择',
+      '标签',
       '富文本',
       '文件/图片',
       'JSON 编辑器',
@@ -1636,6 +1636,23 @@ describe('TemplateDesignerPage', () => {
     );
     expect(screen.getByRole('heading', { name: '属性配置' })).toBeInTheDocument();
     expect(screen.queryByText('属性配置 · text_1')).not.toBeInTheDocument();
+  });
+
+  it('标签字段修改标题后同步展示在画布卡片上', async () => {
+    const user = userEvent.setup();
+
+    render(<TemplateDesignerPage />);
+    await openNewTemplate(user);
+
+    addDesignerField('tag_select');
+
+    expect(screen.getByRole('button', { name: '选择 标签' })).toBeInTheDocument();
+    await user.clear(screen.getByLabelText('标题'));
+    await user.type(screen.getByLabelText('标题'), '质量标签');
+
+    expect(screen.getByRole('button', { name: '选择 质量标签' })).toBeInTheDocument();
+    expect(topLevelDesignerFieldLabels()).toEqual(['标签 - 质量标签']);
+    expect(screen.queryByRole('button', { name: '选择 标签选择' })).not.toBeInTheDocument();
   });
 
   it('模板配置标题旁的撤销重做按钮和快捷键可以回滚画布操作', async () => {
@@ -3029,6 +3046,10 @@ describe('TemplateDesignerPage', () => {
 
     render(<TemplateDesignerPage />);
     await openTemplateByName(user, '锁定模板');
+    await user.click(screen.getByRole('button', { name: '选择 相关性评分' }));
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: '相关性评分修改' },
+    });
     await user.click(screen.getByRole('button', { name: '保存并发布版本 v2' }));
 
     const modal = await screen.findByRole('dialog', { name: '模板正在使用中' });
@@ -3052,6 +3073,39 @@ describe('TemplateDesignerPage', () => {
       fetchMock.mock.calls.some(
         ([input, init]) => input.toString() === '/templates/template_locked/publish' && init?.method === 'POST',
       ),
+    ).toBe(false);
+  });
+
+  it('模板没有任何变更时不允许保存并发布新版本', async () => {
+    const user = userEvent.setup();
+    const publishedTemplate = createTemplateDto({
+      id: 'template_v1',
+      name: '无变更模板',
+      schema: qaQualitySampleSchema,
+      status: 'PUBLISHED',
+      version: 1,
+      rootTemplateId: 'template_v1',
+      createdById: 'user_owner_zhang_man',
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({ data: [publishedTemplate] });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+    await openTemplateByName(user, '无变更模板');
+    await user.click(screen.getByRole('button', { name: '保存并发布版本 v2' }));
+
+    expect(await screen.findByText('没有任何变更，无法保存为新的版本')).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([, init]) => (init?.method ?? 'GET') !== 'GET'),
     ).toBe(false);
   });
 
@@ -3125,6 +3179,10 @@ describe('TemplateDesignerPage', () => {
 
     render(<TemplateDesignerPage />);
     await openTemplateByName(user, '版本链模板');
+    await user.click(screen.getByRole('button', { name: '选择 题目' }));
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: '题目内容' },
+    });
     await user.click(screen.getByRole('button', { name: '保存并发布版本 v2' }));
 
     expect(await screen.findByText('"版本链模板" 模版已发布为v2')).toBeInTheDocument();

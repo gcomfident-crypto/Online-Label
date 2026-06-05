@@ -40,7 +40,8 @@ describe('ReviewListPage', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/reviews/pending', expect.anything()));
     const table = screen.getByRole('table', { name: '人工审核任务列表' });
     [
-      '任务名称 / 批次',
+      '任务ID',
+      '名称',
       '审核阶段',
       '待审核',
       'AI 通过',
@@ -49,8 +50,16 @@ describe('ReviewListPage', () => {
       '处理人',
       '状态',
       '创建 / 更新',
-      '操作',
     ].forEach((header) => expect(within(table).getByText(header)).toBeInTheDocument());
+    expect(within(table).queryByText('任务名称 / 批次')).not.toBeInTheDocument();
+    expect(within(table).queryByText('操作')).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '进入审核' })).not.toBeInTheDocument();
+    const taskRow = within(table).getByRole('row', { name: '人工审核任务 真实人工审核任务' });
+    const taskRowCells = within(taskRow).getAllByRole('cell');
+    expect(taskRowCells).toHaveLength(10);
+    expect(taskRowCells[0]).toHaveTextContent('TASK-01D7PEMK');
+    expect(taskRowCells[1]).toHaveTextContent('真实人工审核任务');
+    expect(taskRowCells[1]).not.toHaveTextContent('TASK-01D7PEMK');
     expect(within(table).getByText('真实人工审核任务')).toBeInTheDocument();
     expect(within(table).getByText('TASK-01D7PEMK')).toBeInTheDocument();
     expect(table).not.toHaveTextContent(rawReviewTaskId);
@@ -59,7 +68,7 @@ describe('ReviewListPage', () => {
     expect(within(table).getByText('0')).toBeInTheDocument();
     expect(within(table).getByText('待处理')).toBeInTheDocument();
 
-    await user.click(within(table).getByRole('button', { name: '进入审核' }));
+    await user.click(taskRow);
 
     const dialog = await screen.findByRole('dialog', { name: '真实人工审核任务' });
     expect(dialog).toHaveClass('manual-review-task-sheet');

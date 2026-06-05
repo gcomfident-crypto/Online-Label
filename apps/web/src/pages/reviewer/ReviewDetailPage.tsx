@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { getSchemaFieldKey, type LabelHubSchema, type SchemaField } from '@labelhub/shared';
 
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
+import { SchemaRenderer } from '../../features/schema-renderer/SchemaRenderer';
 import {
+  batchPassReviews,
+  batchRejectReviews,
   getReview,
   passReview,
   rejectReview,
@@ -88,7 +92,6 @@ export const ReviewTaskDetailContent = ({
   const [queueItems, setQueueItems] = useState<ReviewQueueItemDto[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectedIssueTags, setSelectedIssueTags] = useState<Set<string>>(new Set());
   const [reviewComment, setReviewComment] = useState('');
   const [reviewDetail, setReviewDetail] = useState<ReviewDetailDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -161,6 +164,10 @@ export const ReviewTaskDetailContent = ({
 
   const task = useMemo(() => buildManualReviewTask(queueItems, reviewDetail, taskId), [queueItems, reviewDetail, taskId]);
   const tabItems = useMemo(() => getTabItems(queueItems, activeTab), [activeTab, queueItems]);
+  const schemaFieldLabels = useMemo(
+    () => buildSchemaFieldLabelMap(reviewDetail?.task.schema ?? null),
+    [reviewDetail?.task.schema],
+  );
   const selectedQueueItem = useMemo(
     () =>
       tabItems.find((item) => item.submissionId === selectedSubmissionId) ??
@@ -180,14 +187,15 @@ export const ReviewTaskDetailContent = ({
         : null,
     [reviewDetail, selectedQueueItem],
   );
+  const selectedItemDetail =
+    selectedItem && reviewDetail?.submission.id === selectedItem.submissionId ? reviewDetail : null;
 
   useEffect(() => {
     if (!selectedItem) {
       return;
     }
 
-    setReviewComment(selectedItem.reviewComment);
-    setSelectedIssueTags(new Set());
+    setReviewComment('');
   }, [selectedItem?.submissionId]);
 
   if (!isLoading && !task) {
@@ -222,13 +230,15 @@ export const ReviewTaskDetailContent = ({
     });
   };
 
-  const toggleIssueTag = (tag: string) => {
-    setSelectedIssueTags((current) => {
+  const toggleVisibleSelection = (subIds: string[], shouldSelect: boolean) => {
+    setSelectedIds((current) => {
       const next = new Set(current);
-      if (next.has(tag)) {
-        next.delete(tag);
-      } else {
-        next.add(tag);
+      for (const subId of subIds) {
+        if (shouldSelect) {
+          next.add(subId);
+        } else {
+          next.delete(subId);
+        }
       }
       return next;
     });
@@ -272,6 +282,53 @@ export const ReviewTaskDetailContent = ({
     }
   };
 
+  const handleBatchAction = async (action: 'pass' | 'reject') => {
+    const selectedItems = tabItems.filter((item) => selectedIds.has(item.externalId));
+
+    if (selectedItems.length === 0) {
+      showErrorToast('请先选择题目');
+      return;
+    }
+
+    const selectedSubmissionIds = selectedItems.map((item) => item.submissionId);
+    const selectedExternalIds = new Set(selectedItems.map((item) => item.externalId));
+    const selectedSubmissionIdSet = new Set(selectedSubmissionIds);
+
+    try {
+      const result =
+        action === 'pass'
+          ? await batchPassReviews({
+              actorId: REVIEWER_ID,
+              comment: reviewComment,
+              submissionIds: selectedSubmissionIds,
+            })
+          : await batchRejectReviews({
+              actorId: REVIEWER_ID,
+              reason: reviewComment || '请根据审核意见修改',
+              submissionIds: selectedSubmissionIds,
+            });
+      const processedCount = result.processedCount || selectedItems.length;
+      const nextQueueItems = queueItems.filter((item) => !selectedSubmissionIdSet.has(item.submissionId));
+
+      setQueueItems(nextQueueItems);
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        selectedExternalIds.forEach((externalId) => next.delete(externalId));
+        return next;
+      });
+      setSelectedSubmissionId((current) => {
+        if (current && !selectedSubmissionIdSet.has(current)) {
+          return current;
+        }
+
+        return getTabItems(nextQueueItems, activeTab)[0]?.submissionId ?? nextQueueItems[0]?.submissionId ?? null;
+      });
+      showStatusToast(action === 'pass' ? `已批量通过 ${processedCount} 条` : `已批量打回 ${processedCount} 条`);
+    } catch (error) {
+      showErrorToast(error instanceof Error ? error.message : '批量审核操作失败');
+    }
+  };
+
   return (
     <section className="manual-review-detail-page" aria-labelledby="manual-review-detail-title">
       <ToastViewport messages={messages} onDismiss={dismissToast} />
@@ -281,9 +338,6 @@ export const ReviewTaskDetailContent = ({
           <h1 id="manual-review-detail-title">{task?.taskName ?? '人工审核'}</h1>
         </div>
         <div className="manual-review-detail-toolbar__actions" aria-label="人工审核视角操作">
-          <Link to="/reviewer/reviews">复审视角</Link>
-          <button type="button">切换：终审</button>
-          <button type="button">导出审计日志</button>
           {onClose ? (
             <button className="manual-review-sheet-close" type="button" aria-label="关闭人工审核详情" onClick={onClose}>
               <span aria-hidden="true">×</span>
@@ -302,43 +356,41 @@ export const ReviewTaskDetailContent = ({
           selectedIds={selectedIds}
           selectedSubId={selectedItem?.subId ?? null}
           task={task}
+          onBatchAction={handleBatchAction}
           onSelectItem={setSelectedSubmissionId}
           onTabClick={handleTabClick}
+          onToggleAllSelection={toggleVisibleSelection}
           onToggleSelection={toggleSelection}
         />
 
         <main className="manual-review-detail-main">
           {selectedItem ? (
             <>
-              <ItemHeader item={selectedItem} task={task} />
-              <section className="manual-review-compare-grid" aria-label="本轮提交内容">
-                <SubmitSnapshotCard
-                  snapshot={selectedItem.questionInfo}
-                  title="题目信息"
-                />
-                <SubmitSnapshotCard
-                  highlight
-                  snapshot={selectedItem.currentRoundSubmit}
-                  title="本轮提交"
-                />
-              </section>
-              <AiReviewResult item={selectedItem} />
-              <label className="manual-review-comment-field">
-                <span>审核意见（打回时必填）</span>
-                <textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} />
-              </label>
-              <section className="manual-review-issue-tags" aria-label="问题标签">
-                {selectedItem.issueTags.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    className={selectedIssueTags.has(tag) ? 'is-active' : ''}
-                    onClick={() => toggleIssueTag(tag)}
-                  >
-                    # {tag}
-                  </button>
-                ))}
-              </section>
+              <div className="manual-review-detail-content">
+                <ItemHeader item={selectedItem} task={task} />
+                <section className="manual-review-compare-grid" aria-label="本轮提交内容">
+                  <QuestionInfoCard
+                    fallbackSnapshot={selectedItem.questionInfo}
+                    rawData={selectedItemDetail?.taskItem.rawData ?? selectedItem.questionInfo}
+                    schema={selectedItemDetail?.task.schema ?? null}
+                  />
+                  <SubmitSnapshotCard
+                    highlight
+                    fieldLabels={schemaFieldLabels}
+                    snapshot={selectedItem.currentRoundSubmit}
+                    title="本轮提交"
+                  />
+                </section>
+                <AiReviewResult item={selectedItem} />
+                <label className="manual-review-comment-field">
+                  <span>审核意见（打回时必填）</span>
+                  <textarea
+                    placeholder={selectedItem.reviewComment || '请输入审核意见，打回时必填'}
+                    value={reviewComment}
+                    onChange={(event) => setReviewComment(event.target.value)}
+                  />
+                </label>
+              </div>
               <section className="manual-review-actions" aria-label="审核操作">
                 <button className="is-reject" type="button" onClick={() => void handleReviewAction('reject')}>
                   <strong>打回</strong>
@@ -355,9 +407,11 @@ export const ReviewTaskDetailContent = ({
               </section>
             </>
           ) : (
-            <div className="manual-review-empty-card">
-              <h2>{isLoading ? '正在加载题目' : '当前分组暂无题目'}</h2>
-              <p>请切换左侧 AI 结论分组。</p>
+            <div className="manual-review-detail-content">
+              <div className="manual-review-empty-card">
+                <h2>{isLoading ? '正在加载题目' : '当前分组暂无题目'}</h2>
+                <p>请切换左侧 AI 结论分组。</p>
+              </div>
             </div>
           )}
         </main>
@@ -371,8 +425,10 @@ export const ReviewTaskDetailContent = ({
 const QuestionQueue = ({
   activeTab,
   items,
+  onBatchAction,
   onSelectItem,
   onTabClick,
+  onToggleAllSelection,
   onToggleSelection,
   queueItems,
   selectedIds,
@@ -381,72 +437,129 @@ const QuestionQueue = ({
 }: {
   activeTab: ManualReviewTab;
   items: ReviewQueueItemDto[];
+  onBatchAction: (action: 'pass' | 'reject') => void;
   onSelectItem: (submissionId: string) => void;
   onTabClick: (tab: ManualReviewTab) => void;
+  onToggleAllSelection: (subIds: string[], shouldSelect: boolean) => void;
   onToggleSelection: (subId: string) => void;
   queueItems: ReviewQueueItemDto[];
   selectedIds: Set<string>;
   selectedSubId: string | null;
   task: ManualReviewTask | null;
-}) => (
-  <aside className="manual-review-queue-panel" aria-label="当前任务题目列表">
-    <div className="manual-review-tabs" role="tablist" aria-label="AI 结论分组">
-      {MANUAL_REVIEW_TABS.map((tab) => (
-        <button
-          key={tab.value}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === tab.value}
-          onClick={() => onTabClick(tab.value)}
-        >
-          <span>{tab.label}</span>
-          <strong>{countByTab(queueItems, tab.value).toLocaleString()}</strong>
+}) => {
+  const visibleSubIds = items.map((item) => item.externalId);
+  const visibleSelectedCount = visibleSubIds.filter((subId) => selectedIds.has(subId)).length;
+  const isAllVisibleSelected = visibleSubIds.length > 0 && visibleSelectedCount === visibleSubIds.length;
+  const isPartiallyVisibleSelected = visibleSelectedCount > 0 && visibleSelectedCount < visibleSubIds.length;
+
+  return (
+    <aside className="manual-review-queue-panel" aria-label="当前任务题目列表">
+      <div className="manual-review-tabs" role="tablist" aria-label="AI 结论分组">
+        {MANUAL_REVIEW_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.value}
+            onClick={() => onTabClick(tab.value)}
+          >
+            <span>{tab.label}</span>
+            <strong>{countByTab(queueItems, tab.value).toLocaleString()}</strong>
+          </button>
+        ))}
+      </div>
+
+      <div className="manual-review-batch-toolbar" aria-label="批量操作区">
+        <BatchSelectionControl
+          isAllSelected={isAllVisibleSelected}
+          isPartiallySelected={isPartiallyVisibleSelected}
+          selectedCount={visibleSelectedCount}
+          totalCount={visibleSubIds.length}
+          onToggle={(shouldSelect) => onToggleAllSelection(visibleSubIds, shouldSelect)}
+        />
+        <button type="button" disabled={visibleSelectedCount === 0} onClick={() => onBatchAction('pass')}>
+          批量通过
         </button>
-      ))}
-    </div>
+        <button type="button" disabled={visibleSelectedCount === 0} onClick={() => onBatchAction('reject')}>
+          批量打回
+        </button>
+      </div>
 
-    <div className="manual-review-batch-toolbar" aria-label="批量操作区">
-      <span>已选 {selectedIds.size.toLocaleString()} 条</span>
-      <button type="button">批量通过</button>
-      <button type="button">批量打回</button>
-      <button type="button">指派给...</button>
-    </div>
+      <div className="manual-review-question-list">
+        {items.length > 0 ? (
+          items.map((item) => {
+            const viewItem = buildManualReviewItem(item, null);
 
-    <div className="manual-review-question-list">
-      {items.length > 0 ? (
-        items.map((item) => {
-          const viewItem = buildManualReviewItem(item, null);
+            return (
+              <article key={item.submissionId} className={selectedSubId === viewItem.subId ? 'is-active' : undefined}>
+                <input
+                  type="checkbox"
+                  aria-label={`选择 ${viewItem.subId}`}
+                  checked={selectedIds.has(viewItem.subId)}
+                  onChange={() => onToggleSelection(viewItem.subId)}
+                />
+                <button
+                  type="button"
+                  aria-label={`${viewItem.subId} ${viewItem.submittedAt} ${suggestionLabel(viewItem.aiSuggestion)} 第 ${viewItem.round} 轮`}
+                  onClick={() => onSelectItem(item.submissionId)}
+                >
+                  <span className="manual-review-question-list__summary">
+                    <strong>{viewItem.subId}</strong>
+                    <time>{viewItem.submittedAt}</time>
+                  </span>
+                  <span className="manual-review-question-list__badges">
+                    <SuggestionBadge suggestion={viewItem.aiSuggestion} />
+                    <em>第 {viewItem.round} 轮</em>
+                  </span>
+                </button>
+              </article>
+            );
+          })
+        ) : (
+          <div className="manual-review-empty-card">
+            <p>{task ? '当前分组暂无题目。' : '正在加载题目。'}</p>
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+};
 
-          return (
-            <article key={item.submissionId} className={selectedSubId === viewItem.subId ? 'is-active' : undefined}>
-              <input
-                type="checkbox"
-                aria-label={`选择 ${viewItem.subId}`}
-                checked={selectedIds.has(viewItem.subId)}
-                onChange={() => onToggleSelection(viewItem.subId)}
-              />
-              <button type="button" onClick={() => onSelectItem(item.submissionId)}>
-                <span className="manual-review-question-list__meta">
-                  {viewItem.subId} · {viewItem.labelerName}标注 · {viewItem.submittedAt}
-                </span>
-                <strong>{viewItem.title}</strong>
-                <span className="manual-review-question-list__badges">
-                  <AiScoreBadge score={viewItem.aiScore} />
-                  <SuggestionBadge suggestion={viewItem.aiSuggestion} />
-                  <em>第 {viewItem.round} 轮</em>
-                </span>
-              </button>
-            </article>
-          );
-        })
-      ) : (
-        <div className="manual-review-empty-card">
-          <p>{task ? '当前分组暂无题目。' : '正在加载题目。'}</p>
-        </div>
-      )}
-    </div>
-  </aside>
-);
+const BatchSelectionControl = ({
+  isAllSelected,
+  isPartiallySelected,
+  onToggle,
+  selectedCount,
+  totalCount,
+}: {
+  isAllSelected: boolean;
+  isPartiallySelected: boolean;
+  onToggle: (shouldSelect: boolean) => void;
+  selectedCount: number;
+  totalCount: number;
+}) => {
+  const checkboxRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (checkboxRef.current) {
+      checkboxRef.current.indeterminate = isPartiallySelected;
+    }
+  }, [isPartiallySelected]);
+
+  return (
+    <label className="manual-review-batch-toolbar__selection">
+      <input
+        ref={checkboxRef}
+        type="checkbox"
+        aria-label="全选当前分组题目"
+        checked={isAllSelected}
+        disabled={totalCount === 0}
+        onChange={(event) => onToggle(event.currentTarget.checked)}
+      />
+      <span>已选 {selectedCount.toLocaleString()} 条</span>
+    </label>
+  );
+};
 
 const ItemHeader = ({ item, task }: { item: ManualReviewItem; task: ManualReviewTask | null }) => (
   <header className="manual-review-item-header">
@@ -462,11 +575,46 @@ const ItemHeader = ({ item, task }: { item: ManualReviewItem; task: ManualReview
   </header>
 );
 
+const noopSchemaChange = () => undefined;
+
+const QuestionInfoCard = ({
+  fallbackSnapshot,
+  rawData,
+  schema,
+}: {
+  fallbackSnapshot: ReviewSubmitSnapshot;
+  rawData: ReviewSubmitSnapshot;
+  schema: LabelHubSchema | null;
+}) => {
+  const showItemSchema = useMemo(
+    () => buildQuestionInfoShowItemSchema(schema, fallbackSnapshot),
+    [fallbackSnapshot, schema],
+  );
+
+  if (showItemSchema && showItemSchema.fields.length > 0) {
+    return (
+      <article className="manual-review-question-info-card" aria-label="题目信息">
+        <SchemaRenderer
+          schema={showItemSchema}
+          rawData={rawData}
+          value={{}}
+          mode="review"
+          onChange={noopSchemaChange}
+        />
+      </article>
+    );
+  }
+
+  return <SubmitSnapshotCard snapshot={fallbackSnapshot} title="题目信息" />;
+};
+
 const SubmitSnapshotCard = ({
+  fieldLabels,
   highlight = false,
   snapshot,
   title,
 }: {
+  fieldLabels?: ReadonlyMap<string, string>;
   highlight?: boolean;
   snapshot: ReviewSubmitSnapshot;
   title: string;
@@ -474,12 +622,19 @@ const SubmitSnapshotCard = ({
   <article className={highlight ? 'manual-review-submit-card is-highlight' : 'manual-review-submit-card'}>
     <h3>{title}</h3>
     <dl>
-      {Object.entries(snapshot).map(([key, value]) => (
-        <div key={key}>
-          <dt>{key}</dt>
-          <dd>{formatSnapshotValue(value)}</dd>
-        </div>
-      ))}
+      {Object.entries(snapshot).map(([key, value]) => {
+        const label = fieldLabels?.get(key) ?? key;
+
+        return (
+          <div key={key}>
+            <dt>
+              <span>{label}</span>
+              {label !== key ? <small>{key}</small> : null}
+            </dt>
+            <dd>{formatSnapshotValue(value)}</dd>
+          </div>
+        );
+      })}
     </dl>
   </article>
 );
@@ -515,11 +670,11 @@ const ReviewSidePanel = ({ item, task }: { item: ManualReviewItem | null; task: 
   <aside className="manual-review-side-panel">
     <section className="manual-review-stats" aria-label="审核统计">
       <div>
-        <span>我今日已审</span>
+        <span>今日已审</span>
         <strong className="is-blue">0</strong>
       </div>
       <div>
-        <span>我今日通过率</span>
+        <span>今日通过率</span>
         <strong className="is-green">--</strong>
       </div>
       <div>
@@ -527,7 +682,7 @@ const ReviewSidePanel = ({ item, task }: { item: ManualReviewItem | null; task: 
         <strong className="is-orange">{(task?.pendingCount ?? 0).toLocaleString()}</strong>
       </div>
       <div>
-        <span>SLA 剩余</span>
+        <span>剩余处理时限</span>
         <strong>--</strong>
       </div>
     </section>
@@ -560,10 +715,6 @@ const TimelineEntry = ({ entry }: { entry: ReviewTimelineItem }) => (
   </li>
 );
 
-const AiScoreBadge = ({ score }: { score: number | null }) => (
-  <span className="manual-review-ai-score">AI {formatScore(score)}</span>
-);
-
 const SuggestionBadge = ({ suggestion }: { suggestion: ManualReviewSuggestion }) => (
   <span className={`manual-review-suggestion is-${suggestion}`}>{suggestionLabel(suggestion)}</span>
 );
@@ -575,7 +726,7 @@ function buildManualReviewTask(
 ): ManualReviewTask | null {
   const firstItem = queueItems[0];
 
-  if (!firstItem && !detail) {
+  if (!firstItem && !detail && !taskId) {
     return null;
   }
 
@@ -699,7 +850,7 @@ function getInitialTab(queueItems: ReviewQueueItemDto[]): ManualReviewTab {
 }
 
 function getTabItems(queueItems: ReviewQueueItemDto[], tab: ManualReviewTab): ReviewQueueItemDto[] {
-  return queueItems.filter((item) => normalizeSuggestion(item.aiDecision) === tab);
+  return sortReviewQueueItems(queueItems.filter((item) => normalizeSuggestion(item.aiDecision) === tab));
 }
 
 function countByTab(queueItems: ReviewQueueItemDto[], tab: ManualReviewTab): number {
@@ -726,6 +877,120 @@ function suggestionLabel(suggestion: ManualReviewSuggestion): string {
   }
 
   return '需人工';
+}
+
+const reviewQueueItemSorter = new Intl.Collator('zh-Hans-CN', {
+  numeric: true,
+  sensitivity: 'base',
+});
+
+function sortReviewQueueItems(items: ReviewQueueItemDto[]): ReviewQueueItemDto[] {
+  return [...items].sort((first, second) => {
+    const externalIdOrder = reviewQueueItemSorter.compare(first.externalId, second.externalId);
+    if (externalIdOrder !== 0) {
+      return externalIdOrder;
+    }
+
+    const submittedAtOrder = first.submittedAt.localeCompare(second.submittedAt);
+    if (submittedAtOrder !== 0) {
+      return submittedAtOrder;
+    }
+
+    return first.submissionId.localeCompare(second.submissionId);
+  });
+}
+
+function buildSchemaFieldLabelMap(schema: LabelHubSchema | null): Map<string, string> {
+  const labels = new Map<string, string>();
+
+  for (const field of getFlattenedSchemaFields(schema?.fields ?? [])) {
+    const label = field.label?.trim();
+    if (label) {
+      labels.set(getSchemaFieldKey(field), label);
+    }
+
+    for (const displayField of field.displayConfig?.fields ?? []) {
+      const displayLabel = displayField.label?.trim();
+      if (displayLabel) {
+        labels.set(displayField.sourceKey, displayLabel);
+      }
+    }
+  }
+
+  return labels;
+}
+
+function buildQuestionInfoShowItemSchema(
+  schema: LabelHubSchema | null,
+  fallbackSnapshot: ReviewSubmitSnapshot,
+): LabelHubSchema | null {
+  const schemaShowItemFields = schema
+    ? getFlattenedSchemaFields(schema.fields).filter((field) => field.type === 'show_item')
+    : [];
+
+  if (schema && schemaShowItemFields.length > 0) {
+    return {
+      ...schema,
+      fields: schemaShowItemFields,
+    };
+  }
+
+  const fallbackFields = Object.entries(fallbackSnapshot)
+    .filter(([sourceKey, value]) => sourceKey.trim() && !isEmptySnapshotValue(value))
+    .map(([sourceKey, value]) => ({
+      sourceKey,
+      label: fallbackQuestionInfoLabel(sourceKey),
+      format: typeof value === 'object' && value !== null ? ('json' as const) : ('text' as const),
+    }));
+
+  if (fallbackFields.length === 0) {
+    return null;
+  }
+
+  return {
+    schemaVersion: schema?.schemaVersion ?? 'review-question-info',
+    datasetKind: schema?.datasetKind ?? 'generic_json',
+    fields: [
+      {
+        key: '__review_question_info',
+        type: 'show_item',
+        label: '题目信息',
+        sourceKeys: fallbackFields.map((field) => field.sourceKey),
+        displayConfig: {
+          layout: 'table',
+          fields: fallbackFields,
+        },
+      },
+    ],
+  };
+}
+
+function fallbackQuestionInfoLabel(sourceKey: string): string {
+  const labels: Record<string, string> = {
+    id: 'ID',
+    prompt: 'Prompt',
+    question: '题目',
+    source: '来源',
+  };
+
+  return labels[sourceKey] ?? sourceKey;
+}
+
+function getFlattenedSchemaFields(fields: readonly SchemaField[]): SchemaField[] {
+  return fields.flatMap((field) => {
+    if (field.type === 'group') {
+      return [field, ...getFlattenedSchemaFields(field.fields ?? [])];
+    }
+
+    if (field.type === 'tabs') {
+      return [
+        field,
+        ...(field.tabs ?? []).flatMap((tab) => getFlattenedSchemaFields(tab.fields)),
+      ];
+    }
+
+    return [field];
+  });
 }
 
 function titleFromData(rawData: Record<string, unknown>, queueItem: ReviewQueueItemDto): string {

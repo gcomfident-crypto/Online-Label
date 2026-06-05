@@ -66,6 +66,7 @@ type AssignmentRecord = {
       decision: string | null;
       comment?: string | null;
       scores: Record<string, unknown>;
+      structuredOutput?: Record<string, unknown> | null;
       createdAt: Date;
     }>;
   }>;
@@ -127,6 +128,21 @@ describe('DraftsService', () => {
             {
               decision: '打回',
               scores: { reason: '请补充判断依据。' },
+              structuredOutput: {
+                verdict: 'reject',
+                overallScore: 62,
+                fieldReviews: [
+                  {
+                    fieldKey: 'quality',
+                    label: '整体质量',
+                    score: 62,
+                    decision: 'reject',
+                    comment: '整体质量未覆盖核心判断依据。',
+                    suggestions: ['补充事实性和完整性判断。'],
+                  },
+                ],
+                overallComment: '整体质量需要修改。',
+              },
               createdAt: new Date('2026-05-21T03:00:00.000Z'),
             },
           ],
@@ -146,6 +162,19 @@ describe('DraftsService', () => {
             id: 'submission_1',
             round: 1,
             status: 'NEEDS_REVISION',
+            reviewRecords: [
+              expect.objectContaining({
+                structuredOutput: expect.objectContaining({
+                  fieldReviews: [
+                    expect.objectContaining({
+                      fieldKey: 'quality',
+                      label: '整体质量',
+                      decision: 'reject',
+                    }),
+                  ],
+                }),
+              }),
+            ],
           }),
         ],
       }),

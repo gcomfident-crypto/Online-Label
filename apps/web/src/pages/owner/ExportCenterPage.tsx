@@ -344,7 +344,6 @@ const ExportableTaskTable = ({
                   </td>
                   <td>
                     <strong>{task.title}</strong>
-                    <small>Owner：张满</small>
                   </td>
                   <td>{formatDateTimeMinute(task.createdAt)}</td>
                   <td>

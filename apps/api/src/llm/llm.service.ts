@@ -1,5 +1,6 @@
 import { BadGatewayException, BadRequestException, Injectable } from '@nestjs/common';
 import {
+  type AiReviewFieldRequirement,
   DATASET_KINDS,
   isAutoTemplateAnnotationFieldType,
   type AutoTemplateAnnotationField,
@@ -14,42 +15,125 @@ import {
   type ShowItemDisplayField,
 } from '@labelhub/shared';
 
-type LlmAssistMockBody = {
+import { normalizeAiReviewProvider } from '../common/ai-review-runtime.ts';
+
+type LlmAssistBody = {
   answers?: unknown;
   datasetKind?: unknown;
   promptTemplate?: unknown;
+  previousTargetValue?: unknown;
   rawData?: unknown;
   targetFieldKey?: unknown;
 };
 
-export type LlmAssistMockResult = {
+type LlmAssistRequest = {
+  answers: Record<string, unknown>;
+  datasetKind: DatasetKind;
+  promptTemplate: string;
+  previousTargetValue?: unknown;
+  rawData: Record<string, unknown>;
+  targetFieldKey: string;
+};
+
+export type LlmAiReviewRequest = {
+  answers: Record<string, unknown>;
+  datasetKind: DatasetKind;
+  fieldRequirements: readonly AiReviewFieldRequirement[];
+  model: string;
+  passThreshold: number;
+  provider: string;
+  rawData: Record<string, unknown>;
+  rawPrompt: string;
+  structuredOutputMode: string;
+  temperature: number;
+};
+
+export type LlmAssistResult = {
   datasetKind: DatasetKind;
   targetFieldKey: string;
   summary: string;
   suggestion: unknown;
 };
 
+export type LlmAiReviewResult = {
+  comment: string;
+  decision: 'pass' | 'reject';
+  rawOutput: string;
+  scores: Record<string, number>;
+  structuredOutput: Record<string, unknown>;
+  modelMetadata: Record<string, unknown>;
+};
+
 @Injectable()
 export class LlmService {
-  createMockAssist(body: LlmAssistMockBody): LlmAssistMockResult {
-    const datasetKind = resolveDatasetKind(body.datasetKind);
-    const targetFieldKey = resolveTargetFieldKey(body.targetFieldKey);
+  async reviewSubmission(input: LlmAiReviewRequest): Promise<LlmAiReviewResult> {
+    const provider = normalizeAiReviewProvider(input.provider);
 
-    if (!datasetKind) {
+    if (provider === 'mock') {
       throw new BadRequestException({
-        code: 'INVALID_LLM_ASSIST_REQUEST',
-        message: 'LLM 辅助请求缺少有效的数据集类型。',
+        code: 'AI_REVIEW_PROVIDER_MOCK',
+        message: 'AI 预审规则仍配置为 mock，请切换为 deepseek、openai 或 custom 后重试。',
       });
     }
 
-    if (!targetFieldKey) {
+    const remoteConfig = resolveOpenAiCompatibleConfig(provider, process.env, input.model);
+
+    if (!remoteConfig) {
       throw new BadRequestException({
-        code: 'INVALID_LLM_ASSIST_REQUEST',
-        message: 'LLM 辅助请求缺少目标字段。',
+        code: 'AI_REVIEW_MODEL_NOT_CONFIGURED',
+        message: 'AI 预审模型未配置，请检查 DEEPSEEK_API_KEY、OPENAI_API_KEY、LLM_API_KEY 或 LLM_PROVIDER。',
       });
     }
 
-    return createDatasetSuggestion(datasetKind, targetFieldKey);
+    try {
+      return await callOpenAiCompatibleAiReview(input, remoteConfig, provider);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadGatewayException({
+        code: 'AI_REVIEW_MODEL_FAILED',
+        message: error instanceof Error ? error.message : 'AI 预审模型调用失败，请稍后重试。',
+      });
+    }
+  }
+
+  async createAssist(body: LlmAssistBody): Promise<LlmAssistResult> {
+    const request = resolveLlmAssistRequest(body);
+    const provider = resolveLlmProvider(process.env);
+
+    if (provider === 'mock') {
+      throw new BadRequestException({
+        code: 'LLM_ASSIST_NOT_CONFIGURED',
+        message: 'LLM 辅助模型未配置，请检查 DEEPSEEK_API_KEY、OPENAI_API_KEY 或 LLM_PROVIDER。',
+      });
+    }
+
+    const remoteConfig = resolveOpenAiCompatibleConfig(provider, process.env);
+
+    if (!remoteConfig) {
+      throw new BadRequestException({
+        code: 'LLM_ASSIST_NOT_CONFIGURED',
+        message: 'LLM 辅助模型未配置，请检查 DEEPSEEK_API_KEY、OPENAI_API_KEY 或 LLM_PROVIDER。',
+      });
+    }
+
+    try {
+      const output = await callOpenAiCompatibleAssist(request, remoteConfig);
+
+      return normalizeLlmAssistResult(output, request);
+    } catch {
+      throw new BadGatewayException({
+        code: 'LLM_ASSIST_FAILED',
+        message: 'LLM 辅助模型调用失败，请稍后重试。',
+      });
+    }
+  }
+
+  createMockAssist(body: LlmAssistBody): LlmAssistResult {
+    const request = resolveLlmAssistRequest(body);
+
+    return createDatasetSuggestion(request.datasetKind, request.targetFieldKey);
   }
 
   async classifyTemplateFields(body: unknown): Promise<AutoTemplateFieldClassificationResult> {
@@ -95,10 +179,51 @@ function resolveTargetFieldKey(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function resolveLlmAssistRequest(body: LlmAssistBody): LlmAssistRequest {
+  const datasetKind = resolveDatasetKind(body.datasetKind);
+  const targetFieldKey = resolveTargetFieldKey(body.targetFieldKey);
+
+  if (!datasetKind) {
+    throw new BadRequestException({
+      code: 'INVALID_LLM_ASSIST_REQUEST',
+      message: 'LLM 辅助请求缺少有效的数据集类型。',
+    });
+  }
+
+  if (!targetFieldKey) {
+    throw new BadRequestException({
+      code: 'INVALID_LLM_ASSIST_REQUEST',
+      message: 'LLM 辅助请求缺少目标字段。',
+    });
+  }
+
+  const answers = normalizeRecord(body.answers);
+  const { [targetFieldKey]: targetAnswerValue, ...answersWithoutTarget } = answers;
+  const hasPreviousTargetValue = Object.prototype.hasOwnProperty.call(body, 'previousTargetValue');
+  const previousTargetValue = hasPreviousTargetValue
+    ? body.previousTargetValue
+    : targetAnswerValue;
+
+  return {
+    answers: answersWithoutTarget,
+    datasetKind,
+    promptTemplate: typeof body.promptTemplate === 'string' ? body.promptTemplate.trim() : '',
+    ...(previousTargetValue !== undefined ? { previousTargetValue } : {}),
+    rawData: normalizeRecord(body.rawData),
+    targetFieldKey,
+  };
+}
+
+function normalizeRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
 function createDatasetSuggestion(
   datasetKind: DatasetKind,
   targetFieldKey: string,
-): LlmAssistMockResult {
+): LlmAssistResult {
   if (datasetKind === 'qa_quality') {
     return {
       datasetKind,
@@ -157,6 +282,7 @@ type OpenAiCompatibleConfig = {
 };
 
 const LLM_PROMPT_RECORD_SAMPLE_LIMIT = 20;
+const LLM_ASSIST_TEMPERATURE = 0.7;
 const ANNOTATION_DESCRIPTION_MAX_LENGTH = 20;
 const AUTO_OPTION_LIMIT = 100;
 const AUTO_RADIO_OPTION_LIMIT = 20;
@@ -278,8 +404,12 @@ function resolveLlmProvider(env: NodeJS.ProcessEnv): string {
 function resolveOpenAiCompatibleConfig(
   provider: string,
   env: NodeJS.ProcessEnv,
+  modelOverride?: string,
 ): OpenAiCompatibleConfig | null {
-  if (provider === 'deepseek') {
+  const configuredModel = modelOverride?.trim() || env.LLM_MODEL?.trim();
+  const normalizedProvider = normalizeAiReviewProvider(provider);
+
+  if (normalizedProvider === 'deepseek') {
     const apiKey = env.DEEPSEEK_API_KEY?.trim();
 
     return apiKey && apiKey !== 'replace_with_deepseek_api_key'
@@ -288,12 +418,12 @@ function resolveOpenAiCompatibleConfig(
           endpoint: resolveChatCompletionsEndpoint(
             env.DEEPSEEK_API_BASE_URL?.trim() || 'https://api.deepseek.com',
           ),
-          model: env.LLM_MODEL?.trim() || 'deepseek-chat',
+          model: configuredModel || 'deepseek-chat',
         }
       : null;
   }
 
-  if (provider === 'openai') {
+  if (normalizedProvider === 'openai') {
     const apiKey = env.OPENAI_API_KEY?.trim();
 
     return apiKey
@@ -302,12 +432,12 @@ function resolveOpenAiCompatibleConfig(
           endpoint: resolveChatCompletionsEndpoint(
             env.OPENAI_API_BASE_URL?.trim() || 'https://api.openai.com/v1',
           ),
-          model: env.LLM_MODEL?.trim() || 'gpt-4o-mini',
+          model: configuredModel || 'gpt-4o-mini',
         }
       : null;
   }
 
-  if (provider === 'custom') {
+  if (normalizedProvider === 'custom') {
     const apiKey = env.LLM_API_KEY?.trim();
     const endpoint = env.LLM_API_BASE_URL?.trim();
 
@@ -315,7 +445,7 @@ function resolveOpenAiCompatibleConfig(
       ? {
           apiKey,
           endpoint,
-          model: env.LLM_MODEL?.trim() || 'custom-field-classifier',
+          model: configuredModel || 'custom-field-classifier',
         }
       : null;
   }
@@ -331,6 +461,84 @@ function resolveChatCompletionsEndpoint(baseUrlOrEndpoint: string): string {
   const trimmed = baseUrlOrEndpoint.replace(/\/+$/, '');
 
   return trimmed.endsWith('/chat/completions') ? trimmed : `${trimmed}/chat/completions`;
+}
+
+async function callOpenAiCompatibleAiReview(
+  request: LlmAiReviewRequest,
+  config: OpenAiCompatibleConfig,
+  provider: string,
+): Promise<LlmAiReviewResult> {
+  const startedAt = Date.now();
+  const response = await fetch(config.endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: config.model,
+      temperature: request.temperature,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: [
+            '你是 LabelHub 的 AI 自动预审 Agent，只输出合法 JSON。',
+            'fieldReviews 必须覆盖每个字段审核标准中的字段，不能增删字段。',
+            '每个 fieldReviews.comment 必须是 AI 对当前字段标注内容的评语，要结合 ShowItem、AI 预审标准和当前标注内容说明通过或打回原因。',
+            '每个字段必须输出 fieldKey、label、score、decision、comment、suggestions。',
+            'verdict 只能是 pass 或 reject；任一字段 decision 为 reject 时 verdict 必须是 reject。',
+            '不要输出 mock、模拟、占位、Markdown 或代码块。',
+          ].join('\n'),
+        },
+        {
+          role: 'user',
+          content: [
+            request.rawPrompt,
+            '',
+            `数据集类型：${request.datasetKind}`,
+            `通过阈值：${request.passThreshold}`,
+            `结构化输出模式：${request.structuredOutputMode}`,
+            `题目原始数据：${JSON.stringify(request.rawData)}`,
+            `当前标注答案：${JSON.stringify(request.answers)}`,
+            `需要预审的字段和标准：${JSON.stringify(request.fieldRequirements)}`,
+            '',
+            '请只输出 JSON：{"verdict":"pass|reject","overallScore":0,"overallComment":"整体结论","fieldReviews":[{"fieldKey":"字段 key","label":"字段标题","score":0,"decision":"pass|reject","comment":"AI 对当前字段标注内容的评语","suggestions":["修改建议"]}]}',
+          ].join('\n'),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`AI 预审模型请求失败，HTTP ${response.status}。`);
+  }
+
+  const payload = await response.json() as {
+    id?: string;
+    choices?: Array<{ message?: { content?: unknown } }>;
+    usage?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      total_tokens?: number;
+    };
+  };
+  const rawOutput = payload.choices?.[0]?.message?.content;
+
+  if (typeof rawOutput !== 'string' || !rawOutput.trim()) {
+    throw new Error('AI 预审模型响应缺少 message content。');
+  }
+
+  return normalizeAiReviewResult(parseJsonObject(rawOutput), request, {
+    provider,
+    model: config.model,
+    rawOutput,
+    latencyMs: Date.now() - startedAt,
+    requestId: payload.id ?? null,
+    promptTokens: payload.usage?.prompt_tokens ?? 0,
+    completionTokens: payload.usage?.completion_tokens ?? 0,
+    totalTokens: payload.usage?.total_tokens ?? 0,
+  });
 }
 
 async function callOpenAiCompatibleClassifier(
@@ -398,6 +606,282 @@ async function callOpenAiCompatibleClassifier(
   }
 
   return parseJsonObject(content);
+}
+
+async function callOpenAiCompatibleAssist(
+  request: LlmAssistRequest,
+  config: OpenAiCompatibleConfig,
+): Promise<unknown> {
+  const response = await fetch(config.endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: config.model,
+      temperature: LLM_ASSIST_TEMPERATURE,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: [
+            '你是 LabelHub 标注平台里的 LLM 辅助填写模型，只输出 JSON。',
+            '任务：根据原始数据、当前已填写答案和用户配置的提示词，生成可直接写入目标字段的建议值。',
+            '不要输出 mock、模拟、占位、示例或需要用户再补充的模板内容。',
+            'suggestion 必须是目标字段应写入的最终值：文本字段输出字符串，标签/多选输出字符串数组，结构化字段输出 JSON 对象。',
+            '如果请求包含上一次目标字段内容，必须生成新的表达或结构，避免复用上一版结果，最终 suggestion 仍完整替换目标字段。',
+            '如果无法确定，也要基于输入给出最合理的可编辑草稿，不要返回“请补充”“待填写”这类占位。',
+            '只输出符合以下形状的 JSON：{"targetFieldKey":"字段名","summary":"一句话说明","suggestion":任意JSON值}',
+          ].join('\n'),
+        },
+        {
+          role: 'user',
+          content: [
+            `数据集类型：${request.datasetKind}`,
+            `目标字段：${request.targetFieldKey}`,
+            `用户提示词：${request.promptTemplate || '请根据原始数据和当前答案生成目标字段内容。'}`,
+            `原始数据：${JSON.stringify(request.rawData)}`,
+            `当前答案：${JSON.stringify(request.answers)}`,
+            ...formatPreviousTargetPrompt(request.previousTargetValue),
+          ].join('\n\n'),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`LLM assist request failed with HTTP ${response.status}.`);
+  }
+
+  const payload = await response.json() as {
+    choices?: Array<{ message?: { content?: unknown } }>;
+  };
+  const content = payload.choices?.[0]?.message?.content;
+
+  if (typeof content !== 'string') {
+    throw new Error('LLM assist response is missing message content.');
+  }
+
+  return parseJsonObject(content);
+}
+
+function formatPreviousTargetPrompt(previousTargetValue: unknown): string[] {
+  return previousTargetValue === undefined
+    ? []
+    : [
+        `上一次目标字段内容：${JSON.stringify(previousTargetValue)}`,
+        '重新生成要求：请生成一个不同于上一次目标字段内容的新版本，新的 suggestion 会直接替换旧值。',
+      ];
+}
+
+function normalizeLlmAssistResult(
+  value: unknown,
+  request: LlmAssistRequest,
+): LlmAssistResult {
+  const candidate = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Partial<LlmAssistResult>
+    : {};
+
+  if (!('suggestion' in candidate)) {
+    throw new Error('LLM assist response is missing suggestion.');
+  }
+
+  return {
+    datasetKind: request.datasetKind,
+    targetFieldKey: typeof candidate.targetFieldKey === 'string' && candidate.targetFieldKey.trim()
+      ? candidate.targetFieldKey.trim()
+      : request.targetFieldKey,
+    summary: typeof candidate.summary === 'string' && candidate.summary.trim()
+      ? candidate.summary.trim()
+      : 'LLM 已生成并写入目标字段。',
+    suggestion: candidate.suggestion,
+  };
+}
+
+function normalizeAiReviewResult(
+  value: unknown,
+  request: LlmAiReviewRequest,
+  metadata: {
+    completionTokens: number;
+    latencyMs: number;
+    model: string;
+    provider: string;
+    promptTokens: number;
+    rawOutput: string;
+    requestId: string | null;
+    totalTokens: number;
+  },
+): LlmAiReviewResult {
+  const candidate = ensureRecord(value, 'AI 预审结构化输出必须是 JSON 对象。');
+  const fieldReviews = normalizeAiReviewFieldReviews(candidate.fieldReviews, request);
+  const decision = normalizeAiReviewDecision(candidate.verdict) ?? aggregateAiReviewDecision(fieldReviews);
+  const overallScore = numericValue(candidate.overallScore)
+    ?? numericValue(isRecord(candidate.scores) ? candidate.scores.overall : null)
+    ?? aggregateAiReviewScore(fieldReviews);
+  const overallComment = stringValue(candidate.overallComment)
+    ?? stringValue(candidate.reason)
+    ?? defaultAiReviewComment(decision, fieldReviews);
+  const candidateScores = isRecord(candidate.scores) ? numericRecord(candidate.scores) : {};
+  const scores = {
+    ...candidateScores,
+    overall: overallScore,
+    fieldCount: fieldReviews.length,
+    passedFieldCount: fieldReviews.filter((field) => field.decision === 'pass').length,
+    rejectedFieldCount: fieldReviews.filter((field) => field.decision === 'reject').length,
+  };
+  const structuredOutput = {
+    ...candidate,
+    verdict: decision,
+    overallScore,
+    overallComment,
+    fieldReviews,
+  };
+
+  return {
+    comment: overallComment,
+    decision,
+    rawOutput: metadata.rawOutput,
+    scores,
+    structuredOutput,
+    modelMetadata: {
+      provider: metadata.provider,
+      model: metadata.model,
+      temperature: request.temperature,
+      promptTokens: metadata.promptTokens,
+      completionTokens: metadata.completionTokens,
+      totalTokens: metadata.totalTokens,
+      latencyMs: metadata.latencyMs,
+      requestId: metadata.requestId,
+      structuredOutputMode: request.structuredOutputMode,
+    },
+  };
+}
+
+function normalizeAiReviewFieldReviews(
+  value: unknown,
+  request: LlmAiReviewRequest,
+): Array<{
+  fieldKey: string;
+  label: string;
+  score: number;
+  decision: 'pass' | 'reject';
+  comment: string;
+  suggestions: string[];
+}> {
+  if (!Array.isArray(value)) {
+    throw new Error('AI 预审结构化输出缺少 fieldReviews 数组。');
+  }
+
+  const reviewByFieldKey = new Map(
+    value
+      .map((item) => ensureRecord(item, 'fieldReviews 每项必须是 JSON 对象。'))
+      .map((item) => [stringValue(item.fieldKey) ?? '', item] as const)
+      .filter(([fieldKey]) => Boolean(fieldKey)),
+  );
+
+  return request.fieldRequirements.map((field) => {
+    const review = reviewByFieldKey.get(field.fieldKey);
+
+    if (!review) {
+      throw new Error(`AI 预审结构化输出缺少字段 ${field.fieldKey} 的 fieldReview。`);
+    }
+
+    const score = numericValue(review.score);
+    const decision = normalizeAiReviewDecision(review.decision);
+    const comment = stringValue(review.comment);
+
+    if (score === null) {
+      throw new Error(`AI 预审字段 ${field.fieldKey} 缺少有效 score。`);
+    }
+    if (!decision) {
+      throw new Error(`AI 预审字段 ${field.fieldKey} 缺少有效 decision。`);
+    }
+    if (!comment) {
+      throw new Error(`AI 预审字段 ${field.fieldKey} 缺少 AI 对当前字段标注内容的评语。`);
+    }
+
+    return {
+      fieldKey: field.fieldKey,
+      label: stringValue(review.label) ?? field.label,
+      score: clampAiReviewScore(score),
+      decision,
+      comment,
+      suggestions: Array.isArray(review.suggestions)
+        ? review.suggestions.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+        : [],
+    };
+  });
+}
+
+function aggregateAiReviewDecision(
+  fieldReviews: ReadonlyArray<{ decision: 'pass' | 'reject' }>,
+): 'pass' | 'reject' {
+  return fieldReviews.length > 0 && fieldReviews.every((field) => field.decision === 'pass') ? 'pass' : 'reject';
+}
+
+function aggregateAiReviewScore(
+  fieldReviews: ReadonlyArray<{ score: number }>,
+): number {
+  if (fieldReviews.length === 0) {
+    return 0;
+  }
+
+  return clampAiReviewScore(
+    fieldReviews.reduce((total, field) => total + field.score, 0) / fieldReviews.length,
+  );
+}
+
+function defaultAiReviewComment(
+  decision: 'pass' | 'reject',
+  fieldReviews: ReadonlyArray<{ decision: 'pass' | 'reject'; label: string }>,
+): string {
+  if (decision === 'pass') {
+    return '所有开启 AI 预审的字段均通过，进入人工复审。';
+  }
+
+  const failedLabels = fieldReviews
+    .filter((field) => field.decision === 'reject')
+    .map((field) => field.label)
+    .join('、');
+
+  return `${failedLabels || '存在字段'} 未通过 AI 预审，建议打回给标注员修改。`;
+}
+
+function normalizeAiReviewDecision(value: unknown): 'pass' | 'reject' | null {
+  return value === 'pass' || value === 'reject' ? value : null;
+}
+
+function numericRecord(value: Record<string, unknown>): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, entryValue]) => [key, numericValue(entryValue)] as const)
+      .filter((entry): entry is readonly [string, number] => entry[1] !== null),
+  );
+}
+
+function numericValue(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function clampAiReviewScore(value: number): number {
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function ensureRecord(value: unknown, message: string): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new Error(message);
+  }
+
+  return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function parseJsonObject(content: string): unknown {

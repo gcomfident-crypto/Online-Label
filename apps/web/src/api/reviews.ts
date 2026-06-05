@@ -1,4 +1,4 @@
-import type { DatasetKind } from '@labelhub/shared';
+import type { DatasetKind, LabelHubSchema } from '@labelhub/shared';
 import { requestApi } from './request';
 
 export type ReviewQueueItemDto = {
@@ -73,6 +73,7 @@ export type ReviewDetailDto = {
     title: string;
     datasetKind: DatasetKind;
     templateName: string;
+    schema: LabelHubSchema | null;
   };
   taskItem: {
     id: string;

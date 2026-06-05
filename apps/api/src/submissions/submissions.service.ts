@@ -1,10 +1,11 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { DatasetKind, LabelHubSchema } from '@labelhub/shared';
 
-import { PrismaService } from '../prisma/prisma.service.ts';
-import { SchemaService } from '../schema/schema.service.ts';
+import { resolveAiReviewRuntimeConfig } from '../common/ai-review-runtime.ts';
 import { aiReviewIdempotencyKey, normalizeIdempotencyKey } from '../common/idempotency/idempotency-key.ts';
 import { runInTransaction } from '../common/transactions/run-in-transaction.ts';
+import { PrismaService } from '../prisma/prisma.service.ts';
+import { SchemaService } from '../schema/schema.service.ts';
 
 type AssignmentStatus =
   | 'ASSIGNED'
@@ -465,6 +466,8 @@ export class SubmissionsService {
     });
 
     if (submissionStatus === 'AI_QUEUED') {
+      const aiReviewRuntimeConfig = resolveAiReviewRuntimeConfig(process.env);
+
       await client.aiReviewJob.create({
         data: {
           submissionId: submission.id,
@@ -474,9 +477,9 @@ export class SubmissionsService {
           status: 'QUEUED',
           attempts: 0,
           maxAttempts: 3,
-          structuredOutputMode: 'function_calling',
-          provider: 'mock',
-          model: 'mock-stable-reviewer',
+          structuredOutputMode: aiReviewRuntimeConfig.structuredOutputMode,
+          provider: aiReviewRuntimeConfig.provider,
+          model: aiReviewRuntimeConfig.model,
           logs: [
             {
               level: 'queue',

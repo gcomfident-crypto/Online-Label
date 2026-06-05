@@ -405,7 +405,16 @@ const DatasetFileIconGraphic = ({ kind }: { kind: DatasetFileIconKind }) => {
 const formatTemplateOption = (
   template: TaskTemplateSummary | null | undefined,
   displayId = 'M-001',
-): string => (template?.id ? `${displayId} · ${template.name}` : '');
+): string => {
+  if (!template?.id) {
+    return '';
+  }
+
+  return [displayId, template.name, formatTemplateVersionLabel(template)].filter(Boolean).join(' · ');
+};
+
+const formatTemplateVersionLabel = (template: TaskTemplateSummary | null | undefined): string =>
+  typeof template?.version === 'number' && template.version > 0 ? `v${template.version}` : '';
 
 const TemplateSearchSelect = ({
   onChange,
@@ -540,6 +549,7 @@ const TemplateSearchSelect = ({
             filteredOptions.map((template) => {
               const displayId = templateDisplayIdMap.get(template.id) ?? 'M-001';
               const label = formatTemplateOption(template, displayId);
+              const versionLabel = formatTemplateVersionLabel(template);
 
               return (
                 <div
@@ -561,6 +571,9 @@ const TemplateSearchSelect = ({
                   <span className="task-template-picker__option-main">
                     <code title={`原始ID：${template.id}`}>{displayId}</code>
                     <span>{template.name}</span>
+                    {versionLabel ? (
+                      <small className="task-template-picker__option-version">{versionLabel}</small>
+                    ) : null}
                   </span>
                   {onViewTemplate ? (
                     <button
@@ -597,6 +610,7 @@ const templateSearchText = (template: TaskTemplateSummary, displayIdMap: Map<str
     template.id,
     displayIdMap.get(template.id) ?? '',
     template.name,
+    formatTemplateVersionLabel(template),
     formatTemplateOption(template, displayIdMap.get(template.id)),
   ].join(' ').toLowerCase();
 

@@ -64,6 +64,31 @@ export const getUploadedFileValue = (value: unknown): UploadedFileValue | null =
   };
 };
 
+export const createLlmAssistPayload = ({
+  answers,
+  datasetKind,
+  promptTemplate,
+  rawData,
+  targetFieldKey,
+}: {
+  answers: Record<string, unknown>;
+  datasetKind: FieldRendererProps['datasetKind'];
+  promptTemplate?: string;
+  rawData: Record<string, unknown>;
+  targetFieldKey: string;
+}) => {
+  const { [targetFieldKey]: previousTargetValue, ...answersWithoutTarget } = answers;
+
+  return {
+    datasetKind,
+    rawData,
+    answers: answersWithoutTarget,
+    targetFieldKey,
+    promptTemplate,
+    ...(previousTargetValue !== undefined ? { previousTargetValue } : {}),
+  };
+};
+
 export const formatFileSize = (size: number): string => {
   if (size < 1024) {
     return `${size} B`;

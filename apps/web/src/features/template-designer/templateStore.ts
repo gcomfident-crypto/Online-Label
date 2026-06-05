@@ -1,12 +1,10 @@
 import { create } from 'zustand';
 
 import {
-  CUSTOM_VALIDATOR_KEYS,
   createLabelHubSchema,
   preferenceCompareSampleSchema,
   qaQualitySampleSchema,
   titleCleanupSampleSchema,
-  type CustomValidatorKey,
   type FieldLinkageRule,
   type FieldType,
   type LabelHubSchema,
@@ -41,7 +39,7 @@ export const DESIGNER_MATERIALS: readonly MaterialSpec[] = [
   { type: 'textarea', label: '多行文本', group: '基础物料' },
   { type: 'radio', label: '单选', group: '基础物料' },
   { type: 'checkbox', label: '多选', group: '基础物料' },
-  { type: 'tag_select', label: '标签选择', group: '基础物料' },
+  { type: 'tag_select', label: '标签', group: '基础物料' },
   { type: 'rich_text', label: '富文本', group: '基础物料' },
   { type: 'file_upload', label: '文件/图片', group: '基础物料' },
   { type: 'json_editor', label: 'JSON 编辑器', group: '高级物料' },
@@ -1032,5 +1030,3 @@ const isSameSchema = (left: LabelHubSchema, right: LabelHubSchema): boolean =>
   JSON.stringify(left) === JSON.stringify(right);
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
-
-export const CUSTOM_VALIDATOR_OPTIONS: readonly CustomValidatorKey[] = CUSTOM_VALIDATOR_KEYS;

@@ -10,6 +10,64 @@ describe('global styles', () => {
     expect(styles).not.toContain('caret-color: transparent;');
   });
 
+  it('属性配置表单普通输入左侧顶头，字段元信息右侧顶头但保持正常输入方向', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const propertyControlRule = styles.match(
+      /\.designer-property-row input,\s*\.designer-property-row select,\s*\.designer-property-row textarea\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const metadataControlRule = styles.match(/\.designer-property-row--metadata input\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(propertyControlRule).toContain('direction: ltr;');
+    expect(propertyControlRule).toContain('text-align: left;');
+    expect(propertyControlRule).not.toContain('text-align: right;');
+    expect(metadataControlRule).toContain('direction: ltr;');
+    expect(metadataControlRule).toContain('text-align: right;');
+  });
+
+  it('属性配置表单自适应文本域按内容高度展示', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const autoResizeTextareaRule =
+      styles.match(/\.designer-property-row textarea\.designer-auto-resize-textarea\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(autoResizeTextareaRule).toContain('field-sizing: content;');
+    expect(autoResizeTextareaRule).toContain('overflow-y: auto;');
+    expect(autoResizeTextareaRule).toContain('resize: none;');
+  });
+
+  it('项目内自定义下拉菜单统一置于顶层且不被属性折叠区裁剪', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const rootRule = styles.match(/:root\s*\{[^}]+\}/)?.[0] ?? '';
+    const expandedCollapseRule = styles.match(/\.designer-property-collapse\.is-expanded\s*\{[^}]+\}/)?.[0] ?? '';
+    const expandedInnerRule =
+      styles.match(/\.designer-property-collapse\.is-expanded > \.designer-property-collapse__inner\s*\{[^}]+\}/)
+        ?.[0] ?? '';
+    const taskFilterOpenRule =
+      styles.match(/\.task-filter-select:has\(\.task-filter-select__menu\)\s*\{[^}]+\}/)?.[0] ?? '';
+    const taskFilterMenuRule = styles.match(/\.task-filter-select__menu\s*\{[^}]+\}/)?.[0] ?? '';
+    const loginRoleMenuRule = styles.match(/\.login-role-menu\s*\{[^}]+\}/)?.[0] ?? '';
+    const platformUserMenuRule = styles.match(/\.platform-user-menu\s*\{[^}]+\}/)?.[0] ?? '';
+    const templatePickerMenuRule = styles.match(/\.task-template-picker__menu\s*\{[^}]+\}/)?.[0] ?? '';
+    const deadlinePopoverRule = styles.match(/\.task-deadline-picker__popover\s*\{[^}]+\}/)?.[0] ?? '';
+    const fieldMentionMenuRule =
+      Array.from(styles.matchAll(/\.designer-field-mention__menu\s*\{[^}]+\}/g))
+        .map((match) => match[0])
+        .find((rule) => rule.includes('position: absolute;')) ?? '';
+    const inlineChoiceMenuRule =
+      styles.match(/\.designer-linkage-rule-editor__inline-choice-menu\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(rootRule).toContain('--overlay-dropdown-z-index: 1000;');
+    expect(expandedCollapseRule).toContain('overflow: visible;');
+    expect(expandedInnerRule).toContain('overflow: visible;');
+    expect(taskFilterOpenRule).toContain('z-index: var(--overlay-dropdown-z-index);');
+    expect(taskFilterMenuRule).toContain('z-index: var(--overlay-dropdown-z-index);');
+    expect(loginRoleMenuRule).toContain('z-index: var(--overlay-dropdown-z-index);');
+    expect(platformUserMenuRule).toContain('z-index: var(--overlay-dropdown-z-index);');
+    expect(templatePickerMenuRule).toContain('z-index: var(--overlay-dropdown-z-index);');
+    expect(deadlinePopoverRule).toContain('z-index: var(--overlay-dropdown-z-index);');
+    expect(fieldMentionMenuRule).toContain('z-index: var(--overlay-dropdown-z-index);');
+    expect(inlineChoiceMenuRule).toContain('z-index: var(--overlay-dropdown-z-index);');
+  });
+
   it('全局页面允许双指放大后的纵向平移', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const rootRule = styles.match(/:root\s*\{[^}]+\}/)?.[0] ?? '';
@@ -58,6 +116,18 @@ describe('global styles', () => {
     )?.[0] ?? '';
 
     expect(requiredMarkRule).toContain('color: #f04438;');
+  });
+
+  it('LLM 生成建议按钮使用更小的文字和图标', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const triggerRule = styles.match(/\.schema-field__llm-trigger-button\s*\{[^}]+\}/)?.[0] ?? '';
+    const iconRule = styles.match(/\.schema-field__llm-trigger-button img\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(triggerRule).toContain('font-size: 12px;');
+    expect(triggerRule).toContain('padding: 7px 10px;');
+    expect(triggerRule).toContain('gap: 4px;');
+    expect(iconRule).toContain('width: 13px;');
+    expect(iconRule).toContain('height: 13px;');
   });
 
   it('所有垃圾桶删除图标悬浮效果与题目展示字段删除按钮一致', () => {
@@ -532,13 +602,23 @@ describe('global styles', () => {
     expect(myDataFillerRule).toContain('flex: 1 1 auto;');
   });
 
-  it('标注台报告题目按钮固定在操作栏最右侧', () => {
+  it('标注台报告题目按钮不再使用标题栏操作区专用样式', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
-    const reportButtonRule = styles.match(
-      /\.annotation-canvas-toolbar\s+\.annotation-canvas-toolbar__report\s*\{[^}]+\}/,
-    )?.[0] ?? '';
+    const submitBarButtonRule = styles.match(/\.annotation-submit-bar button\s*\{[^}]+\}/)?.[0] ?? '';
 
-    expect(reportButtonRule).toContain('margin-left: auto;');
+    expect(submitBarButtonRule).toContain('min-height: 34px;');
+    expect(styles).not.toContain('.workbench-topline__actions button');
+    expect(styles).not.toContain('.workbench-topline__report');
+    expect(styles).not.toContain('.annotation-canvas-toolbar');
+  });
+
+  it('标注台提交栏上方不保留滚动区白色留白', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const canvasPanelRule = styles.match(/\.annotation-canvas-panel\s*\{[^}]+\}/)?.[0] ?? '';
+    const canvasScrollRule = styles.match(/\.annotation-canvas-scroll\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(canvasPanelRule).toContain('gap: 0;');
+    expect(canvasScrollRule).toContain('padding: 16px 16px 0;');
   });
 
   it('题目导航状态使用固定强调色、加粗和切换动画', () => {
@@ -1060,6 +1140,128 @@ describe('global styles', () => {
     expect(designerTableRule).toContain('text-align: left;');
   });
 
+  it('ShowItem 展示表格在标注工作台保持左对齐', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const globalCenterRule = styles.match(/\.task-table th,[\s\S]*?\.reviewer-review-table td\s*\{[^}]+\}/)?.[0] ?? '';
+    const showItemCellRule =
+      styles.match(/\.schema-field__show-table th,\s*\.schema-field__show-table td\s*\{[^}]+\}/)?.[0] ?? '';
+    const showItemValueRule = styles.match(/\.schema-field__show-value\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(globalCenterRule).not.toContain('.schema-field__show-table');
+    expect(showItemCellRule).toContain('text-align: left;');
+    expect(showItemCellRule).toContain('vertical-align: top;');
+    expect(showItemValueRule).toContain('text-align: left;');
+  });
+
+  it('AI 预审题目列表建议文案按通过和非通过固定配色', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const passRule = styles.match(/\.agent-review-question-list__items em\.is-pass,[\s\S]*?color: #16a34a;[\s\S]*?\}/)?.[0] ?? '';
+    const rejectRule = styles.match(/\.agent-review-question-list__items em\.is-reject,[\s\S]*?color: #dc2626;[\s\S]*?\}/)?.[0] ?? '';
+    const oldHoverRule =
+      styles.match(/\.agent-review-question-list__items button\.is-active em,\s*\.agent-review-question-list__items button:hover em,\s*\.agent-review-question-list__items button:focus-visible em\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(passRule).toContain('button.is-active em.is-pass');
+    expect(passRule).toContain('button:hover em.is-pass');
+    expect(rejectRule).toContain('button.is-active em.is-reject');
+    expect(rejectRule).toContain('button:hover em.is-reject');
+    expect(oldHoverRule).toBe('');
+  });
+
+  it('AI 预审字段卡片使用清晰的标题区和详情分区', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const cardRule = styles.match(/\.ai-review-context__field-card\s*\{[^}]+\}/)?.[0] ?? '';
+    const headerRule = styles.match(/\.ai-review-context__field-header\s*\{[^}]+\}/)?.[0] ?? '';
+    const keyRule = styles.match(/\.ai-review-context__field-key\s*\{[^}]+\}/)?.[0] ?? '';
+    const detailsRule = styles.match(/\.ai-review-context__field-details\s*\{[^}]+\}/)?.[0] ?? '';
+    const rowRule = styles.match(/\.ai-review-context__field-row\s*\{[^}]+\}/)?.[0] ?? '';
+    const commentRowRule = styles.match(/\.ai-review-context__field-row--comment\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(cardRule).toContain('box-shadow:');
+    expect(headerRule).toContain('border-bottom: 1px solid');
+    expect(keyRule).toContain('font-family: ui-monospace');
+    expect(detailsRule).toContain('display: grid;');
+    expect(rowRule).toContain('grid-template-columns: minmax(128px, 0.26fr) minmax(0, 1fr);');
+    expect(rowRule).toContain('gap: 16px;');
+    expect(commentRowRule).toContain('background: rgba(255, 255, 255, 0.72);');
+  });
+
+  it('AI 预审后台和人工审核页隐藏所有内部滚动条但保留滚动', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const scrollbarHiddenRule = styles.match(
+      /\.agent-review-page,[\s\S]*?\.manual-review-sheet-overlay \*\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const webkitScrollbarRule = styles.match(
+      /\.agent-review-page::-webkit-scrollbar,[\s\S]*?\.manual-review-sheet-overlay \*::-webkit-scrollbar\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+
+    expect(scrollbarHiddenRule).toContain('.agent-review-page *');
+    expect(scrollbarHiddenRule).toContain('.agent-review-sheet-overlay *');
+    expect(scrollbarHiddenRule).toContain('.manual-review-list-page *');
+    expect(scrollbarHiddenRule).toContain('.manual-review-sheet-overlay *');
+    expect(scrollbarHiddenRule).toContain('scrollbar-width: none;');
+    expect(scrollbarHiddenRule).toContain('-ms-overflow-style: none;');
+    expect(webkitScrollbarRule).toContain('display: none;');
+    expect(webkitScrollbarRule).toContain('width: 0;');
+    expect(webkitScrollbarRule).toContain('height: 0;');
+  });
+
+  it('人工审核操作按钮固定在中间画布底部白色操作栏且不随内容滚动', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const mainRule = styles.match(/\.manual-review-detail-main\s*\{[^}]+\}/)?.[0] ?? '';
+    const contentRule = styles.match(/\.manual-review-detail-content\s*\{[^}]+\}/)?.[0] ?? '';
+    const actionBarRule = styles.match(/\.manual-review-actions\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(mainRule).toContain('grid-template-rows: minmax(0, 1fr) auto;');
+    expect(mainRule).toContain('overflow: hidden;');
+    expect(mainRule).toContain('padding: 0;');
+    expect(contentRule).toContain('overflow: auto;');
+    expect(contentRule).toContain('padding: 14px;');
+    expect(actionBarRule).not.toContain('position: sticky;');
+    expect(actionBarRule).not.toContain('bottom: -14px;');
+    expect(actionBarRule).toContain('z-index: 5;');
+    expect(actionBarRule).toContain('margin: 0;');
+    expect(actionBarRule).toContain('border-top: 1px solid #e5e9f0;');
+    expect(actionBarRule).toContain('background: #ffffff;');
+    expect(actionBarRule).toContain('box-shadow: 0 -12px 24px rgba(15, 23, 42, 0.08);');
+  });
+
+  it('人工审核详情左侧队列栏收窄且批量选择区带复选框', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const shellRule = styles.match(/\.manual-review-detail-shell\s*\{[^}]+\}/)?.[0] ?? '';
+    const batchSelectionRule =
+      styles.match(/\.manual-review-batch-toolbar__selection\s*\{[^}]+\}/)?.[0] ?? '';
+    const batchSelectionInputRule =
+      styles.match(/\.manual-review-batch-toolbar__selection input\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(shellRule).toContain(
+      'grid-template-columns: minmax(280px, 300px) minmax(560px, 1fr) minmax(280px, 320px);',
+    );
+    expect(batchSelectionRule).toContain('display: inline-flex;');
+    expect(batchSelectionRule).toContain('gap: 7px;');
+    expect(batchSelectionInputRule).toContain('width: 15px;');
+    expect(batchSelectionInputRule).toContain('accent-color: #306df8;');
+  });
+
+  it('人工审核详情关闭按钮样式与 AI 预审详情关闭按钮保持一致', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const manualCloseRule =
+      styles.match(/\.manual-review-detail-toolbar__actions \.manual-review-sheet-close\s*\{[^}]+\}/)?.[0] ?? '';
+    const manualCloseHoverRule =
+      styles.match(/\.manual-review-detail-toolbar__actions \.manual-review-sheet-close:hover,[\s\S]*?\.manual-review-detail-toolbar__actions \.manual-review-sheet-close:focus-visible\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(manualCloseRule).toContain('width: 38px;');
+    expect(manualCloseRule).toContain('min-width: 38px;');
+    expect(manualCloseRule).toContain('min-height: 34px;');
+    expect(manualCloseRule).toContain('border: 1px solid #c9d8f6;');
+    expect(manualCloseRule).toContain('border-radius: 8px;');
+    expect(manualCloseRule).toContain('background: #ffffff;');
+    expect(manualCloseRule).toContain('color: #306df7;');
+    expect(manualCloseRule).toContain('font-size: 24px;');
+    expect(manualCloseHoverRule).toContain('border-color: #306df8;');
+    expect(manualCloseHoverRule).toContain('background: #f8fbff;');
+    expect(manualCloseHoverRule).toContain('outline: none;');
+  });
+
   it('ShowItem 字段配置卡片使用只读 chip 和轻量表单控件', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const panelRule = styles.match(/\.designer-properties--show-item\s*\{[^}]+\}/)?.[0] ?? '';
@@ -1150,8 +1352,8 @@ describe('global styles', () => {
     expect(cardRule).toContain('backwards;');
     expect(cardRule).toContain('transform 180ms ease;');
     expect(focusedCardRule).toContain('z-index: 8;');
-    expect(filterSelectOpenRule).toContain('z-index: 12;');
-    expect(filterSelectMenuRule).toContain('z-index: 80;');
+    expect(filterSelectOpenRule).toContain('z-index: var(--overlay-dropdown-z-index);');
+    expect(filterSelectMenuRule).toContain('z-index: var(--overlay-dropdown-z-index);');
     expect(addHoverRule).toContain('background: #306df8;');
     expect(addHoverRule).toContain('transform: none;');
     expect(addActiveRule).toContain('transform: translateY(1px) scale(0.98);');

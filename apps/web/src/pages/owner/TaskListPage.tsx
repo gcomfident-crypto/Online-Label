@@ -1393,6 +1393,7 @@ const templateToTaskTemplateSummary = (template: TemplateDto): TaskTemplateSumma
   datasetKind: template.datasetKind,
   schemaVersion: template.schemaVersion,
   status: template.status,
+  version: template.version,
 });
 
 const mergeTaskTemplates = (templates: TaskTemplateSummary[]): TaskTemplateSummary[] => {

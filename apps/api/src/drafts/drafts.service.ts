@@ -31,6 +31,7 @@ type ReviewRecordSummary = {
   decision: string | null;
   comment?: string | null;
   scores: Record<string, unknown>;
+  structuredOutput?: Record<string, unknown> | null;
   createdAt: Date;
 };
 
@@ -144,6 +145,7 @@ export type WorkbenchDto = {
       decision: string | null;
       comment?: string | null;
       scores: Record<string, unknown>;
+      structuredOutput?: Record<string, unknown> | null;
       createdAt: string;
     }>;
   }>;
@@ -348,6 +350,7 @@ function toWorkbenchDto(assignment: AssignmentWorkbenchRecord): WorkbenchDto {
         decision: reviewRecord.decision,
         comment: reviewRecord.comment,
         scores: reviewRecord.scores,
+        structuredOutput: reviewRecord.structuredOutput ?? null,
         createdAt: reviewRecord.createdAt.toISOString(),
       })),
     })),

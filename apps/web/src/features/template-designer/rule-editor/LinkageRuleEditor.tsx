@@ -418,6 +418,7 @@ const ActionRow = ({
               actionIndex={actionIndex}
               index={index}
               targetField={targetField}
+              onBidirectionalChange={(bidirectional) => onChange({ bidirectional })}
               onChange={(optionValues) => onChange({ optionValues })}
             />
           </>
@@ -487,46 +488,60 @@ const LinkageValueToken = ({
 
 const LimitOptionsToken = ({
   action,
+  actionIndex,
   index,
   targetField,
+  onBidirectionalChange,
   onChange,
 }: {
   action: StructuredFieldLinkageAction;
   actionIndex: number;
   index: number;
   targetField: SchemaField | undefined;
+  onBidirectionalChange: (bidirectional: boolean) => void;
   onChange: (optionValues: readonly string[]) => void;
 }) => {
   const targetOptions = targetField?.options ?? [];
 
   return (
-    <div className="designer-linkage-rule-editor__option-chips" role="group" aria-label={`规则 ${index + 1} 限制选项`}>
-      {targetOptions.map((option) => {
-        const selected = action.type === 'limitOptions' && (action.optionValues ?? []).includes(option.value);
+    <div className="designer-linkage-rule-editor__limit-options">
+      <div className="designer-linkage-rule-editor__option-chips" role="group" aria-label={`规则 ${index + 1} 限制选项`}>
+        {targetOptions.map((option) => {
+          const selected = action.type === 'limitOptions' && (action.optionValues ?? []).includes(option.value);
 
-        return (
-          <button
-            key={option.value}
-            aria-pressed={selected}
-            className={selected ? 'is-selected' : ''}
-            type="button"
-            onClick={() => {
-              if (action.type !== 'limitOptions') {
-                return;
-              }
+          return (
+            <button
+              key={option.value}
+              aria-pressed={selected}
+              className={selected ? 'is-selected' : ''}
+              type="button"
+              onClick={() => {
+                if (action.type !== 'limitOptions') {
+                  return;
+                }
 
-              const currentValues = action.optionValues ?? [];
-              const nextOptionValues = selected
-                ? currentValues.filter((value) => value !== option.value)
-                : [...currentValues, option.value];
+                const currentValues = action.optionValues ?? [];
+                const nextOptionValues = selected
+                  ? currentValues.filter((value) => value !== option.value)
+                  : [...currentValues, option.value];
 
-              onChange(nextOptionValues);
-            }}
-          >
-            {option.label}
-          </button>
-        );
-      })}
+                onChange(nextOptionValues);
+              }}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      <label className="designer-linkage-rule-editor__bidirectional">
+        <input
+          aria-label={`规则 ${index + 1} 动作 ${actionIndex + 1} 双向约束`}
+          checked={action.type === 'limitOptions' && action.bidirectional !== false}
+          type="checkbox"
+          onChange={(event) => onBidirectionalChange(event.target.checked)}
+        />
+        <span>双向约束</span>
+      </label>
     </div>
   );
 };

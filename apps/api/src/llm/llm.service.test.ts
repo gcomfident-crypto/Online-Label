@@ -10,6 +10,210 @@ describe('LlmService template field classifier', () => {
     vi.unstubAllGlobals();
   });
 
+  it('LLM 辅助生成使用真实模型返回可直接写入的 suggestion', async () => {
+    process.env.LLM_PROVIDER = 'deepseek';
+    process.env.NODE_ENV = 'development';
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
+    process.env.LLM_MODEL = 'deepseek-chat';
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  targetFieldKey: 'structured_note',
+                  summary: '已生成结构化记录',
+                  suggestion: {
+                    comment: '围绕光合作用过程补充关键依据。',
+                    issue_tags: ['missing_info'],
+                  },
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await new LlmService().createAssist({
+      datasetKind: 'qa_quality',
+      rawData: {
+        prompt: '请说明光合作用的主要过程。',
+        model_answer: '光合作用会吸收二氧化碳并释放氧气。',
+      },
+      answers: {
+        reviewer: '已检查参考答案',
+        structured_note: {
+          comment: '旧版记录过于笼统。',
+          issue_tags: ['missing_info'],
+        },
+      },
+      targetFieldKey: 'structured_note',
+      promptTemplate: '请生成结构化复核记录。',
+      previousTargetValue: {
+        comment: '旧版记录过于笼统。',
+        issue_tags: ['missing_info'],
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.deepseek.com/chat/completions',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-deepseek-key',
+          'Content-Type': 'application/json',
+        }),
+      }),
+    );
+    expect(result).toEqual({
+      datasetKind: 'qa_quality',
+      targetFieldKey: 'structured_note',
+      summary: '已生成结构化记录',
+      suggestion: {
+        comment: '围绕光合作用过程补充关键依据。',
+        issue_tags: ['missing_info'],
+      },
+    });
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
+      temperature: number;
+      messages: Array<{ content: string }>;
+    };
+    const assistUserMessage = requestBody.messages.find((message) =>
+      message.content.includes('当前答案：'),
+    )?.content ?? '';
+
+    expect(requestBody.temperature).toBeGreaterThan(0);
+    expect(requestBody.messages.map((message) => message.content).join('\n')).toContain('不要输出 mock');
+    expect(requestBody.messages.map((message) => message.content).join('\n')).toContain('请生成结构化复核记录');
+    expect(assistUserMessage).toContain('请生成一个不同于上一次目标字段内容的新版本');
+    expect(assistUserMessage).toContain('旧版记录过于笼统');
+    expect(assistUserMessage).toContain('"reviewer":"已检查参考答案"');
+    expect(assistUserMessage).not.toContain('"structured_note"');
+  });
+
+  it('AI 预审使用真实模型生成字段级评语和修改建议', async () => {
+    process.env.LLM_PROVIDER = 'deepseek';
+    process.env.NODE_ENV = 'development';
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
+    process.env.LLM_MODEL = 'deepseek-chat';
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'chatcmpl_ai_review_1',
+          usage: {
+            prompt_tokens: 320,
+            completion_tokens: 96,
+            total_tokens: 416,
+          },
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  verdict: 'reject',
+                  overallScore: 48,
+                  overallComment: '审核意见没有解释关键事实依据，建议打回修改。',
+                  fieldReviews: [
+                    {
+                      fieldKey: 'comment',
+                      label: '审核意见',
+                      score: 48,
+                      decision: 'reject',
+                      comment: '当前标注只给出结论，没有说明模型回答与题目材料之间的事实依据。',
+                      suggestions: ['补充事实性、完整性和表达清晰度的判断依据。'],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await new LlmService().reviewSubmission({
+      answers: {
+        comment: '可以通过。',
+      },
+      datasetKind: 'qa_quality',
+      fieldRequirements: [
+        {
+          fieldKey: 'comment',
+          label: '审核意见',
+          type: 'textarea',
+          required: true,
+          requirement: '审核意见需说明关键事实依据。',
+        },
+      ],
+      model: 'deepseek-chat',
+      passThreshold: 70,
+      provider: 'deepseek',
+      rawData: {
+        prompt: '如何判断回答质量？',
+        model_answer: '检查事实性、完整性和表达清晰度。',
+      },
+      rawPrompt: '请对 comment 输出字段级 AI 预审结果。',
+      structuredOutputMode: 'function_calling',
+      temperature: 0,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.deepseek.com/chat/completions',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-deepseek-key',
+          'Content-Type': 'application/json',
+        }),
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        comment: '审核意见没有解释关键事实依据，建议打回修改。',
+        decision: 'reject',
+        rawOutput: expect.stringContaining('当前标注只给出结论'),
+        scores: expect.objectContaining({
+          fieldCount: 1,
+          overall: 48,
+          rejectedFieldCount: 1,
+        }),
+        structuredOutput: expect.objectContaining({
+          fieldReviews: [
+            expect.objectContaining({
+              fieldKey: 'comment',
+              comment: '当前标注只给出结论，没有说明模型回答与题目材料之间的事实依据。',
+              suggestions: ['补充事实性、完整性和表达清晰度的判断依据。'],
+            }),
+          ],
+        }),
+        modelMetadata: expect.objectContaining({
+          provider: 'deepseek',
+          model: 'deepseek-chat',
+          promptTokens: 320,
+          completionTokens: 96,
+          totalTokens: 416,
+        }),
+      }),
+    );
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
+      messages: Array<{ role: string; content: string }>;
+      response_format: { type: string };
+    };
+    expect(requestBody.response_format).toEqual({ type: 'json_object' });
+    expect(requestBody.messages.map((message) => message.content).join('\n')).toContain('fieldReviews 必须覆盖每个字段');
+    expect(requestBody.messages.map((message) => message.content).join('\n')).toContain('AI 对当前字段标注内容的评语');
+    expect(requestBody.messages.map((message) => message.content).join('\n')).toContain('请对 comment 输出字段级 AI 预审结果。');
+  });
+
   it('没有显式 LLM_PROVIDER 但配置 DeepSeek key 时按 DeepSeek OpenAI 兼容接口分类字段', async () => {
     delete process.env.LLM_PROVIDER;
     process.env.NODE_ENV = 'development';

@@ -28,6 +28,9 @@ describe('AiRuleConfigPage', () => {
     expect(await screen.findByRole('heading', { name: 'AI 规则配置' })).toBeInTheDocument();
     expect(screen.getByDisplayValue('问答质量 AI 预审 v1')).toBeInTheDocument();
     expect(screen.getByText('Prompt v1 · 维度 v1')).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'mock' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'deepseek' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'custom' })).toBeInTheDocument();
 
     await user.clear(screen.getByLabelText('规则名称'));
     await user.type(screen.getByLabelText('规则名称'), '问答质量 AI 预审 v2');
@@ -79,10 +82,10 @@ const rule = {
   dimensionVersion: 1,
   passThreshold: 80,
   manualThreshold: 60,
-  provider: 'mock',
-  model: 'mock-stable-reviewer',
+  provider: 'deepseek',
+  model: 'deepseek-chat',
   temperature: 0,
-  structuredOutputMode: 'function_calling',
+  structuredOutputMode: 'json_schema',
   enabled: true,
   createdById: null,
   createdAt: '2026-05-21T00:00:00.000Z',
