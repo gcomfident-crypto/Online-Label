@@ -866,19 +866,35 @@ describe('global styles', () => {
     expect(previewButtonHoverRule).toContain('box-shadow: 0 6px 14px rgba(48, 109, 248, 0.12);');
   });
 
-  it('截止时间确定按钮悬浮态复用日期格浅蓝高亮', () => {
+  it('截止时间操作按钮使用参考图底部主次按钮样式', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
-    const confirmRule = styles.match(/\.task-deadline-picker__confirm\s*\{[^}]+\}/)?.[0] ?? '';
+    const sharedButtonRule = styles.match(
+      /\.task-deadline-picker__cancel,\s*\.task-deadline-picker__confirm\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const cancelRule = styles.match(/\.task-deadline-picker__cancel\s*\{[^}]+\}/)?.[0] ?? '';
+    const confirmRule =
+      Array.from(styles.matchAll(/\.task-deadline-picker__confirm\s*\{[^}]+\}/g))
+        .map((match) => match[0])
+        .find((rule) => rule.includes('border: 1px solid #306df8;')) ?? '';
+    const cancelHoverRule = styles.match(
+      /\.task-publish-drawer \.task-deadline-picker__cancel:hover:not\(:disabled\),\s*\.task-publish-drawer \.task-deadline-picker__cancel:focus-visible:not\(:disabled\)\s*\{[^}]+\}/,
+    )?.[0] ?? '';
     const confirmHoverRule = styles.match(
       /\.task-publish-drawer \.task-deadline-picker__confirm:hover:not\(:disabled\)\s*\{[^}]+\}/,
     )?.[0] ?? '';
 
-    expect(confirmRule).toContain('width: 104px;');
-    expect(confirmRule).toContain('border: 1px solid #c9d8f6;');
-    expect(confirmRule).toContain('color: #306df8;');
-    expect(confirmRule).toContain('background: transparent;');
-    expect(confirmHoverRule).toContain('color: #306df8;');
-    expect(confirmHoverRule).toContain('background: #edf4ff;');
+    expect(sharedButtonRule).toContain('width: 72px;');
+    expect(sharedButtonRule).toContain('min-height: 32px;');
+    expect(sharedButtonRule).toContain('border-radius: 6px;');
+    expect(cancelRule).toContain('border: 1px solid #d7e1f1;');
+    expect(cancelRule).toContain('color: #64748b;');
+    expect(cancelRule).toContain('background: #ffffff;');
+    expect(confirmRule).toContain('border: 1px solid #306df8;');
+    expect(confirmRule).toContain('color: #ffffff;');
+    expect(confirmRule).toContain('background: #306df8;');
+    expect(cancelHoverRule).toContain('background: #f8fbff;');
+    expect(confirmHoverRule).toContain('color: #ffffff;');
+    expect(confirmHoverRule).toContain('background: #245ddc;');
   });
 
   it('模板配置抽屉在桌面端占浏览器宽度的 90%', () => {
@@ -1936,8 +1952,121 @@ describe('global styles', () => {
     expect(viewButtonHoverRule).toContain('background: transparent;');
   });
 
+  it('评测模板表头排序控件作为表头文字一部分展示', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const source = readFileSync(resolve(__dirname, '../pages/owner/TemplateDesignerPage.tsx'), 'utf8');
+    const sortableHeaderRule = styles.match(/\.template-manager-table__sortable-header\s*\{[^}]+\}/)?.[0] ?? '';
+    const sortableHeaderHoverRule = styles.match(
+      /\.template-manager-table__sortable-header:hover,\s*\.template-manager-table__sortable-header:focus-visible\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const sortableHeaderActiveRule =
+      styles.match(/\.template-manager-table__sortable-header\.is-active\s*\{[^}]+\}/)?.[0] ?? '';
+    const sortIconRule = styles.match(/\.template-manager-table__sort-icon\s*\{[^}]+\}/)?.[0] ?? '';
+    const sortIconActiveRule = styles.match(
+      /\.template-manager-table__sortable-header\.is-active \.template-manager-table__sort-icon\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const designerSortableHoverRule = styles.match(
+      /button\.template-manager-table__sortable-header:hover:not\(:disabled\),\s*button\.template-manager-table__sortable-header:focus-visible:not\(:disabled\)\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const designerSortableActiveHoverRule = styles.match(
+      /button\.template-manager-table__sortable-header\.is-active:hover:not\(:disabled\),\s*button\.template-manager-table__sortable-header\.is-active:focus-visible:not\(:disabled\)\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+
+    expect(source).toContain('<SortableTemplateHeader');
+    expect(source).not.toContain('template-manager-table__sort-btn');
+    expect(sortableHeaderRule).toContain('display: inline-flex;');
+    expect(sortableHeaderRule).toContain('align-items: center;');
+    expect(sortableHeaderRule).toContain('gap: 4px;');
+    expect(sortableHeaderRule).toContain('border: 0;');
+    expect(sortableHeaderRule).toContain('background: transparent;');
+    expect(sortableHeaderHoverRule).toContain('background: #f8fafc;');
+    expect(sortableHeaderHoverRule).toContain('color: #667085;');
+    expect(sortableHeaderActiveRule).toContain('color: #111827;');
+    expect(sortableHeaderActiveRule).toContain('font-weight: 600;');
+    expect(sortIconRule).toContain('color: #98A2B3;');
+    expect(sortIconRule).toContain('font-size: 13px;');
+    expect(sortIconActiveRule).toContain('color: #306df7;');
+    expect(designerSortableHoverRule).toContain('border-color: transparent;');
+    expect(designerSortableHoverRule).toContain('color: #667085;');
+    expect(designerSortableHoverRule).toContain('background: #f8fafc;');
+    expect(designerSortableActiveHoverRule).toContain('color: #111827;');
+    expect(designerSortableActiveHoverRule).toContain('background: #f8fafc;');
+    expect(styles).toContain(
+      'button.template-manager-table__sortable-header.is-active .template-manager-table__sort-icon',
+    );
+  });
+
+  it('任务管理表头排序控件作为表头文字一部分展示', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const source = readFileSync(resolve(__dirname, '../pages/owner/components/TaskTable.tsx'), 'utf8');
+    const sortableHeaderRule = styles.match(/\.task-table__sortable-header\s*\{[^}]+\}/)?.[0] ?? '';
+    const sortableHeaderHoverRule = styles.match(
+      /\.task-table__sortable-header:hover,\s*\.task-table__sortable-header:focus-visible\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const sortableHeaderActiveRule = styles.match(/\.task-table__sortable-header\.is-active\s*\{[^}]+\}/)?.[0] ?? '';
+    const sortIconRule = styles.match(/(?:^|\n)\.task-table__sort-icon\s*\{[^}]+\}/)?.[0] ?? '';
+    const sortIconActiveRule = styles.match(
+      /\.task-table__sortable-header\.is-active \.task-table__sort-icon\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const sortableHoverRule = styles.match(
+      /button\.task-table__sortable-header:hover:not\(:disabled\),\s*button\.task-table__sortable-header:focus-visible:not\(:disabled\)\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const sortableActiveHoverRule = styles.match(
+      /button\.task-table__sortable-header\.is-active:hover:not\(:disabled\),\s*button\.task-table__sortable-header\.is-active:focus-visible:not\(:disabled\)\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+
+    expect(source).toContain('<SortableTaskHeader');
+    expect(source).not.toContain('task-table__sort-btn');
+    expect(sortableHeaderRule).toContain('display: inline-flex;');
+    expect(sortableHeaderRule).toContain('align-items: center;');
+    expect(sortableHeaderRule).toContain('gap: 4px;');
+    expect(sortableHeaderRule).toContain('border: 0;');
+    expect(sortableHeaderRule).toContain('background: transparent;');
+    expect(sortableHeaderHoverRule).toContain('background: #f8fafc;');
+    expect(sortableHeaderHoverRule).toContain('color: #667085;');
+    expect(sortableHeaderActiveRule).toContain('color: #111827;');
+    expect(sortableHeaderActiveRule).toContain('font-weight: 600;');
+    expect(sortIconRule).toContain('color: #98A2B3;');
+    expect(sortIconRule).toContain('font-size: 13px;');
+    expect(sortIconActiveRule).toContain('color: #306df7;');
+    expect(sortableHoverRule).toContain('border-color: transparent;');
+    expect(sortableHoverRule).toContain('color: #667085;');
+    expect(sortableHoverRule).toContain('background: #f8fafc;');
+    expect(sortableActiveHoverRule).toContain('color: #111827;');
+    expect(sortableActiveHoverRule).toContain('background: #f8fafc;');
+    expect(styles).toContain('button.task-table__sortable-header.is-active .task-table__sort-icon');
+  });
+
+  it('导出中心表头排序控件作为表头文字一部分展示', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const source = readFileSync(resolve(__dirname, '../pages/owner/ExportCenterPage.tsx'), 'utf8');
+
+    expect(source).toContain('<SortableExportHeader');
+    expect(source).toContain('className={`task-table__sortable-header');
+    expect(source).toContain('className="task-table__sort-icon"');
+    expect(source).not.toContain('export-task-table__sort-btn');
+    expect(styles).toContain('.task-table__sortable-header {');
+    expect(styles).toContain('button.task-table__sortable-header:hover:not(:disabled)');
+    expect(styles).toContain('button.task-table__sortable-header.is-active .task-table__sort-icon');
+  });
+
+  it('Labeler 工作台表头排序控件作为表头文字一部分展示', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const source = readFileSync(resolve(__dirname, '../pages/labeler/MyDataPage.tsx'), 'utf8');
+
+    expect(source).toContain('<SortableMyDataHeader');
+    expect(source).toContain('className={`task-table__sortable-header');
+    expect(source).toContain('className="task-table__sort-icon"');
+    expect(source).not.toContain('my-data-table__sort-btn');
+    expect(styles).toContain('.task-table__sortable-header {');
+    expect(styles).toContain('button.task-table__sortable-header:hover:not(:disabled)');
+    expect(styles).toContain('button.task-table__sortable-header.is-active .task-table__sort-icon');
+  });
+
   it('任务截止时间日历浮层使用圆角和柔和弹出动效', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const triggerRule = styles.match(/\.task-deadline-picker__trigger\s*\{[^}]+\}/)?.[0] ?? '';
+    const triggerIconRule = styles.match(/\.task-deadline-picker__trigger-icon\s*\{[^}]+\}/)?.[0] ?? '';
     const popoverRule = styles.match(/\.task-deadline-picker__popover\s*\{[^}]+\}/)?.[0] ?? '';
     const dayRule = styles.match(/\.task-deadline-picker__day\s*\{[^}]+\}/)?.[0] ?? '';
     const navRule = styles.match(/\.task-deadline-picker__nav\s*\{[^}]+\}/)?.[0] ?? '';
@@ -1946,6 +2075,7 @@ describe('global styles', () => {
     const daysRule = styles.match(/\.task-deadline-picker__weekdays,\s*\.task-deadline-picker__days\s*\{[^}]+\}/)?.[0] ?? '';
     const calendarRule = styles.match(/\.task-deadline-picker__calendar\s*\{[^}]+\}/)?.[0] ?? '';
     const timeRule = styles.match(/\.task-deadline-picker__time\s*\{[^}]+\}/)?.[0] ?? '';
+    const timeHeadingRule = styles.match(/\.task-deadline-picker__time-heading\s*\{[^}]+\}/)?.[0] ?? '';
     const footerRule = styles.match(/\.task-deadline-picker__footer\s*\{[^}]+\}/)?.[0] ?? '';
     const hourWheelShellRule = styles.match(/\.task-deadline-picker__hour-wheel-shell\s*\{[^}]+\}/)?.[0] ?? '';
     const hourWheelRule = styles.match(/\.task-deadline-picker__hour-wheel\s*\{[^}]+\}/)?.[0] ?? '';
@@ -1958,34 +2088,61 @@ describe('global styles', () => {
       styles.match(/\.task-deadline-picker__day--selected,\s*\.task-deadline-picker__day--selected:hover:not\(:disabled\)\s*\{[^}]+\}/)?.[0] ??
       '';
 
-    expect(popoverRule).toContain('border-radius: 16px;');
-    expect(popoverRule).toContain('width: min(364px, calc(100vw - 48px));');
-    expect(popoverRule).toContain('max-height: min(360px, calc(100vh - var(--platform-topbar-height) - 72px));');
+    expect(triggerRule).toContain('min-height: 48px;');
+    expect(triggerRule).toContain('justify-content: space-between;');
+    expect(triggerRule).toContain('gap: 12px;');
+    expect(triggerIconRule).toContain('width: 24px;');
+    expect(triggerIconRule).toContain('display: inline-grid;');
+    expect(triggerIconRule).toContain('background: #f8fbff;');
+    expect(styles).toContain('.task-deadline-picker__trigger-icon::before');
+    expect(styles).toContain('.task-deadline-picker__trigger-icon::after');
+    expect(popoverRule).toContain('border-radius: 12px;');
+    expect(popoverRule).toContain('width: min(460px, calc(100vw - 48px));');
+    expect(popoverRule).toContain('max-height: min(410px, calc(100vh - var(--platform-topbar-height) - 72px));');
     expect(popoverRule).toContain('overflow: visible;');
-    expect(popoverRule).toContain('padding: 8px;');
-    expect(popoverRule).toContain('grid-template-columns: minmax(0, 1fr) 112px;');
-    expect(popoverRule).toContain('row-gap: 6px;');
-    expect(popoverRule).toContain('box-shadow: 0 22px 54px rgba(31, 44, 76, 0.18);');
+    expect(popoverRule).toContain('padding: 0;');
+    expect(popoverRule).toContain('grid-template-columns: minmax(0, 1fr) 160px;');
+    expect(popoverRule).toContain('grid-template-rows: minmax(0, auto) auto;');
+    expect(popoverRule).toContain('column-gap: 0;');
+    expect(popoverRule).toContain('row-gap: 0;');
+    expect(popoverRule).toContain('box-shadow: 0 16px 38px rgba(31, 44, 76, 0.17);');
     expect(popoverRule).toContain('animation: taskDeadlinePickerIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;');
     expect(styles).toContain('.task-publish-form:has(.task-deadline-picker__popover)');
     expect(styles).toContain('overflow-y: visible;');
+    expect(styles).toContain('.task-deadline-picker:has(.task-deadline-picker__popover)');
+    expect(styles).toContain('z-index: var(--overlay-dropdown-z-index);');
+    expect(styles).toContain('width: min(286px, calc(100vw - 48px));');
+    expect(styles).toContain('grid-template-columns: minmax(0, 1fr) 82px;');
+    expect(styles).toContain('.task-deadline-picker__time-heading {');
+    expect(styles).toContain('.task-deadline-picker__hour-wheel-shell {');
+    expect(styles).toContain('.task-deadline-picker__footer {');
     expect(navRule).toContain('display: grid;');
     expect(navRule).toContain('place-items: center;');
     expect(navRule).toContain('padding: 0;');
     expect(timeRule).toContain('grid-column: 2;');
     expect(timeRule).toContain('grid-row: 1;');
     expect(timeRule).toContain('grid-template-columns: 1fr;');
+    expect(timeRule).toContain('grid-template-rows: auto minmax(0, 1fr);');
+    expect(timeRule).toContain('gap: 10px;');
+    expect(timeRule).toContain('border-left: 1px solid #e3e9f3;');
+    expect(timeHeadingRule).toContain('min-height: 20px;');
+    expect(timeHeadingRule).toContain('font-size: 13px;');
     expect(calendarRule).toContain('grid-column: 1;');
-    expect(calendarRule).toContain('grid-row: 1 / span 2;');
-    expect(daysRule).toContain('gap: 1px;');
-    expect(weekdayRule).toContain('margin-bottom: 3px;');
-    expect(weekdaySpanRule).toContain('height: 14px;');
-    expect(hourWheelShellRule).toContain('width: 104px;');
-    expect(hourWheelShellRule).toContain('height: 164px;');
-    expect(hourWheelShellRule).toContain('perspective: 560px;');
+    expect(calendarRule).toContain('grid-row: 1;');
+    expect(calendarRule).toContain('padding: 12px 16px 14px;');
+    expect(calendarRule).toContain('background: #ffffff;');
+    expect(daysRule).toContain('column-gap: 5px;');
+    expect(daysRule).toContain('row-gap: 4px;');
+    expect(weekdayRule).toContain('margin-bottom: 8px;');
+    expect(weekdaySpanRule).toContain('height: 15px;');
+    expect(hourWheelShellRule).toContain('width: 100%;');
+    expect(hourWheelShellRule).toContain('height: 184px;');
+    expect(hourWheelShellRule).toContain('overflow: hidden;');
     expect(hourWheelRule).toContain('height: 100%;');
     expect(hourWheelRule).toContain('cursor: ns-resize;');
-    expect(hourWheelRule).toContain('mask-image: linear-gradient(');
+    expect(hourWheelRule).toContain('overflow-y: auto;');
+    expect(hourWheelRule).toContain('padding: 73px 10px;');
+    expect(hourWheelRule).toContain('scrollbar-color: #d8dee8 transparent;');
     expect(hourWheelRule).toContain('scroll-snap-type: y mandatory;');
     expect(hourWheelRule).toContain('touch-action: none;');
     expect(hourWheelRule).toContain('user-select: none;');
@@ -1993,25 +2150,28 @@ describe('global styles', () => {
     expect(styles).toContain('.task-deadline-picker__hour-wheel-shell::after');
     expect(styles).toContain('.task-deadline-picker__hour-wheel-shell.is-dragging');
     expect(selectedHourRule).toContain('color: #306df8;');
-    expect(selectedHourRule).toContain('font-size: 22px;');
-    expect(selectedHourRule).toContain('font-weight: 600;');
-    expect(selectedHourRule).toContain('transform: translateZ(34px) scale(1.02);');
+    expect(selectedHourRule).toContain('background: #edf4ff;');
+    expect(selectedHourRule).toContain('font-size: 15px;');
+    expect(selectedHourRule).toContain('font-weight: 800;');
     expect(navHoverRule).toContain('border-color: #d7e1f1;');
     expect(navHoverRule).toContain('background: #f8fbff;');
-    expect(footerRule).toContain('grid-column: 2;');
+    expect(footerRule).toContain('grid-column: 1 / -1;');
     expect(footerRule).toContain('grid-row: 2;');
-    expect(footerRule).toContain('align-self: start;');
-    expect(footerRule).toContain('justify-content: center;');
+    expect(footerRule).toContain('grid-template-columns: minmax(0, 1fr) auto;');
     expect(footerRule).toContain('margin-top: 0;');
-    expect(dayRule).toContain('width: 28px;');
-    expect(dayRule).toContain('height: 28px;');
+    expect(footerRule).toContain('border-top: 1px solid #dfe6f0;');
+    expect(footerRule).toContain('padding: 8px 14px 8px 16px;');
+    expect(dayRule).toContain('width: 24px;');
+    expect(dayRule).toContain('height: 24px;');
     expect(dayRule).toContain('display: grid;');
     expect(dayRule).toContain('place-items: center;');
     expect(dayRule).toContain('border-radius: 999px;');
     expect(dayRule).toContain('padding: 0;');
     expect(dayRule).toContain('line-height: 1;');
     expect(selectedDayRule).toContain('background: #306df8;');
-    expect(styles).not.toContain('task-deadline-picker__cancel');
+    expect(styles).toContain('.task-deadline-picker__selected-summary');
+    expect(styles).toContain('.task-deadline-picker__footer-actions');
+    expect(styles).toContain('.task-deadline-picker__cancel');
     expect(styles).toContain('@keyframes taskDeadlinePickerIn');
     expect(styles).toContain('@keyframes taskDeadlineTitleIn');
     expect(styles).toContain('.task-deadline-picker__title-text');

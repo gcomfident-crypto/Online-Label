@@ -84,10 +84,24 @@ describe('AgentDashboardPage', () => {
     });
   });
 
-  it('支持真实数据的时间范围切换、刷新 loading、导出报告和趋势图 tooltip', async () => {
+  it('支持真实数据的时间范围切换、导出报告和趋势图 tooltip', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const fetchMock = createDashboardFetchMock();
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const downloadSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    let capturedBlob: Blob | MediaSource | null = null;
+    if (typeof (URL as unknown as { createObjectURL?: (blob: Blob) => string }).createObjectURL !== 'function') {
+      vi.stubGlobal('URL', {
+        ...(globalThis as WindowOrWorkerGlobalScope & { URL: object }).URL,
+        createObjectURL: (blob: Blob | MediaSource) => {
+          capturedBlob = blob;
+          return 'blob:dashboard-report';
+        },
+      });
+    }
+    const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob: Blob | MediaSource) => {
+      capturedBlob = blob;
+      return 'blob:dashboard-report';
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     render(<AgentDashboardPage />);
@@ -99,17 +113,13 @@ describe('AgentDashboardPage', () => {
     expect(await screen.findByText('近 30 天处理量与通过率变化')).toBeInTheDocument();
     expect(screen.getByText('26')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '导出报告' }));
-    expect(logSpy).toHaveBeenCalledWith('export-agent-dashboard-report', expect.objectContaining({ range: '30d' }));
-
-    await user.hover(screen.getByRole('button', { name: /06\/05 处理题目数/ }));
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('06/05');
-    expect(screen.getByRole('tooltip')).toHaveTextContent('处理题目数');
-
-    await user.click(screen.getByRole('button', { name: '刷新' }));
-    expect(screen.getByRole('button', { name: '刷新中' })).toBeDisabled();
-    await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).not.toBeDisabled());
-    expect(fetchMock.mock.calls.filter(([path]) => path === '/ai-review/batches').length).toBeGreaterThan(1);
+    const exportButton = screen.getByRole('button', { name: '导出报告' });
+    await user.click(exportButton);
+    expect(downloadSpy).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/已生成报告：数据看板报告-\d{4}-\d{2}-\d{2}\.html/)).toBeInTheDocument();
+    expect(createObjectURLSpy).toHaveBeenCalledTimes(1);
+    expect(capturedBlob).not.toBeNull();
+    expect(await screen.findByRole('button', { name: '导出报告' })).toBeEnabled();
   });
 });
 

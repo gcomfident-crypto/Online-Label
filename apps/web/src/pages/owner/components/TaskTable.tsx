@@ -4,14 +4,20 @@ import { StatusTag } from '../../../components/StatusTag';
 import type { TaskDto } from '../../../api/tasks';
 import { TableEmptyState } from '../../../components/TableEmptyState';
 
+export type TaskTableSortField = 'taskId' | 'createdAt' | 'deadline';
+export type TaskTableSortDirection = 'asc' | 'desc';
+
 type TaskTableProps = {
   currentPage: number;
   deletingTaskIds?: ReadonlySet<string>;
   enteringTaskIds?: ReadonlySet<string>;
   getTaskDisplayId?: (task: TaskDto) => string;
+  sortDirection: TaskTableSortDirection;
+  sortField: TaskTableSortField | null;
   tablePanelRef?: Ref<HTMLDivElement>;
   tasks: TaskDto[];
   totalPages: number;
+  onSort: (field: TaskTableSortField) => void;
   onOpenTask: (task: TaskDto) => void;
   onPageChange: (page: number) => void;
   onPublish: (task: TaskDto) => void;
@@ -21,7 +27,7 @@ type TaskTableProps = {
   onDelete: (task: TaskDto) => void;
 };
 
-type TaskActionsProps = Omit<TaskTableProps, 'currentPage' | 'tasks' | 'totalPages' | 'onOpenTask' | 'onPageChange'> & {
+type TaskActionsProps = Pick<TaskTableProps, 'onPublish' | 'onPause' | 'onResume' | 'onEnd' | 'onDelete'> & {
   isDeleting: boolean;
   task: TaskDto;
 };
@@ -37,9 +43,12 @@ export const TaskTable = ({
   deletingTaskIds = EMPTY_TASK_ID_SET,
   enteringTaskIds = EMPTY_TASK_ID_SET,
   getTaskDisplayId = defaultTaskDisplayId,
+  sortDirection,
+  sortField,
   tablePanelRef,
   tasks,
   totalPages,
+  onSort,
   onOpenTask,
   onPageChange,
   onPublish,
@@ -83,13 +92,37 @@ export const TaskTable = ({
           </colgroup>
           <thead>
             <tr>
-              <th>任务ID</th>
+              <th>
+                <SortableTaskHeader
+                  field="taskId"
+                  label="任务ID"
+                  sortDirection={sortDirection}
+                  sortField={sortField}
+                  onSort={onSort}
+                />
+              </th>
               <th>任务名</th>
               <th>状态</th>
               <th>创建人</th>
               <th>进度</th>
-              <th>创建时间</th>
-              <th>截止时间</th>
+              <th>
+                <SortableTaskHeader
+                  field="createdAt"
+                  label="创建时间"
+                  sortDirection={sortDirection}
+                  sortField={sortField}
+                  onSort={onSort}
+                />
+              </th>
+              <th>
+                <SortableTaskHeader
+                  field="deadline"
+                  label="截止时间"
+                  sortDirection={sortDirection}
+                  sortField={sortField}
+                  onSort={onSort}
+                />
+              </th>
               <th>操作</th>
             </tr>
           </thead>
@@ -207,6 +240,38 @@ const EMPTY_TASK_ID_SET = new Set<string>();
 const TaskTableCellInner = ({ children }: { children: ReactNode }) => (
   <div className="task-table__cell-inner">{children}</div>
 );
+
+const SortableTaskHeader = ({
+  field,
+  label,
+  sortDirection,
+  sortField,
+  onSort,
+}: {
+  field: TaskTableSortField;
+  label: string;
+  sortDirection: TaskTableSortDirection;
+  sortField: TaskTableSortField | null;
+  onSort: (field: TaskTableSortField) => void;
+}) => {
+  const isActive = sortField === field;
+  const icon = isActive ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅';
+
+  return (
+    <button
+      aria-label={`按${label}排序`}
+      aria-pressed={isActive}
+      className={`task-table__sortable-header${isActive ? ' is-active' : ''}`}
+      type="button"
+      onClick={() => onSort(field)}
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className="task-table__sort-icon">
+        {icon}
+      </span>
+    </button>
+  );
+};
 
 const TaskActions = ({ isDeleting, task, onPublish, onPause, onResume, onEnd, onDelete }: TaskActionsProps) => {
   const canPublish = task.status === 'DRAFT';
@@ -344,17 +409,26 @@ const TaskProgressCell = ({ task }: { task: TaskDto }) => {
 
   const completedCount = Math.min(task.completedItemCount ?? 0, totalCount);
   const progressPercent = Math.min(100, (completedCount / totalCount) * 100);
+  const progressPercentLabel = formatProgressPercent(progressPercent);
 
   return (
     <div className="task-progress-cell">
-      <div className="task-progress-cell__meta">
-        <span>
-          {completedCount.toLocaleString()} / {totalCount.toLocaleString()}
+      <div className="task-progress-cell__header">
+        <span className="task-progress-cell__count">
+          {completedCount.toLocaleString()} / {totalCount.toLocaleString()} 题
         </span>
-        <small>{formatProgressPercent(progressPercent)}</small>
+        <strong>{progressPercentLabel}</strong>
       </div>
-      <span className="task-progress">
-        <span style={{ width: `${progressPercent}%` }} />
+      <span
+        className="task-progress"
+        role="progressbar"
+        aria-label={`${task.title} 完成进度`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progressPercent)}
+        aria-valuetext={`${completedCount.toLocaleString()} / ${totalCount.toLocaleString()}，${progressPercentLabel}`}
+      >
+        <span className="task-progress__fill" style={{ width: `${progressPercent}%` }} />
       </span>
     </div>
   );

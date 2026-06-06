@@ -13,6 +13,8 @@ import eyeIcon from '../../assets/eye.svg';
 import getIcon from '../../assets/get.svg';
 
 const LABELER_ID = 'user_labeler_li_lei';
+type TaskMarketSortField = 'taskId' | 'deadline';
+type TaskMarketSortDirection = 'asc' | 'desc';
 
 type ClaimStatusSummary = {
   available: number;
@@ -47,6 +49,8 @@ export const TaskMarketPage = () => {
   const [tasks, setTasks] = useState<MarketTaskDto[]>([]);
   const [keyword, setKeyword] = useState('');
   const [claimStatus, setClaimStatus] = useState<MarketClaimStatus | 'ALL'>('ALL');
+  const [sortField, setSortField] = useState<TaskMarketSortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<TaskMarketSortDirection>('asc');
   const [isLoading, setIsLoading] = useState(true);
   const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -98,6 +102,24 @@ export const TaskMarketPage = () => {
       return matchesStatus && matchesKeyword;
     });
   }, [claimStatus, keyword, taskDisplayIdMap, tasks]);
+  const sortedTasks = useMemo(() => {
+    if (!sortField) {
+      return filteredTasks;
+    }
+
+    return [...filteredTasks].sort((left, right) => {
+      const compareResult = compareTaskMarketTasksBySortField(left, right, sortField, sortDirection, taskDisplayIdMap);
+
+      if (compareResult !== 0) {
+        return compareResult;
+      }
+
+      const leftTaskId = taskDisplayIdMap.get(left.id) ?? left.id;
+      const rightTaskId = taskDisplayIdMap.get(right.id) ?? right.id;
+
+      return leftTaskId.localeCompare(rightTaskId);
+    });
+  }, [filteredTasks, sortDirection, sortField, taskDisplayIdMap]);
   const claimStatusSummary = useMemo<ClaimStatusSummary>(
     () => ({
       total: tasks.length,
@@ -106,12 +128,12 @@ export const TaskMarketPage = () => {
     }),
     [tasks],
   );
-  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / marketPageSize));
+  const totalPages = Math.max(1, Math.ceil(sortedTasks.length / marketPageSize));
   const paginatedTasks = useMemo(() => {
     const startIndex = (currentPage - 1) * marketPageSize;
 
-    return filteredTasks.slice(startIndex, startIndex + marketPageSize);
-  }, [currentPage, filteredTasks, marketPageSize]);
+    return sortedTasks.slice(startIndex, startIndex + marketPageSize);
+  }, [currentPage, marketPageSize, sortedTasks]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -119,7 +141,7 @@ export const TaskMarketPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [claimStatus, keyword]);
+  }, [claimStatus, keyword, sortDirection, sortField]);
 
   const loadTasks = async () => {
     setIsLoading(true);
@@ -160,6 +182,16 @@ export const TaskMarketPage = () => {
     } finally {
       setClaimingTaskId(null);
     }
+  };
+
+  const handleSort = (field: TaskMarketSortField) => {
+    if (sortField === field) {
+      setSortDirection((currentDirection) => (currentDirection === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSortField(field);
+    setSortDirection('asc');
   };
 
   return (
@@ -215,13 +247,29 @@ export const TaskMarketPage = () => {
               </colgroup>
               <thead>
                 <tr>
-                  <th>任务ID</th>
+                  <th>
+                    <SortableTaskMarketHeader
+                      field="taskId"
+                      label="任务ID"
+                      sortDirection={sortDirection}
+                      sortField={sortField}
+                      onSort={handleSort}
+                    />
+                  </th>
                   <th>任务名</th>
                   <th>发布者</th>
                   <th>状态</th>
                   <th>报酬</th>
                   <th>进度</th>
-                  <th>截止时间</th>
+                  <th>
+                    <SortableTaskMarketHeader
+                      field="deadline"
+                      label="截止时间"
+                      sortDirection={sortDirection}
+                      sortField={sortField}
+                      onSort={handleSort}
+                    />
+                  </th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -377,9 +425,113 @@ const marketTaskSequenceTime = (task: MarketTaskDto): number => {
   return Number.isFinite(createdTime) ? createdTime : 0;
 };
 
+const parseTaskMarketDisplayId = (taskDisplayId: string): number | null => {
+  const match = /^T-(\d+)$/i.exec(taskDisplayId);
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  const value = Number.parseInt(match[1], 10);
+
+  return Number.isFinite(value) ? value : null;
+};
+
+const marketTaskDeadlineTime = (task: MarketTaskDto): number | null => {
+  if (!task.deadline) {
+    return null;
+  }
+
+  const timestamp = Date.parse(task.deadline);
+
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const compareTaskMarketTasksBySortField = (
+  left: MarketTaskDto,
+  right: MarketTaskDto,
+  sortField: TaskMarketSortField,
+  sortDirection: TaskMarketSortDirection,
+  taskDisplayIdMap: Map<string, string>,
+): number => {
+  const directionMultiplier = sortDirection === 'asc' ? 1 : -1;
+
+  if (sortField === 'deadline') {
+    const leftDeadline = marketTaskDeadlineTime(left);
+    const rightDeadline = marketTaskDeadlineTime(right);
+    const leftHasDeadline = leftDeadline !== null;
+    const rightHasDeadline = rightDeadline !== null;
+
+    if (!leftHasDeadline && !rightHasDeadline) {
+      return 0;
+    }
+
+    if (!leftHasDeadline) {
+      return 1;
+    }
+
+    if (!rightHasDeadline) {
+      return -1;
+    }
+
+    if (leftDeadline !== rightDeadline) {
+      return (leftDeadline - rightDeadline) * directionMultiplier;
+    }
+
+    return 0;
+  }
+
+  const leftDisplayId = taskDisplayIdMap.get(left.id) ?? left.id;
+  const rightDisplayId = taskDisplayIdMap.get(right.id) ?? right.id;
+  const leftSequence = parseTaskMarketDisplayId(leftDisplayId);
+  const rightSequence = parseTaskMarketDisplayId(rightDisplayId);
+
+  if (leftSequence !== null && rightSequence !== null) {
+    if (leftSequence !== rightSequence) {
+      return (leftSequence - rightSequence) * directionMultiplier;
+    }
+
+    return 0;
+  }
+
+  return leftDisplayId.localeCompare(rightDisplayId) * directionMultiplier;
+};
+
 const TaskTableCellInner = ({ children }: { children: ReactNode }) => (
   <div className="task-table__cell-inner">{children}</div>
 );
+
+const SortableTaskMarketHeader = ({
+  field,
+  label,
+  sortDirection,
+  sortField,
+  onSort,
+}: {
+  field: TaskMarketSortField;
+  label: string;
+  sortDirection: TaskMarketSortDirection;
+  sortField: TaskMarketSortField | null;
+  onSort: (field: TaskMarketSortField) => void;
+}) => {
+  const isActive = sortField === field;
+  const icon = isActive ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅';
+
+  return (
+    <button
+      aria-label={`按${label}排序`}
+      aria-pressed={isActive}
+      className={`task-table__sortable-header${isActive ? ' is-active' : ''}`}
+      type="button"
+      onClick={() => onSort(field)}
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className="task-table__sort-icon">
+        {icon}
+      </span>
+    </button>
+  );
+};
 
 const ClaimStatusFilterCard = ({
   isActive,

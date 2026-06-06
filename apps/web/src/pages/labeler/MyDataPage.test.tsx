@@ -91,7 +91,20 @@ describe('MyDataPage', () => {
     const table = screen.getByRole('table', { name: '工作台任务列表' });
     expect(within(table).getByText('任务ID')).toBeInTheDocument();
     expect(within(table).getByText('任务名')).toBeInTheDocument();
+    expect(within(table).getByRole('button', { name: '按任务ID排序' })).toHaveClass('task-table__sortable-header');
+    expect(within(table).getByRole('button', { name: '按最近提交排序' })).toHaveClass(
+      'task-table__sortable-header',
+    );
+    expect(within(table).getByRole('button', { name: '按领取时间排序' })).toHaveClass(
+      'task-table__sortable-header',
+    );
+    expect(within(table).getByRole('button', { name: '按任务ID排序' })).toHaveTextContent('任务ID⇅');
+    expect(within(table).getByRole('button', { name: '按最近提交排序' })).toHaveTextContent('最近提交⇅');
+    expect(within(table).getByRole('button', { name: '按领取时间排序' })).toHaveTextContent('领取时间⇅');
     expect(within(table).queryByRole('columnheader', { name: '任务' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '按任务名排序' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '按类型排序' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '按进度排序' })).not.toBeInTheDocument();
     expect(within(table).getByText('T-001')).toBeInTheDocument();
     expect(within(table).getByText('2 条')).toBeInTheDocument();
     expect(within(table).getByText('0/2')).toBeInTheDocument();
@@ -286,6 +299,113 @@ describe('MyDataPage', () => {
       'labeler-assignment-status',
       'labeler-assignment-status--ai_review',
     );
+  });
+
+  it('工作台仅允许任务ID、最近提交和领取时间按指定方向排序', async () => {
+    const user = userEvent.setup();
+    const sortableAssignments = [
+      createAssignment({
+        assignmentId: 'assignment_c',
+        taskId: 'task_c',
+        taskTitle: '工作台任务 C',
+        taskItemId: 'item_c',
+        externalId: 'item_c',
+        claimedAt: '2026-06-03T09:00:00.000Z',
+        latestSubmittedAt: '2026-06-12T09:00:00.000Z',
+        status: 'SUBMITTED',
+      }),
+      createAssignment({
+        assignmentId: 'assignment_a',
+        taskId: 'task_a',
+        taskTitle: '工作台任务 A',
+        taskItemId: 'item_a',
+        externalId: 'item_a',
+        claimedAt: '2026-06-01T09:00:00.000Z',
+        latestSubmittedAt: null,
+      }),
+      createAssignment({
+        assignmentId: 'assignment_b',
+        taskId: 'task_b',
+        taskTitle: '工作台任务 B',
+        taskItemId: 'item_b',
+        externalId: 'item_b',
+        claimedAt: '2026-06-02T09:00:00.000Z',
+        latestSubmittedAt: '2026-06-11T09:00:00.000Z',
+        status: 'SUBMITTED',
+      }),
+    ];
+    const sortableTasks = [
+      createTaskDto({
+        id: 'task_a',
+        title: '工作台任务 A',
+        createdAt: '2026-05-01T00:00:00.000Z',
+      }),
+      createTaskDto({
+        id: 'task_b',
+        title: '工作台任务 B',
+        createdAt: '2026-05-02T00:00:00.000Z',
+      }),
+      createTaskDto({
+        id: 'task_c',
+        title: '工作台任务 C',
+        createdAt: '2026-05-03T00:00:00.000Z',
+      }),
+    ];
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce(jsonResponse({ data: sortableAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: sortableTasks })),
+    );
+
+    render(
+      <MemoryRouter>
+        <MyDataPage />
+      </MemoryRouter>,
+    );
+
+    const table = await screen.findByRole('table', { name: '工作台任务列表' });
+    const getTaskTitles = () =>
+      Array.from(table.querySelectorAll('tbody tr:not(.task-table__empty-row)')).map(
+        (row) => row.querySelector('td:nth-child(2) strong')?.textContent?.trim() ?? '',
+      );
+
+    expect(getTaskTitles()).toEqual(['工作台任务 C', '工作台任务 B', '工作台任务 A']);
+
+    const taskIdSortButton = within(table).getByRole('button', { name: '按任务ID排序' });
+    const latestSubmittedAtSortButton = within(table).getByRole('button', { name: '按最近提交排序' });
+    const claimedAtSortButton = within(table).getByRole('button', { name: '按领取时间排序' });
+
+    expect(taskIdSortButton).toHaveTextContent('任务ID⇅');
+    expect(latestSubmittedAtSortButton).toHaveTextContent('最近提交⇅');
+    expect(claimedAtSortButton).toHaveTextContent('领取时间⇅');
+
+    await user.click(taskIdSortButton);
+    expect(getTaskTitles()).toEqual(['工作台任务 A', '工作台任务 B', '工作台任务 C']);
+    expect(taskIdSortButton).toHaveTextContent('任务ID↑');
+
+    await user.click(taskIdSortButton);
+    expect(getTaskTitles()).toEqual(['工作台任务 C', '工作台任务 B', '工作台任务 A']);
+    expect(taskIdSortButton).toHaveTextContent('任务ID↓');
+
+    await user.click(latestSubmittedAtSortButton);
+    expect(getTaskTitles()).toEqual(['工作台任务 B', '工作台任务 C', '工作台任务 A']);
+    expect(taskIdSortButton).toHaveTextContent('任务ID⇅');
+    expect(latestSubmittedAtSortButton).toHaveTextContent('最近提交↑');
+
+    await user.click(latestSubmittedAtSortButton);
+    expect(getTaskTitles()).toEqual(['工作台任务 C', '工作台任务 B', '工作台任务 A']);
+    expect(latestSubmittedAtSortButton).toHaveTextContent('最近提交↓');
+
+    await user.click(claimedAtSortButton);
+    expect(getTaskTitles()).toEqual(['工作台任务 A', '工作台任务 B', '工作台任务 C']);
+    expect(latestSubmittedAtSortButton).toHaveTextContent('最近提交⇅');
+    expect(claimedAtSortButton).toHaveTextContent('领取时间↑');
+
+    await user.click(claimedAtSortButton);
+    expect(getTaskTitles()).toEqual(['工作台任务 C', '工作台任务 B', '工作台任务 A']);
+    expect(claimedAtSortButton).toHaveTextContent('领取时间↓');
   });
 
   it('没有领取记录时仍保留工作台表格结构', async () => {

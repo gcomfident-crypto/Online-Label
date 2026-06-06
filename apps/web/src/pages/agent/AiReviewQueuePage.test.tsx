@@ -191,6 +191,69 @@ describe('AiReviewQueuePage', () => {
     expect(within(table).getAllByRole('row')).toHaveLength(3);
   });
 
+  it('机审队列仅允许任务ID和提交时间按指定方向排序', async () => {
+    const user = userEvent.setup();
+    const customBatches = [
+      { ...passedBatch, taskTitle: '通过结果抽检', batchId: 'task-submit:task_pass:user_labeler_li_lei:round3', submittedAt: '2026-06-03T10:00:00.000Z' },
+      { ...pendingBatch, taskTitle: '问答质量标注', batchId: 'task-submit:task_qa:user_labeler_li_lei:round1', submittedAt: '2026-06-01T10:00:00.000Z' },
+      { ...rejectedBatch, taskTitle: '偏好安全评测', batchId: 'task-submit:task_pref:user_labeler_li_lei:round2', submittedAt: '2026-06-02T10:00:00.000Z' },
+    ] satisfies AiReviewBatchDto[];
+    vi.stubGlobal('fetch', createFetchMock(customBatches));
+
+    render(<AiReviewQueuePage />);
+
+    const table = await screen.findByRole('table', { name: '任务级 AI 预审队列表格' });
+    const taskIdSortButton = within(table).getByRole('button', { name: '按任务ID排序' });
+    const submitTimeSortButton = within(table).getByRole('button', { name: '按提交时间排序' });
+    expect(taskIdSortButton).toHaveClass(
+      'task-table__sortable-header',
+      'agent-review-batch-table__sortable-header',
+    );
+    expect(submitTimeSortButton).toHaveClass(
+      'task-table__sortable-header',
+      'agent-review-batch-table__sortable-header',
+    );
+    expect(taskIdSortButton).toHaveTextContent('任务ID⇅');
+    expect(submitTimeSortButton).toHaveTextContent('提交时间⇅');
+    expect(within(table).queryByRole('button', { name: '按任务名称排序' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '按标注员排序' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '按题目数排序' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '按AI 建议排序' })).not.toBeInTheDocument();
+
+    const allRows = () => within(table).getAllByRole('row').slice(1);
+    expect(allRows()[0]).toHaveTextContent('通过结果抽检');
+    expect(allRows()[1]).toHaveTextContent('问答质量标注');
+    expect(allRows()[2]).toHaveTextContent('偏好安全评测');
+
+    await user.click(taskIdSortButton);
+    expect(taskIdSortButton).toHaveTextContent('任务ID↑');
+    expect(submitTimeSortButton).toHaveTextContent('提交时间⇅');
+    expect(allRows()[0]).toHaveTextContent('问答质量标注');
+    expect(allRows()[1]).toHaveTextContent('偏好安全评测');
+    expect(allRows()[2]).toHaveTextContent('通过结果抽检');
+
+    await user.click(taskIdSortButton);
+    expect(taskIdSortButton).toHaveTextContent('任务ID↓');
+    expect(submitTimeSortButton).toHaveTextContent('提交时间⇅');
+    expect(allRows()[0]).toHaveTextContent('通过结果抽检');
+    expect(allRows()[1]).toHaveTextContent('偏好安全评测');
+    expect(allRows()[2]).toHaveTextContent('问答质量标注');
+
+    await user.click(submitTimeSortButton);
+    expect(taskIdSortButton).toHaveTextContent('任务ID⇅');
+    expect(submitTimeSortButton).toHaveTextContent('提交时间↑');
+    expect(allRows()[0]).toHaveTextContent('问答质量标注');
+    expect(allRows()[1]).toHaveTextContent('偏好安全评测');
+    expect(allRows()[2]).toHaveTextContent('通过结果抽检');
+
+    await user.click(submitTimeSortButton);
+    expect(taskIdSortButton).toHaveTextContent('任务ID⇅');
+    expect(submitTimeSortButton).toHaveTextContent('提交时间↓');
+    expect(allRows()[0]).toHaveTextContent('通过结果抽检');
+    expect(allRows()[1]).toHaveTextContent('偏好安全评测');
+    expect(allRows()[2]).toHaveTextContent('问答质量标注');
+  });
+
   it('AI 建议通过气泡带有任务管理同款绿点', async () => {
     vi.stubGlobal('fetch', createFetchMock([passedBatch]));
 

@@ -241,6 +241,9 @@ type TemplateManagerRow = {
   version: string;
 };
 
+type TemplateSortField = 'templateId' | 'createdAt' | 'updatedAt';
+type TemplateSortDirection = 'asc' | 'desc';
+
 const TEMPLATE_SUMMARY_FILTERS: Array<{
   label: string;
   summaryKey: keyof TemplateSummary;
@@ -764,6 +767,8 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const [templateSearchKeyword, setTemplateSearchKeyword] = useState('');
   const [templateStatusFilter, setTemplateStatusFilter] = useState<TemplateStatusFilter>('ALL');
   const [currentTemplatePage, setCurrentTemplatePage] = useState(1);
+  const [templateSortField, setTemplateSortField] = useState<TemplateSortField | null>(null);
+  const [templateSortDirection, setTemplateSortDirection] = useState<TemplateSortDirection>('asc');
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [isDesignerOpen, setIsDesignerOpen] = useState(false);
   const [isDesignerClosing, setIsDesignerClosing] = useState(false);
@@ -894,53 +899,51 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   };
   const nextVersionName = `v${templateVersion + 1}`;
   const allTemplateRows = useMemo<TemplateManagerRow[]>(
-    () =>
-      (() => {
-        const sortedTemplates = sortTemplatesByDisplayIdDesc(templates);
-        const templateDisplayIdMap = createTemplateDisplayIdMap(sortedTemplates);
+    () => {
+      const sortedTemplates = sortTemplatesByDisplayIdDesc(templates);
+      const templateDisplayIdMap = createTemplateDisplayIdMap(sortedTemplates);
 
-        return sortedTemplates.map((template, index) => {
-          const displayId = templateDisplayIdMap.get(template.id) ?? formatTemplateDisplayId(index + 1);
-          const status = templateStatusLabel(template.status);
-          const owner = mockTemplateOwnerName(template.createdById);
-          const datasetKind = datasetKindLabel(template.datasetKind);
+      return sortedTemplates.map((template, index) => {
+        const displayId = templateDisplayIdMap.get(template.id) ?? formatTemplateDisplayId(index + 1);
+        const status = templateStatusLabel(template.status);
+        const owner = mockTemplateOwnerName(template.createdById);
+        const datasetKind = datasetKindLabel(template.datasetKind);
 
-          return {
-            activeUsageCount: template.activeUsageCount ?? 0,
-            createdAt: template.createdAt,
-            updatedAt: template.updatedAt,
-            datasetKind,
-            fieldCount: template.schema.fields.length,
-            id: displayId,
-            key: template.id,
-            name: template.name,
+        return {
+          activeUsageCount: template.activeUsageCount ?? 0,
+          createdAt: template.createdAt,
+          updatedAt: template.updatedAt,
+          datasetKind,
+          fieldCount: template.schema.fields.length,
+          id: displayId,
+          key: template.id,
+          name: template.name,
+          owner,
+          rawId: template.id,
+          searchValues: [
+            template.name,
+            template.id,
+            displayId,
             owner,
-            rawId: template.id,
-            searchValues: [
-              template.name,
-              template.id,
-              displayId,
-              owner,
-              template.createdById ?? '',
-              datasetKind,
-              template.datasetKind,
-              template.schemaVersion,
-              status,
-            ],
+            template.createdById ?? '',
+            datasetKind,
+            template.datasetKind,
+            template.schemaVersion,
             status,
-            statusFilterKey: template.status,
-            template,
-            usageCount: template.usageCount ?? 0,
-            version: template.version > 0 ? `v${template.version}` : 'v0',
-          };
-        });
-      })(),
+          ],
+          status,
+          statusFilterKey: template.status,
+          template,
+          usageCount: template.usageCount ?? 0,
+          version: template.version > 0 ? `v${template.version}` : 'v0',
+        };
+      });
+    },
     [templates],
   );
   const templateRows = useMemo(() => {
     const keyword = templateSearchKeyword.trim().toLowerCase();
-
-    return allTemplateRows.filter((template) => {
+    const filteredRows = allTemplateRows.filter((template) => {
       const matchesKeyword =
         !keyword || template.searchValues.some((value) => value.toLowerCase().includes(keyword));
       const matchesStatus =
@@ -948,7 +951,22 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
       return matchesKeyword && matchesStatus;
     });
-  }, [allTemplateRows, templateSearchKeyword, templateStatusFilter]);
+
+    if (!templateSortField) {
+      return filteredRows;
+    }
+
+    return [...filteredRows].sort((left, right) => {
+      const multiplier = templateSortDirection === 'asc' ? 1 : -1;
+      const diff = compareTemplateRowsBySortField(left, right, templateSortField);
+
+      if (diff !== 0) {
+        return diff * multiplier;
+      }
+
+      return left.rawId.localeCompare(right.rawId);
+    });
+  }, [allTemplateRows, templateSearchKeyword, templateSortField, templateSortDirection, templateStatusFilter]);
   const templateStats = useMemo(
     () => ({
       total: allTemplateRows.length,
@@ -998,7 +1016,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
   useEffect(() => {
     setCurrentTemplatePage(1);
-  }, [templateSearchKeyword, templateStatusFilter]);
+  }, [templateSearchKeyword, templateStatusFilter, templateSortField, templateSortDirection]);
 
   useEffect(() => {
     setCurrentTemplatePage((current) => Math.min(current, totalTemplatePages));
@@ -1868,6 +1886,16 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setVersionManagerTemplate(template);
   };
 
+  const handleTemplateSort = (field: TemplateSortField) => {
+    if (templateSortField === field) {
+      setTemplateSortDirection((currentDirection) => (currentDirection === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setTemplateSortField(field);
+    setTemplateSortDirection('asc');
+  };
+
   const handleTemplateVersionRestored = (result: {
     restoredTemplate: TemplateDto;
     archivedVersions: TemplateDto[];
@@ -2222,11 +2250,35 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
             </colgroup>
             <thead>
               <tr>
-                <th>模板ID</th>
+                <th>
+                  <SortableTemplateHeader
+                    field="templateId"
+                    label="模板ID"
+                    sortDirection={templateSortDirection}
+                    sortField={templateSortField}
+                    onSort={handleTemplateSort}
+                  />
+                </th>
                 <th>模板名称</th>
                 <th>状态</th>
-                <th>创建时间</th>
-                <th>上次更改</th>
+                <th>
+                  <SortableTemplateHeader
+                    field="createdAt"
+                    label="创建时间"
+                    sortDirection={templateSortDirection}
+                    sortField={templateSortField}
+                    onSort={handleTemplateSort}
+                  />
+                </th>
+                <th>
+                  <SortableTemplateHeader
+                    field="updatedAt"
+                    label="上次更改"
+                    sortDirection={templateSortDirection}
+                    sortField={templateSortField}
+                    onSort={handleTemplateSort}
+                  />
+                </th>
                 <th>版本</th>
                 <th>字段数</th>
                 <th>操作</th>
@@ -2749,6 +2801,49 @@ const templateNameFromSchema = (schema: LabelHubSchema): string => {
 const resolveTemplateName = (name: string | null, schema: LabelHubSchema): string =>
   name?.trim() || templateNameFromSchema(schema);
 
+const parseTemplateSortTimestamp = (value: string): number => {
+  const parsed = Date.parse(value);
+
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const parseTemplateSortIdNumber = (value: string): number | null => {
+  const numericPart = value.match(/\d+/g)?.at(-1);
+
+  if (!numericPart) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(numericPart, 10);
+
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const compareTemplateRowsBySortField = (
+  left: TemplateManagerRow,
+  right: TemplateManagerRow,
+  field: TemplateSortField,
+): number => {
+  switch (field) {
+    case 'templateId': {
+      const leftIdNumber = parseTemplateSortIdNumber(left.id);
+      const rightIdNumber = parseTemplateSortIdNumber(right.id);
+
+      if (leftIdNumber !== null && rightIdNumber !== null && leftIdNumber !== rightIdNumber) {
+        return leftIdNumber - rightIdNumber;
+      }
+
+      return left.id.localeCompare(right.id);
+    }
+    case 'createdAt':
+      return parseTemplateSortTimestamp(left.createdAt) - parseTemplateSortTimestamp(right.createdAt);
+    case 'updatedAt':
+      return parseTemplateSortTimestamp(left.updatedAt) - parseTemplateSortTimestamp(right.updatedAt);
+    default:
+      return left.rawId.localeCompare(right.rawId);
+  }
+};
+
 const mockTemplateOwnerName = (createdById: string | null): string => {
   if (!createdById || createdById === 'user_owner_zhang_man' || createdById === 'user_owner_001') {
     return '张满';
@@ -2859,6 +2954,38 @@ const cloneTemplateSchemaForDraft = (schema: LabelHubSchema): LabelHubSchema => 
 const TemplateHistoryIcon = ({ className = 'template-manager-row-action__icon' }: { className?: string }) => (
   <img aria-hidden="true" alt="" className={className} src={versionIcon} />
 );
+
+const SortableTemplateHeader = ({
+  field,
+  label,
+  sortDirection,
+  sortField,
+  onSort,
+}: {
+  field: TemplateSortField;
+  label: string;
+  sortDirection: TemplateSortDirection;
+  sortField: TemplateSortField | null;
+  onSort: (field: TemplateSortField) => void;
+}) => {
+  const isActive = sortField === field;
+  const icon = isActive ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅';
+
+  return (
+    <button
+      aria-label={`按${label}排序`}
+      aria-pressed={isActive}
+      className={`template-manager-table__sortable-header${isActive ? ' is-active' : ''}`}
+      type="button"
+      onClick={() => onSort(field)}
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className="template-manager-table__sort-icon">
+        {icon}
+      </span>
+    </button>
+  );
+};
 
 const TemplateUndoIcon = () => (
   <svg

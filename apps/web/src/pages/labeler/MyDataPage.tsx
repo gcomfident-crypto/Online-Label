@@ -20,6 +20,8 @@ const MY_DATA_TABLE_ROW_HEIGHT = 66;
 const AI_REVIEW_PENDING_SUBMISSION_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING']);
 
 type LabelerStatusFilter = '' | 'IN_PROGRESS' | 'SUBMITTED' | 'NEEDS_REVISION';
+type MyDataSortField = 'taskId' | 'latestSubmittedAt' | 'claimedAt';
+type MyDataSortDirection = 'asc' | 'desc';
 
 const STATUS_OPTIONS: readonly {
   label: string;
@@ -44,6 +46,8 @@ export const MyDataPage = () => {
   const [taskDisplayIdByTaskId, setTaskDisplayIdByTaskId] = useState<Map<string, string>>(new Map());
   const [statusFilter, setStatusFilter] = useState<LabelerStatusFilter>('');
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [sortField, setSortField] = useState<MyDataSortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<MyDataSortDirection>('asc');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const { dismissToast, messages, showErrorToast } = useToastController();
@@ -79,10 +83,17 @@ export const MyDataPage = () => {
       return true;
     });
   }, [assignments, searchKeyword, statusFilter, taskDisplayIdByTaskId]);
-  const taskGroups = useMemo(
-    () => groupAssignmentsByTask(filteredAssignments, taskDisplayIdByTaskId),
-    [filteredAssignments, taskDisplayIdByTaskId],
-  );
+  const taskGroups = useMemo(() => {
+    const defaultTaskGroups = groupAssignmentsByTask(filteredAssignments, taskDisplayIdByTaskId);
+
+    if (!sortField) {
+      return defaultTaskGroups;
+    }
+
+    return [...defaultTaskGroups].sort((firstGroup, secondGroup) =>
+      compareMyDataTaskGroupsBySortField(firstGroup, secondGroup, sortField, sortDirection),
+    );
+  }, [filteredAssignments, sortDirection, sortField, taskDisplayIdByTaskId]);
   const statusSummary = useMemo(
     () =>
       STATUS_OPTIONS.reduce<Record<LabelerStatusFilter, number>>(
@@ -116,7 +127,7 @@ export const MyDataPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchKeyword, statusFilter]);
+  }, [searchKeyword, sortDirection, sortField, statusFilter]);
 
   const loadMyData = async () => {
     setIsLoading(true);
@@ -142,6 +153,16 @@ export const MyDataPage = () => {
     },
     [navigate],
   );
+
+  const handleSort = (field: MyDataSortField) => {
+    if (sortField === field) {
+      setSortDirection((currentDirection) => (currentDirection === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSortField(field);
+    setSortDirection('asc');
+  };
 
   return (
     <section className="my-data-page labeler-task-workspace" aria-labelledby="my-data-title">
@@ -198,13 +219,37 @@ export const MyDataPage = () => {
             <table className="task-table my-data-table" aria-label="工作台任务列表">
               <thead>
                 <tr>
-                  <th>任务ID</th>
+                  <th>
+                    <SortableMyDataHeader
+                      field="taskId"
+                      label="任务ID"
+                      sortDirection={sortDirection}
+                      sortField={sortField}
+                      onSort={handleSort}
+                    />
+                  </th>
                   <th>任务名</th>
                   <th>类型</th>
                   <th>已领取题目</th>
                   <th>进度</th>
-                  <th>最近提交</th>
-                  <th>领取时间</th>
+                  <th>
+                    <SortableMyDataHeader
+                      field="latestSubmittedAt"
+                      label="最近提交"
+                      sortDirection={sortDirection}
+                      sortField={sortField}
+                      onSort={handleSort}
+                    />
+                  </th>
+                  <th>
+                    <SortableMyDataHeader
+                      field="claimedAt"
+                      label="领取时间"
+                      sortDirection={sortDirection}
+                      sortField={sortField}
+                      onSort={handleSort}
+                    />
+                  </th>
                 </tr>
               </thead>
               <tbody key={currentPage}>
@@ -298,6 +343,38 @@ export const MyDataPage = () => {
 const MyDataTableCell = ({ children }: { children: ReactNode }) => (
   <div className="my-data-table__cell">{children}</div>
 );
+
+const SortableMyDataHeader = ({
+  field,
+  label,
+  sortDirection,
+  sortField,
+  onSort,
+}: {
+  field: MyDataSortField;
+  label: string;
+  sortDirection: MyDataSortDirection;
+  sortField: MyDataSortField | null;
+  onSort: (field: MyDataSortField) => void;
+}) => {
+  const isActive = sortField === field;
+  const icon = isActive ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅';
+
+  return (
+    <button
+      aria-label={`按${label}排序`}
+      aria-pressed={isActive}
+      className={`task-table__sortable-header${isActive ? ' is-active' : ''}`}
+      type="button"
+      onClick={() => onSort(field)}
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className="task-table__sort-icon">
+        {icon}
+      </span>
+    </button>
+  );
+};
 
 type LabelerTaskGroup = {
   taskId: string;
@@ -402,6 +479,48 @@ function compareAssignmentsForDisplay(first: LabelerAssignmentDto, second: Label
   return compareAssignmentsByItemOrder(first, second);
 }
 
+function compareMyDataTaskGroupsBySortField(
+  firstGroup: LabelerTaskGroup,
+  secondGroup: LabelerTaskGroup,
+  field: MyDataSortField,
+  direction: MyDataSortDirection,
+): number {
+  const multiplier = direction === 'asc' ? 1 : -1;
+
+  if (field === 'taskId') {
+    const firstIdNumber = parseMyDataTaskSortIdNumber(firstGroup.taskDisplayId);
+    const secondIdNumber = parseMyDataTaskSortIdNumber(secondGroup.taskDisplayId);
+
+    if (firstIdNumber !== null && secondIdNumber !== null && firstIdNumber !== secondIdNumber) {
+      return (firstIdNumber - secondIdNumber) * multiplier;
+    }
+
+    const displayIdDiff = firstGroup.taskDisplayId.localeCompare(secondGroup.taskDisplayId, 'zh-CN', {
+      numeric: true,
+    });
+
+    return displayIdDiff === 0 ? firstGroup.taskId.localeCompare(secondGroup.taskId) : displayIdDiff * multiplier;
+  }
+
+  if (field === 'latestSubmittedAt') {
+    return compareNullableMyDataTimestamps(
+      firstGroup.latestSubmittedAt,
+      secondGroup.latestSubmittedAt,
+      direction,
+      firstGroup,
+      secondGroup,
+    );
+  }
+
+  return compareNullableMyDataTimestamps(
+    earliestClaimedAt(firstGroup.assignments),
+    earliestClaimedAt(secondGroup.assignments),
+    direction,
+    firstGroup,
+    secondGroup,
+  );
+}
+
 function nextAssignmentToLabel(assignments: LabelerAssignmentDto[]): LabelerAssignmentDto {
   const orderedAssignments = [...assignments].sort(compareAssignmentsByItemOrder);
 
@@ -432,6 +551,71 @@ function latestSubmittedAt(assignments: LabelerAssignmentDto[]): string | null {
 
 function isCompletedAssignmentStatus(status: AssignmentStatus): boolean {
   return status === 'FINAL_APPROVED';
+}
+
+function earliestClaimedAt(assignments: LabelerAssignmentDto[]): string | null {
+  return assignments.reduce<string | null>((earliest, assignment) => {
+    if (!assignment.claimedAt) {
+      return earliest;
+    }
+
+    return !earliest || assignment.claimedAt < earliest ? assignment.claimedAt : earliest;
+  }, null);
+}
+
+function compareNullableMyDataTimestamps(
+  firstValue: string | null | undefined,
+  secondValue: string | null | undefined,
+  direction: MyDataSortDirection,
+  firstGroup: LabelerTaskGroup,
+  secondGroup: LabelerTaskGroup,
+): number {
+  const firstTimestamp = parseMyDataTaskSortTimestamp(firstValue);
+  const secondTimestamp = parseMyDataTaskSortTimestamp(secondValue);
+
+  if (firstTimestamp === null && secondTimestamp === null) {
+    return compareMyDataTaskGroupFallback(firstGroup, secondGroup);
+  }
+
+  if (firstTimestamp === null) {
+    return 1;
+  }
+
+  if (secondTimestamp === null) {
+    return -1;
+  }
+
+  const diff = firstTimestamp - secondTimestamp;
+
+  return diff === 0 ? compareMyDataTaskGroupFallback(firstGroup, secondGroup) : diff * (direction === 'asc' ? 1 : -1);
+}
+
+function compareMyDataTaskGroupFallback(firstGroup: LabelerTaskGroup, secondGroup: LabelerTaskGroup): number {
+  const displayIdDiff = firstGroup.taskDisplayId.localeCompare(secondGroup.taskDisplayId, 'zh-CN', { numeric: true });
+
+  return displayIdDiff === 0 ? firstGroup.taskId.localeCompare(secondGroup.taskId) : displayIdDiff;
+}
+
+function parseMyDataTaskSortIdNumber(value: string): number | null {
+  const numericPart = value.match(/\d+/g)?.at(-1);
+
+  if (!numericPart) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(numericPart, 10);
+
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function parseMyDataTaskSortTimestamp(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Date.parse(value);
+
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
 function formatClaimedAtRange(assignments: LabelerAssignmentDto[]): string {

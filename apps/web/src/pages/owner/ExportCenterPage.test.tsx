@@ -170,8 +170,20 @@ describe('ExportCenterPage', () => {
     expect(document.querySelector('.export-records-toolbar')).toBeNull();
     expect(within(exportableTaskTable).getByRole('checkbox', { name: '选择当前页导出记录' })).toBeInTheDocument();
     expect(within(exportableTaskTable).getByRole('checkbox', { name: '选择导出任务 T-001' })).toBeInTheDocument();
-    expect(within(exportableTaskTable).getByText('任务ID')).toBeInTheDocument();
-    expect(within(exportableTaskTable).getByText('结束时间')).toBeInTheDocument();
+    expect(within(exportableTaskTable).getByRole('button', { name: '按任务ID排序' })).toHaveClass(
+      'task-table__sortable-header',
+    );
+    expect(within(exportableTaskTable).getByRole('button', { name: '按创建时间排序' })).toHaveClass(
+      'task-table__sortable-header',
+    );
+    expect(within(exportableTaskTable).getByRole('button', { name: '按结束时间排序' })).toHaveClass(
+      'task-table__sortable-header',
+    );
+    expect(within(exportableTaskTable).getByRole('button', { name: '按任务ID排序' })).toHaveTextContent('任务ID⇅');
+    expect(within(exportableTaskTable).getByRole('button', { name: '按创建时间排序' })).toHaveTextContent('创建时间⇅');
+    expect(within(exportableTaskTable).getByRole('button', { name: '按结束时间排序' })).toHaveTextContent('结束时间⇅');
+    expect(within(exportableTaskTable).queryByRole('button', { name: '按任务排序' })).not.toBeInTheDocument();
+    expect(within(exportableTaskTable).queryByRole('button', { name: '按操作排序' })).not.toBeInTheDocument();
     expect(within(exportableTaskTable).queryByText('已完成/总题目数')).not.toBeInTheDocument();
     expect(within(exportableTaskTable).queryByText('模板')).not.toBeInTheDocument();
     expect(within(exportableTaskTable).getByText('T-001')).toBeInTheDocument();
@@ -315,6 +327,103 @@ describe('ExportCenterPage', () => {
     expect(within(rows[2]).getByText('T-001')).toBeInTheDocument();
     expect(within(table).queryByText('cmpjpv2gcu0004z6pee7yxro8k')).not.toBeInTheDocument();
     expect(within(table).queryByText('cmpjpv2gcu0001z6peexxx1111')).not.toBeInTheDocument();
+  });
+
+  it('导出中心仅允许任务ID、创建时间和结束时间按指定方向排序', async () => {
+    const user = userEvent.setup();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = input.toString();
+        const method = init?.method ?? 'GET';
+
+        if (path === '/tasks' && method === 'GET') {
+          return jsonResponse({
+            data: [
+              {
+                ...task,
+                id: 'task_c',
+                title: '导出任务 C',
+                createdAt: '2026-06-03T00:00:00.000Z',
+                deadline: '2026-06-12T00:00:00.000Z',
+                exportableItemCount: 3,
+              },
+              {
+                ...task,
+                id: 'task_a',
+                title: '导出任务 A',
+                createdAt: '2026-06-01T00:00:00.000Z',
+                deadline: '2026-06-11T00:00:00.000Z',
+                exportableItemCount: 1,
+              },
+              {
+                ...task,
+                id: 'task_b',
+                title: '导出任务 B',
+                createdAt: '2026-06-02T00:00:00.000Z',
+                deadline: '2026-06-13T00:00:00.000Z',
+                exportableItemCount: 2,
+              },
+            ],
+          });
+        }
+
+        return jsonResponse({ data: [] });
+      }),
+    );
+
+    render(
+      <MemoryRouter>
+        <ExportCenterPage />
+      </MemoryRouter>,
+    );
+
+    const table = await screen.findByRole('table', { name: '导出记录列表' });
+    const getTaskTitles = () =>
+      Array.from(table.querySelectorAll('tbody tr:not(.task-table__empty-row)')).map(
+        (row) => row.querySelector('td:nth-child(3) strong')?.textContent?.trim() ?? '',
+      );
+
+    expect(getTaskTitles()).toEqual(['导出任务 C', '导出任务 B', '导出任务 A']);
+
+    const taskIdSortButton = within(table).getByRole('button', { name: '按任务ID排序' });
+    const createdAtSortButton = within(table).getByRole('button', { name: '按创建时间排序' });
+    const endedAtSortButton = within(table).getByRole('button', { name: '按结束时间排序' });
+
+    expect(taskIdSortButton).toHaveTextContent('任务ID⇅');
+    expect(createdAtSortButton).toHaveTextContent('创建时间⇅');
+    expect(endedAtSortButton).toHaveTextContent('结束时间⇅');
+
+    await user.click(taskIdSortButton);
+    expect(getTaskTitles()).toEqual(['导出任务 A', '导出任务 B', '导出任务 C']);
+    expect(taskIdSortButton).toHaveTextContent('任务ID↑');
+
+    await user.click(taskIdSortButton);
+    expect(getTaskTitles()).toEqual(['导出任务 C', '导出任务 B', '导出任务 A']);
+    expect(taskIdSortButton).toHaveTextContent('任务ID↓');
+
+    await user.click(createdAtSortButton);
+    expect(getTaskTitles()).toEqual(['导出任务 A', '导出任务 B', '导出任务 C']);
+    expect(taskIdSortButton).toHaveTextContent('任务ID⇅');
+    expect(createdAtSortButton).toHaveTextContent('创建时间↑');
+
+    await user.click(createdAtSortButton);
+    expect(getTaskTitles()).toEqual(['导出任务 C', '导出任务 B', '导出任务 A']);
+    expect(createdAtSortButton).toHaveTextContent('创建时间↓');
+
+    await user.click(endedAtSortButton);
+    expect(getTaskTitles()).toEqual(['导出任务 A', '导出任务 C', '导出任务 B']);
+    expect(createdAtSortButton).toHaveTextContent('创建时间⇅');
+    expect(endedAtSortButton).toHaveTextContent('结束时间↑');
+
+    await user.click(endedAtSortButton);
+    expect(getTaskTitles()).toEqual(['导出任务 B', '导出任务 C', '导出任务 A']);
+    expect(endedAtSortButton).toHaveTextContent('结束时间↓');
+
+    await user.click(endedAtSortButton);
+    expect(getTaskTitles()).toEqual(['导出任务 A', '导出任务 C', '导出任务 B']);
+    expect(endedAtSortButton).toHaveTextContent('结束时间↑');
   });
 
   it('没有可导出复审结果时仍展示空表格', async () => {

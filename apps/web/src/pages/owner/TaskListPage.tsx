@@ -38,7 +38,7 @@ import {
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
 import { DatasetPreviewModal } from './components/DatasetPreviewModal';
 import { PublishDrawer, type TaskDrawerFieldErrors } from './components/PublishDrawer';
-import { TaskTable } from './components/TaskTable';
+import { TaskTable, type TaskTableSortDirection, type TaskTableSortField } from './components/TaskTable';
 import {
   createAutoShowItemPreviewRecords,
   createAutoShowItemTemplateName,
@@ -96,6 +96,8 @@ export const TaskListPage = () => {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'ALL'>('ALL');
   const [currentTaskPage, setCurrentTaskPage] = useState(1);
+  const [taskSortField, setTaskSortField] = useState<TaskTableSortField | null>(null);
+  const [taskSortDirection, setTaskSortDirection] = useState<TaskTableSortDirection>('asc');
   const [selectedTask, setSelectedTask] = useState<TaskDto | null>(null);
   const [taskForm, setTaskForm] = useState<TaskFormInput | null>(null);
   const [drawerMode, setDrawerMode] = useState<'existing' | 'new' | null>(null);
@@ -195,7 +197,7 @@ export const TaskListPage = () => {
   const taskDisplayIdMap = useMemo(() => createTaskDisplayIdMap(displayTasks), [displayTasks]);
 
   const filteredTasks = useMemo(() => {
-    return displayTasks
+    const defaultOrderedTasks = displayTasks
       .filter((task) => {
         const matchesStatus = statusFilter === 'ALL' || task.status === statusFilter;
         const keyword = searchKeyword.trim().toLowerCase();
@@ -210,7 +212,21 @@ export const TaskListPage = () => {
         return matchesStatus && matchesSearch;
       })
       .sort((left, right) => taskCreatedAtTimestamp(right) - taskCreatedAtTimestamp(left));
-  }, [displayTasks, searchKeyword, statusFilter, taskDisplayIdMap]);
+
+    if (!taskSortField) {
+      return defaultOrderedTasks;
+    }
+
+    return [...defaultOrderedTasks].sort((left, right) =>
+      compareTasksBySortField(
+        left,
+        right,
+        taskSortField,
+        taskSortDirection,
+        (task) => taskDisplayIdMap.get(task.id) ?? task.id,
+      ),
+    );
+  }, [displayTasks, searchKeyword, statusFilter, taskDisplayIdMap, taskSortDirection, taskSortField]);
   const totalTaskPages = Math.max(1, Math.ceil(filteredTasks.length / taskPageSize));
   const paginatedTasks = useMemo(() => {
     const startIndex = (currentTaskPage - 1) * taskPageSize;
@@ -233,7 +249,7 @@ export const TaskListPage = () => {
 
   useEffect(() => {
     setCurrentTaskPage(1);
-  }, [searchKeyword, statusFilter]);
+  }, [searchKeyword, statusFilter, taskSortDirection, taskSortField]);
 
   useEffect(() => {
     setCurrentTaskPage((current) => Math.min(current, totalTaskPages));
@@ -256,6 +272,16 @@ export const TaskListPage = () => {
     setIsTaskFormDirty(false);
     setIsCloseConfirmOpen(false);
     setDrawerFieldErrors({});
+  };
+
+  const handleTaskSort = (field: TaskTableSortField) => {
+    if (taskSortField === field) {
+      setTaskSortDirection((currentDirection) => (currentDirection === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setTaskSortField(field);
+    setTaskSortDirection('asc');
   };
 
   const handleTemplatePickerOpen = () => {
@@ -1063,9 +1089,12 @@ export const TaskListPage = () => {
             currentPage={currentTaskPage}
             getTaskDisplayId={(task) => taskDisplayIdMap.get(task.id) ?? task.id}
             enteringTaskIds={enteringTaskIds}
+            sortDirection={taskSortDirection}
+            sortField={taskSortField}
             tablePanelRef={taskTableContainerRef}
             tasks={paginatedTasks}
             totalPages={totalTaskPages}
+            onSort={handleTaskSort}
             onOpenTask={openPublishDrawer}
             onPageChange={setCurrentTaskPage}
             onPublish={openPublishDrawer}
@@ -1554,6 +1583,73 @@ const mergeTaskClientState = (task: TaskDto, previousTask?: TaskDto | null): Tas
   ...task,
   datasetImportSummary: task.datasetImportSummary ?? previousTask?.datasetImportSummary ?? null,
 });
+
+const compareTasksBySortField = (
+  left: TaskDto,
+  right: TaskDto,
+  field: TaskTableSortField,
+  direction: TaskTableSortDirection,
+  getTaskDisplayId: (task: TaskDto) => string,
+): number => {
+  const multiplier = direction === 'asc' ? 1 : -1;
+
+  if (field === 'taskId') {
+    const leftIdNumber = parseTaskSortIdNumber(getTaskDisplayId(left));
+    const rightIdNumber = parseTaskSortIdNumber(getTaskDisplayId(right));
+
+    if (leftIdNumber !== null && rightIdNumber !== null && leftIdNumber !== rightIdNumber) {
+      return (leftIdNumber - rightIdNumber) * multiplier;
+    }
+
+    const displayIdDiff = getTaskDisplayId(left).localeCompare(getTaskDisplayId(right));
+    return displayIdDiff === 0 ? left.id.localeCompare(right.id) : displayIdDiff * multiplier;
+  }
+
+  if (field === 'deadline') {
+    const leftDeadline = parseTaskSortTimestamp(left.deadline);
+    const rightDeadline = parseTaskSortTimestamp(right.deadline);
+
+    if (leftDeadline === null && rightDeadline === null) {
+      return left.id.localeCompare(right.id);
+    }
+
+    if (leftDeadline === null) {
+      return 1;
+    }
+
+    if (rightDeadline === null) {
+      return -1;
+    }
+
+    const deadlineDiff = leftDeadline - rightDeadline;
+    return deadlineDiff === 0 ? left.id.localeCompare(right.id) : deadlineDiff * multiplier;
+  }
+
+  const createdAtDiff = taskCreatedAtTimestamp(left) - taskCreatedAtTimestamp(right);
+  return createdAtDiff === 0 ? left.id.localeCompare(right.id) : createdAtDiff * multiplier;
+};
+
+const parseTaskSortIdNumber = (value: string): number | null => {
+  const numericPart = value.match(/\d+/g)?.at(-1);
+
+  if (!numericPart) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(numericPart, 10);
+
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const parseTaskSortTimestamp = (value: string | null | undefined): number | null => {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Date.parse(value);
+
+  return Number.isNaN(parsed) ? null : parsed;
+};
 
 export const resolveOwnerDisplayTasks = (tasks: TaskDto[]): TaskDto[] => tasks;
 
