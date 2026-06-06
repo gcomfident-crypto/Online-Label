@@ -11,6 +11,10 @@ const pendingBatch = {
   displayId: 'SUB-2041-00607',
   taskId: 'task_qa',
   taskTitle: '问答质量标注',
+  taskCreatedAt: '2026-05-21T09:30:00.000Z',
+  templateName: '问答质量官方模板',
+  ownerId: 'user_owner_zhang_man',
+  ownerName: '张满',
   labelerId: 'user_labeler_li_lei',
   labelerName: '李雷',
   submittedAt: '2026-05-21T10:01:02.000Z',
@@ -113,6 +117,7 @@ describe('AiReviewQueuePage', () => {
   });
 
   it('按任务提交批次展示 AI 预审队列，而不是逐题展示', async () => {
+    const user = userEvent.setup();
     vi.stubGlobal('fetch', createFetchMock());
 
     render(<AiReviewQueuePage />);
@@ -123,10 +128,21 @@ describe('AiReviewQueuePage', () => {
     );
     expect(pageDescription).toHaveClass('task-management-table-description');
     expect(pageDescription.closest('.agent-review-page__header')).not.toBeNull();
-    expect(screen.queryByRole('tablist', { name: 'AI 预审状态筛选' })).not.toBeInTheDocument();
     const searchInput = screen.getByPlaceholderText('搜索任务名 / 标注员 / 题目ID');
     expect(searchInput.closest('.task-management-table-card')).toHaveClass('agent-review-table-panel');
     expect(searchInput.closest('.task-management-table-toolbar')).toHaveClass('agent-review-table-toolbar');
+    const statusSummaryRegion = screen.getByRole('region', { name: 'AI 预审状态筛选' });
+    expect(statusSummaryRegion).toHaveClass('task-summary-grid', 'template-summary-grid');
+    expect(within(statusSummaryRegion).getByRole('button', { name: /总任务/ })).toHaveTextContent('总任务2');
+    expect(within(statusSummaryRegion).getByRole('button', { name: /总任务/ })).toHaveClass(
+      'task-summary-card--total',
+      'is-active',
+    );
+    expect(getComputedStyle(within(statusSummaryRegion).getByRole('button', { name: /总任务/ })).boxShadow).not.toBe('none');
+    expect(within(statusSummaryRegion).getByRole('button', { name: /进行中/ })).toHaveTextContent('进行中1');
+    expect(within(statusSummaryRegion).getByRole('button', { name: /进行中/ })).toHaveClass('task-summary-card--running');
+    expect(within(statusSummaryRegion).getByRole('button', { name: /已完成/ })).toHaveTextContent('已完成1');
+    expect(within(statusSummaryRegion).getByRole('button', { name: /已完成/ })).toHaveClass('task-summary-card--done');
     expect(screen.queryByRole('button', { name: '刷新任务级 AI 预审队列' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '刷新' })).not.toBeInTheDocument();
 
@@ -152,6 +168,27 @@ describe('AiReviewQueuePage', () => {
     expect(within(table).queryByRole('button', { name: '查看详情' })).not.toBeInTheDocument();
     expect(within(table).getByText('3 题')).toBeInTheDocument();
     expect(within(table).queryByText('qa_1')).not.toBeInTheDocument();
+
+    await user.click(within(statusSummaryRegion).getByRole('button', { name: /进行中/ }));
+    expect(within(statusSummaryRegion).getByRole('button', { name: /进行中/ })).toHaveClass('is-active');
+    expect(getComputedStyle(within(statusSummaryRegion).getByRole('button', { name: /进行中/ })).boxShadow).not.toBe('none');
+    expect(within(table).getByText('问答质量标注')).toBeInTheDocument();
+    expect(within(table).queryByText('偏好安全评测')).not.toBeInTheDocument();
+    expect(within(table).getAllByRole('row')).toHaveLength(2);
+
+    await user.click(within(statusSummaryRegion).getByRole('button', { name: /已完成/ }));
+    expect(within(statusSummaryRegion).getByRole('button', { name: /已完成/ })).toHaveClass('is-active');
+    expect(getComputedStyle(within(statusSummaryRegion).getByRole('button', { name: /已完成/ })).boxShadow).not.toBe('none');
+    expect(within(table).getByText('偏好安全评测')).toBeInTheDocument();
+    expect(within(table).queryByText('问答质量标注')).not.toBeInTheDocument();
+    expect(within(table).getAllByRole('row')).toHaveLength(2);
+
+    await user.click(within(statusSummaryRegion).getByRole('button', { name: /总任务/ }));
+    expect(within(statusSummaryRegion).getByRole('button', { name: /总任务/ })).toHaveClass('is-active');
+    expect(getComputedStyle(within(statusSummaryRegion).getByRole('button', { name: /总任务/ })).boxShadow).not.toBe('none');
+    expect(within(table).getByText('问答质量标注')).toBeInTheDocument();
+    expect(within(table).getByText('偏好安全评测')).toBeInTheDocument();
+    expect(within(table).getAllByRole('row')).toHaveLength(3);
   });
 
   it('AI 建议通过气泡带有任务管理同款绿点', async () => {
@@ -202,19 +239,52 @@ describe('AiReviewQueuePage', () => {
 
     const dialog = await screen.findByRole('dialog', { name: /AI 预审详情 · 问答质量标注/ });
     expect(dialog).toHaveClass('agent-review-batch-sheet');
-    expect(within(dialog).queryByText(/SUB-/)).not.toBeInTheDocument();
     expect(dialog.closest('.agent-review-sheet-overlay')?.parentElement).toBe(document.body);
-    expect(within(dialog).getByText(/提交于/)).toHaveTextContent('共 3 题');
+    const summaryCard = within(dialog).getByRole('region', { name: 'AI 预审详情摘要' });
+    expect(summaryCard).toHaveClass('agent-review-detail-summary-card');
+    expect(within(summaryCard).queryByText(/SUB-/)).not.toBeInTheDocument();
+    const summaryTitle = within(summaryCard).getByRole('heading', { name: 'AI 预审详情 · 问答质量标注' });
+    expect(summaryTitle).toHaveClass('agent-review-detail-summary-card__title');
+    const summarySubline = summaryCard.querySelector('.agent-review-detail-summary-subline') as HTMLElement;
+    const summarySubtitle = summaryCard.querySelector('.agent-review-detail-summary-card__subtitle') as HTMLElement;
+    expect(summarySubtitle).toHaveTextContent('问答质量官方模板 · r12');
+    expect(summarySubline).toHaveTextContent('任务 Owner张满');
+    expect(summarySubline).toHaveTextContent('标注员李雷');
+    const summaryStatus = summaryCard.querySelector('.agent-review-detail-summary-status') as HTMLElement;
+    expect(summaryStatus).toHaveTextContent('建议通过');
+    expect(summaryStatus).toHaveClass('agent-review-detail-summary-status', 'is-pass');
+    const summaryTitleRow = summaryCard.querySelector('.agent-review-detail-summary-title-row') as HTMLElement;
+    expect(summaryTitleRow).toHaveTextContent('3 题');
+    const summaryHeading = summaryCard.querySelector('.agent-review-detail-summary-heading') as HTMLElement;
+    expect(summaryHeading).toContainElement(summaryTitle);
+    expect(summaryHeading).toContainElement(summaryStatus);
+    const closeButton = within(dialog).getByRole('button', { name: '关闭 AI 预审详情' });
+    expect(summaryCard).toContainElement(closeButton);
+    expect(within(summaryCard).queryByRole('list', { name: '批次摘要信息' })).not.toBeInTheDocument();
+    const taskTimeline = within(summaryCard).getByRole('list', { name: '当前任务时间线' });
+    expect(taskTimeline).toHaveClass('agent-review-task-timeline');
+    expect(within(taskTimeline).getAllByRole('listitem')).toHaveLength(7);
+    ['Owner 发起任务', 'Labeler 提交', 'AI 预审入队', '开始预审', '生成结论', '预审完成', '当前状态']
+      .forEach((label) => expect(taskTimeline).toHaveTextContent(label));
+    expect(taskTimeline).toHaveTextContent('张满');
+    expect(taskTimeline).toHaveTextContent('李雷');
+    expect(taskTimeline).toHaveTextContent('AI Agent');
+    expect(taskTimeline).toHaveTextContent('建议通过');
+    expect(taskTimeline).toHaveTextContent('2026');
+    expect(taskTimeline).not.toHaveTextContent('提交时间');
+    expect(taskTimeline).not.toHaveTextContent('更新时间');
+    expect(taskTimeline).not.toHaveTextContent('预审模型');
+    expect(taskTimeline).not.toHaveTextContent('mock-stable-reviewer');
     expect(within(dialog).queryByText('AI 建议：通过')).not.toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: '关闭 AI 预审详情' })).toHaveTextContent('×');
+    expect(closeButton).toHaveTextContent('×');
     expect(dialog.querySelector('.agent-review-question-tabs')).not.toBeInTheDocument();
     expect(dialog.querySelector('.agent-review-question-list')).toBeInTheDocument();
     expect(within(dialog).getByRole('tablist', { name: '题目审核状态统计' })).toBeInTheDocument();
-    expect(within(dialog).getByRole('tab', { name: /待审核\s*0/ })).toBeInTheDocument();
-    expect(within(dialog).getByRole('tab', { name: /已通过\s*3/ })).toBeInTheDocument();
-    expect(within(dialog).getByRole('tab', { name: /已打回\s*0/ })).toBeInTheDocument();
+    expect(within(dialog).getByRole('tab', { name: /待审核\s*0/ })).toHaveClass('is-pending');
+    expect(within(dialog).getByRole('tab', { name: /已通过\s*3/ })).toHaveClass('is-pass', 'is-active');
+    expect(within(dialog).getByRole('tab', { name: /已打回\s*0/ })).toHaveClass('is-reject');
     expect(within(dialog).queryByRole('tab', { name: /失败\s*0/ })).not.toBeInTheDocument();
-    expect(within(dialog).getByText('题目列表')).toBeInTheDocument();
+    expect(within(dialog).getByText('已通过题目')).toBeInTheDocument();
     const questionTabList = within(dialog).getByRole('tablist', { name: '批次内题目切换' });
     expect(within(questionTabList).getByRole('tab', { name: /Q1/ })).toBeInTheDocument();
     expect(within(questionTabList).getByRole('tab', { name: /Q2/ })).toBeInTheDocument();
@@ -222,6 +292,13 @@ describe('AiReviewQueuePage', () => {
     within(questionTabList)
       .getAllByText('建议通过')
       .forEach((label) => expect(label).toHaveClass('is-pass'));
+    await user.click(within(dialog).getByRole('tab', { name: /待审核\s*0/ }));
+    expect(within(dialog).getByText('待审核题目')).toBeInTheDocument();
+    expect(within(questionTabList).queryByRole('tab', { name: /Q1/ })).not.toBeInTheDocument();
+    expect(within(questionTabList).getByText('暂无待审核题目。')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('tab', { name: /已通过\s*3/ }));
+    expect(within(dialog).getByText('已通过题目')).toBeInTheDocument();
+    expect(within(questionTabList).getAllByRole('tab')).toHaveLength(3);
 
     ['字段预审结果', 'AI 总评']
       .forEach((title) => expect(within(dialog).getByText(title)).toBeInTheDocument());
@@ -245,26 +322,71 @@ describe('AiReviewQueuePage', () => {
     expect(within(dialog).getAllByText('备注说明 · note').length).toBeGreaterThan(0);
     expect(within(dialog).queryByText('preferred')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('note')).not.toBeInTheDocument();
-    expect(within(dialog).getByText(/必须选择与题目事实一致的更优回答/)).toBeInTheDocument();
+    expect(within(fieldReviewList).getByText(/必须选择与题目事实一致的更优回答/)).toBeInTheDocument();
     expect(within(dialog).getAllByText('通过').length).toBeGreaterThan(0);
     expect(within(dialog).queryByText(/查看未参与 AI 预审的提交字段/)).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('table', { name: '未参与 AI 预审的提交字段' })).not.toBeInTheDocument();
     expect(within(fieldReviewList).queryByText('internal_note')).not.toBeInTheDocument();
-    expect(within(dialog).getByText(/答案完整/)).toBeInTheDocument();
+    expect(within(fieldReviewList).getByText(/答案完整/)).toBeInTheDocument();
     expect(within(dialog).getByText(/所有开启 AI 预审的字段均通过/)).toBeInTheDocument();
+    const traceSidebar = within(dialog).getByRole('complementary', { name: '当前题追溯' });
+    expect(traceSidebar).toHaveClass('agent-review-trace-sidebar');
+    const traceTab = within(traceSidebar).getByRole('tab', { name: '当前题' });
+    expect(traceTab).toHaveClass('is-active');
+    expect(traceTab).toHaveAttribute('aria-selected', 'true');
+    let currentQuestionTrace = within(traceSidebar).getByRole('region', { name: /当前题追溯/ });
+    expect(currentQuestionTrace).toHaveTextContent('Q1 · qa_1');
+    expect(currentQuestionTrace).toHaveTextContent('第1轮');
+    expect(currentQuestionTrace).toHaveTextContent('待人工复审');
+    expect(currentQuestionTrace).toHaveTextContent('AI 状态AI 预审通过');
+    ['Schema', '数据集', '通用 JSON', '问答质量', '尝试次数', '重试次数', '提交时间', '完成时间', '1 / 3']
+      .forEach((text) => expect(currentQuestionTrace).not.toHaveTextContent(text));
+    expect(traceSidebar).not.toHaveTextContent(/问答质量标注|张满|task_qa|SUB-|submission_|assignment_|item_|job_|mock-stable-reviewer/);
+    expect(within(traceSidebar).queryByText('服务商')).not.toBeInTheDocument();
+    expect(within(traceSidebar).queryByText('模型')).not.toBeInTheDocument();
+    ['任务概要', '任务ID', '批次ID', '任务 Owner', '模板名称', '标注员', '提交记录', '题目记录', 'AI Job', '幂等键', '审核记录']
+      .forEach((label) => expect(within(traceSidebar).queryByText(label)).not.toBeInTheDocument());
+    const traceNodes = within(currentQuestionTrace).getAllByRole('listitem');
+    expect(traceNodes.length).toBeGreaterThanOrEqual(6);
+    ['Labeler 提交', 'AI 预审入队', 'AI 开始处理', '处理日志：执行预审', 'AI 预审结论', 'AI 预审完成']
+      .forEach((title) => expect(within(currentQuestionTrace).getByText(title)).toBeInTheDocument());
     expect(within(dialog).getByText('查看审核 Prompt')).toBeInTheDocument();
     expect(within(dialog).queryByText('查看模型原始输出')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('模型原始输出')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('查看处理日志')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('处理日志 / 审计')).not.toBeInTheDocument();
     expect(within(dialog).getByText(/真实运行 Prompt：请只审核开启 AI 预审的字段/)).toBeInTheDocument();
-    expect(within(dialog).queryByText(/解释什么是过拟合/)).not.toBeInTheDocument();
+    await user.click(within(dialog).getByText('查看审核 Prompt'));
+    expect(within(dialog).getByRole('region', { name: 'AI Prompt 预览' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: 'Prompt 组成部分' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: '1. 角色设定' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: '2. 题目展示信息 Show Item' })).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('查看角色设定')).toHaveValue(
+      '真实运行 Prompt：请只审核开启 AI 预审的字段。',
+    );
+    await user.click(within(dialog).getByRole('button', { name: '查看完整 Prompt' }));
+    expect(within(dialog).getAllByRole('heading', { name: '完整 Prompt' })).toHaveLength(2);
+    expect((within(dialog).getByLabelText('查看完整 AI Prompt') as HTMLTextAreaElement).value).toContain(
+      '# 2. 题目展示信息 Show Item',
+    );
+    expect(within(dialog).queryByLabelText('查看角色设定')).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: '查看分段' }));
+    await user.click(within(dialog).getAllByRole('button', { name: '收起' })[0]);
+    expect(within(dialog).getByLabelText('查看角色设定')).toHaveAttribute('tabindex', '-1');
+    expect((within(dialog).getByLabelText('查看题目展示信息 Show Item') as HTMLTextAreaElement).value).toContain(
+      '解释什么是过拟合',
+    );
     expect(within(dialog).queryByText(/敏感 \/ 违规词/)).not.toBeInTheDocument();
     expect(within(dialog).queryByText(/function_calling · 结构化/)).not.toBeInTheDocument();
 
     await user.click(within(dialog).getByRole('tab', { name: /Q2/ }));
+    currentQuestionTrace = within(traceSidebar).getByRole('region', { name: /当前题追溯/ });
+    expect(currentQuestionTrace).toHaveTextContent('Q2 · qa_2');
+    expect(traceSidebar).not.toHaveTextContent(/submission_qa_2|job_qa_2/);
     expect(within(dialog).getAllByText(/第二题答案/).length).toBeGreaterThan(0);
-    expect(within(dialog).queryByText(/第二题 prompt/)).not.toBeInTheDocument();
+    expect((within(dialog).getByLabelText('查看题目展示信息 Show Item') as HTMLTextAreaElement).value).toContain(
+      '第二题 prompt',
+    );
 
     await user.click(within(dialog).getByRole('tab', { name: /Q3/ }));
     expect(within(dialog).getByText('本题暂未记录真实审核 Prompt。')).toBeInTheDocument();
@@ -426,7 +548,13 @@ function createDetailItem(
       scores: { relevance: 94, accuracy: 92, format: 90, safety: 98, overall },
       decision,
       comment: 'AI 预审通过，进入人工复审。',
-      rawPrompt: index === 3 ? null : '真实运行 Prompt：请只审核开启 AI 预审的字段。',
+      rawPrompt:
+        index === 3
+          ? null
+          : createRawPromptFixture({
+              note: index === 2 ? '第二题答案' : '答案完整',
+              prompt: index === 2 ? '第二题 prompt' : '解释什么是过拟合',
+            }),
       rawOutput: '{"verdict":"pass"}',
       structuredOutput: {
         verdict: 'pass',
@@ -462,6 +590,25 @@ function createDetailItem(
       { id: `log_${externalId}_verdict`, type: 'verdict', time: '2026-05-21T10:01:04.000Z', message: '结构化输出：pass' },
     ],
   };
+}
+
+function createRawPromptFixture({ note, prompt }: { note: string; prompt: string }): string {
+  return [
+    '# 1. 角色设定',
+    '真实运行 Prompt：请只审核开启 AI 预审的字段。',
+    '',
+    '# 2. 题目展示信息 Show Item',
+    `[{"sourceKey":"prompt","label":"问题","value":"${prompt}"}]`,
+    '',
+    '# 3. 需要AI预审的字段',
+    `{"preferred":"response_a","note":"${note}"}`,
+    '',
+    '# 4. 字段审核标准',
+    '[{"fieldKey":"preferred","requirement":"必须选择与题目事实一致的更优回答。"}]',
+    '',
+    '# 5. 输出格式约束',
+    '你必须只输出合法 JSON。',
+  ].join('\n');
 }
 
 function createFetchMock(initialBatches: AiReviewBatchDto[] = batches, taskList: TaskDto[] = tasks) {

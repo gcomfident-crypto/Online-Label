@@ -32,7 +32,14 @@ type AiReviewJobRecord = {
   updatedAt: Date;
   task?: {
     title: string;
+    createdAt?: Date;
+    createdById?: string | null;
+    createdBy?: {
+      id: string;
+      name: string;
+    } | null;
     template?: {
+      name?: string;
       schemaVersion: string;
       schema?: LabelHubSchema | null;
     } | null;
@@ -176,6 +183,10 @@ export type AiReviewBatchDto = {
   displayId: string;
   taskId: string;
   taskTitle: string;
+  taskCreatedAt: string | null;
+  templateName: string | null;
+  ownerId: string | null;
+  ownerName: string | null;
   labelerId: string | null;
   labelerName: string;
   submittedAt: string;
@@ -272,8 +283,15 @@ type AiReviewPrismaClient = {
 const JOB_INCLUDE = {
   task: {
     include: {
+      createdBy: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
       template: {
         select: {
+          name: true,
           schemaVersion: true,
           schema: true,
         },
@@ -777,6 +795,10 @@ function toBatchDto(jobs: AiReviewJobRecord[]): AiReviewBatchDto {
     displayId: batchDisplayId(batchId),
     taskId: firstJob?.taskId ?? '',
     taskTitle: firstJob?.task?.title ?? '未知任务',
+    taskCreatedAt: firstJob?.task?.createdAt?.toISOString() ?? null,
+    templateName: firstJob?.task?.template?.name ?? null,
+    ownerId: firstJob?.task?.createdBy?.id ?? firstJob?.task?.createdById ?? null,
+    ownerName: firstJob?.task?.createdBy?.name ?? readableUserName(firstJob?.task?.createdById),
     labelerId: firstAssignment?.assignee?.id ?? firstAssignment?.assigneeId ?? null,
     labelerName: firstAssignment?.assignee?.name ?? readableUserName(firstAssignment?.assigneeId),
     submittedAt: submittedAt.toISOString(),

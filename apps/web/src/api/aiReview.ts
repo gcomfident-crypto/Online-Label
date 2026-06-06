@@ -39,6 +39,10 @@ export type AiReviewBatchDto = {
   displayId: string;
   taskId: string;
   taskTitle: string;
+  taskCreatedAt: string | null;
+  templateName: string | null;
+  ownerId: string | null;
+  ownerName: string | null;
   labelerId: string | null;
   labelerName: string;
   submittedAt: string;

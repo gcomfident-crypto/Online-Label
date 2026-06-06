@@ -1,3 +1,8 @@
+import {
+  AI_REVIEW_STATUS_LABELS,
+  SUBMISSION_STATUS_LABELS,
+  type SubmissionStatus,
+} from '@labelhub/shared';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -9,10 +14,11 @@ import {
   type AiReviewBatchDto,
   type AiReviewFieldDto,
   type AiReviewBatchItemDto,
-  type AiReviewBatchStatus,
+  type AiReviewJobDto,
   type AiReviewLogDto,
 } from '../../api/aiReview';
 import { listTasks } from '../../api/tasks';
+import { AiPromptPreviewPanel, type AiPromptPreviewSection } from '../../components/AiPromptPreviewPanel';
 import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
@@ -31,7 +37,24 @@ const QUESTION_DECISION_TABS: Array<{ label: string; value: AiReviewBatchDecisio
   { label: '已打回', value: 'reject' },
 ];
 
+const BATCH_STATUS_SUMMARY_FILTERS: Array<{
+  label: string;
+  summaryKey: keyof BatchStatusSummary;
+  value: BatchStatusFilter;
+}> = [
+  { label: '总任务', summaryKey: 'total', value: 'ALL' },
+  { label: '进行中', summaryKey: 'running', value: 'PENDING' },
+  { label: '已完成', summaryKey: 'completed', value: 'COMPLETED' },
+];
+
 type FieldReviewDecision = 'pass' | 'pending' | 'reject';
+type BatchStatusFilter = 'ALL' | 'PENDING' | 'COMPLETED';
+
+type BatchStatusSummary = {
+  completed: number;
+  running: number;
+  total: number;
+};
 
 type NormalizedFieldReview = {
   fieldKey: string;
@@ -59,6 +82,7 @@ export const AiReviewQueuePage = () => {
   const [batches, setBatches] = useState<AiReviewBatchDto[]>([]);
   const [taskDisplayIdByTaskId, setTaskDisplayIdByTaskId] = useState<Map<string, string>>(new Map());
   const [keyword, setKeyword] = useState('');
+  const [batchStatusFilter, setBatchStatusFilter] = useState<BatchStatusFilter>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedBatch, setSelectedBatch] = useState<AiReviewBatchDto | null>(null);
   const [detail, setDetail] = useState<AiReviewBatchDetailDto | null>(null);
@@ -82,11 +106,27 @@ export const AiReviewQueuePage = () => {
     [],
   );
 
+  const batchSummary = useMemo<BatchStatusSummary>(
+    () => ({
+      completed: batches.filter((batch) => batch.status !== 'PENDING').length,
+      running: batches.filter((batch) => batch.status === 'PENDING').length,
+      total: batches.length,
+    }),
+    [batches],
+  );
+
   const filteredBatches = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
 
     return batches.filter((batch) => {
       const taskDisplayId = taskDisplayIdByTaskId.get(batch.taskId) ?? batch.taskId;
+      const matchesBatchStatus =
+        batchStatusFilter === 'ALL' ||
+        (batchStatusFilter === 'PENDING' ? batch.status === 'PENDING' : batch.status !== 'PENDING');
+
+      if (!matchesBatchStatus) {
+        return false;
+      }
 
       if (!normalizedKeyword) {
         return true;
@@ -99,7 +139,7 @@ export const AiReviewQueuePage = () => {
         ...batch.externalIds,
       ].some((value) => value.toLowerCase().includes(normalizedKeyword));
     });
-  }, [batches, keyword, taskDisplayIdByTaskId]);
+  }, [batchStatusFilter, batches, keyword, taskDisplayIdByTaskId]);
 
   const totalPages = Math.max(1, Math.ceil(filteredBatches.length / BATCH_TABLE_PAGE_SIZE));
   const paginatedBatches = useMemo(() => {
@@ -110,7 +150,7 @@ export const AiReviewQueuePage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [keyword]);
+  }, [batchStatusFilter, keyword]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -191,11 +231,14 @@ export const AiReviewQueuePage = () => {
       ) : (
         <AiReviewBatchTable
           batches={paginatedBatches}
+          batchStatusFilter={batchStatusFilter}
+          batchSummary={batchSummary}
           currentPage={currentPage}
           keyword={keyword}
           selectedBatchId={selectedBatch?.batchId ?? null}
           taskDisplayIdByTaskId={taskDisplayIdByTaskId}
           totalPages={totalPages}
+          onBatchStatusFilterChange={setBatchStatusFilter}
           onKeywordChange={setKeyword}
           onOpenBatch={(batch) => void handleOpenBatch(batch)}
           onPageChange={setCurrentPage}
@@ -232,8 +275,11 @@ const AiReviewSheetPortal = ({ children }: { children: ReactNode }) => {
 
 const AiReviewBatchTable = ({
   batches,
+  batchStatusFilter,
+  batchSummary,
   currentPage,
   keyword,
+  onBatchStatusFilterChange,
   onKeywordChange,
   onOpenBatch,
   onPageChange,
@@ -242,8 +288,11 @@ const AiReviewBatchTable = ({
   totalPages,
 }: {
   batches: AiReviewBatchDto[];
+  batchStatusFilter: BatchStatusFilter;
+  batchSummary: BatchStatusSummary;
   currentPage: number;
   keyword: string;
+  onBatchStatusFilterChange: (status: BatchStatusFilter) => void;
   onKeywordChange: (keyword: string) => void;
   onOpenBatch: (batch: AiReviewBatchDto) => void;
   onPageChange: (page: number) => void;
@@ -273,7 +322,18 @@ const AiReviewBatchTable = ({
   return (
     <div className="task-management-table-card agent-review-table-panel">
       <div className="task-management-table-toolbar agent-review-table-toolbar">
-        <div className="agent-review-table-toolbar__spacer" aria-hidden="true" />
+        <section className="task-summary-grid template-summary-grid" role="region" aria-label="AI 预审状态筛选">
+          {BATCH_STATUS_SUMMARY_FILTERS.map((item) => (
+            <BatchSummaryCard
+              key={item.value}
+              isActive={batchStatusFilter === item.value}
+              label={item.label}
+              status={item.value}
+              value={batchSummary[item.summaryKey].toString()}
+              onClick={() => onBatchStatusFilterChange(item.value)}
+            />
+          ))}
+        </section>
         <div className="task-filter-bar agent-review-filter">
           <input
             aria-label="搜索任务级 AI 预审批次"
@@ -376,6 +436,36 @@ const AiReviewBatchTable = ({
   );
 };
 
+const BatchSummaryCard = ({
+  isActive,
+  label,
+  onClick,
+  status,
+  value,
+}: {
+  isActive: boolean;
+  label: string;
+  onClick: () => void;
+  status: BatchStatusFilter;
+  value: string;
+}) => (
+  <button
+    className={[
+      'task-summary-card',
+      status === 'ALL' ? 'task-summary-card--total' : '',
+      status === 'PENDING' ? 'task-summary-card--running' : '',
+      status === 'COMPLETED' ? 'task-summary-card--done' : '',
+      isActive ? 'is-active' : '',
+    ].filter(Boolean).join(' ')}
+    type="button"
+    aria-pressed={isActive}
+    onClick={onClick}
+  >
+    <span>{label}</span>
+    <strong>{value}</strong>
+  </button>
+);
+
 const TableCellInner = ({ children }: { children: ReactNode }) => (
   <div className="task-table__cell-inner">{children}</div>
 );
@@ -446,20 +536,43 @@ const AiReviewBatchSheet = ({
         aria-labelledby="agent-review-detail-title"
       >
         <header className="agent-review-drawer-header">
-          <div>
-            <h2 id="agent-review-detail-title">
-              AI 预审详情 · {batch.taskTitle}
-            </h2>
-            <p>
-              提交于 {formatClock(batch.submittedAt)} · 标注员 {batch.labelerName} · 模板版本 {batch.templateVersion ?? '未记录'} · 共{' '}
-              {batch.itemCount.toLocaleString()} 题
-            </p>
-          </div>
-          <div className="agent-review-drawer-header__actions">
-            <button className="agent-review-sheet-close" type="button" aria-label="关闭 AI 预审详情" onClick={onClose}>
-              <span aria-hidden="true">×</span>
-            </button>
-          </div>
+          <section className="agent-review-detail-summary-card" aria-label="AI 预审详情摘要">
+            <div className="agent-review-detail-summary-card__top">
+              <div className="agent-review-detail-summary-heading">
+                <div className="agent-review-detail-summary-title-group">
+                  <div className="agent-review-detail-summary-title-row">
+                    <h2 id="agent-review-detail-title" className="agent-review-detail-summary-card__title">
+                      AI 预审详情 · {batch.taskTitle}
+                    </h2>
+                    <span className="agent-review-detail-summary-title-count">
+                      <span aria-hidden="true">•</span>
+                      {batch.itemCount.toLocaleString()} 题
+                    </span>
+                    <SummaryDecisionPill decision={batch.aggregateDecision} label={batch.aiSuggestionLabel} />
+                  </div>
+                  <div className="agent-review-detail-summary-subline" aria-label="模板和人员信息">
+                    <span className="agent-review-detail-summary-card__subtitle">
+                      {templateNameLabel(batch)} · {templateVersionLabel(batch)}
+                    </span>
+                    <span className="agent-review-detail-summary-inline-meta">
+                      <span className="agent-review-detail-summary-inline-meta__item">
+                        <span>任务 Owner</span>
+                        <strong>{ownerNameLabel(batch)}</strong>
+                      </span>
+                      <span className="agent-review-detail-summary-inline-meta__item">
+                        <span>标注员</span>
+                        <strong>{batch.labelerName}</strong>
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button className="agent-review-sheet-close" type="button" aria-label="关闭 AI 预审详情" onClick={onClose}>
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <TaskTimeline batch={batch} items={items} />
+          </section>
         </header>
 
         {isLoading ? (
@@ -479,6 +592,7 @@ const AiReviewBatchSheet = ({
                     </>
                   ) : null}
                 </div>
+                {selectedItem ? <TraceSidebar batch={batch} item={selectedItem} /> : null}
               </div>
             ) : (
               <TableEmptyState title="暂无批次详情" illustrationAlt="空批次详情插画" />
@@ -500,6 +614,7 @@ const QuestionList = ({
   selectedIndex: number;
 }) => {
   const selectedDecision = items[selectedIndex]?.decision ?? 'pending';
+  const [activeDecision, setActiveDecision] = useState<AiReviewBatchDecision>(selectedDecision);
   const decisionCounts = QUESTION_DECISION_TABS.reduce<Record<AiReviewBatchDecision, number>>(
     (counts, tab) => ({
       ...counts,
@@ -512,8 +627,13 @@ const QuestionList = ({
       reject: 0,
     },
   );
+  const activeDecisionLabel = QUESTION_DECISION_TABS.find((tab) => tab.value === activeDecision)?.label ?? DECISION_LABELS[activeDecision];
+  const filteredItems = items
+    .map((item, index) => ({ index, item }))
+    .filter(({ item }) => item.decision === activeDecision);
 
   const handleDecisionClick = (decision: AiReviewBatchDecision) => {
+    setActiveDecision(decision);
     const nextIndex = items.findIndex((item) => item.decision === decision);
     if (nextIndex >= 0) {
       onSelect(nextIndex);
@@ -530,10 +650,9 @@ const QuestionList = ({
             <button
               key={tab.value}
               type="button"
-              className={selectedDecision === tab.value ? 'is-active' : ''}
-              disabled={count === 0}
+              className={`${activeDecision === tab.value ? 'is-active ' : ''}is-${decisionTone(tab.value)}`}
               role="tab"
-              aria-selected={selectedDecision === tab.value}
+              aria-selected={activeDecision === tab.value}
               onClick={() => handleDecisionClick(tab.value)}
             >
               {tab.label}
@@ -543,11 +662,11 @@ const QuestionList = ({
         })}
       </div>
       <div className="agent-review-question-list__header">
-        <strong>题目列表</strong>
-        <span>{items.length.toLocaleString()} 题</span>
+        <strong>{activeDecisionLabel}题目</strong>
+        <span>{filteredItems.length.toLocaleString()} / {items.length.toLocaleString()} 题</span>
       </div>
       <div className="agent-review-question-list__items" role="tablist" aria-label="批次内题目切换">
-        {items.map((item, index) => (
+        {filteredItems.length > 0 ? filteredItems.map(({ item, index }) => (
           <button
             key={item.submission.id}
             type="button"
@@ -563,7 +682,7 @@ const QuestionList = ({
             </span>
             <em className={questionDecisionLabelClass(item.decision)}>{DECISION_LABELS[item.decision]}</em>
           </button>
-        ))}
+        )) : <EmptyPanelText>暂无{activeDecisionLabel}题目。</EmptyPanelText>}
       </div>
     </aside>
   );
@@ -660,20 +779,108 @@ const AiOverallCommentPanel = ({ item }: { item: AiReviewBatchItemDto }) => (
   </article>
 );
 
-const TechnicalDetailsPanel = ({ item }: { item: AiReviewBatchItemDto }) => (
-  <section className="agent-review-technical-sections" aria-label="技术信息">
-    <TechnicalDetails title="查看审核 Prompt">
-      <PanelHeading title="审核 Prompt" meta={promptRuleLabel(item.reviewRecord?.ruleId)} />
-      <pre>{item.reviewRecord?.rawPrompt?.trim() || '本题暂未记录真实审核 Prompt。'}</pre>
-    </TechnicalDetails>
-  </section>
-);
+const TechnicalDetailsPanel = ({ item }: { item: AiReviewBatchItemDto }) => {
+  const promptPreview = useMemo(
+    () => buildReviewPromptPreview(item.reviewRecord?.rawPrompt),
+    [item.reviewRecord?.rawPrompt],
+  );
+
+  return (
+    <section className="agent-review-technical-sections" aria-label="技术信息">
+      <TechnicalDetails title="查看审核 Prompt">
+        <PanelHeading title="审核 Prompt" meta={promptRuleLabel(item.reviewRecord?.ruleId)} />
+        {promptPreview ? (
+          <AiPromptPreviewPanel
+            fullPrompt={promptPreview.fullPrompt}
+            fullPromptMeta="本题真实运行 Prompt"
+            readOnly
+            sectionAriaLabel={(section) => `查看${section.title}`}
+            sections={promptPreview.sections}
+          />
+        ) : (
+          <pre>本题暂未记录真实审核 Prompt。</pre>
+        )}
+      </TechnicalDetails>
+    </section>
+  );
+};
 
 const TechnicalDetails = ({ children, title }: { children: ReactNode; title: string }) => (
   <details className="agent-review-technical-section">
     <summary>{title}</summary>
     <div>{children}</div>
   </details>
+);
+
+const TraceSidebar = ({
+  batch,
+  item,
+}: {
+  batch: AiReviewBatchDto | AiReviewBatchDetailDto;
+  item: AiReviewBatchItemDto;
+}) => {
+  const traceEvents = buildTraceEvents(batch, item);
+
+  return (
+    <aside className="agent-review-trace-sidebar" aria-label="当前题追溯">
+      <div className="agent-review-trace-tabs" role="tablist" aria-label="追溯视图">
+        <button className="is-active" type="button" role="tab" aria-selected="true">
+          当前题
+        </button>
+      </div>
+      <section className="agent-review-trace-card agent-review-trace-current" aria-label={`当前题追溯（Q${item.index}）`}>
+        <header className="agent-review-trace-current__header">
+          <div>
+            <span>当前题</span>
+            <h3>
+              Q{item.index} · {item.taskItem.externalId}
+            </h3>
+          </div>
+          <span className={`agent-review-trace-status is-${decisionTone(item.decision)}`}>
+            {DECISION_LABELS[item.decision]}
+          </span>
+        </header>
+        <dl className="agent-review-trace-identifiers">
+          <TraceSummaryItem label="轮次" value={`第${item.submission.round}轮`} />
+          <TraceSummaryItem label="状态" value={submissionStatusLabel(item.submission.status)} />
+          <TraceSummaryItem label="AI 状态" value={aiReviewStatusLabel(item.job.status)} />
+        </dl>
+        <ol className="agent-review-trace-timeline" aria-label="当前题流程节点">
+          {traceEvents.map((event) => (
+            <TraceTimelineItem event={event} key={event.key} />
+          ))}
+        </ol>
+      </section>
+    </aside>
+  );
+};
+
+const TraceSummaryItem = ({ label, value }: { label: string; value: ReactNode }) => (
+  <div>
+    <dt>{label}</dt>
+    <dd>{value || '未记录'}</dd>
+  </div>
+);
+
+const TraceTimelineItem = ({ event }: { event: TraceEvent }) => (
+  <li className={`is-${event.tone}`}>
+    <span className="agent-review-trace-timeline__dot" aria-hidden="true" />
+    <div className="agent-review-trace-timeline__body">
+      <time>{formatDateTimeSecond(event.time)}</time>
+      <strong>{event.title}</strong>
+      <p>{event.description}</p>
+      {event.meta.length > 0 ? (
+        <dl>
+          {event.meta.map((meta) => (
+            <div key={`${event.key}-${meta.label}`}>
+              <dt>{meta.label}</dt>
+              <dd>{meta.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </div>
+  </li>
 );
 
 const RulePreview = ({ requirement }: { requirement: string }) => (
@@ -724,6 +931,59 @@ const DecisionPill = ({ decision, label }: { decision: AiReviewBatchDecision; la
       {tone === 'pass' ? <span className="status-tag__dot" aria-hidden="true" /> : null}
       {label}
     </span>
+  );
+};
+
+const SummaryDecisionPill = ({ decision, label }: { decision: AiReviewBatchDecision; label: string }) => (
+  <span className={`agent-review-detail-summary-status is-${decisionTone(decision)}`}>
+    <SummaryStatusIcon decision={decision} />
+    {label}
+  </span>
+);
+
+const SummaryStatusIcon = ({ decision }: { decision: AiReviewBatchDecision }) => {
+  const tone = decisionTone(decision);
+
+  if (tone === 'pass') {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 16 16" focusable="false">
+        <path d="M13.2 4.5 6.6 11.1 3.2 7.7" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" focusable="false">
+      <circle cx="8" cy="8" r="6.2" />
+      <path d={tone === 'pending' ? 'M8 4.5v4l2.6 1.5' : 'M8 4.4v4.5'} />
+      {tone === 'pending' ? null : <path d="M8 11.4h.1" />}
+    </svg>
+  );
+};
+
+const TaskTimeline = ({
+  batch,
+  items,
+}: {
+  batch: AiReviewBatchDto | AiReviewBatchDetailDto;
+  items: readonly AiReviewBatchItemDto[];
+}) => {
+  const events = buildTaskTimelineEvents(batch, items);
+
+  return (
+    <ol className="agent-review-task-timeline" aria-label="当前任务时间线">
+      {events.map((event, index) => (
+        <li key={event.key} className={event.isComplete ? 'is-complete' : undefined}>
+          <span className="agent-review-task-timeline__dot" aria-hidden="true" />
+          {index < events.length - 1 ? <span className="agent-review-task-timeline__track" aria-hidden="true" /> : null}
+          <div className="agent-review-task-timeline__content">
+            <span>{event.label}</span>
+            <strong>{event.actor}</strong>
+            <time dateTime={event.time}>{formatDateTimeSecond(event.time)}</time>
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 };
 
@@ -936,17 +1196,6 @@ function fieldReviewEmptyText(item: AiReviewBatchItemDto): string {
   return 'AI 预审尚未输出字段结果。';
 }
 
-function structuredOutputModeLabel(value?: string | null): string {
-  if (value === 'function_calling') {
-    return 'function_calling · 结构化';
-  }
-  if (value === 'json_schema') {
-    return 'json_schema · 结构化';
-  }
-
-  return '结构化输出未记录';
-}
-
 function fieldValueChips(value: unknown, type?: string): string[] {
   const isChoiceField = type === 'radio' || type === 'checkbox' || type === 'tag_select';
 
@@ -1004,11 +1253,394 @@ function promptRuleLabel(ruleId?: string | null): string {
   return ruleId ? `规则：${ruleId}` : '规则：未记录';
 }
 
+type TraceEventTone = 'danger' | 'info' | 'neutral' | 'success' | 'warning';
+
+type TaskTimelineEvent = {
+  actor: string;
+  isComplete: boolean;
+  key: string;
+  label: string;
+  time: string;
+};
+
+type TraceEvent = {
+  key: string;
+  title: string;
+  description: string;
+  time: string | null;
+  tone: TraceEventTone;
+  meta: Array<{ label: string; value: string }>;
+};
+
+function buildTaskTimelineEvents(
+  batch: AiReviewBatchDto | AiReviewBatchDetailDto,
+  items: readonly AiReviewBatchItemDto[],
+): TaskTimelineEvent[] {
+  const candidates: Array<{ actor: string; key: string; label: string; time?: string | null }> = [
+    {
+      actor: ownerNameLabel(batch),
+      key: 'owner-created',
+      label: 'Owner 发起任务',
+      time: batch.taskCreatedAt ?? batch.submittedAt,
+    },
+    {
+      actor: batch.labelerName,
+      key: 'submission',
+      label: 'Labeler 提交',
+      time: earliestTimelineTime([batch.submittedAt, ...items.map((item) => item.submission.submittedAt)]),
+    },
+    {
+      actor: 'AI Agent',
+      key: 'queue',
+      label: 'AI 预审入队',
+      time: earliestTimelineTime(items.map((item) => item.job.queuedAt)),
+    },
+    {
+      actor: 'AI Agent',
+      key: 'start',
+      label: '开始预审',
+      time: earliestTimelineTime(items.map((item) => item.job.startedAt)),
+    },
+    {
+      actor: 'AI Agent',
+      key: 'review',
+      label: '生成结论',
+      time: latestTimelineTime(items.map((item) => item.reviewRecord?.createdAt)),
+    },
+    {
+      actor: 'AI Agent',
+      key: 'finish',
+      label: '预审完成',
+      time: latestTimelineTime(items.map((item) => item.job.finishedAt)),
+    },
+    {
+      actor: batch.aiSuggestionLabel,
+      key: 'update',
+      label: '当前状态',
+      time: latestTimelineTime([
+        batch.updatedAt,
+        ...items.map((item) => item.job.updatedAt),
+        ...items.map((item) => item.job.finishedAt),
+        ...items.map((item) => item.reviewRecord?.createdAt),
+      ]),
+    },
+  ];
+
+  return candidates
+    .map((event, index) => ({ event, index }))
+    .filter(({ event }) => isValidTimelineTime(event.time))
+    .sort(({ event: first, index: firstIndex }, { event: second, index: secondIndex }) => (
+      compareTraceTime(first.time, second.time) || firstIndex - secondIndex
+    ))
+    .map(({ event }) => ({
+      actor: event.actor,
+      isComplete: true,
+      key: event.key,
+      label: event.label,
+      time: event.time as string,
+    }));
+}
+
+function buildTraceEvents(
+  batch: AiReviewBatchDto | AiReviewBatchDetailDto,
+  item: AiReviewBatchItemDto,
+): TraceEvent[] {
+  const events: TraceEvent[] = [
+    {
+      key: 'submission',
+      title: 'Labeler 提交',
+      description: `${batch.labelerName} 提交第 ${item.submission.round.toLocaleString()} 轮标注，进入${submissionStatusLabel(item.submission.status)}。`,
+      time: item.submission.submittedAt,
+      tone: 'success',
+      meta: [
+        { label: '轮次', value: `第${item.submission.round.toLocaleString()}轮` },
+        { label: '状态', value: submissionStatusLabel(item.submission.status) },
+      ],
+    },
+    {
+      key: 'queue',
+      title: 'AI 预审入队',
+      description: `系统创建 AI 预审任务，等待处理。`,
+      time: item.job.queuedAt,
+      tone: 'info',
+      meta: [{ label: 'AI 状态', value: aiReviewStatusLabel(item.job.status) }],
+    },
+    {
+      key: 'start',
+      title: 'AI 开始处理',
+      description: 'AI 预审开始执行。',
+      time: item.job.startedAt,
+      tone: 'info',
+      meta: [{ label: 'AI 状态', value: aiReviewStatusLabel(item.job.status) }],
+    },
+    ...item.logs.map((log): TraceEvent => ({
+      key: `log-${log.id}`,
+      title: `处理日志：${humanizeTraceMessage(log.message)}`,
+      description: aiReviewLogTypeLabel(log.type),
+      time: log.time,
+      tone: traceToneForLogType(log.type),
+      meta: [{ label: '记录类型', value: aiReviewLogTypeLabel(log.type) }],
+    })),
+  ];
+
+  if (item.reviewRecord) {
+    events.push({
+      key: 'review-record',
+      title: 'AI 预审结论',
+      description: `${DECISION_LABELS[item.decision]}${item.reviewRecord.comment ? `：${item.reviewRecord.comment}` : ''}`,
+      time: item.reviewRecord.createdAt,
+      tone: traceToneForDecision(item.decision),
+      meta: item.reviewRecord.ruleId ? [{ label: '规则', value: item.reviewRecord.ruleId }] : [],
+    });
+  }
+
+  if (item.job.finishedAt || item.job.status) {
+    events.push({
+      key: 'finish',
+      title: 'AI 预审完成',
+      description: `${aiReviewStatusLabel(item.job.status)}${item.job.lastError ? `：${item.job.lastError}` : ''}`,
+      time: item.job.finishedAt ?? item.job.updatedAt,
+      tone: item.job.lastError ? 'danger' : traceToneForDecision(item.decision),
+      meta: [
+        { label: '提交状态', value: submissionStatusLabel(item.job.submissionStatus) },
+        { label: '更新时间', value: formatDateTimeSecond(item.job.updatedAt) },
+      ],
+    });
+  }
+
+  return events
+    .map((event, index) => ({ event, index }))
+    .sort((first, second) => compareTraceTime(first.event.time, second.event.time) || first.index - second.index)
+    .map(({ event }) => event);
+}
+
+function compareTraceTime(first?: string | null, second?: string | null): number {
+  const firstTime = first ? new Date(first).getTime() : Number.POSITIVE_INFINITY;
+  const secondTime = second ? new Date(second).getTime() : Number.POSITIVE_INFINITY;
+  const safeFirstTime = Number.isNaN(firstTime) ? Number.POSITIVE_INFINITY : firstTime;
+  const safeSecondTime = Number.isNaN(secondTime) ? Number.POSITIVE_INFINITY : secondTime;
+
+  return safeFirstTime - safeSecondTime;
+}
+
+function earliestTimelineTime(values: Array<string | null | undefined>): string | null {
+  return values
+    .filter(isValidTimelineTime)
+    .sort(compareTraceTime)[0] ?? null;
+}
+
+function latestTimelineTime(values: Array<string | null | undefined>): string | null {
+  return values
+    .filter(isValidTimelineTime)
+    .sort((first, second) => compareTraceTime(second, first))[0] ?? null;
+}
+
+function isValidTimelineTime(value?: string | null): value is string {
+  if (!value) {
+    return false;
+  }
+
+  return !Number.isNaN(new Date(value).getTime());
+}
+
+const BATCH_STATUS_LABELS: Record<AiReviewBatchDto['status'], string> = {
+  FAILED: '预审失败',
+  PASSED: '预审通过',
+  PENDING: '等待预审',
+  REJECTED: '建议打回',
+};
+
+const READABLE_STATUS_LABELS: Record<string, string> = {
+  ...SUBMISSION_STATUS_LABELS,
+  ...AI_REVIEW_STATUS_LABELS,
+  ...BATCH_STATUS_LABELS,
+};
+
+function ownerNameLabel(batch: Pick<AiReviewBatchDto, 'ownerId' | 'ownerName'>): string {
+  return batch.ownerName?.trim() || readableUserName(batch.ownerId) || '未记录';
+}
+
+function templateNameLabel(batch: Pick<AiReviewBatchDto, 'templateName'>): string {
+  return batch.templateName?.trim() || '模板未记录';
+}
+
+function templateVersionLabel(batch: Pick<AiReviewBatchDto, 'templateVersion'>): string {
+  return batch.templateVersion?.trim() || '版本未记录';
+}
+
+function readableUserName(userId?: string | null): string {
+  if (!userId) {
+    return '';
+  }
+  if (userId.includes('zhang_man')) {
+    return '张满';
+  }
+  if (userId.includes('li_lei')) {
+    return '李雷';
+  }
+  if (userId.includes('wang_fang')) {
+    return '王芳';
+  }
+
+  return '';
+}
+
+function submissionStatusLabel(status?: string | null): string {
+  if (!status) {
+    return '未记录';
+  }
+
+  return SUBMISSION_STATUS_LABELS[status as SubmissionStatus] ?? humanizeStatusCode(status);
+}
+
+function aiReviewStatusLabel(status?: AiReviewJobDto['status'] | null): string {
+  if (!status) {
+    return '未记录';
+  }
+
+  return AI_REVIEW_STATUS_LABELS[status] ?? humanizeStatusCode(status);
+}
+
+function humanizeTraceMessage(message: string): string {
+  const readableMessage = message.replace(/\b[A-Z][A-Z_]+\b/g, (status) => READABLE_STATUS_LABELS[status] ?? status);
+
+  if (/^[A-Za-z0-9_-]+\s*开始处理[。.]?$/.test(readableMessage.trim())) {
+    return 'AI 预审开始处理';
+  }
+  if (readableMessage.trim() === '调用模型') {
+    return '执行预审';
+  }
+
+  return readableMessage;
+}
+
+function humanizeStatusCode(status: string): string {
+  return status
+    .toLowerCase()
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function aiReviewLogTypeLabel(type: AiReviewLogDto['type']): string {
+  const labels: Record<AiReviewLogDto['type'], string> = {
+    audit: '状态流转 / 审计记录',
+    error: '错误记录',
+    llm: '预审处理',
+    queue: '队列事件',
+    retry: '重试记录',
+    run: '执行记录',
+    verdict: '结论解析',
+  };
+
+  return labels[type];
+}
+
+function traceToneForLogType(type: AiReviewLogDto['type']): TraceEventTone {
+  if (type === 'error') {
+    return 'danger';
+  }
+  if (type === 'retry') {
+    return 'warning';
+  }
+  if (type === 'verdict' || type === 'audit') {
+    return 'success';
+  }
+
+  return 'info';
+}
+
+function traceToneForDecision(decision: AiReviewBatchDecision): TraceEventTone {
+  if (decision === 'reject' || decision === 'failed') {
+    return 'danger';
+  }
+  if (decision === 'pending') {
+    return 'neutral';
+  }
+
+  return 'success';
+}
+
+type ReviewPromptPreview = {
+  fullPrompt: string;
+  sections: AiPromptPreviewSection[];
+};
+
+function buildReviewPromptPreview(rawPrompt?: string | null): ReviewPromptPreview | null {
+  const fullPrompt = rawPrompt?.trim();
+
+  if (!fullPrompt) {
+    return null;
+  }
+
+  return {
+    fullPrompt,
+    sections: parseReviewPromptSections(fullPrompt),
+  };
+}
+
+function parseReviewPromptSections(prompt: string): AiPromptPreviewSection[] {
+  const sections: AiPromptPreviewSection[] = [];
+  const leadingLines: string[] = [];
+  let currentSection: { key: string; title: string; contentLines: string[] } | null = null;
+
+  const commitCurrentSection = () => {
+    if (!currentSection) {
+      return;
+    }
+
+    sections.push({
+      key: currentSection.key,
+      title: currentSection.title,
+      content: trimPromptSectionContent(currentSection.contentLines),
+    });
+  };
+
+  prompt.split(/\r?\n/).forEach((line) => {
+    const headingMatch = line.match(/^#\s*(\d+)\.\s*(.+?)\s*$/);
+
+    if (headingMatch) {
+      commitCurrentSection();
+      currentSection = {
+        key: `section_${sections.length + 1}_${headingMatch[1]}`,
+        title: headingMatch[2],
+        contentLines: [],
+      };
+      return;
+    }
+
+    if (currentSection) {
+      currentSection.contentLines.push(line);
+    } else {
+      leadingLines.push(line);
+    }
+  });
+  commitCurrentSection();
+
+  const leadingContent = trimPromptSectionContent(leadingLines);
+  if (leadingContent) {
+    sections.unshift({
+      key: 'section_intro',
+      title: 'Prompt 内容',
+      content: leadingContent,
+    });
+  }
+
+  return sections.length > 0
+    ? sections
+    : [{ key: 'section_full', title: 'Prompt 内容', content: prompt }];
+}
+
+function trimPromptSectionContent(lines: string[]): string {
+  return lines.join('\n').replace(/^\n+|\n+$/g, '');
+}
+
 function formatJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-function formatClock(value?: string | null): string {
+function formatDateTimeSecond(value?: string | null): string {
   if (!value) {
     return '未记录';
   }
@@ -1017,7 +1649,17 @@ function formatClock(value?: string | null): string {
     return value.slice(0, 19).replace('T', ' ');
   }
 
-  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  return date
+    .toLocaleString('zh-CN', {
+      day: '2-digit',
+      hour: '2-digit',
+      hour12: false,
+      minute: '2-digit',
+      month: '2-digit',
+      second: '2-digit',
+      year: 'numeric',
+    })
+    .replace(/\//g, '-');
 }
 
 function splitDateTimeMinute(value?: string | null): { date: string; time: string } {

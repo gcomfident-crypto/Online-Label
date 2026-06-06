@@ -109,6 +109,15 @@ describe('global styles', () => {
     expect(hoverRule).not.toContain('transform: translateY(-1px);');
   });
 
+  it('导出中心选中行不在每个字段左侧绘制蓝色竖线', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const selectedExportRowRule = styles.match(/\.export-task-table tr\.is-selected td\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(selectedExportRowRule).toContain('background: #f4f8ff;');
+    expect(selectedExportRowRule).not.toContain('box-shadow');
+    expect(selectedExportRowRule).not.toContain('#306df7');
+  });
+
   it('标注字段必填星号使用红色且优先级高于通用字段文字样式', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const requiredMarkRule = styles.match(
