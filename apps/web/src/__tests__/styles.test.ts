@@ -590,6 +590,10 @@ describe('global styles', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const myDataPanelRule = styles.match(/\.labeler-task-workspace\s+\.my-data-table-scroll\s*\{[^}]+\}/)?.[0] ?? '';
     const myDataFrameRule = styles.match(/\.my-data-table-frame\s*\{[^}]+\}/)?.[0] ?? '';
+    const myDataCellRule = styles.match(/\.labeler-task-workspace\s+\.my-data-table__cell\s*\{[^}]+\}/)?.[0] ?? '';
+    const myDataCellTextRule =
+      styles.match(/\.labeler-task-workspace\s+\.my-data-table__cell strong,[\s\S]*?\.labeler-task-workspace\s+\.my-data-table__cell code\s*\{[^}]+\}/)?.[0] ?? '';
+    const myDataProgressRule = styles.match(/\.labeler-task-progress-summary\s*\{[^}]+\}/)?.[0] ?? '';
     const myDataFillerRule = styles.match(
       /\.task-table-scroll::after,\s*\.task-market-table-frame::after,\s*\.template-manager-table-scroll::after,\s*\.my-data-table-frame::after\s*\{[^}]+\}/,
     )?.[0] ?? '';
@@ -599,6 +603,14 @@ describe('global styles', () => {
     expect(myDataPanelRule).toContain('overflow: hidden;');
     expect(myDataFrameRule).toContain('flex: 1 1 auto;');
     expect(myDataFrameRule).toContain('overflow-y: hidden;');
+    expect(myDataCellRule).toContain('display: flex;');
+    expect(myDataCellRule).toContain('align-items: center;');
+    expect(myDataCellRule).toContain('justify-content: center;');
+    expect(myDataCellRule).toContain('white-space: nowrap;');
+    expect(myDataCellTextRule).toContain('margin-bottom: 0;');
+    expect(myDataCellTextRule).toContain('text-overflow: ellipsis;');
+    expect(myDataProgressRule).toContain('flex-wrap: nowrap;');
+    expect(myDataProgressRule).toContain('justify-content: center;');
     expect(myDataFillerRule).toContain('flex: 1 1 auto;');
   });
 
@@ -980,6 +992,7 @@ describe('global styles', () => {
     const workbenchHeaderRule = [...styles.matchAll(/\.workbench-topline\s*\{[^}]+\}/g)]
       .map((match) => match[0])
       .find((rule) => rule.includes('position: relative;')) ?? '';
+    const workbenchCountdownRule = styles.match(/\.workbench-deadline-countdown\s*\{[^}]+\}/)?.[0] ?? '';
     const reviewDetailToolbarRule = styles.match(/\.manual-review-detail-toolbar\s*\{[^}]+\}/)?.[0] ?? '';
     const titleRule =
       styles.match(
@@ -1007,6 +1020,8 @@ describe('global styles', () => {
     expect(headerRule).toContain('margin: 0 0 var(--table-page-header-gap);');
     expect(headerRule).toContain('position: relative;');
     expect(workbenchHeaderRule).toContain('position: relative;');
+    expect(workbenchCountdownRule).toContain('font-family: ui-monospace');
+    expect(workbenchCountdownRule).toContain('font-variant-numeric: tabular-nums;');
     expect(reviewDetailToolbarRule).toContain('position: relative;');
     expect(titleRule).toContain('font-size: var(--table-page-title-font-size);');
     expect(titleRule).toContain('font-weight: 700;');
@@ -1236,6 +1251,28 @@ describe('global styles', () => {
     expect(rejectRule).toContain('button.is-active em.is-reject');
     expect(rejectRule).toContain('button:hover em.is-reject');
     expect(oldHoverRule).toBe('');
+  });
+
+  it('AI 预审建议通过气泡使用任务管理同款绿色状态点', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const passDotRule =
+      styles.match(/\.agent-review-decision-pill\.is-pass \.status-tag__dot\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(passDotRule).toContain('display: block;');
+    expect(passDotRule).toContain('width: 8px;');
+    expect(passDotRule).toContain('height: 8px;');
+    expect(passDotRule).toContain('background: #0FB86B;');
+  });
+
+  it('AI 预审队列使用独立任务 ID 列并复用任务管理 ID 样式', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const taskIdColumnRule = styles.match(/\.task-table__col-id\s*\{[^}]+\}/)?.[0] ?? '';
+    const taskManagementIdRule = styles.match(/\.task-management-table-card \.task-table__id code\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(taskIdColumnRule).toContain('width: 9%;');
+    expect(taskManagementIdRule).toContain('color: #306df7;');
+    expect(taskManagementIdRule).toContain('background: #eaf1ff;');
+    expect(styles).not.toContain('.agent-review-task-id');
   });
 
   it('AI 预审字段卡片使用清晰的标题区和详情分区', () => {

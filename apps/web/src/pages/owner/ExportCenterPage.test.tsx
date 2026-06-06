@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import exportIconAsset from '../../assets/export.svg';
 import { ExportCenterPage } from './ExportCenterPage';
 
 const task = {
@@ -186,6 +187,23 @@ describe('ExportCenterPage', () => {
     expect(screen.getByLabelText('可导出任务分页')).toHaveTextContent('第 1 / 1 页');
     expect(screen.queryByRole('table', { name: '导出历史' })).not.toBeInTheDocument();
     expect(screen.queryByText('暂无导出任务。')).not.toBeInTheDocument();
+    const latestTaskRow = within(exportableTaskTable).getByText('偏好对比评测').closest('tr');
+    expect(latestTaskRow).not.toBeNull();
+    const latestTaskActions = (latestTaskRow as HTMLElement).querySelector('.task-table__actions');
+    expect(latestTaskActions).not.toBeNull();
+    const previewAction = within(latestTaskRow as HTMLElement).getByRole('button', { name: '预览 T-0002' });
+    const exportAction = within(latestTaskRow as HTMLElement).getByRole('button', { name: '导出 T-0002' });
+    expect(previewAction).toHaveClass('task-table-action', 'task-table-action--icon');
+    expect(exportAction).toHaveClass('task-table-action', 'task-table-action--icon');
+    expect((latestTaskRow as HTMLElement).querySelector('.export-row-action')).toBeNull();
+    expect((exportAction.querySelector('img') as HTMLImageElement | null)?.getAttribute('src')).toBe(exportIconAsset);
+
+    await user.click(previewAction);
+    const previewDialog = await screen.findByRole('dialog', { name: '导出预览 · T-0002' });
+    expect(previewDialog).toHaveTextContent('偏好对比评测');
+    expect(within(previewDialog).getByRole('table', { name: '导出预览表格' })).toBeInTheDocument();
+    await user.click(within(previewDialog).getByRole('button', { name: '关闭导出预览' }));
+    expect(screen.queryByRole('dialog', { name: '导出预览 · T-0002' })).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText('搜索导出任务'), '问答');
     expect(within(exportableTaskTable).getByText('问答质量标注')).toBeInTheDocument();

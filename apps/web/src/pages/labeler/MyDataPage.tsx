@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import type { DatasetKind } from '@labelhub/shared';
 import {
@@ -7,10 +7,12 @@ import {
   type AssignmentStatus,
   type LabelerAssignmentDto,
 } from '../../api/assignments';
+import { listTasks } from '../../api/tasks';
 import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
+import { createTaskDisplayIdMap } from '../owner/taskDisplayId';
 
 const LABELER_ID = 'user_labeler_li_lei';
 const MY_DATA_FALLBACK_PAGE_SIZE = 7;
@@ -31,11 +33,14 @@ const STATUS_OPTIONS: readonly {
 
 type WorkbenchNavigationState = {
   source: 'my-data-table';
+  taskDisplayId: string;
+  taskTitle: string;
 };
 
 export const MyDataPage = () => {
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<LabelerAssignmentDto[]>([]);
+  const [taskDisplayIdByTaskId, setTaskDisplayIdByTaskId] = useState<Map<string, string>>(new Map());
   const [statusFilter, setStatusFilter] = useState<LabelerStatusFilter>('');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -54,6 +59,8 @@ export const MyDataPage = () => {
     const keyword = searchKeyword.trim();
 
     return assignments.filter((assignment) => {
+      const taskDisplayId = taskDisplayIdByTaskId.get(assignment.taskId) ?? assignment.taskId;
+
       if (statusFilter && !matchesStatusFilter(assignment, statusFilter)) {
         return false;
       }
@@ -62,6 +69,7 @@ export const MyDataPage = () => {
         keyword &&
         !assignment.externalId.includes(keyword) &&
         !assignment.taskItemId.includes(keyword) &&
+        !taskDisplayId.includes(keyword) &&
         !assignment.taskTitle.includes(keyword)
       ) {
         return false;
@@ -69,8 +77,11 @@ export const MyDataPage = () => {
 
       return true;
     });
-  }, [assignments, searchKeyword, statusFilter]);
-  const taskGroups = useMemo(() => groupAssignmentsByTask(filteredAssignments), [filteredAssignments]);
+  }, [assignments, searchKeyword, statusFilter, taskDisplayIdByTaskId]);
+  const taskGroups = useMemo(
+    () => groupAssignmentsByTask(filteredAssignments, taskDisplayIdByTaskId),
+    [filteredAssignments, taskDisplayIdByTaskId],
+  );
   const statusSummary = useMemo(
     () =>
       STATUS_OPTIONS.reduce<Record<LabelerStatusFilter, number>>(
@@ -79,7 +90,7 @@ export const MyDataPage = () => {
             ? assignments.filter((assignment) => matchesStatusFilter(assignment, option.value))
             : assignments;
 
-          summary[option.value] = groupAssignmentsByTask(matchingAssignments).length;
+          summary[option.value] = groupAssignmentsByTask(matchingAssignments, taskDisplayIdByTaskId).length;
           return summary;
         },
         {
@@ -89,7 +100,7 @@ export const MyDataPage = () => {
           NEEDS_REVISION: 0,
         },
       ),
-    [assignments],
+    [assignments, taskDisplayIdByTaskId],
   );
   const totalPages = Math.max(1, Math.ceil(taskGroups.length / myDataPageSize));
   const paginatedTaskGroups = useMemo(() => {
@@ -109,8 +120,12 @@ export const MyDataPage = () => {
   const loadMyData = async () => {
     setIsLoading(true);
     try {
-      const nextAssignments = await listLabelerAssignments({ labelerId: LABELER_ID });
+      const [nextAssignments, tasks] = await Promise.all([
+        listLabelerAssignments({ labelerId: LABELER_ID }),
+        listTasks(),
+      ]);
       setAssignments(nextAssignments);
+      setTaskDisplayIdByTaskId(createTaskDisplayIdMap(tasks));
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : '工作台加载失败。');
     } finally {
@@ -119,8 +134,10 @@ export const MyDataPage = () => {
   };
 
   const navigateToWorkbench = useCallback(
-    (assignment: LabelerAssignmentDto) => {
-      navigate(workbenchHref(assignment), { state: { source: 'my-data-table' } as WorkbenchNavigationState });
+    (assignment: LabelerAssignmentDto, taskDisplayId: string, taskTitle: string) => {
+      navigate(workbenchHref(assignment), {
+        state: { source: 'my-data-table', taskDisplayId, taskTitle } as WorkbenchNavigationState,
+      });
     },
     [navigate],
   );
@@ -180,13 +197,13 @@ export const MyDataPage = () => {
             <table className="task-table my-data-table" aria-label="工作台任务列表">
               <thead>
                 <tr>
-                  <th>任务</th>
+                  <th>任务ID</th>
+                  <th>任务名</th>
                   <th>类型</th>
                   <th>已领取题目</th>
                   <th>进度</th>
                   <th>最近提交</th>
                   <th>领取时间</th>
-                  <th>操作</th>
                 </tr>
               </thead>
               <tbody key={currentPage}>
@@ -195,38 +212,46 @@ export const MyDataPage = () => {
                     key={taskGroup.taskId}
                     className="my-data-table__row my-data-table__row--task"
                     tabIndex={0}
-                    onClick={() => navigateToWorkbench(taskGroup.nextAssignment)}
+                    onClick={() =>
+                      navigateToWorkbench(taskGroup.nextAssignment, taskGroup.taskDisplayId, taskGroup.taskTitle)
+                    }
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        navigateToWorkbench(taskGroup.nextAssignment);
+                        navigateToWorkbench(taskGroup.nextAssignment, taskGroup.taskDisplayId, taskGroup.taskTitle);
                       }
                     }}
                   >
-                    <td>
-                      <strong>{taskGroup.taskTitle}</strong>
-                      <small>{taskGroup.templateName} · {taskGroup.schemaVersion}</small>
-                    </td>
-                    <td>{DATASET_KIND_LABELS[taskGroup.datasetKind]}</td>
-                    <td>
-                      <strong>{taskGroup.assignments.length.toLocaleString()} 条</strong>
-                      <small>下一条 {taskGroup.nextAssignment.externalId}</small>
+                    <td className="task-table__id">
+                      <MyDataTableCell>
+                        <code>{taskGroup.taskDisplayId}</code>
+                      </MyDataTableCell>
                     </td>
                     <td>
-                      <TaskProgressSummary taskGroup={taskGroup} />
+                      <MyDataTableCell>
+                        <strong>{taskGroup.taskTitle}</strong>
+                      </MyDataTableCell>
                     </td>
-                    <td>{taskGroup.latestSubmittedAt ? formatDateTime(taskGroup.latestSubmittedAt) : '-'}</td>
-                    <td>{formatClaimedAtRange(taskGroup.assignments)}</td>
                     <td>
-                      <Link
-                        className="primary-link"
-                        aria-label={`继续标注 ${taskGroup.taskTitle}`}
-                        to={workbenchHref(taskGroup.nextAssignment)}
-                        state={{ source: 'my-data-table' } as WorkbenchNavigationState}
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        继续标注
-                      </Link>
+                      <MyDataTableCell>{DATASET_KIND_LABELS[taskGroup.datasetKind]}</MyDataTableCell>
+                    </td>
+                    <td>
+                      <MyDataTableCell>
+                        <strong>{taskGroup.assignments.length.toLocaleString()} 条</strong>
+                      </MyDataTableCell>
+                    </td>
+                    <td>
+                      <MyDataTableCell>
+                        <TaskProgressSummary taskGroup={taskGroup} />
+                      </MyDataTableCell>
+                    </td>
+                    <td>
+                      <MyDataTableCell>
+                        {taskGroup.latestSubmittedAt ? formatDateTime(taskGroup.latestSubmittedAt) : '-'}
+                      </MyDataTableCell>
+                    </td>
+                    <td>
+                      <MyDataTableCell>{formatClaimedAtRange(taskGroup.assignments)}</MyDataTableCell>
                     </td>
                   </tr>
                 )) : (
@@ -269,8 +294,13 @@ export const MyDataPage = () => {
   );
 };
 
+const MyDataTableCell = ({ children }: { children: ReactNode }) => (
+  <div className="my-data-table__cell">{children}</div>
+);
+
 type LabelerTaskGroup = {
   taskId: string;
+  taskDisplayId: string;
   taskTitle: string;
   datasetKind: DatasetKind;
   templateName: string;
@@ -313,7 +343,10 @@ const TASK_STATUS_ORDER: AssignmentStatus[] = [
 
 const formatDateTime = (value: string): string => value.slice(0, 16).replace('T', ' ');
 
-const groupAssignmentsByTask = (assignments: LabelerAssignmentDto[]): LabelerTaskGroup[] => {
+const groupAssignmentsByTask = (
+  assignments: LabelerAssignmentDto[],
+  taskDisplayIdByTaskId: ReadonlyMap<string, string>,
+): LabelerTaskGroup[] => {
   const groupMap = new Map<string, LabelerAssignmentDto[]>();
 
   for (const assignment of assignments) {
@@ -329,6 +362,7 @@ const groupAssignmentsByTask = (assignments: LabelerAssignmentDto[]): LabelerTas
 
       return {
         taskId: firstAssignment.taskId,
+        taskDisplayId: taskDisplayIdByTaskId.get(firstAssignment.taskId) ?? firstAssignment.taskId,
         taskTitle: firstAssignment.taskTitle,
         datasetKind: firstAssignment.datasetKind,
         templateName: firstAssignment.templateName,

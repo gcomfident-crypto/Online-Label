@@ -12,9 +12,11 @@ import {
   type AiReviewBatchStatus,
   type AiReviewLogDto,
 } from '../../api/aiReview';
+import { listTasks } from '../../api/tasks';
 import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
+import { createTaskDisplayIdMap } from '../owner/taskDisplayId';
 
 const DECISION_LABELS: Record<AiReviewBatchDecision, string> = {
   pending: '等待预审',
@@ -55,6 +57,7 @@ const SHEET_EXIT_ANIMATION_MS = 260;
 
 export const AiReviewQueuePage = () => {
   const [batches, setBatches] = useState<AiReviewBatchDto[]>([]);
+  const [taskDisplayIdByTaskId, setTaskDisplayIdByTaskId] = useState<Map<string, string>>(new Map());
   const [keyword, setKeyword] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedBatch, setSelectedBatch] = useState<AiReviewBatchDto | null>(null);
@@ -83,17 +86,20 @@ export const AiReviewQueuePage = () => {
     const normalizedKeyword = keyword.trim().toLowerCase();
 
     return batches.filter((batch) => {
+      const taskDisplayId = taskDisplayIdByTaskId.get(batch.taskId) ?? batch.taskId;
+
       if (!normalizedKeyword) {
         return true;
       }
 
       return [
+        taskDisplayId,
         batch.taskTitle,
         batch.labelerName,
         ...batch.externalIds,
       ].some((value) => value.toLowerCase().includes(normalizedKeyword));
     });
-  }, [batches, keyword]);
+  }, [batches, keyword, taskDisplayIdByTaskId]);
 
   const totalPages = Math.max(1, Math.ceil(filteredBatches.length / BATCH_TABLE_PAGE_SIZE));
   const paginatedBatches = useMemo(() => {
@@ -113,8 +119,12 @@ export const AiReviewQueuePage = () => {
   const loadBatches = async () => {
     setIsLoading(true);
     try {
-      const nextBatches = await listAiReviewBatches();
+      const [nextBatches, tasks] = await Promise.all([
+        listAiReviewBatches(),
+        listTasks().catch(() => []),
+      ]);
       setBatches(nextBatches);
+      setTaskDisplayIdByTaskId(createTaskDisplayIdMap(tasks));
       setSelectedBatch((current) =>
         current ? nextBatches.find((batch) => batch.batchId === current.batchId) ?? current : current,
       );
@@ -184,6 +194,7 @@ export const AiReviewQueuePage = () => {
           currentPage={currentPage}
           keyword={keyword}
           selectedBatchId={selectedBatch?.batchId ?? null}
+          taskDisplayIdByTaskId={taskDisplayIdByTaskId}
           totalPages={totalPages}
           onKeywordChange={setKeyword}
           onOpenBatch={(batch) => void handleOpenBatch(batch)}
@@ -227,6 +238,7 @@ const AiReviewBatchTable = ({
   onOpenBatch,
   onPageChange,
   selectedBatchId,
+  taskDisplayIdByTaskId,
   totalPages,
 }: {
   batches: AiReviewBatchDto[];
@@ -236,6 +248,7 @@ const AiReviewBatchTable = ({
   onOpenBatch: (batch: AiReviewBatchDto) => void;
   onPageChange: (page: number) => void;
   selectedBatchId: string | null;
+  taskDisplayIdByTaskId: ReadonlyMap<string, string>;
   totalPages: number;
 }) => {
   const handleRowClick = (event: MouseEvent<HTMLTableRowElement>, batch: AiReviewBatchDto) => {
@@ -274,6 +287,7 @@ const AiReviewBatchTable = ({
       <div className="task-table-scroll" data-adaptive-table-viewport="true">
         <table className="task-table agent-review-batch-table" aria-label="任务级 AI 预审队列表格">
           <colgroup>
+            <col className="task-table__col-id" />
             <col className="agent-review-batch-table__col-title" />
             <col className="agent-review-batch-table__col-labeler" />
             <col className="agent-review-batch-table__col-submitted" />
@@ -282,6 +296,7 @@ const AiReviewBatchTable = ({
           </colgroup>
           <thead>
             <tr>
+              <th>任务ID</th>
               <th>任务名称</th>
               <th>标注员</th>
               <th>提交时间</th>
@@ -291,45 +306,54 @@ const AiReviewBatchTable = ({
           </thead>
           <tbody key={currentPage} className="task-table__body">
             {batches.length > 0 ? (
-              batches.map((batch) => (
-                <tr
-                  key={batch.batchId}
-                  className={[
-                    'task-table__row',
-                    'agent-review-batch-table__row',
-                    selectedBatchId === batch.batchId ? 'is-active' : '',
-                  ].filter(Boolean).join(' ')}
-                  aria-label={`查看 ${batch.taskTitle} AI 预审详情`}
-                  tabIndex={0}
-                  onClick={(event) => handleRowClick(event, batch)}
-                  onKeyDown={(event) => handleRowKeyDown(event, batch)}
-                >
-                  <td>
-                    <TableCellInner>
-                      <span className="task-title-link">{batch.taskTitle}</span>
-                    </TableCellInner>
-                  </td>
-                  <td>
-                    <TableCellInner>{batch.labelerName}</TableCellInner>
-                  </td>
-                  <td className="task-table__date-column">
-                    <TableCellInner>
-                      <DateTimeCell value={batch.submittedAt} />
-                    </TableCellInner>
-                  </td>
-                  <td>
-                    <TableCellInner>{batch.itemCount.toLocaleString()} 题</TableCellInner>
-                  </td>
-                  <td>
-                    <TableCellInner>
-                      <DecisionPill decision={batch.aggregateDecision} label={batch.aiSuggestionLabel} />
-                    </TableCellInner>
-                  </td>
-                </tr>
-              ))
+              batches.map((batch) => {
+                const taskDisplayId = taskDisplayIdByTaskId.get(batch.taskId) ?? batch.taskId;
+
+                return (
+                  <tr
+                    key={batch.batchId}
+                    className={[
+                      'task-table__row',
+                      'agent-review-batch-table__row',
+                      selectedBatchId === batch.batchId ? 'is-active' : '',
+                    ].filter(Boolean).join(' ')}
+                    aria-label={`查看 ${taskDisplayId} ${batch.taskTitle} AI 预审详情`}
+                    tabIndex={0}
+                    onClick={(event) => handleRowClick(event, batch)}
+                    onKeyDown={(event) => handleRowKeyDown(event, batch)}
+                  >
+                    <td className="task-table__id">
+                      <TableCellInner>
+                        <code>{taskDisplayId}</code>
+                      </TableCellInner>
+                    </td>
+                    <td>
+                      <TableCellInner>
+                        <span className="task-title-link">{batch.taskTitle}</span>
+                      </TableCellInner>
+                    </td>
+                    <td>
+                      <TableCellInner>{batch.labelerName}</TableCellInner>
+                    </td>
+                    <td className="task-table__date-column">
+                      <TableCellInner>
+                        <DateTimeCell value={batch.submittedAt} />
+                      </TableCellInner>
+                    </td>
+                    <td>
+                      <TableCellInner>{batch.itemCount.toLocaleString()} 题</TableCellInner>
+                    </td>
+                    <td>
+                      <TableCellInner>
+                        <DecisionPill decision={batch.aggregateDecision} label={batch.aiSuggestionLabel} />
+                      </TableCellInner>
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr className="task-table__empty-row">
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <TableEmptyState title="暂无任务级 AI 预审记录" illustrationAlt="空预审队列插画" />
                 </td>
               </tr>
@@ -692,9 +716,16 @@ const PanelHeading = ({ meta, title }: { meta?: ReactNode; title: string }) => (
   </div>
 );
 
-const DecisionPill = ({ decision, label }: { decision: AiReviewBatchDecision; label: string }) => (
-  <span className={`agent-review-decision-pill is-${decisionTone(decision)}`}>{label}</span>
-);
+const DecisionPill = ({ decision, label }: { decision: AiReviewBatchDecision; label: string }) => {
+  const tone = decisionTone(decision);
+
+  return (
+    <span className={`agent-review-decision-pill is-${tone}`}>
+      {tone === 'pass' ? <span className="status-tag__dot" aria-hidden="true" /> : null}
+      {label}
+    </span>
+  );
+};
 
 const FieldDecisionPill = ({ decision }: { decision: FieldReviewDecision }) => (
   <span className={`agent-review-field-decision is-${decision}`}>{FIELD_DECISION_LABELS[decision]}</span>

@@ -519,6 +519,10 @@ const actionForTransition = (from: TaskStatus, to: TaskStatus): string => {
 const toTaskDto = (task: TaskRecord): TaskDto => {
   const activeAssignments = activeTaskAssignments(task);
   const submissions = activeAssignments.flatMap((assignment) => assignment.submissions);
+  const itemCount = task._count.items;
+  const completedItemCount = task.items.filter((item) => item.status === 'COMPLETED').length;
+  const exportableItemCount = submissions.filter((submission) => submission.status === 'FINAL_APPROVED').length;
+  const status = resolveTaskDtoStatus(task.status, itemCount, completedItemCount, exportableItemCount);
 
   return {
     id: task.id,
@@ -536,19 +540,37 @@ const toTaskDto = (task: TaskRecord): TaskDto => {
     aiRuleName: task.aiRuleName,
     reviewStageConfig: task.reviewStageConfig,
     datasetImportSummary: task.datasetImportSummary,
-    status: task.status,
+    status,
     templateId: task.templateId ?? '',
     template: task.template ?? UNCONFIGURED_TASK_TEMPLATE,
     createdById: task.createdById,
-    itemCount: task._count.items,
+    itemCount,
     assignedItemCount: activeAssignments.length,
     submittedItemCount: submissions.length,
-    completedItemCount: task.items.filter((item) => item.status === 'COMPLETED').length,
-    exportableItemCount: submissions.filter((submission) => submission.status === 'FINAL_APPROVED').length,
+    completedItemCount,
+    exportableItemCount,
     workflowProgress: buildTaskWorkflowProgress(task),
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
   };
+};
+
+const resolveTaskDtoStatus = (
+  status: TaskStatus,
+  itemCount: number,
+  completedItemCount: number,
+  exportableItemCount: number,
+): TaskStatus => {
+  if (
+    status === 'PUBLISHED' &&
+    itemCount > 0 &&
+    completedItemCount >= itemCount &&
+    exportableItemCount >= itemCount
+  ) {
+    return 'ENDED';
+  }
+
+  return status;
 };
 
 const activeTaskAssignments = (task: TaskRecord): TaskAssignmentRecord[] =>

@@ -51,16 +51,20 @@ export class ExportMappingService {
     return cloneMapping(QA_QUALITY_PRESET);
   }
 
-  normalizeMapping(value: unknown, datasetKind: DatasetKind): ExportFieldMapping[] {
+  normalizeMapping(
+    value: unknown,
+    datasetKind: DatasetKind,
+    fallbackMapping: ExportFieldMapping[] = this.getPreset(datasetKind),
+  ): ExportFieldMapping[] {
     if (!Array.isArray(value)) {
-      return this.getPreset(datasetKind);
+      return cloneMapping(fallbackMapping);
     }
 
     const normalized = value
       .map((item) => normalizeMappingItem(item))
       .filter((item): item is ExportFieldMapping => Boolean(item));
 
-    return normalized.length > 0 ? normalized : this.getPreset(datasetKind);
+    return normalized.length > 0 ? normalized : cloneMapping(fallbackMapping);
   }
 
   buildRows(

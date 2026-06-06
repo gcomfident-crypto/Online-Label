@@ -12,12 +12,20 @@ import { RejectNotice } from '../../features/labeler/RejectNotice';
 import { listLabelerAssignments, type AssignmentStatus, type LabelerAssignmentDto } from '../../api/assignments';
 import { getAssignmentWorkbench, saveDraft, type WorkbenchDto } from '../../api/drafts';
 import { getLabelerStats, submitTask, type LabelerStatsDto, type TaskSubmissionDto } from '../../api/submissions';
+import { listTasks, type TaskDto } from '../../api/tasks';
+import { createTaskDisplayIdMap } from '../owner/taskDisplayId';
 
 const LABELER_ID = 'user_labeler_li_lei';
 type WorkbenchNavigationState = {
   source?: 'my-data-table';
+  taskDisplayId?: string;
+  taskTitle?: string;
 };
 type WorkbenchCanvasTab = 'annotation' | 'ai-review';
+type WorkbenchTaskIdentity = {
+  displayId: string;
+  title: string;
+};
 
 export const WorkbenchPage = () => {
   const navigate = useNavigate();
@@ -39,12 +47,18 @@ export const WorkbenchPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeCanvasTab, setActiveCanvasTab] = useState<WorkbenchCanvasTab>('annotation');
   const [submittedTaskIds, setSubmittedTaskIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
+  const [taskIdentity, setTaskIdentity] = useState<WorkbenchTaskIdentity | null>(null);
   const { dismissToast, messages, showErrorToast, showInfoToast, showStatusToast } = useToastController();
   const aiReviewPollTimerRef = useRef<number | null>(null);
   const lastSavedSnapshotRef = useRef('');
   const hydratedRef = useRef(false);
   const loadWorkbenchRequestRef = useRef(0);
   const taskSubmitInFlightRef = useRef(false);
+  const workbenchNavigationState = useMemo(
+    () => (location.state as WorkbenchNavigationState | null),
+    [location.state],
+  );
 
   const localCacheKey = createLocalDraftCacheKey(assignmentId);
 
@@ -73,9 +87,10 @@ export const WorkbenchPage = () => {
     setIsLoading(true);
     try {
       const nextWorkbench = await getAssignmentWorkbench(id);
-      const [nextStats, nextTaskAssignments] = await Promise.all([
+      const [nextStats, nextTaskAssignments, tasksForIdentity] = await Promise.all([
         getLabelerStats({ labelerId: LABELER_ID, taskId: nextWorkbench.assignment.taskId }),
         listLabelerAssignments({ labelerId: LABELER_ID, taskId: nextWorkbench.assignment.taskId }),
+        listTasks(),
       ]);
 
       if (requestId !== loadWorkbenchRequestRef.current) {
@@ -92,6 +107,12 @@ export const WorkbenchPage = () => {
       setWorkbench(nextWorkbench);
       setStats(nextStats);
       setTaskAssignments(nextTaskAssignments.sort(compareLabelerAssignments));
+      setTaskIdentity(resolveWorkbenchTaskIdentity(
+        nextWorkbench,
+        nextTaskAssignments,
+        Array.isArray(tasksForIdentity) ? tasksForIdentity : [],
+        workbenchNavigationState,
+      ));
       setAnswers(initialAnswers);
       setActiveFieldKey((current) =>
         current && answerFields.some((field) => getSchemaFieldKey(field) === current)
@@ -418,6 +439,25 @@ export const WorkbenchPage = () => {
     () => (workbench ? resolveAnswerProgressState(workbench, answers) : 'empty'),
     [answers, workbench],
   );
+  const currentTaskDisplayId = workbench
+    ? taskIdentity?.displayId.trim() ||
+      workbenchNavigationState?.taskDisplayId?.trim() ||
+      workbench.assignment.taskId
+    : workbenchNavigationState?.taskDisplayId?.trim() || '';
+  const currentTaskTitle = workbench
+    ? taskIdentity?.title.trim() ||
+      workbenchNavigationState?.taskTitle?.trim() ||
+      workbench.task.title
+    : workbenchNavigationState?.taskTitle?.trim() || '标注台';
+  const deadlineCountdown = workbench
+    ? formatDeadlineCountdown(workbench.task.deadline, currentTimeMs)
+    : '';
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTimeMs(Date.now()), COUNTDOWN_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!workbench || !isWorkbenchForCurrentRoute || !isSubmittableAssignmentStatus(workbench.assignment.status)) {
@@ -467,9 +507,15 @@ export const WorkbenchPage = () => {
 
   const navigateToAssignment = useCallback(
     (assignment: LabelerAssignmentDto) => {
-      navigate(workbenchHref(assignment));
+      navigate(workbenchHref(assignment), {
+        state: {
+          ...(workbenchNavigationState?.source ? { source: workbenchNavigationState.source } : {}),
+          taskDisplayId: currentTaskDisplayId || assignment.taskId,
+          taskTitle: currentTaskTitle || assignment.taskTitle,
+        } satisfies WorkbenchNavigationState,
+      });
     },
-    [navigate],
+    [currentTaskDisplayId, currentTaskTitle, navigate, workbenchNavigationState?.source],
   );
 
   const handlePrevious = useCallback(() => {
@@ -582,10 +628,10 @@ export const WorkbenchPage = () => {
 
   const workbenchPageEnterClass = useMemo(
     () =>
-      (location.state as WorkbenchNavigationState | null)?.source === 'my-data-table'
+      workbenchNavigationState?.source === 'my-data-table'
         ? 'labeler-workbench-page workbench-page-enter workbench-page-enter--from-table'
         : 'labeler-workbench-page workbench-page-enter',
-    [location.state],
+    [workbenchNavigationState?.source],
   );
 
   if (isLoading && !workbench) {
@@ -625,7 +671,28 @@ export const WorkbenchPage = () => {
     >
       <ToastViewport messages={messages} onDismiss={dismissToast} />
       <div className="workbench-topline">
-        <div>
+        <div className="workbench-topline__identity">
+          <div className="workbench-topline__title-row">
+            <div className="workbench-identity-field workbench-identity-field--title" aria-label="任务名称">
+              <span className="workbench-identity-label">任务名称</span>
+              <h1 id="labeler-workbench-title">{currentTaskTitle}</h1>
+            </div>
+            <div className="workbench-identity-field workbench-identity-field--id" aria-label="任务ID">
+              <span className="workbench-identity-label">任务ID</span>
+              <code className="workbench-task-id">{currentTaskDisplayId}</code>
+            </div>
+          </div>
+          <div className="workbench-topline__meta" aria-label="任务状态">
+            <span className="workbench-deadline-countdown">{deadlineCountdown}</span>
+            <span className="workbench-reward-pill">{workbench.task.rewardRule ?? '未设置'}</span>
+            <span className="autosave-indicator" aria-live="polite">
+              <span className="autosave-indicator__text" key={draftStatusRevision}>
+                {draftStatus}
+              </span>
+            </span>
+          </div>
+        </div>
+        <div className="workbench-topline__actions" aria-label="标注操作">
           <button
             className="workbench-close-button"
             type="button"
@@ -635,18 +702,6 @@ export const WorkbenchPage = () => {
           >
             ×
           </button>
-          <h1 id="labeler-workbench-title">{workbench.task.title}</h1>
-          <p className="task-management-table-description">
-            围绕当前题目展示原始数据、标注表单、审核反馈和任务进度，支持逐题完成并提交标注结果
-          </p>
-        </div>
-        <div className="workbench-topline__actions" aria-label="标注操作">
-          <span className="workbench-reward-pill">{workbench.task.rewardRule ?? '未设置'}</span>
-          <span className="autosave-indicator" aria-live="polite">
-            <span className="autosave-indicator__text" key={draftStatusRevision}>
-              {draftStatus}
-            </span>
-          </span>
         </div>
       </div>
 
@@ -1067,6 +1122,7 @@ const AI_REVIEW_DECISION_LABELS: Record<string, string> = {
 const AI_REVIEW_POLL_INTERVAL_MS = 300;
 const AI_REVIEW_MAX_POLL_ATTEMPTS = 10;
 const AI_REVIEW_PENDING_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING']);
+const COUNTDOWN_REFRESH_INTERVAL_MS = 1_000;
 
 function formatTaskSubmissionStatusMessage(taskSubmission: TaskSubmissionDto): string {
   const submittedCount = taskSubmission.submittedCount.toLocaleString();
@@ -1552,6 +1608,31 @@ function createTaskSubmissionIdempotencyKey(
   );
 }
 
+function resolveWorkbenchTaskIdentity(
+  workbench: WorkbenchDto,
+  taskAssignments: LabelerAssignmentDto[],
+  tasks: TaskDto[],
+  navigationState: WorkbenchNavigationState | null,
+): WorkbenchTaskIdentity {
+  const taskDisplayIdByTaskId = createTaskDisplayIdMap(tasks);
+  const taskFromList = tasks.find((task) => task.id === workbench.assignment.taskId);
+  const assignmentTaskTitle = taskAssignments.find(
+    (assignment) => assignment.taskId === workbench.assignment.taskId,
+  )?.taskTitle;
+
+  return {
+    displayId:
+      taskDisplayIdByTaskId.get(workbench.assignment.taskId) ??
+      navigationState?.taskDisplayId?.trim() ??
+      workbench.assignment.taskId,
+    title:
+      taskFromList?.title.trim() ||
+      assignmentTaskTitle?.trim() ||
+      navigationState?.taskTitle?.trim() ||
+      workbench.task.title,
+  };
+}
+
 function readLocalDraft(key: string): Record<string, unknown> | null {
   if (!key) {
     return null;
@@ -1578,6 +1659,29 @@ function formatTime(value: string): string {
     second: '2-digit',
     hour12: false,
   });
+}
+
+function formatDeadlineCountdown(value: string | null, nowMs: number): string {
+  if (!value) {
+    return '未设置截止时间';
+  }
+
+  const deadlineMs = new Date(value).getTime();
+  if (!Number.isFinite(deadlineMs)) {
+    return '截止时间无效';
+  }
+
+  const remainingSeconds = Math.ceil((deadlineMs - nowMs) / 1_000);
+  if (remainingSeconds <= 0) {
+    return '已截止';
+  }
+
+  const days = Math.floor(remainingSeconds / (24 * 60 * 60));
+  const hours = Math.floor((remainingSeconds % (24 * 60 * 60)) / (60 * 60));
+  const minutes = Math.floor((remainingSeconds % (60 * 60)) / 60);
+  const seconds = remainingSeconds % 60;
+
+  return `剩余 ${days} 天 ${hours} 小时 ${minutes} 分 ${seconds} 秒`;
 }
 
 function formatDateTime(value: string): string {

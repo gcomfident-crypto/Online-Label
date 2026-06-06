@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { LabelerAssignmentDto } from '../../api/assignments';
+import type { TaskDto } from '../../api/tasks';
 import { MyDataPage } from './MyDataPage';
 
 const assignments = [
@@ -41,6 +42,14 @@ const assignments = [
   }),
 ];
 
+const tasks = [
+  createTaskDto({
+    id: 'task_qa',
+    title: '问答质量标注',
+    createdAt: '2026-05-20T08:00:00.000Z',
+  }),
+];
+
 describe('MyDataPage', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -51,7 +60,7 @@ describe('MyDataPage', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse({ data: assignments }))
-      .mockResolvedValueOnce(jsonResponse({ data: assignments }));
+      .mockResolvedValueOnce(jsonResponse({ data: tasks }));
     vi.stubGlobal('fetch', fetchMock);
 
     render(
@@ -79,23 +88,37 @@ describe('MyDataPage', () => {
     expect(screen.getAllByText('问答质量标注')).toHaveLength(1);
     expect(screen.queryByText('qa_2')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('问答质量标注 已领取题目明细')).not.toBeInTheDocument();
-    expect(within(screen.getByRole('table', { name: '工作台任务列表' })).getByText('2 条')).toBeInTheDocument();
-    expect(within(screen.getByRole('table', { name: '工作台任务列表' })).getAllByText('待标注')).not.toHaveLength(0);
-    expect(screen.getByRole('link', { name: '继续标注 问答质量标注' })).toHaveAttribute(
-      'href',
-      '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
-    );
+    const table = screen.getByRole('table', { name: '工作台任务列表' });
+    expect(within(table).getByText('任务ID')).toBeInTheDocument();
+    expect(within(table).getByText('任务名')).toBeInTheDocument();
+    expect(within(table).queryByRole('columnheader', { name: '任务' })).not.toBeInTheDocument();
+    expect(within(table).getByText('T-0001')).toBeInTheDocument();
+    expect(within(table).getByText('2 条')).toBeInTheDocument();
+    expect(within(table).queryByText('问答质量官方模板 · r1')).not.toBeInTheDocument();
+    expect(within(table).queryByText(/下一条/)).not.toBeInTheDocument();
+    expect(within(table).getAllByText('待标注')).not.toHaveLength(0);
+    expect(within(table).queryByText('操作')).not.toBeInTheDocument();
+    expect(table.querySelectorAll('tbody tr:first-child .my-data-table__cell')).toHaveLength(7);
+    expect(screen.queryByRole('link', { name: '继续标注 问答质量标注' })).not.toBeInTheDocument();
     await user.click(within(screen.getByRole('table', { name: '工作台任务列表' })).getByText('问答质量标注'));
 
     expect(screen.queryByLabelText('问答质量标注 已领取题目明细')).not.toBeInTheDocument();
     expect(screen.getByTestId('location-path')).toHaveTextContent(
       '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
     );
+    expect(screen.getByTestId('location-state')).toHaveTextContent(
+      JSON.stringify({ source: 'my-data-table', taskDisplayId: 'T-0001', taskTitle: '问答质量标注' }),
+    );
   });
 
   it('用任务管理样式的状态按钮和表格内搜索筛选工作台任务', async () => {
     const user = userEvent.setup();
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({ data: assignments })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce(jsonResponse({ data: assignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: tasks })),
+    );
 
     render(
       <MemoryRouter>
@@ -121,7 +144,7 @@ describe('MyDataPage', () => {
 
     const table = screen.getByRole('table', { name: '工作台任务列表' });
     expect(within(table).getByText('1 条')).toBeInTheDocument();
-    expect(within(table).getByText('下一条 qa_1')).toBeInTheDocument();
+    expect(within(table).queryByText(/下一条/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /已提交\s+1/ })).toHaveClass('is-active');
 
     await user.type(screen.getByLabelText('搜索任务'), '不存在');
@@ -130,7 +153,12 @@ describe('MyDataPage', () => {
   });
 
   it('没有领取记录时仍保留工作台表格结构', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({ data: [] })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce(jsonResponse({ data: [] }))
+        .mockResolvedValueOnce(jsonResponse({ data: [] })),
+    );
 
     render(
       <MemoryRouter>
@@ -170,7 +198,20 @@ describe('MyDataPage', () => {
       });
     });
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({ data: manyTaskAssignments })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce(jsonResponse({ data: manyTaskAssignments }))
+        .mockResolvedValueOnce(jsonResponse({
+          data: manyTaskAssignments.map((assignment) =>
+            createTaskDto({
+              id: assignment.taskId,
+              title: assignment.taskTitle,
+              createdAt: assignment.claimedAt,
+            }),
+          ),
+        })),
+    );
 
     render(
       <MemoryRouter>
@@ -194,7 +235,12 @@ describe('MyDataPage', () => {
 const LocationProbe = () => {
   const location = useLocation();
 
-  return <output data-testid="location-path">{`${location.pathname}${location.search}`}</output>;
+  return (
+    <>
+      <output data-testid="location-path">{`${location.pathname}${location.search}`}</output>
+      <output data-testid="location-state">{JSON.stringify(location.state ?? null)}</output>
+    </>
+  );
 };
 
 const jsonResponse = (body: unknown): Response =>
@@ -219,6 +265,44 @@ function createAssignment(overrides: Partial<LabelerAssignmentDto> = {}): Labele
     claimedAt: '2026-05-21T08:00:00.000Z',
     templateName: '问答质量官方模板',
     schemaVersion: 'r1',
+    ...overrides,
+  };
+}
+
+function createTaskDto(overrides: Partial<TaskDto> = {}): TaskDto {
+  return {
+    id: 'task_default',
+    title: '默认任务',
+    description: null,
+    richTextInstruction: null,
+    tags: [],
+    rewardRule: null,
+    rewardPerItem: null,
+    perUserLimit: null,
+    quota: null,
+    deadline: null,
+    distributionStrategy: 'FIRST_COME_FIRST_SERVE',
+    aiPreReviewEnabled: false,
+    aiRuleName: null,
+    status: 'PUBLISHED',
+    templateId: 'template_default',
+    template: {
+      id: 'template_default',
+      name: '默认模板',
+      datasetKind: 'qa_quality',
+      schemaVersion: 'r1',
+      status: 'PUBLISHED',
+    },
+    createdById: 'user_owner_001',
+    itemCount: 1,
+    assignedItemCount: 1,
+    submittedItemCount: 0,
+    completedItemCount: 0,
+    exportableItemCount: 0,
+    workflowProgress: [],
+    datasetImportSummary: null,
+    createdAt: '2026-05-21T08:00:00.000Z',
+    updatedAt: '2026-05-21T08:00:00.000Z',
     ...overrides,
   };
 }

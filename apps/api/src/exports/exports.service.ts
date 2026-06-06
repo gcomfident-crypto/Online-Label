@@ -1,5 +1,11 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { EXPORT_FORMATS, type DatasetKind, type ExportFormat } from '@labelhub/shared';
+import {
+  EXPORT_FORMATS,
+  type DatasetKind,
+  type ExportFormat,
+  type LabelHubSchema,
+  type SchemaField,
+} from '@labelhub/shared';
 import ExcelJS from 'exceljs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
@@ -58,8 +64,10 @@ type ExportSubmissionRecord = {
 type ExportTaskRecord = {
   id: string;
   title: string;
+  datasetImportSummary: Record<string, unknown> | null;
   template: {
     datasetKind: DatasetKind;
+    schema: unknown;
   };
   assignments: Array<{
     id: string;
@@ -119,7 +127,7 @@ type ExportsPrismaClient = {
 };
 
 const EXPORT_TASK_INCLUDE = {
-  template: { select: { datasetKind: true } },
+  template: { select: { datasetKind: true, schema: true } },
   assignments: {
     include: {
       taskItem: true,
@@ -158,7 +166,8 @@ export class ExportsService {
       }
 
       const task = await this.findTaskOrThrow(input.taskId, client);
-      const fieldMapping = this.mappingService.normalizeMapping(input.fieldMapping, task.template.datasetKind);
+      const sources = collectFinalApprovedSources(task);
+      const fieldMapping = this.resolveFieldMapping(input.fieldMapping, task, sources);
       const job = await client.exportJob.create({
         data: {
           taskId: task.id,
@@ -232,8 +241,8 @@ export class ExportsService {
 
   async previewTaskExport(taskId: string, input: ExportPreviewInput = {}): Promise<ExportPreviewDto> {
     const task = await this.findTaskOrThrow(taskId);
-    const fieldMapping = this.mappingService.normalizeMapping(input.fieldMapping, task.template.datasetKind);
     const sources = collectFinalApprovedSources(task);
+    const fieldMapping = this.resolveFieldMapping(input.fieldMapping, task, sources);
 
     return {
       taskId: task.id,
@@ -285,8 +294,8 @@ export class ExportsService {
 
     try {
       const task = await this.findTaskOrThrow(job.taskId, client);
-      const fieldMapping = this.mappingService.normalizeMapping(job.fieldMapping, task.template.datasetKind);
       const sources = collectFinalApprovedSources(task);
+      const fieldMapping = this.resolveFieldMapping(job.fieldMapping, task, sources);
       const rows = this.mappingService.buildRows(sources, fieldMapping, job.includeReviews);
       const filePath = await writeExportFile({
         exportJobId: job.id,
@@ -320,6 +329,20 @@ export class ExportsService {
       throw error;
     }
   }
+
+  private resolveFieldMapping(
+    fieldMapping: unknown,
+    task: ExportTaskRecord,
+    sources: ExportSourceRow[],
+  ): ExportFieldMapping[] {
+    const taskDefaultMapping = buildTaskDefaultMapping(task, sources);
+
+    return this.mappingService.normalizeMapping(
+      fieldMapping,
+      task.template.datasetKind,
+      taskDefaultMapping.length > 0 ? taskDefaultMapping : this.mappingService.getPreset(task.template.datasetKind),
+    );
+  }
 }
 
 function normalizeFormat(value: string): ExportFormat {
@@ -344,6 +367,152 @@ function collectFinalApprovedSources(task: ExportTaskRecord): ExportSourceRow[] 
         review: buildReviewSnapshot(submission),
       })),
   );
+}
+
+function buildTaskDefaultMapping(task: ExportTaskRecord, sources: ExportSourceRow[]): ExportFieldMapping[] {
+  const mapping: ExportFieldMapping[] = [];
+  const usedTargets = new Set<string>();
+  const rawDataKeys = collectRawDataKeys(task, sources);
+
+  if (!rawDataKeys.includes('id')) {
+    addMapping(mapping, usedTargets, {
+      source: 'item.externalId',
+      target: 'id',
+      enabled: true,
+    });
+  }
+
+  for (const key of rawDataKeys) {
+    addMapping(mapping, usedTargets, {
+      source: `rawData.${key}`,
+      target: key,
+      enabled: true,
+    });
+  }
+
+  for (const key of collectAnswerKeys(task.template.schema, sources)) {
+    addMapping(
+      mapping,
+      usedTargets,
+      {
+        source: `answers.${key}`,
+        target: key,
+        enabled: true,
+      },
+      { conflictSuffix: 'label' },
+    );
+  }
+
+  return mapping;
+}
+
+function collectRawDataKeys(task: ExportTaskRecord, sources: ExportSourceRow[]): string[] {
+  return uniqueKeys([
+    ...collectDatasetImportFieldKeys(task.datasetImportSummary),
+    ...sources.flatMap((source) => Object.keys(source.rawData)),
+  ]);
+}
+
+function collectDatasetImportFieldKeys(summary: Record<string, unknown> | null): string[] {
+  if (!summary || !Array.isArray(summary.fields)) {
+    return [];
+  }
+
+  return summary.fields.filter((field): field is string => typeof field === 'string' && field.length > 0);
+}
+
+function collectAnswerKeys(schema: unknown, sources: ExportSourceRow[]): string[] {
+  return uniqueKeys([
+    ...collectSchemaAnswerKeys(schema),
+    ...sources.flatMap((source) => Object.keys(source.answers)),
+  ]);
+}
+
+function collectSchemaAnswerKeys(schema: unknown): string[] {
+  if (!isLabelHubSchemaLike(schema)) {
+    return [];
+  }
+
+  return collectSchemaFieldAnswerKeys(schema.fields);
+}
+
+function collectSchemaFieldAnswerKeys(fields: readonly SchemaField[]): string[] {
+  return fields.flatMap((field) => {
+    if (field.type === 'group') {
+      return collectSchemaFieldAnswerKeys(field.fields ?? []);
+    }
+
+    if (field.type === 'tabs') {
+      return (field.tabs ?? []).flatMap((tab) => collectSchemaFieldAnswerKeys(tab.fields));
+    }
+
+    if (field.type === 'show_item' || field.type === 'llm_assist') {
+      return [];
+    }
+
+    return [field.fieldKey ?? field.key].filter(Boolean);
+  });
+}
+
+function isLabelHubSchemaLike(value: unknown): value is LabelHubSchema {
+  return typeof value === 'object' && value !== null && Array.isArray((value as Partial<LabelHubSchema>).fields);
+}
+
+function uniqueKeys(keys: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const key of keys) {
+    if (!key || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(key);
+  }
+
+  return result;
+}
+
+function addMapping(
+  mapping: ExportFieldMapping[],
+  usedTargets: Set<string>,
+  field: ExportFieldMapping,
+  options: { conflictSuffix?: string } = {},
+): void {
+  const target = resolveMappingTarget(field.target, usedTargets, options.conflictSuffix);
+  if (!target) {
+    return;
+  }
+
+  usedTargets.add(target);
+  mapping.push(target === field.target ? field : { ...field, target });
+}
+
+function resolveMappingTarget(
+  target: string,
+  usedTargets: ReadonlySet<string>,
+  conflictSuffix?: string,
+): string | null {
+  if (!usedTargets.has(target)) {
+    return target;
+  }
+
+  if (!conflictSuffix) {
+    return null;
+  }
+
+  const baseTarget = `${target}_${conflictSuffix}`;
+  if (!usedTargets.has(baseTarget)) {
+    return baseTarget;
+  }
+
+  let index = 2;
+  while (usedTargets.has(`${baseTarget}_${index}`)) {
+    index += 1;
+  }
+
+  return `${baseTarget}_${index}`;
 }
 
 function buildReviewSnapshot(submission: ExportSubmissionRecord): Record<string, unknown> {
@@ -381,7 +550,7 @@ async function writeExportFile(input: {
     const worksheet = workbook.addWorksheet('Export');
     const headers = exportHeaders(input.fieldMapping, input.rows);
     worksheet.columns = headers.map((header) => ({ header, key: header, width: 24 }));
-    worksheet.addRows(input.rows.map((row) => serializeRow(row, headers)));
+    worksheet.addRows(serializeRows(input.rows, headers));
     await workbook.xlsx.writeFile(filePath);
 
     return filePath;
@@ -399,17 +568,20 @@ function serializeExportContent(
   format: Exclude<ExportFormat, 'xlsx'>,
 ): string {
   if (format === 'json') {
-    return `${JSON.stringify(rows, null, 2)}\n`;
+    return `${JSON.stringify(serializeRows(rows, exportHeaders(fieldMapping, rows)), null, 2)}\n`;
   }
 
   if (format === 'jsonl') {
-    return rows.map((row) => JSON.stringify(row)).join('\n') + (rows.length > 0 ? '\n' : '');
+    const serializedRows = serializeRows(rows, exportHeaders(fieldMapping, rows));
+
+    return serializedRows.map((row) => JSON.stringify(row)).join('\n') + (rows.length > 0 ? '\n' : '');
   }
 
   const headers = exportHeaders(fieldMapping, rows);
+  const serializedRows = serializeRows(rows, headers);
   return [
     headers.map(csvCell).join(','),
-    ...rows.map((row) => headers.map((header) => csvCell(row[header])).join(',')),
+    ...serializedRows.map((row) => headers.map((header) => csvCell(row[header])).join(',')),
   ].join('\n') + '\n';
 }
 
@@ -429,6 +601,10 @@ function serializeRow(row: Record<string, unknown>, headers: string[]): Record<s
   return Object.fromEntries(headers.map((header) => [header, cellValue(row[header])]));
 }
 
+function serializeRows(rows: Array<Record<string, unknown>>, headers: string[]): Array<Record<string, unknown>> {
+  return rows.map((row) => serializeRow(row, headers));
+}
+
 function csvCell(value: unknown): string {
   const text = String(cellValue(value));
   return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
@@ -437,6 +613,9 @@ function csvCell(value: unknown): string {
 function cellValue(value: unknown): string | number | boolean {
   if (value === null || value === undefined) {
     return '';
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => String(cellValue(item))).filter(Boolean).join('｜');
   }
   if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'string') {
     return value;

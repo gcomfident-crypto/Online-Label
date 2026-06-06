@@ -121,6 +121,14 @@ const taskAssignments = [
   },
 ];
 
+const taskList = [
+  {
+    id: 'task_qa',
+    title: '问答质量标注',
+    createdAt: '2026-05-20T08:00:00.000Z',
+  },
+];
+
 const aiRejectedWorkbench = {
   ...qaWorkbench,
   assignment: { ...qaWorkbench.assignment, status: 'NEEDS_REVISION' },
@@ -311,12 +319,21 @@ describe('WorkbenchPage', () => {
   });
 
   it('渲染图 3 工作台结构并按任务统一提交合法答案', async () => {
-    const user = userEvent.setup();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-05-31T15:59:00.000Z'));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ data: { ...qaWorkbench, draft: { answers: { quality: 'pass' } } } }))
+      .mockResolvedValueOnce(jsonResponse({
+        data: {
+          ...qaWorkbench,
+          task: { ...qaWorkbench.task, title: 'ZMPZO-001-题目编号' },
+          draft: { answers: { quality: 'pass' } },
+        },
+      }))
       .mockResolvedValueOnce(jsonResponse({ data: stats }))
       .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: taskList }))
       .mockResolvedValueOnce(
         jsonResponse({
           data: {
@@ -368,12 +385,25 @@ describe('WorkbenchPage', () => {
     renderWorkbenchPage();
 
     expect(await screen.findByRole('heading', { name: '问答质量标注' })).toBeInTheDocument();
-    const pageDescription = screen.getByText(
+    expect(screen.queryByText('ZMPZO-001-题目编号')).not.toBeInTheDocument();
+    expect(screen.queryByText(
       '围绕当前题目展示原始数据、标注表单、审核反馈和任务进度，支持逐题完成并提交标注结果',
+    )).not.toBeInTheDocument();
+    const workbenchSummary = document.querySelector('.workbench-topline__identity') as HTMLElement;
+    const taskNameField = within(workbenchSummary).getByLabelText('任务名称');
+    const taskIdField = within(workbenchSummary).getByLabelText('任务ID');
+    expect(taskNameField).toHaveTextContent('任务名称');
+    expect(taskNameField).toHaveTextContent('问答质量标注');
+    expect(taskIdField).toHaveTextContent('任务ID');
+    expect(taskIdField).toHaveTextContent('T-0001');
+    expect(within(workbenchSummary).getByText('T-0001')).toHaveClass('workbench-task-id');
+    expect(within(workbenchSummary).getByText('剩余 1 天 0 小时 0 分 0 秒')).toHaveClass(
+      'workbench-deadline-countdown',
     );
-    expect(pageDescription).toHaveClass('task-management-table-description');
-    expect(pageDescription.closest('.workbench-topline')).not.toBeNull();
-    expect(screen.getByRole('button', { name: '返回我的工作台' })).toBeInTheDocument();
+    expect(within(workbenchSummary).getByText('0.30 元 / 条')).toHaveClass('workbench-reward-pill');
+    expect(within(workbenchSummary).getByText('草稿已载入')).toHaveClass('autosave-indicator__text');
+    const closeButton = screen.getByRole('button', { name: '返回我的工作台' });
+    expect(closeButton.closest('.workbench-topline__actions')).not.toBeNull();
     expect(screen.queryByText(/模板 r1/)).not.toBeInTheDocument();
     expect(screen.queryByText(/题目 ID/)).not.toBeInTheDocument();
     const navigationPanel = screen.getByRole('complementary', { name: '题目导航' });
@@ -397,7 +427,8 @@ describe('WorkbenchPage', () => {
     const workbenchActions = screen.getByLabelText('标注操作');
     expect(screen.queryByLabelText('标注操作栏')).not.toBeInTheDocument();
     expect(within(workbenchActions).queryByText('基础信息')).not.toBeInTheDocument();
-    expect(within(workbenchActions).getByText('0.30 元 / 条')).toHaveClass('workbench-reward-pill');
+    expect(within(workbenchActions).queryByText('0.30 元 / 条')).not.toBeInTheDocument();
+    expect(within(workbenchActions).queryByText('草稿已载入')).not.toBeInTheDocument();
     expect(within(workbenchActions).queryByRole('button', { name: '报告题目' })).not.toBeInTheDocument();
     const annotationCanvas = screen.getByRole('main', { name: '标注画布' });
     const submitActionButtons = within(annotationCanvas)
@@ -440,6 +471,30 @@ describe('WorkbenchPage', () => {
     expect(fetchMock).not.toHaveBeenCalledWith('/submissions', expect.anything());
   });
 
+  it('直接打开标注台时也从任务列表恢复任务名和任务ID', async () => {
+    const rawTaskIdTitle = 'cmpzo8u7h0002v6peylj249qy';
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse({
+          data: {
+            ...qaWorkbench,
+            task: { ...qaWorkbench.task, title: rawTaskIdTitle },
+          },
+        }))
+        .mockResolvedValueOnce(jsonResponse({ data: stats }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskList })),
+    );
+
+    renderWorkbenchPage({ withState: false });
+
+    expect(await screen.findByRole('heading', { name: '问答质量标注' })).toBeInTheDocument();
+    expect(screen.getByText('T-0001')).toHaveClass('workbench-task-id');
+    expect(screen.queryByText(rawTaskIdTitle)).not.toBeInTheDocument();
+  });
+
   it('提交任务后当前题目进入只读态，禁止草稿保存', async () => {
     const user = userEvent.setup();
     const fetchMock = vi
@@ -456,6 +511,7 @@ describe('WorkbenchPage', () => {
       )
       .mockResolvedValueOnce(jsonResponse({ data: stats }))
       .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: taskList }))
       .mockResolvedValueOnce(
         jsonResponse({
           data: {
@@ -553,6 +609,10 @@ describe('WorkbenchPage', () => {
         return jsonResponse({ data: taskAssignments });
       }
 
+      if (url === '/tasks') {
+        return jsonResponse({ data: taskList });
+      }
+
       if (url.startsWith('/drafts/')) {
         const assignmentIdFromPath = url.split('/')[2] ?? 'assignment_1';
         return jsonResponse({
@@ -624,6 +684,10 @@ describe('WorkbenchPage', () => {
         return jsonResponse({ data: assignmentsWithCompletedDraft });
       }
 
+      if (url === '/tasks') {
+        return jsonResponse({ data: taskList });
+      }
+
       return jsonResponse({ data: null });
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -687,6 +751,10 @@ describe('WorkbenchPage', () => {
         return Promise.resolve(jsonResponse({ data: taskAssignments }));
       }
 
+      if (url === '/tasks') {
+        return Promise.resolve(jsonResponse({ data: taskList }));
+      }
+
       return Promise.resolve(jsonResponse({ data: null }));
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -729,7 +797,8 @@ describe('WorkbenchPage', () => {
             },
           }),
         )
-        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments })),
+        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskList })),
     );
 
     renderWorkbenchPage();
@@ -780,6 +849,7 @@ describe('WorkbenchPage', () => {
       )
       .mockResolvedValueOnce(jsonResponse({ data: stats }))
       .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: taskList }))
       .mockResolvedValueOnce(
         jsonResponse({
           data: {
@@ -825,7 +895,7 @@ describe('WorkbenchPage', () => {
     expect(await screen.findByText('提交任务成功，1 条标注已提交至人工复审')).toBeInTheDocument();
     expect(screen.queryByText('草稿已保存')).not.toBeInTheDocument();
     await new Promise((resolve) => window.setTimeout(resolve, 450));
-    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(fetchMock).toHaveBeenCalledTimes(7);
   });
 
   it('提交后轮询 AI 预审结果并在打回时刷新报告', async () => {
@@ -835,6 +905,7 @@ describe('WorkbenchPage', () => {
       .mockResolvedValueOnce(jsonResponse({ data: { ...qaWorkbench, draft: { answers: { quality: 'pass' } } } }))
       .mockResolvedValueOnce(jsonResponse({ data: stats }))
       .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: taskList }))
       .mockResolvedValueOnce(
         jsonResponse({
           data: {
@@ -898,7 +969,8 @@ describe('WorkbenchPage', () => {
         .fn()
         .mockResolvedValueOnce(jsonResponse({ data: qaWorkbench }))
         .mockResolvedValueOnce(jsonResponse({ data: stats }))
-        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments })),
+        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskList })),
     );
 
     renderWorkbenchPage();
@@ -921,7 +993,8 @@ describe('WorkbenchPage', () => {
         .fn()
         .mockResolvedValueOnce(jsonResponse({ data: aiRejectedWorkbench }))
         .mockResolvedValueOnce(jsonResponse({ data: { ...stats, needsRevisionCount: 1 } }))
-        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments })),
+        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskList })),
     );
 
     renderWorkbenchPage();
@@ -993,7 +1066,8 @@ describe('WorkbenchPage', () => {
         .fn()
         .mockResolvedValueOnce(jsonResponse({ data: aiPassedWorkbench }))
         .mockResolvedValueOnce(jsonResponse({ data: stats }))
-        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments })),
+        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskList })),
     );
 
     renderWorkbenchPage();
@@ -1014,6 +1088,7 @@ describe('WorkbenchPage', () => {
       .mockResolvedValueOnce(jsonResponse({ data: { ...qaWorkbench, draft: { answers: { quality: 'pass' } } } }))
       .mockResolvedValueOnce(jsonResponse({ data: { ...stats, totalAssignments: 2 } }))
       .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: taskList }))
       .mockResolvedValueOnce(
         jsonResponse({
           data: {
@@ -1088,7 +1163,8 @@ describe('WorkbenchPage', () => {
           },
         }))
         .mockResolvedValueOnce(jsonResponse({ data: stats }))
-        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments })),
+        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskList })),
     );
 
     renderWorkbenchPage();
@@ -1101,9 +1177,21 @@ describe('WorkbenchPage', () => {
   });
 });
 
-const renderWorkbenchPage = () => {
+const renderWorkbenchPage = (options: { withState?: boolean } = {}) => {
+  const routeEntry = {
+    pathname: '/labeler/tasks/task_qa/items/item_qa_1',
+    search: '?assignmentId=assignment_1',
+    state: { source: 'my-data-table', taskDisplayId: 'T-0001', taskTitle: '问答质量标注' },
+  };
+
   render(
-    <MemoryRouter initialEntries={['/labeler/tasks/task_qa/items/item_qa_1?assignmentId=assignment_1']}>
+    <MemoryRouter
+      initialEntries={[
+        options.withState === false
+          ? '/labeler/tasks/task_qa/items/item_qa_1?assignmentId=assignment_1'
+          : routeEntry,
+      ]}
+    >
       <Routes>
         <Route path="/labeler/tasks/:taskId/items/:itemId" element={<WorkbenchPage />} />
       </Routes>

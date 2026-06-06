@@ -255,6 +255,36 @@ describe('TasksService', () => {
     ]);
   });
 
+  it('已发布任务全部题目最终通过后对外展示为已完成', async () => {
+    const now = new Date('2026-05-21T00:00:00.000Z');
+    const { service } = createService({
+      status: 'PUBLISHED',
+      _count: { items: 2 },
+      items: [{ status: 'COMPLETED' }, { status: 'COMPLETED' }],
+      assignments: [
+        createAssignmentFixture('assignment_1', {
+          submissions: [
+            createSubmissionFixture('submission_1', { status: 'FINAL_APPROVED', submittedAt: now }),
+          ],
+        }),
+        createAssignmentFixture('assignment_2', {
+          submissions: [
+            createSubmissionFixture('submission_2', { status: 'FINAL_APPROVED', submittedAt: now }),
+          ],
+        }),
+      ],
+    });
+
+    await expect(service.list()).resolves.toEqual([
+      expect.objectContaining({
+        status: 'ENDED',
+        itemCount: 2,
+        completedItemCount: 2,
+        exportableItemCount: 2,
+      }),
+    ]);
+  });
+
   it('任务 DTO 生成包含真实人名的进度事件', async () => {
     const { service } = createService({
       status: 'PUBLISHED',

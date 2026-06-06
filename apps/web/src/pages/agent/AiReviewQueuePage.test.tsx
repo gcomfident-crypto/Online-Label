@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AiReviewBatchDetailDto, AiReviewBatchDto } from '../../api/aiReview';
+import type { TaskDto } from '../../api/tasks';
 import { AiReviewQueuePage } from './AiReviewQueuePage';
 
 const pendingBatch = {
@@ -41,7 +42,40 @@ const rejectedBatch = {
   updatedAt: '2026-05-21T11:01:02.000Z',
 } satisfies AiReviewBatchDto;
 
+const passedBatch = {
+  ...pendingBatch,
+  batchId: 'task-submit:task_pass:user_labeler_li_lei:round1',
+  displayId: 'SUB-2041-00609',
+  taskId: 'task_pass',
+  taskTitle: '通过结果抽检',
+  itemCount: 1,
+  externalIds: ['pass_1'],
+  status: 'PASSED',
+  aggregateDecision: 'pass',
+  aggregateScore: 94,
+  aiSuggestionLabel: '建议通过',
+  updatedAt: '2026-05-21T12:01:02.000Z',
+} satisfies AiReviewBatchDto;
+
 const batches = [pendingBatch, rejectedBatch] satisfies AiReviewBatchDto[];
+
+const tasks = [
+  createTaskDto({
+    id: 'task_qa',
+    title: '问答质量标注',
+    createdAt: '2026-05-20T08:00:00.000Z',
+  }),
+  createTaskDto({
+    id: 'task_pref',
+    title: '偏好安全评测',
+    createdAt: '2026-05-21T08:00:00.000Z',
+  }),
+  createTaskDto({
+    id: 'task_pass',
+    title: '通过结果抽检',
+    createdAt: '2026-05-22T08:00:00.000Z',
+  }),
+] satisfies TaskDto[];
 
 const pendingDetail = {
   ...pendingBatch,
@@ -97,19 +131,40 @@ describe('AiReviewQueuePage', () => {
     expect(screen.queryByRole('button', { name: '刷新' })).not.toBeInTheDocument();
 
     const table = screen.getByRole('table', { name: '任务级 AI 预审队列表格' });
-    ['任务名称', '标注员', '提交时间', '题目数', 'AI 建议']
+    ['任务ID', '任务名称', '标注员', '提交时间', '题目数', 'AI 建议']
       .forEach((header) => expect(within(table).getByText(header)).toBeInTheDocument());
     ['当前状态', '综合分 / 失败原因', '操作']
       .forEach((header) => expect(within(table).queryByText(header)).not.toBeInTheDocument());
     expect(within(table).queryByText('批次 ID')).not.toBeInTheDocument();
     expect(within(table).queryByText(/SUB-/)).not.toBeInTheDocument();
     expect(within(table).getAllByRole('row')).toHaveLength(3);
-    expect(within(table).getByText('问答质量标注')).toBeInTheDocument();
+    const qaRow = within(table).getByRole('row', { name: /问答质量标注/ });
+    const qaCells = within(qaRow).getAllByRole('cell');
+    expect(qaCells[0]).toHaveClass('task-table__id');
+    expect(within(qaCells[0]).getByText('T-0001').tagName).toBe('CODE');
+    expect(qaCells[0]).toHaveTextContent('T-0001');
+    const qaTitleCell = qaCells[1];
+    expect(within(qaTitleCell).getByText('问答质量标注')).toBeInTheDocument();
+    expect(qaTitleCell).not.toHaveTextContent('T-0001');
+    expect(within(table).getByText('T-0002').closest('td')).toHaveClass('task-table__id');
     expect(within(table).getByText('偏好安全评测')).toBeInTheDocument();
     expect(within(table).queryByRole('button', { name: '问答质量标注' })).not.toBeInTheDocument();
     expect(within(table).queryByRole('button', { name: '查看详情' })).not.toBeInTheDocument();
     expect(within(table).getByText('3 题')).toBeInTheDocument();
     expect(within(table).queryByText('qa_1')).not.toBeInTheDocument();
+  });
+
+  it('AI 建议通过气泡带有任务管理同款绿点', async () => {
+    vi.stubGlobal('fetch', createFetchMock([passedBatch]));
+
+    render(<AiReviewQueuePage />);
+
+    const table = await screen.findByRole('table', { name: '任务级 AI 预审队列表格' });
+    const passPill = within(table).getByText('建议通过');
+    expect(passPill).toHaveClass('agent-review-decision-pill', 'is-pass');
+    const dot = passPill.querySelector('.status-tag__dot');
+    expect(dot).not.toBeNull();
+    expect(dot).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('搜索作用于聚合后的任务级记录', async () => {
@@ -125,6 +180,11 @@ describe('AiReviewQueuePage', () => {
     await user.type(screen.getByPlaceholderText('搜索任务名 / 标注员 / 题目ID'), 'pref_2');
     expect(within(table).getByText('偏好安全评测')).toBeInTheDocument();
     expect(within(table).queryByText('问答质量标注')).not.toBeInTheDocument();
+
+    await user.clear(screen.getByPlaceholderText('搜索任务名 / 标注员 / 题目ID'));
+    await user.type(screen.getByPlaceholderText('搜索任务名 / 标注员 / 题目ID'), 'T-0001');
+    expect(within(table).getByText('问答质量标注')).toBeInTheDocument();
+    expect(within(table).queryByText('偏好安全评测')).not.toBeInTheDocument();
 
     await user.clear(screen.getByPlaceholderText('搜索任务名 / 标注员 / 题目ID'));
     await user.type(screen.getByPlaceholderText('搜索任务名 / 标注员 / 题目ID'), '不存在');
@@ -404,12 +464,16 @@ function createDetailItem(
   };
 }
 
-function createFetchMock(initialBatches: AiReviewBatchDto[] = batches) {
+function createFetchMock(initialBatches: AiReviewBatchDto[] = batches, taskList: TaskDto[] = tasks) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const { method, path } = requestInfo(input, init);
 
     if (path === '/ai-review/batches' && method === 'GET') {
       return jsonResponse({ data: initialBatches });
+    }
+
+    if (path === '/tasks' && method === 'GET') {
+      return jsonResponse({ data: taskList });
     }
 
     if (path.startsWith('/ai-review/batches/') && method === 'GET') {
@@ -441,4 +505,42 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+function createTaskDto(overrides: Partial<TaskDto> = {}): TaskDto {
+  return {
+    id: 'task_default',
+    title: '默认任务',
+    description: null,
+    richTextInstruction: null,
+    tags: [],
+    rewardRule: null,
+    rewardPerItem: null,
+    perUserLimit: null,
+    quota: null,
+    deadline: null,
+    distributionStrategy: 'FIRST_COME_FIRST_SERVE',
+    aiPreReviewEnabled: false,
+    aiRuleName: null,
+    status: 'PUBLISHED',
+    templateId: 'template_default',
+    template: {
+      id: 'template_default',
+      name: '默认模板',
+      datasetKind: 'qa_quality',
+      schemaVersion: 'r1',
+      status: 'PUBLISHED',
+    },
+    createdById: 'user_owner_001',
+    itemCount: 1,
+    assignedItemCount: 1,
+    submittedItemCount: 0,
+    completedItemCount: 0,
+    exportableItemCount: 0,
+    workflowProgress: [],
+    datasetImportSummary: null,
+    createdAt: '2026-05-21T08:00:00.000Z',
+    updatedAt: '2026-05-21T08:00:00.000Z',
+    ...overrides,
+  };
 }

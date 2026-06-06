@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import ExcelJS from 'exceljs';
 import { mkdtempSync } from 'node:fs';
-import { rm } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -54,7 +55,17 @@ describe('ExportsService', () => {
         filePath: expect.stringMatching(/export_1\.csv$/),
       }),
     );
-    expect(db.exportJobs[0].fieldMapping).toEqual(new ExportMappingService().getPreset('qa_quality'));
+    expect(db.exportJobs[0].fieldMapping).toEqual([
+      { source: 'item.externalId', target: 'id', enabled: true },
+      { source: 'rawData.prompt', target: 'prompt', enabled: true },
+      { source: 'rawData.model_answer', target: 'model_answer', enabled: true },
+      { source: 'answers.relevance_score', target: 'relevance_score', enabled: true },
+      { source: 'answers.accuracy_score', target: 'accuracy_score', enabled: true },
+      { source: 'answers.format_score', target: 'format_score', enabled: true },
+      { source: 'answers.safety_score', target: 'safety_score', enabled: true },
+      { source: 'answers.issue_tags', target: 'issue_tags', enabled: true },
+      { source: 'answers.comment', target: 'comment', enabled: true },
+    ]);
     await expect(service.downloadExport(job.id)).resolves.toEqual(
       expect.objectContaining({
         fileName: 'export_1.csv',
@@ -94,10 +105,11 @@ describe('ExportsService', () => {
         id: 'qa_final',
         prompt: '如何判断回答质量？',
         relevance_score: 5,
-        ai_overall: 92,
-        human_verdict: 'recheck_pass',
+        comment: 'qa_final 覆盖关键点。',
       }),
     );
+    expect(preview.rows[0]).not.toHaveProperty('ai_overall');
+    expect(preview.rows[0]).not.toHaveProperty('human_verdict');
     expect(JSON.stringify(preview.rows)).not.toContain('qa_pending');
   });
 
@@ -110,6 +122,159 @@ describe('ExportsService', () => {
 
     expect(preview.rows[0]).not.toHaveProperty('ai_overall');
     expect(preview.rows[0]).not.toHaveProperty('human_verdict');
+  });
+
+  it('自定义输入文件模板按原始字段加全部标注员达标字段导出，标签字段用竖线合并', async () => {
+    const { service, db } = createService();
+
+    const preview = await service.previewTaskExport('task_generic_uploaded', {
+      includeReviews: true,
+    });
+
+    expect(preview.datasetKind).toBe('generic_json');
+    expect(preview.fieldMapping.map((field) => field.target)).toEqual([
+      'id',
+      'prompt',
+      'response_a',
+      'response_b',
+      'preferred',
+      'dimensions',
+      'custom_tags',
+      'annotator_note',
+    ]);
+    expect(preview.fieldMapping.map((field) => field.target)).not.toEqual(
+      expect.arrayContaining(['model_answer', 'relevance_score', 'accuracy_score', 'ai_overall', 'human_verdict']),
+    );
+    expect(preview.rows).toEqual([
+      {
+        id: 'P9001',
+        prompt: '哪一个回答更准确？',
+        response_a: '回答 A 更完整。',
+        response_b: '回答 B 过于简略。',
+        preferred: 'A',
+        dimensions: ['准确性', '实效性'],
+        custom_tags: ['事实充分', '表达清楚'],
+        annotator_note: 'A 覆盖了关键事实。',
+      },
+    ]);
+
+    const xlsxJob = await service.createExport({
+      taskId: 'task_generic_uploaded',
+      requestedById: 'user_owner_001',
+      format: 'xlsx',
+      includeReviews: true,
+    });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(xlsxJob.filePath as string);
+    const worksheet = workbook.getWorksheet('Export');
+    expect(worksheet?.getRow(1).values).toEqual([
+      undefined,
+      'id',
+      'prompt',
+      'response_a',
+      'response_b',
+      'preferred',
+      'dimensions',
+      'custom_tags',
+      'annotator_note',
+    ]);
+    expect(worksheet?.getRow(2).values).toEqual([
+      undefined,
+      'P9001',
+      '哪一个回答更准确？',
+      '回答 A 更完整。',
+      '回答 B 过于简略。',
+      'A',
+      '准确性｜实效性',
+      '事实充分｜表达清楚',
+      'A 覆盖了关键事实。',
+    ]);
+    expect(db.exportJobs.at(-1)?.fieldMapping).toEqual(preview.fieldMapping);
+
+    const csvJob = await service.createExport({
+      taskId: 'task_generic_uploaded',
+      requestedById: 'user_owner_001',
+      format: 'csv',
+      includeReviews: true,
+    });
+    await expect(readFile(csvJob.filePath as string, 'utf8')).resolves.toBe(
+      [
+        'id,prompt,response_a,response_b,preferred,dimensions,custom_tags,annotator_note',
+        'P9001,哪一个回答更准确？,回答 A 更完整。,回答 B 过于简略。,A,准确性｜实效性,事实充分｜表达清楚,A 覆盖了关键事实。',
+        '',
+      ].join('\n'),
+    );
+
+    const jsonJob = await service.createExport({
+      taskId: 'task_generic_uploaded',
+      requestedById: 'user_owner_001',
+      format: 'json',
+      includeReviews: true,
+    });
+    await expect(readFile(jsonJob.filePath as string, 'utf8').then((text) => JSON.parse(text))).resolves.toEqual([
+      {
+        id: 'P9001',
+        prompt: '哪一个回答更准确？',
+        response_a: '回答 A 更完整。',
+        response_b: '回答 B 过于简略。',
+        preferred: 'A',
+        dimensions: '准确性｜实效性',
+        custom_tags: '事实充分｜表达清楚',
+        annotator_note: 'A 覆盖了关键事实。',
+      },
+    ]);
+
+    const jsonlJob = await service.createExport({
+      taskId: 'task_generic_uploaded',
+      requestedById: 'user_owner_001',
+      format: 'jsonl',
+      includeReviews: true,
+    });
+    await expect(
+      readFile(jsonlJob.filePath as string, 'utf8').then((text) =>
+        text
+          .trim()
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => JSON.parse(line)),
+      ),
+    ).resolves.toEqual([
+      {
+        id: 'P9001',
+        prompt: '哪一个回答更准确？',
+        response_a: '回答 A 更完整。',
+        response_b: '回答 B 过于简略。',
+        preferred: 'A',
+        dimensions: '准确性｜实效性',
+        custom_tags: '事实充分｜表达清楚',
+        annotator_note: 'A 覆盖了关键事实。',
+      },
+    ]);
+  });
+
+  it('上传字段和打标字段同名时保留上传列并追加打标列', async () => {
+    const { service } = createService();
+
+    const preview = await service.previewTaskExport('task_generic_uploaded_conflict', {
+      includeReviews: true,
+    });
+
+    expect(preview.fieldMapping.map((field) => field.target)).toEqual([
+      'id',
+      'prompt',
+      'preferred',
+      'preferred_label',
+      'dimensions',
+    ]);
+    expect(preview.rows).toEqual([
+      {
+        id: 'P9002',
+        prompt: '上传文件已有 preferred 列。',
+        preferred: '上传原值',
+        preferred_label: 'A',
+        dimensions: ['准确性'],
+      },
+    ]);
   });
 
   it('支持查询历史、详情和失败任务重试', async () => {
@@ -173,17 +338,35 @@ function createExportDb() {
     title: '问答质量标注',
     template: {
       datasetKind: 'qa_quality' as const,
+      schema: {
+        schemaVersion: 'qa-test',
+        datasetKind: 'qa_quality' as const,
+        fields: [],
+      },
     },
     assignments: [
       createAssignment('assignment_final', 'qa_final', 'FINAL_APPROVED'),
       createAssignment('assignment_pending', 'qa_pending', 'FINAL_PENDING'),
     ],
   };
+  const genericTask = createGenericUploadedTask();
+  const genericConflictTask = createGenericUploadedConflictTask();
   const db = {
     exportJobs,
     client: {
       task: {
-        findUnique: async (args: { where: { id: string } }) => (args.where.id === task.id ? task : null),
+        findUnique: async (args: { where: { id: string } }) => {
+          if (args.where.id === task.id) {
+            return task;
+          }
+          if (args.where.id === genericTask.id) {
+            return genericTask;
+          }
+          if (args.where.id === genericConflictTask.id) {
+            return genericConflictTask;
+          }
+          return null;
+        },
       },
       exportJob: {
         findFirst: async (args: { where: { idempotencyKey: string } }) =>
@@ -228,6 +411,210 @@ function createExportDb() {
   };
 
   return db;
+}
+
+function createGenericUploadedConflictTask() {
+  const uploadedFields = ['id', 'prompt', 'preferred'];
+
+  return {
+    id: 'task_generic_uploaded_conflict',
+    title: '同名字段冲突',
+    datasetImportSummary: {
+      taskId: 'task_generic_uploaded_conflict',
+      datasetKind: 'generic_json' as const,
+      importedCount: 1,
+      errorCount: 0,
+      skippedFiles: [],
+      fields: uploadedFields,
+      errors: [],
+      preview: [],
+      files: [
+        {
+          datasetKind: 'generic_json' as const,
+          format: 'csv',
+          fileName: 'conflict.csv',
+          fields: uploadedFields,
+          importedCount: 1,
+          errorCount: 0,
+        },
+      ],
+    },
+    template: {
+      datasetKind: 'generic_json' as const,
+      schema: {
+        schemaVersion: 'generic-conflict-test',
+        datasetKind: 'generic_json' as const,
+        fields: [
+          {
+            key: 'show_item',
+            type: 'show_item',
+            label: '展示项',
+            sourceKeys: ['id', 'prompt', 'preferred'],
+          },
+          {
+            key: 'preferred_field',
+            fieldKey: 'preferred',
+            type: 'radio',
+            label: '偏好选择',
+          },
+          {
+            key: 'dimensions_field',
+            fieldKey: 'dimensions',
+            type: 'tag_select',
+            label: '评估维度',
+          },
+        ],
+      },
+    },
+    assignments: [
+      {
+        id: 'assignment_generic_conflict_final',
+        taskItem: {
+          externalId: 'P9002',
+          rawData: {
+            preferred: '上传原值',
+            prompt: '上传文件已有 preferred 列。',
+            id: 'P9002',
+          },
+        },
+        submissions: [
+          {
+            id: 'submission_generic_conflict_final',
+            status: 'FINAL_APPROVED',
+            round: 1,
+            answers: {
+              dimensions: ['准确性'],
+              preferred: 'A',
+            },
+            reviewRecords: [],
+            auditLogs: [],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function createGenericUploadedTask() {
+  const uploadedFields = ['id', 'prompt', 'response_a', 'response_b'];
+
+  return {
+    id: 'task_generic_uploaded',
+    title: '模版对比 xlsx',
+    datasetImportSummary: {
+      taskId: 'task_generic_uploaded',
+      datasetKind: 'generic_json' as const,
+      importedCount: 1,
+      errorCount: 0,
+      skippedFiles: [],
+      fields: uploadedFields,
+      errors: [],
+      preview: [],
+      files: [
+        {
+          datasetKind: 'generic_json' as const,
+          format: 'xlsx',
+          fileName: 'template_compare.xlsx',
+          fields: uploadedFields,
+          importedCount: 1,
+          errorCount: 0,
+        },
+      ],
+    },
+    template: {
+      datasetKind: 'generic_json' as const,
+      schema: {
+        schemaVersion: 'generic-uploaded-test',
+        datasetKind: 'generic_json' as const,
+        fields: [
+          {
+            key: 'show_item',
+            type: 'show_item',
+            label: '展示项',
+            sourceKeys: ['id', 'prompt', 'response_a', 'response_b'],
+          },
+          {
+            key: 'preferred_field',
+            fieldKey: 'preferred',
+            type: 'radio',
+            label: '偏好选择',
+          },
+          {
+            key: 'dimensions_field',
+            fieldKey: 'dimensions',
+            type: 'tag_select',
+            label: '评估维度',
+          },
+          {
+            key: 'custom_tags_field',
+            fieldKey: 'custom_tags',
+            type: 'tag_select',
+            label: '自定义标签',
+          },
+          {
+            key: 'annotator_note_field',
+            fieldKey: 'annotator_note',
+            type: 'textarea',
+            label: '标注备注',
+          },
+          {
+            key: 'llm_assist',
+            type: 'llm_assist',
+            label: '生成建议',
+            targetFieldKey: 'annotator_note',
+          },
+        ],
+      },
+    },
+    assignments: [
+      {
+        id: 'assignment_generic_final',
+        taskItem: {
+          externalId: 'P9001',
+          rawData: {
+            response_b: '回答 B 过于简略。',
+            id: 'P9001',
+            response_a: '回答 A 更完整。',
+            prompt: '哪一个回答更准确？',
+          },
+        },
+        submissions: [
+          {
+            id: 'submission_generic_final',
+            status: 'FINAL_APPROVED',
+            round: 1,
+            answers: {
+              custom_tags: ['事实充分', '表达清楚'],
+              annotator_note: 'A 覆盖了关键事实。',
+              dimensions: ['准确性', '实效性'],
+              preferred: 'A',
+            },
+            reviewRecords: [
+              {
+                id: 'ai_generic_final',
+                stage: 'AI_PRECHECK',
+                reviewerType: 'AI',
+                scores: { overall: 91 },
+                decision: 'pass',
+                comment: 'AI 预审通过。',
+                createdAt: new Date('2026-05-21T09:00:00.000Z'),
+              },
+              {
+                id: 'recheck_generic_final',
+                stage: 'RECHECK',
+                reviewerType: 'HUMAN',
+                scores: {},
+                decision: 'recheck_pass',
+                comment: '复审通过。',
+                createdAt: new Date('2026-05-21T09:10:00.000Z'),
+              },
+            ],
+            auditLogs: [],
+          },
+        ],
+      },
+    ],
+  };
 }
 
 function createAssignment(id: string, externalId: string, status: string) {

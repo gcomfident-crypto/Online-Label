@@ -7,8 +7,11 @@ import {
   getExportPreview,
   type ExportJobDto,
   type ExportFieldMapping,
+  type ExportPreviewDto,
 } from '../../api/exports';
 import { listTasks, type TaskDto } from '../../api/tasks';
+import exportIcon from '../../assets/export.svg';
+import eyeIcon from '../../assets/eye.svg';
 import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
@@ -30,6 +33,8 @@ export const ExportCenterPage = () => {
   const [pendingExportTaskIds, setPendingExportTaskIds] = useState<string[]>([]);
   const [selectedExportFormat, setSelectedExportFormat] = useState<ExportFormat>('xlsx');
   const [exportSearchKeyword, setExportSearchKeyword] = useState('');
+  const [previewDialog, setPreviewDialog] = useState<ExportPreviewDialogState | null>(null);
+  const [previewingTaskId, setPreviewingTaskId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [currentExportTaskPage, setCurrentExportTaskPage] = useState(1);
@@ -118,6 +123,28 @@ export const ExportCenterPage = () => {
     setPendingExportTaskIds(nextTaskIds);
   };
 
+  const handlePreviewTask = async (taskId: string) => {
+    const task = exportableTasks.find((item) => item.id === taskId);
+    if (!task) {
+      showErrorToast('请选择需要预览的导出记录。');
+      return;
+    }
+
+    setPreviewingTaskId(taskId);
+    try {
+      const preview = await getExportPreview({ taskId, includeReviews: true });
+      setPreviewDialog({
+        preview,
+        task,
+        taskDisplayId: taskDisplayIdMap.get(task.id) ?? task.id,
+      });
+    } catch (error) {
+      showErrorToast(error instanceof Error ? error.message : '导出预览加载失败。');
+    } finally {
+      setPreviewingTaskId(null);
+    }
+  };
+
   const handleConfirmExport = async () => {
     if (pendingExportTaskIds.length === 0) {
       return;
@@ -203,6 +230,7 @@ export const ExportCenterPage = () => {
               exportableItemTotal={exportableItemTotal}
               exportSearchKeyword={exportSearchKeyword}
               isBusy={isBusy}
+              previewingTaskId={previewingTaskId}
               selectedTaskIds={selectedTaskIds}
               tablePanelRef={exportTaskTableContainerRef}
               taskDisplayIdMap={taskDisplayIdMap}
@@ -211,6 +239,7 @@ export const ExportCenterPage = () => {
               onBatchExport={() => handleOpenFormatDialog(selectedTaskIds)}
               onExportTask={(taskId) => handleOpenFormatDialog([taskId])}
               onPageChange={setCurrentExportTaskPage}
+              onPreviewTask={(taskId) => void handlePreviewTask(taskId)}
               onSearchChange={setExportSearchKeyword}
               onToggleCurrentPageSelection={handleToggleCurrentPageSelection}
               onToggleTaskSelection={handleToggleTaskSelection}
@@ -228,8 +257,15 @@ export const ExportCenterPage = () => {
         onConfirm={() => void handleConfirmExport()}
         onFormatChange={setSelectedExportFormat}
       />
+      <ExportPreviewDialog dialog={previewDialog} onClose={() => setPreviewDialog(null)} />
     </section>
   );
+};
+
+type ExportPreviewDialogState = {
+  preview: ExportPreviewDto;
+  task: TaskDto;
+  taskDisplayId: string;
 };
 
 type ExportableTaskTableProps = {
@@ -237,6 +273,7 @@ type ExportableTaskTableProps = {
   exportableItemTotal: number;
   exportSearchKeyword: string;
   isBusy: boolean;
+  previewingTaskId: string | null;
   selectedTaskIds: string[];
   tablePanelRef?: Ref<HTMLDivElement>;
   taskDisplayIdMap: Map<string, string>;
@@ -245,6 +282,7 @@ type ExportableTaskTableProps = {
   onBatchExport: () => void;
   onExportTask: (taskId: string) => void;
   onPageChange: (page: number) => void;
+  onPreviewTask: (taskId: string) => void;
   onSearchChange: (keyword: string) => void;
   onToggleCurrentPageSelection: () => void;
   onToggleTaskSelection: (taskId: string) => void;
@@ -255,6 +293,7 @@ const ExportableTaskTable = ({
   exportableItemTotal,
   exportSearchKeyword,
   isBusy,
+  previewingTaskId,
   selectedTaskIds,
   tablePanelRef,
   taskDisplayIdMap,
@@ -263,6 +302,7 @@ const ExportableTaskTable = ({
   onBatchExport,
   onExportTask,
   onPageChange,
+  onPreviewTask,
   onSearchChange,
   onToggleCurrentPageSelection,
   onToggleTaskSelection,
@@ -349,14 +389,24 @@ const ExportableTaskTable = ({
                   <td>{formatDateTimeMinute(task.createdAt)}</td>
                   <td>{task.deadline ? formatDateTimeMinute(task.deadline) : '—'}</td>
                   <td>
-                    <button
-                      type="button"
-                      className="export-row-action"
-                      onClick={() => onExportTask(task.id)}
-                      aria-label={`导出 ${taskDisplayId}`}
-                    >
-                      导出
-                    </button>
+                    <div className="task-table__actions">
+                      <ExportTaskActionButton
+                        disabled={isBusy || previewingTaskId === task.id}
+                        icon={eyeIcon}
+                        iconClassName="task-table-action__icon--preview"
+                        label={`预览 ${taskDisplayId}`}
+                        modifier="preview"
+                        onClick={() => onPreviewTask(task.id)}
+                      />
+                      <ExportTaskActionButton
+                        disabled={isBusy}
+                        icon={exportIcon}
+                        iconClassName="task-table-action__icon--export"
+                        label={`导出 ${taskDisplayId}`}
+                        modifier="export"
+                        onClick={() => onExportTask(task.id)}
+                      />
+                    </div>
                   </td>
                 </tr>
               );
@@ -393,6 +443,38 @@ const ExportableTaskTable = ({
   </div>
   );
 };
+
+const ExportTaskActionButton = ({
+  disabled,
+  icon,
+  iconClassName,
+  label,
+  modifier,
+  onClick,
+}: {
+  disabled: boolean;
+  icon: string;
+  iconClassName: string;
+  label: string;
+  modifier: 'export' | 'preview';
+  onClick: () => void;
+}) => (
+  <button
+    className={`task-table-action task-table-action--icon task-table-action--${modifier}`}
+    type="button"
+    disabled={disabled}
+    onClick={onClick}
+    aria-label={label}
+    title={label}
+  >
+    <img
+      aria-hidden="true"
+      alt=""
+      className={`task-table-action__icon ${iconClassName}`}
+      src={icon}
+    />
+  </button>
+);
 
 type ExportFormatDialogProps = {
   format: ExportFormat;
@@ -456,6 +538,77 @@ const ExportFormatDialog = ({
   );
 };
 
+const ExportPreviewDialog = ({
+  dialog,
+  onClose,
+}: {
+  dialog: ExportPreviewDialogState | null;
+  onClose: () => void;
+}) => {
+  if (!dialog) {
+    return null;
+  }
+
+  const headers = previewHeaders(dialog.preview);
+  const rows = dialog.preview.rows;
+
+  return (
+    <div className="task-dataset-preview-overlay task-dataset-preview-overlay--workspace" onMouseDown={onClose}>
+      <section
+        className="task-dataset-preview-modal task-dataset-preview-modal--entering"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`导出预览 · ${dialog.taskDisplayId}`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header className="task-dataset-preview-modal__header">
+          <div>
+            <h2>导出预览 · {dialog.taskDisplayId}</h2>
+            <p>
+              {dialog.task.title} · 可导出 {dialog.preview.totalFinalApproved.toLocaleString()} 条
+            </p>
+          </div>
+          <button className="task-market-preview-close" type="button" aria-label="关闭导出预览" onClick={onClose}>
+            ×
+          </button>
+        </header>
+        <div className="task-dataset-preview-modal__body">
+          {headers.length > 0 ? (
+            <div className="export-preview-table">
+              <table aria-label="导出预览表格">
+                <thead>
+                  <tr>
+                    {headers.map((header) => (
+                      <th key={header}>{header}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length > 0 ? (
+                    rows.map((row, index) => (
+                      <tr key={`${row.id?.toString() ?? 'row'}-${index}`}>
+                        {headers.map((header) => (
+                          <td key={header}>{formatPreviewValue(row[header])}</td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={headers.length}>暂无可预览数据</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <TableEmptyState title="暂无可预览数据" illustrationAlt="空导出预览表格插画" />
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
 function createExportIdempotencyKey(
   taskId: string,
   format: ExportFormat,
@@ -476,6 +629,32 @@ function triggerExportDownload(job: ExportJobDto): void {
 
 function formatDateTimeMinute(value: string): string {
   return value.slice(0, 16).replace('T', ' ');
+}
+
+function previewHeaders(preview: ExportPreviewDto): string[] {
+  const rowHeaders = preview.rows[0] ? Object.keys(preview.rows[0]) : [];
+
+  if (rowHeaders.length > 0) {
+    return rowHeaders;
+  }
+
+  return preview.fieldMapping.filter((field) => field.enabled).map((field) => field.target);
+}
+
+function formatPreviewValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map((item) => formatPreviewValue(item)).filter(Boolean).join(' | ');
+  }
+
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
 }
 
 function stableHash(value: string): string {
