@@ -77,12 +77,16 @@ type ItemReviewSummary = {
 
 const BATCH_TABLE_PAGE_SIZE = 10;
 const SHEET_EXIT_ANIMATION_MS = 260;
+type AiReviewBatchSortField = 'taskId' | 'submittedAt';
+type AiReviewBatchSortDirection = 'asc' | 'desc';
 
 export const AiReviewQueuePage = () => {
   const [batches, setBatches] = useState<AiReviewBatchDto[]>([]);
   const [taskDisplayIdByTaskId, setTaskDisplayIdByTaskId] = useState<Map<string, string>>(new Map());
   const [keyword, setKeyword] = useState('');
   const [batchStatusFilter, setBatchStatusFilter] = useState<BatchStatusFilter>('ALL');
+  const [batchSortField, setBatchSortField] = useState<AiReviewBatchSortField | null>(null);
+  const [batchSortDirection, setBatchSortDirection] = useState<AiReviewBatchSortDirection>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedBatch, setSelectedBatch] = useState<AiReviewBatchDto | null>(null);
   const [detail, setDetail] = useState<AiReviewBatchDetailDto | null>(null);
@@ -140,17 +144,26 @@ export const AiReviewQueuePage = () => {
       ].some((value) => value.toLowerCase().includes(normalizedKeyword));
     });
   }, [batchStatusFilter, batches, keyword, taskDisplayIdByTaskId]);
+  const sortedBatches = useMemo(() => {
+    if (!batchSortField) {
+      return filteredBatches;
+    }
 
-  const totalPages = Math.max(1, Math.ceil(filteredBatches.length / BATCH_TABLE_PAGE_SIZE));
+    return [...filteredBatches].sort((left, right) =>
+      compareAiReviewBatchesBySortField(left, right, batchSortField, batchSortDirection, taskDisplayIdByTaskId),
+    );
+  }, [batchSortDirection, batchSortField, filteredBatches, taskDisplayIdByTaskId]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedBatches.length / BATCH_TABLE_PAGE_SIZE));
   const paginatedBatches = useMemo(() => {
     const startIndex = (currentPage - 1) * BATCH_TABLE_PAGE_SIZE;
 
-    return filteredBatches.slice(startIndex, startIndex + BATCH_TABLE_PAGE_SIZE);
-  }, [currentPage, filteredBatches]);
+    return sortedBatches.slice(startIndex, startIndex + BATCH_TABLE_PAGE_SIZE);
+  }, [currentPage, sortedBatches]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [batchStatusFilter, keyword]);
+  }, [batchSortDirection, batchSortField, batchStatusFilter, keyword]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -213,6 +226,16 @@ export const AiReviewQueuePage = () => {
     }, SHEET_EXIT_ANIMATION_MS);
   };
 
+  const handleSort = (field: AiReviewBatchSortField) => {
+    if (batchSortField === field) {
+      setBatchSortDirection((direction) => (direction === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setBatchSortField(field);
+    setBatchSortDirection('asc');
+  };
+
   return (
     <section className="ai-review-page agent-review-page" aria-labelledby="ai-review-title">
       <ToastViewport messages={messages} onDismiss={dismissToast} />
@@ -235,11 +258,14 @@ export const AiReviewQueuePage = () => {
           batchSummary={batchSummary}
           currentPage={currentPage}
           keyword={keyword}
+          sortDirection={batchSortDirection}
+          sortField={batchSortField}
           selectedBatchId={selectedBatch?.batchId ?? null}
           taskDisplayIdByTaskId={taskDisplayIdByTaskId}
           totalPages={totalPages}
           onBatchStatusFilterChange={setBatchStatusFilter}
           onKeywordChange={setKeyword}
+          onSort={handleSort}
           onOpenBatch={(batch) => void handleOpenBatch(batch)}
           onPageChange={setCurrentPage}
         />
@@ -281,10 +307,13 @@ const AiReviewBatchTable = ({
   keyword,
   onBatchStatusFilterChange,
   onKeywordChange,
+  onSort,
   onOpenBatch,
   onPageChange,
   selectedBatchId,
   taskDisplayIdByTaskId,
+  sortDirection,
+  sortField,
   totalPages,
 }: {
   batches: AiReviewBatchDto[];
@@ -294,10 +323,13 @@ const AiReviewBatchTable = ({
   keyword: string;
   onBatchStatusFilterChange: (status: BatchStatusFilter) => void;
   onKeywordChange: (keyword: string) => void;
+  onSort: (field: AiReviewBatchSortField) => void;
   onOpenBatch: (batch: AiReviewBatchDto) => void;
   onPageChange: (page: number) => void;
   selectedBatchId: string | null;
   taskDisplayIdByTaskId: ReadonlyMap<string, string>;
+  sortDirection: AiReviewBatchSortDirection;
+  sortField: AiReviewBatchSortField | null;
   totalPages: number;
 }) => {
   const handleRowClick = (event: MouseEvent<HTMLTableRowElement>, batch: AiReviewBatchDto) => {
@@ -356,10 +388,26 @@ const AiReviewBatchTable = ({
           </colgroup>
           <thead>
             <tr>
-              <th>任务ID</th>
+              <th>
+                <SortableAiReviewHeader
+                  field="taskId"
+                  label="任务ID"
+                  sortDirection={sortDirection}
+                  sortField={sortField}
+                  onSort={onSort}
+                />
+              </th>
               <th>任务名称</th>
               <th>标注员</th>
-              <th>提交时间</th>
+              <th>
+                <SortableAiReviewHeader
+                  field="submittedAt"
+                  label="提交时间"
+                  sortDirection={sortDirection}
+                  sortField={sortField}
+                  onSort={onSort}
+                />
+              </th>
               <th>题目数</th>
               <th>AI 建议</th>
             </tr>
@@ -469,6 +517,102 @@ const BatchSummaryCard = ({
 const TableCellInner = ({ children }: { children: ReactNode }) => (
   <div className="task-table__cell-inner">{children}</div>
 );
+
+const SortableAiReviewHeader = ({
+  field,
+  label,
+  sortDirection,
+  sortField,
+  onSort,
+}: {
+  field: AiReviewBatchSortField;
+  label: string;
+  sortDirection: AiReviewBatchSortDirection;
+  sortField: AiReviewBatchSortField | null;
+  onSort: (field: AiReviewBatchSortField) => void;
+}) => {
+  const isActive = sortField === field;
+  const icon = isActive ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅';
+
+  return (
+    <button
+      aria-label={`按${label}排序`}
+      aria-pressed={isActive}
+      className={`task-table__sortable-header agent-review-batch-table__sortable-header${isActive ? ' is-active' : ''}`}
+      type="button"
+      onClick={() => onSort(field)}
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className="task-table__sort-icon">
+        {icon}
+      </span>
+    </button>
+  );
+};
+
+const parseAiReviewBatchDisplayId = (value: string): number | null => {
+  const match = /^T-(\d+)$/i.exec(value);
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const parseAiReviewBatchTimestamp = (value?: string | null): number | null => {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const compareAiReviewBatchesBySortField = (
+  left: AiReviewBatchDto,
+  right: AiReviewBatchDto,
+  sortField: AiReviewBatchSortField,
+  sortDirection: AiReviewBatchSortDirection,
+  taskDisplayIdByTaskId: ReadonlyMap<string, string>,
+): number => {
+  const multiplier = sortDirection === 'asc' ? 1 : -1;
+
+  if (sortField === 'submittedAt') {
+    const leftSubmittedAt = parseAiReviewBatchTimestamp(left.submittedAt);
+    const rightSubmittedAt = parseAiReviewBatchTimestamp(right.submittedAt);
+
+    if (leftSubmittedAt === null && rightSubmittedAt === null) {
+      return left.batchId.localeCompare(right.batchId);
+    }
+
+    if (leftSubmittedAt === null) {
+      return 1;
+    }
+
+    if (rightSubmittedAt === null) {
+      return -1;
+    }
+
+    if (leftSubmittedAt !== rightSubmittedAt) {
+      return (leftSubmittedAt - rightSubmittedAt) * multiplier;
+    }
+
+    return left.batchId.localeCompare(right.batchId);
+  }
+
+  const leftDisplayId = taskDisplayIdByTaskId.get(left.taskId) ?? left.taskId;
+  const rightDisplayId = taskDisplayIdByTaskId.get(right.taskId) ?? right.taskId;
+  const leftNumber = parseAiReviewBatchDisplayId(leftDisplayId);
+  const rightNumber = parseAiReviewBatchDisplayId(rightDisplayId);
+
+  if (leftNumber !== null && rightNumber !== null && leftNumber !== rightNumber) {
+    return (leftNumber - rightNumber) * multiplier;
+  }
+
+  const displayIdDiff = leftDisplayId.localeCompare(rightDisplayId);
+  return displayIdDiff === 0 ? left.taskId.localeCompare(right.taskId) : displayIdDiff * multiplier;
+};
 
 const DateTimeCell = ({ value }: { value?: string | null }) => {
   const { date, time } = splitDateTimeMinute(value);

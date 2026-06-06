@@ -2,7 +2,7 @@ import type { AiReviewBatchDetailDto, AiReviewBatchDto, AiReviewJobDto } from '.
 import { getAiReviewBatch, listAiReviewBatches, listAiReviewJobs } from '../../api/aiReview';
 import { listTasks, type TaskDto } from '../../api/tasks';
 
-export type DashboardRange = '7d' | '30d' | 'custom';
+export type DashboardRange = '7d' | '30d';
 
 export type DashboardRangeOption = {
   label: string;
@@ -76,7 +76,6 @@ export type AgentDashboardData = {
 export const DASHBOARD_RANGE_OPTIONS: DashboardRangeOption[] = [
   { label: '近 7 天', value: '7d' },
   { label: '近 30 天', value: '30d' },
-  { label: '自定义', value: 'custom' },
 ];
 
 type DashboardSource = {
@@ -89,13 +88,11 @@ type DashboardSource = {
 const RANGE_DAYS: Record<DashboardRange, number> = {
   '7d': 7,
   '30d': 30,
-  custom: 14,
 };
 
 const RANGE_LABELS: Record<DashboardRange, string> = {
   '7d': '近 7 天',
   '30d': '近 30 天',
-  custom: '自定义',
 };
 
 const EMPTY_SPARKLINE = [0, 0, 0, 0, 0, 0, 0];

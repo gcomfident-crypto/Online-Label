@@ -18,7 +18,7 @@ import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
 import { DatasetPreviewModal } from './components/DatasetPreviewModal';
-import { createTaskDisplayIdMap } from './taskDisplayId';
+import { createTaskDisplayIdMap, taskCreatedAtTimestamp } from './taskDisplayId';
 
 const OWNER_ID = 'user_owner_zhang_man';
 const EXPORT_TASKS_FALLBACK_PAGE_SIZE = 8;
@@ -30,12 +30,17 @@ const EXPORT_FORMAT_OPTIONS: Array<{ label: string; value: ExportFormat }> = [
   { label: 'JSONL', value: 'jsonl' },
 ];
 
+type ExportTaskSortField = 'taskId' | 'createdAt' | 'endedAt';
+type ExportTaskSortDirection = 'asc' | 'desc';
+
 export const ExportCenterPage = () => {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [pendingExportTaskIds, setPendingExportTaskIds] = useState<string[]>([]);
   const [selectedExportFormat, setSelectedExportFormat] = useState<ExportFormat>('xlsx');
   const [exportSearchKeyword, setExportSearchKeyword] = useState('');
+  const [exportTaskSortField, setExportTaskSortField] = useState<ExportTaskSortField | null>(null);
+  const [exportTaskSortDirection, setExportTaskSortDirection] = useState<ExportTaskSortDirection>('asc');
   const [previewDialog, setPreviewDialog] = useState<ExportPreviewDialogState | null>(null);
   const [previewingTaskId, setPreviewingTaskId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,7 +63,7 @@ export const ExportCenterPage = () => {
   const exportableTasks = useMemo(() => {
     const keyword = exportSearchKeyword.trim().toLowerCase();
 
-    return [...tasks]
+    const defaultOrderedTasks = tasks
       .filter((task) => {
         if ((task.exportableItemCount ?? 0) <= 0) {
           return false;
@@ -77,8 +82,22 @@ export const ExportCenterPage = () => {
           task.template.name.toLowerCase().includes(keyword)
         );
       })
-      .sort((firstTask, secondTask) => secondTask.createdAt.localeCompare(firstTask.createdAt));
-  }, [exportSearchKeyword, taskDisplayIdMap, tasks]);
+      .sort((firstTask, secondTask) => taskCreatedAtTimestamp(secondTask) - taskCreatedAtTimestamp(firstTask));
+
+    if (!exportTaskSortField) {
+      return defaultOrderedTasks;
+    }
+
+    return [...defaultOrderedTasks].sort((firstTask, secondTask) =>
+      compareExportTasksBySortField(
+        firstTask,
+        secondTask,
+        exportTaskSortField,
+        exportTaskSortDirection,
+        (task) => taskDisplayIdMap.get(task.id) ?? task.id,
+      ),
+    );
+  }, [exportSearchKeyword, exportTaskSortDirection, exportTaskSortField, taskDisplayIdMap, tasks]);
   const exportableItemTotal = useMemo(
     () => exportableTasks.reduce((total, task) => total + (task.exportableItemCount ?? 0), 0),
     [exportableTasks],
@@ -100,7 +119,7 @@ export const ExportCenterPage = () => {
 
   useEffect(() => {
     setCurrentExportTaskPage(1);
-  }, [exportSearchKeyword]);
+  }, [exportSearchKeyword, exportTaskSortDirection, exportTaskSortField]);
 
   useEffect(() => {
     const exportableTaskIds = new Set(exportableTasks.map((task) => task.id));
@@ -217,6 +236,16 @@ export const ExportCenterPage = () => {
     });
   };
 
+  const handleExportTaskSort = (field: ExportTaskSortField) => {
+    if (exportTaskSortField === field) {
+      setExportTaskSortDirection((currentDirection) => (currentDirection === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setExportTaskSortField(field);
+    setExportTaskSortDirection('asc');
+  };
+
   return (
     <section className="export-center-page" aria-labelledby="export-center-title">
       <ToastViewport messages={messages} onDismiss={dismissToast} />
@@ -243,6 +272,8 @@ export const ExportCenterPage = () => {
               isBusy={isBusy}
               previewingTaskId={previewingTaskId}
               selectedTaskIds={selectedTaskIds}
+              sortDirection={exportTaskSortDirection}
+              sortField={exportTaskSortField}
               tablePanelRef={exportTaskTableContainerRef}
               taskDisplayIdMap={taskDisplayIdMap}
               tasks={paginatedExportableTasks}
@@ -252,6 +283,7 @@ export const ExportCenterPage = () => {
               onPageChange={setCurrentExportTaskPage}
               onPreviewTask={(taskId) => void handlePreviewTask(taskId)}
               onSearchChange={setExportSearchKeyword}
+              onSort={handleExportTaskSort}
               onToggleCurrentPageSelection={handleToggleCurrentPageSelection}
               onToggleTaskSelection={handleToggleTaskSelection}
             />
@@ -301,6 +333,8 @@ type ExportableTaskTableProps = {
   isBusy: boolean;
   previewingTaskId: string | null;
   selectedTaskIds: string[];
+  sortDirection: ExportTaskSortDirection;
+  sortField: ExportTaskSortField | null;
   tablePanelRef?: Ref<HTMLDivElement>;
   taskDisplayIdMap: Map<string, string>;
   tasks: TaskDto[];
@@ -310,6 +344,7 @@ type ExportableTaskTableProps = {
   onPageChange: (page: number) => void;
   onPreviewTask: (taskId: string) => void;
   onSearchChange: (keyword: string) => void;
+  onSort: (field: ExportTaskSortField) => void;
   onToggleCurrentPageSelection: () => void;
   onToggleTaskSelection: (taskId: string) => void;
 };
@@ -321,6 +356,8 @@ const ExportableTaskTable = ({
   isBusy,
   previewingTaskId,
   selectedTaskIds,
+  sortDirection,
+  sortField,
   tablePanelRef,
   taskDisplayIdMap,
   tasks,
@@ -330,6 +367,7 @@ const ExportableTaskTable = ({
   onPageChange,
   onPreviewTask,
   onSearchChange,
+  onSort,
   onToggleCurrentPageSelection,
   onToggleTaskSelection,
 }: ExportableTaskTableProps) => {
@@ -384,10 +422,34 @@ const ExportableTaskTable = ({
                 onChange={onToggleCurrentPageSelection}
               />
             </th>
-            <th>任务ID</th>
+            <th>
+              <SortableExportHeader
+                field="taskId"
+                label="任务ID"
+                sortDirection={sortDirection}
+                sortField={sortField}
+                onSort={onSort}
+              />
+            </th>
             <th>任务</th>
-            <th>创建时间</th>
-            <th>结束时间</th>
+            <th>
+              <SortableExportHeader
+                field="createdAt"
+                label="创建时间"
+                sortDirection={sortDirection}
+                sortField={sortField}
+                onSort={onSort}
+              />
+            </th>
+            <th>
+              <SortableExportHeader
+                field="endedAt"
+                label="结束时间"
+                sortDirection={sortDirection}
+                sortField={sortField}
+                onSort={onSort}
+              />
+            </th>
             <th>操作</th>
           </tr>
         </thead>
@@ -467,6 +529,38 @@ const ExportableTaskTable = ({
       </button>
     </div>
   </div>
+  );
+};
+
+const SortableExportHeader = ({
+  field,
+  label,
+  sortDirection,
+  sortField,
+  onSort,
+}: {
+  field: ExportTaskSortField;
+  label: string;
+  sortDirection: ExportTaskSortDirection;
+  sortField: ExportTaskSortField | null;
+  onSort: (field: ExportTaskSortField) => void;
+}) => {
+  const isActive = sortField === field;
+  const icon = isActive ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅';
+
+  return (
+    <button
+      aria-label={`按${label}排序`}
+      aria-pressed={isActive}
+      className={`task-table__sortable-header${isActive ? ' is-active' : ''}`}
+      type="button"
+      onClick={() => onSort(field)}
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className="task-table__sort-icon">
+        {icon}
+      </span>
+    </button>
   );
 };
 
@@ -605,6 +699,76 @@ function triggerExportDownload(job: ExportJobDto): void {
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+function compareExportTasksBySortField(
+  firstTask: TaskDto,
+  secondTask: TaskDto,
+  field: ExportTaskSortField,
+  direction: ExportTaskSortDirection,
+  getTaskDisplayId: (task: TaskDto) => string,
+): number {
+  const multiplier = direction === 'asc' ? 1 : -1;
+
+  if (field === 'taskId') {
+    const firstIdNumber = parseExportTaskSortIdNumber(getTaskDisplayId(firstTask));
+    const secondIdNumber = parseExportTaskSortIdNumber(getTaskDisplayId(secondTask));
+
+    if (firstIdNumber !== null && secondIdNumber !== null && firstIdNumber !== secondIdNumber) {
+      return (firstIdNumber - secondIdNumber) * multiplier;
+    }
+
+    const displayIdDiff = getTaskDisplayId(firstTask).localeCompare(getTaskDisplayId(secondTask));
+
+    return displayIdDiff === 0 ? firstTask.id.localeCompare(secondTask.id) : displayIdDiff * multiplier;
+  }
+
+  if (field === 'endedAt') {
+    const firstEndedAt = parseExportTaskSortTimestamp(firstTask.deadline);
+    const secondEndedAt = parseExportTaskSortTimestamp(secondTask.deadline);
+
+    if (firstEndedAt === null && secondEndedAt === null) {
+      return firstTask.id.localeCompare(secondTask.id);
+    }
+
+    if (firstEndedAt === null) {
+      return 1;
+    }
+
+    if (secondEndedAt === null) {
+      return -1;
+    }
+
+    const endedAtDiff = firstEndedAt - secondEndedAt;
+
+    return endedAtDiff === 0 ? firstTask.id.localeCompare(secondTask.id) : endedAtDiff * multiplier;
+  }
+
+  const createdAtDiff = taskCreatedAtTimestamp(firstTask) - taskCreatedAtTimestamp(secondTask);
+
+  return createdAtDiff === 0 ? firstTask.id.localeCompare(secondTask.id) : createdAtDiff * multiplier;
+}
+
+function parseExportTaskSortIdNumber(value: string): number | null {
+  const numericPart = value.match(/\d+/g)?.at(-1);
+
+  if (!numericPart) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(numericPart, 10);
+
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function parseExportTaskSortTimestamp(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Date.parse(value);
+
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
 function formatDateTimeMinute(value: string): string {

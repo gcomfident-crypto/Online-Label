@@ -820,7 +820,7 @@ describe('TemplateDesignerPage', () => {
       'task-filter-bar__create',
     );
     expect(within(templateTable).queryByText('数据类型')).not.toBeInTheDocument();
-    expect(templateTable.querySelectorAll('colgroup col')).toHaveLength(8);
+    expect(templateTable.querySelectorAll('colgroup col')).toHaveLength(9);
     expect(templateTable.querySelector('.template-manager-table__col-name')).not.toBeNull();
     expect(templateTable.querySelector('.template-manager-table__col-dataset')).toBeNull();
     expect(templateTable.querySelector('.template-manager-table__col-status')).not.toBeNull();
@@ -843,8 +843,22 @@ describe('TemplateDesignerPage', () => {
     expect(publishedStatusTag?.style.getPropertyValue('--status-dot-color')).toBe('#0FB86B');
     expect(publishedStatusTag?.style.getPropertyValue('--status-text-color')).toBe('#0FB86B');
     expect(publishedStatusTag?.style.getPropertyValue('--status-bg-color')).toBe('#E8F7EF');
-    expect(screen.getByText('2026-05-21 00:00')).toBeInTheDocument();
+    const publishedTemplateCells = publishedTemplateRow.querySelectorAll('td');
+    expect(publishedTemplateCells[4]).toHaveTextContent('2026-05-21 00:00');
+    expect(publishedTemplateCells[5]).toHaveTextContent('2026-05-21 00:00');
     expect(screen.queryByText('暂无自定义模板')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '按模板ID排序' })).toHaveClass('template-manager-table__sortable-header');
+    expect(screen.getByRole('button', { name: '按创建时间排序' })).toHaveClass('template-manager-table__sortable-header');
+    expect(screen.getByRole('button', { name: '按上次更改排序' })).toHaveClass('template-manager-table__sortable-header');
+    expect(screen.getByRole('button', { name: '按模板ID排序' })).toHaveTextContent('模板ID⇅');
+    expect(screen.getByRole('button', { name: '按创建时间排序' })).toHaveTextContent('创建时间⇅');
+    expect(screen.getByRole('button', { name: '按上次更改排序' })).toHaveTextContent('上次更改⇅');
+    expect(screen.queryByRole('button', { name: '按模板名称排序' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '按状态排序' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '按负责人排序' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '按版本排序' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '按字段数排序' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '按操作排序' })).not.toBeInTheDocument();
     expect(screen.queryByText('暂无模板')).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText('搜索模板'), 'template_1');
@@ -910,6 +924,99 @@ describe('TemplateDesignerPage', () => {
     expect(screen.queryByRole('button', { name: '选择 题目原始数据' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '使用 qa_quality' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '使用 preference_compare' })).not.toBeInTheDocument();
+  });
+
+  it('模板列表仅允许模板ID、创建时间和上次更改按指定方向排序', async () => {
+    const user = userEvent.setup();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          data: [
+            {
+              ...createTemplateDto({
+                id: 'M-010',
+                name: '模板 B',
+                status: 'PUBLISHED',
+                createdById: 'owner_b',
+              }),
+              createdAt: '2026-06-03T00:00:00.000Z',
+              updatedAt: '2026-06-02T00:00:00.000Z',
+            },
+            {
+              ...createTemplateDto({
+                id: 'M-002',
+                name: '模板 A',
+                status: 'PUBLISHED',
+                createdById: 'owner_a',
+              }),
+              createdAt: '2026-06-01T00:00:00.000Z',
+              updatedAt: '2026-06-04T00:00:00.000Z',
+            },
+            {
+              ...createTemplateDto({
+                id: 'M-001',
+                name: '模板 C',
+                status: 'PUBLISHED',
+                createdById: 'owner_c',
+              }),
+              createdAt: '2026-06-02T00:00:00.000Z',
+              updatedAt: '2026-06-03T00:00:00.000Z',
+            },
+          ],
+        }),
+      ),
+    );
+
+    render(<TemplateDesignerPage />);
+
+    const getTemplateNames = () =>
+      Array.from(document.querySelectorAll('table[aria-label="模板列表"] tbody tr[role="button"]')).map(
+        (row) => row.querySelector('td:nth-child(2)')?.textContent?.trim() ?? '',
+      );
+
+    expect(await screen.findByRole('table', { name: '模板列表' })).toBeInTheDocument();
+
+    expect(getTemplateNames()).toEqual(['模板 B', '模板 A', '模板 C']);
+
+    const templateIdSortButton = screen.getByRole('button', { name: '按模板ID排序' });
+    const createdAtSortButton = screen.getByRole('button', { name: '按创建时间排序' });
+    const updatedAtSortButton = screen.getByRole('button', { name: '按上次更改排序' });
+
+    expect(templateIdSortButton).toHaveTextContent('模板ID⇅');
+    expect(createdAtSortButton).toHaveTextContent('创建时间⇅');
+    expect(updatedAtSortButton).toHaveTextContent('上次更改⇅');
+
+    await user.click(templateIdSortButton);
+    expect(getTemplateNames()).toEqual(['模板 C', '模板 A', '模板 B']);
+    expect(templateIdSortButton).toHaveTextContent('模板ID↑');
+
+    await user.click(templateIdSortButton);
+    expect(getTemplateNames()).toEqual(['模板 B', '模板 A', '模板 C']);
+    expect(templateIdSortButton).toHaveTextContent('模板ID↓');
+
+    await user.click(createdAtSortButton);
+    expect(getTemplateNames()).toEqual(['模板 A', '模板 C', '模板 B']);
+    expect(templateIdSortButton).toHaveTextContent('模板ID⇅');
+    expect(createdAtSortButton).toHaveTextContent('创建时间↑');
+
+    await user.click(createdAtSortButton);
+    expect(getTemplateNames()).toEqual(['模板 B', '模板 C', '模板 A']);
+    expect(createdAtSortButton).toHaveTextContent('创建时间↓');
+
+    await user.click(updatedAtSortButton);
+    expect(getTemplateNames()).toEqual(['模板 B', '模板 C', '模板 A']);
+    expect(createdAtSortButton).toHaveTextContent('创建时间⇅');
+    expect(updatedAtSortButton).toHaveTextContent('上次更改↑');
+
+    await user.click(updatedAtSortButton);
+    expect(getTemplateNames()).toEqual(['模板 A', '模板 C', '模板 B']);
+    expect(updatedAtSortButton).toHaveTextContent('上次更改↓');
+
+    await user.click(updatedAtSortButton);
+    expect(getTemplateNames()).toEqual(['模板 B', '模板 C', '模板 A']);
+    expect(updatedAtSortButton).toHaveTextContent('上次更改↑');
   });
 
   it('从任务抽屉预览模板带着 URL templateId 进入时，点击外侧会返回任务管理', async () => {

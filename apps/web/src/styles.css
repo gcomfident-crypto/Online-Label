@@ -3343,11 +3343,11 @@ video.schema-field__show-resource-media {
 }
 
 .template-manager-table__col-id {
-  width: 11%;
+  width: 9%;
 }
 
 .template-manager-table__col-name {
-  width: 25%;
+  width: 24%;
 }
 
 .template-manager-table__col-status {
@@ -3359,7 +3359,11 @@ video.schema-field__show-resource-media {
 }
 
 .template-manager-table__col-created {
-  width: 16%;
+  width: 12%;
+}
+
+.template-manager-table__col-updated {
+  width: 12%;
 }
 
 .template-manager-table__col-version {
@@ -3371,7 +3375,7 @@ video.schema-field__show-resource-media {
 }
 
 .template-manager-table__col-actions {
-  width: 13%;
+  width: 18%;
 }
 
 .template-manager-table th,
@@ -3389,6 +3393,68 @@ video.schema-field__show-resource-media {
   background: #f7fafb;
   font-size: 12px;
   font-weight: 800;
+}
+
+.template-manager-table__sortable-header {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  border: 0;
+  border-radius: 5px;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  line-height: 1;
+  vertical-align: middle;
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.template-manager-table__sortable-header:hover,
+.template-manager-table__sortable-header:focus-visible {
+  color: #667085;
+  background: transparent;
+  outline: none;
+}
+
+.template-manager-table__sortable-header.is-active {
+  color: #111827;
+  font-weight: inherit;
+  background: transparent;
+}
+
+.template-manager-table__sort-icon {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 4px);
+  width: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #98A2B3;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: color 160ms ease;
+}
+
+.template-manager-table__sortable-header:hover .template-manager-table__sort-icon,
+.template-manager-table__sortable-header:focus-visible .template-manager-table__sort-icon {
+  color: #667085;
+}
+
+.template-manager-table__sortable-header.is-active .template-manager-table__sort-icon {
+  color: #306df7;
 }
 
 .template-manager-table__row {
@@ -5999,6 +6065,71 @@ video.schema-field__show-resource-media {
   background: var(--designer-button-background);
   box-shadow: none;
   transform: none;
+}
+
+button.template-manager-table__sortable-header:not(:disabled) {
+  border-color: transparent;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+button.template-manager-table__sortable-header:hover:not(:disabled),
+button.template-manager-table__sortable-header:focus-visible:not(:disabled) {
+  border-color: transparent;
+  color: #667085;
+  background: transparent;
+}
+
+button.template-manager-table__sortable-header.is-active:not(:disabled) {
+  color: #111827;
+  background: transparent;
+}
+
+button.template-manager-table__sortable-header.is-active:hover:not(:disabled),
+button.template-manager-table__sortable-header.is-active:focus-visible:not(:disabled) {
+  color: #111827;
+  background: transparent;
+}
+
+button.template-manager-table__sortable-header.is-active .template-manager-table__sort-icon,
+button.template-manager-table__sortable-header.is-active:hover:not(:disabled) .template-manager-table__sort-icon,
+button.template-manager-table__sortable-header.is-active:focus-visible:not(:disabled)
+  .template-manager-table__sort-icon {
+  color: #306df7;
+}
+
+button.task-table__sortable-header:not(:disabled) {
+  border-color: transparent;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+button.task-table__sortable-header:hover:not(:disabled),
+button.task-table__sortable-header:focus-visible:not(:disabled) {
+  border-color: transparent;
+  color: #667085;
+  background: #f8fafc;
+}
+
+button.task-table__sortable-header.is-active:not(:disabled) {
+  color: #111827;
+  background: transparent;
+}
+
+button.task-table__sortable-header.is-active:hover:not(:disabled),
+button.task-table__sortable-header.is-active:focus-visible:not(:disabled) {
+  color: #111827;
+  background: #f8fafc;
+}
+
+button.task-table__sortable-header.is-active .task-table__sort-icon,
+button.task-table__sortable-header.is-active:hover:not(:disabled) .task-table__sort-icon,
+button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-table__sort-icon {
+  color: #306df7;
 }
 
 .template-designer-page .primary-action {
@@ -8800,6 +8931,68 @@ video.schema-field__show-resource-media {
   font-weight: 800;
 }
 
+.task-table__sortable-header {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  border: 0;
+  border-radius: 5px;
+  padding: 2px 4px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  line-height: 1;
+  vertical-align: middle;
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.task-table__sortable-header:hover,
+.task-table__sortable-header:focus-visible {
+  color: #667085;
+  background: #f8fafc;
+  outline: none;
+}
+
+.task-table__sortable-header.is-active {
+  color: #111827;
+  font-weight: inherit;
+  background: transparent;
+}
+
+.task-table__sort-icon {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 4px);
+  width: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #98A2B3;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: color 160ms ease;
+}
+
+.task-table__sortable-header:hover .task-table__sort-icon,
+.task-table__sortable-header:focus-visible .task-table__sort-icon {
+  color: #667085;
+}
+
+.task-table__sortable-header.is-active .task-table__sort-icon {
+  color: #306df7;
+}
+
 .task-table td {
   height: 66px;
   overflow: hidden;
@@ -9148,25 +9341,30 @@ video.schema-field__show-resource-media {
 .task-progress-cell {
   width: 100%;
   display: grid;
-  gap: 6px;
+  gap: 7px;
+  padding: 0;
 }
 
-.task-progress-cell__meta {
+.task-progress-cell__header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   white-space: nowrap;
 }
 
-.task-progress-cell__meta span {
-  color: #334155;
+.task-progress-cell__count {
+  color: #24304A;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.1;
 }
 
-.task-progress-cell__meta small {
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 500;
+.task-progress-cell__header strong {
+  color: #0FB86B;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.1;
 }
 
 .task-progress-empty {
@@ -9174,19 +9372,23 @@ video.schema-field__show-resource-media {
 }
 
 .task-progress {
-  display: block;
+  position: relative;
   width: 100%;
   height: 6px;
+  display: block;
   border-radius: 999px;
-  background: #e8edf2;
+  background: #EAF8F0;
   overflow: hidden;
 }
 
 .task-progress span {
+  position: relative;
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #2f6bff;
+  background: #0FB86B;
+  box-shadow: none;
+  transition: width 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .task-table__actions {
@@ -10723,18 +10925,85 @@ video.schema-field__show-resource-media {
   position: relative;
 }
 
+.task-deadline-picker:has(.task-deadline-picker__popover) {
+  z-index: var(--overlay-dropdown-z-index);
+}
+
 .task-deadline-picker__trigger {
   width: 100%;
-  min-height: 40px;
+  min-height: 48px;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   border: 1px solid #b7c7e6;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 7px 10px 7px 12px;
   color: #172033;
   background: #ffffff;
   text-align: left;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.task-deadline-picker__trigger-content {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.task-deadline-picker__trigger-label {
+  overflow: hidden;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-deadline-picker__trigger-hint {
+  overflow: hidden;
+  color: #7a879a;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-deadline-picker__trigger-icon {
+  position: relative;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #d9e4f4;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.task-deadline-picker__trigger-icon::before {
+  width: 13px;
+  height: 12px;
+  border: 1.7px solid #306df8;
+  border-top-width: 3px;
+  border-radius: 3px;
+  content: '';
+}
+
+.task-deadline-picker__trigger-icon::after {
+  position: absolute;
+  top: 9px;
+  left: 7px;
+  width: 10px;
+  height: 1.5px;
+  border-radius: 999px;
+  background: #306df8;
+  content: '';
 }
 
 .task-deadline-picker__native-input {
@@ -10779,27 +11048,30 @@ video.schema-field__show-resource-media {
   top: calc(100% + 6px);
   right: 0;
   z-index: var(--overlay-dropdown-z-index);
-  width: min(364px, calc(100vw - 48px));
-  max-height: min(360px, calc(100vh - var(--platform-topbar-height) - 72px));
+  width: min(460px, calc(100vw - 48px));
+  max-height: min(410px, calc(100vh - var(--platform-topbar-height) - 72px));
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 112px;
-  align-items: start;
-  column-gap: 8px;
-  row-gap: 6px;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  grid-template-rows: minmax(0, auto) auto;
+  align-items: stretch;
+  column-gap: 0;
+  row-gap: 0;
   overflow: visible;
-  padding: 8px;
-  border: 1px solid rgba(183, 199, 230, 0.72);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 22px 54px rgba(31, 44, 76, 0.18);
+  padding: 0;
+  border: 1px solid rgba(183, 199, 230, 0.76);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 16px 38px rgba(31, 44, 76, 0.17);
   transform-origin: 88% 0;
   animation: taskDeadlinePickerIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .task-deadline-picker__calendar {
   grid-column: 1;
-  grid-row: 1 / span 2;
+  grid-row: 1;
   min-width: 0;
+  padding: 12px 16px 14px;
+  background: #ffffff;
 }
 
 .task-deadline-picker__header {
@@ -10808,16 +11080,16 @@ video.schema-field__show-resource-media {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .task-deadline-picker__header strong {
-  min-width: 102px;
+  min-width: 104px;
   display: grid;
   place-items: center;
   overflow: hidden;
   color: #172033;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
 }
 
@@ -10838,6 +11110,7 @@ video.schema-field__show-resource-media {
   color: #306df8;
   background: #f8fbff;
   font-size: 18px;
+  font-weight: 500;
   line-height: 1;
 }
 
@@ -10846,11 +11119,12 @@ video.schema-field__show-resource-media {
   grid-column: 1;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 1px;
+  column-gap: 5px;
+  row-gap: 4px;
 }
 
 .task-deadline-picker__weekdays {
-  margin-bottom: 3px;
+  margin-bottom: 8px;
   color: #7a879a;
   font-size: 11px;
   font-weight: 800;
@@ -10858,14 +11132,14 @@ video.schema-field__show-resource-media {
 }
 
 .task-deadline-picker__weekdays span {
-  height: 14px;
+  height: 15px;
   display: grid;
   place-items: center;
 }
 
 .task-deadline-picker__day {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   min-width: 0;
   display: grid;
   place-items: center;
@@ -10875,7 +11149,7 @@ video.schema-field__show-resource-media {
   padding: 0;
   color: #172033;
   background: transparent;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1;
   transition:
@@ -10898,7 +11172,7 @@ video.schema-field__show-resource-media {
 .task-deadline-picker__day--selected:hover:not(:disabled) {
   color: #ffffff;
   background: #306df8;
-  box-shadow: 0 8px 18px rgba(48, 109, 248, 0.24);
+  box-shadow: 0 4px 10px rgba(48, 109, 248, 0.22);
 }
 
 .task-deadline-picker__time {
@@ -10906,13 +11180,24 @@ video.schema-field__show-resource-media {
   grid-row: 1;
   display: grid;
   grid-template-columns: 1fr;
-  justify-items: center;
-  gap: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  justify-items: stretch;
+  gap: 10px;
   margin-top: 0;
-  padding: 0;
+  padding: 16px 14px 14px;
   border: 0;
+  border-left: 1px solid #e3e9f3;
   border-radius: 0;
   background: transparent;
+}
+
+.task-deadline-picker__time-heading {
+  min-height: 20px;
+  display: grid;
+  align-items: center;
+  color: #4f5c73;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .task-deadline-picker__time-field {
@@ -10924,37 +11209,17 @@ video.schema-field__show-resource-media {
 .task-deadline-picker__hour-wheel-shell {
   position: relative;
   isolation: isolate;
-  width: 104px;
-  height: 164px;
+  width: 100%;
+  height: 184px;
   overflow: hidden;
-  border: 1px solid rgba(48, 109, 248, 0.22);
-  border-radius: 18px;
+  border: 0;
+  border-radius: 0;
   color: #172033;
-  background: #ffffff;
-  box-shadow: 0 8px 18px rgba(48, 109, 248, 0.06);
-  perspective: 560px;
-  transform-style: preserve-3d;
-  transition:
-    border-color 180ms ease,
-    box-shadow 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  background: transparent;
 }
 
 .task-deadline-picker__hour-wheel-shell::before {
-  position: absolute;
-  top: 50%;
-  right: 7px;
-  left: 7px;
-  z-index: 0;
-  height: 38px;
-  border-top: 1px solid rgba(48, 109, 248, 0.2);
-  border-bottom: 1px solid rgba(48, 109, 248, 0.2);
-  background: rgba(48, 109, 248, 0.08);
-  content: '';
-  pointer-events: none;
-  transform: translateY(-50%);
-  transition:
-    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    background-color 180ms ease;
+  content: none;
 }
 
 .task-deadline-picker__hour-wheel-shell::after {
@@ -10964,10 +11229,10 @@ video.schema-field__show-resource-media {
   background: linear-gradient(
     180deg,
     #ffffff 0%,
-    rgba(255, 255, 255, 0.76) 17%,
+    rgba(255, 255, 255, 0.88) 8%,
     rgba(255, 255, 255, 0) 36%,
     rgba(255, 255, 255, 0) 64%,
-    rgba(255, 255, 255, 0.76) 83%,
+    rgba(255, 255, 255, 0.88) 92%,
     #ffffff 100%
   );
   content: '';
@@ -10975,13 +11240,11 @@ video.schema-field__show-resource-media {
 }
 
 .task-deadline-picker__hour-wheel-shell.is-dragging {
-  border-color: rgba(48, 109, 248, 0.32);
-  box-shadow: 0 10px 22px rgba(48, 109, 248, 0.1);
+  box-shadow: none;
 }
 
 .task-deadline-picker__hour-wheel-shell.is-dragging::before {
-  background: rgba(48, 109, 248, 0.12);
-  transform: translateY(-50%) scale(0.99);
+  content: none;
 }
 
 .task-deadline-picker__hour-wheel {
@@ -10990,36 +11253,32 @@ video.schema-field__show-resource-media {
   height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 64px 0;
+  padding: 73px 10px;
   color: #306df8;
   background: transparent;
   cursor: ns-resize;
-  mask-image: linear-gradient(
-    180deg,
-    transparent 0%,
-    #000000 24%,
-    #000000 76%,
-    transparent 100%
-  );
   overscroll-behavior: contain;
-  scroll-padding-block: 64px;
+  scroll-padding-block: 73px;
   scroll-snap-type: y mandatory;
-  scrollbar-width: none;
+  scrollbar-color: #d8dee8 transparent;
+  scrollbar-width: thin;
   touch-action: none;
   user-select: none;
   outline: none;
-  -webkit-mask-image: linear-gradient(
-    180deg,
-    transparent 0%,
-    #000000 24%,
-    #000000 76%,
-    transparent 100%
-  );
   -webkit-overflow-scrolling: touch;
 }
 
 .task-deadline-picker__hour-wheel::-webkit-scrollbar {
-  display: none;
+  width: 5px;
+}
+
+.task-deadline-picker__hour-wheel::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #d8dee8;
+}
+
+.task-deadline-picker__hour-wheel::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .task-deadline-picker__hour-wheel:focus-visible {
@@ -11035,21 +11294,23 @@ video.schema-field__show-resource-media {
   position: relative;
   z-index: 1;
   width: 100%;
-  height: 36px;
+  height: 38px;
   display: grid;
   place-items: center;
-  color: #306df8;
-  font-size: 13px;
-  font-weight: 500;
+  border: 0;
+  border-radius: 6px;
+  padding: 0;
+  color: #566176;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
   line-height: 1;
   scroll-snap-align: center;
   scroll-snap-stop: always;
-  transform-origin: center;
   transition:
-    opacity 260ms ease,
-    filter 260ms ease,
-    transform 340ms cubic-bezier(0.16, 1, 0.3, 1),
-    font-size 260ms ease;
+    color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .task-deadline-picker__hour-wheel-shell.is-dragging .task-deadline-picker__hour-option {
@@ -11058,65 +11319,101 @@ video.schema-field__show-resource-media {
 
 .task-deadline-picker__hour-option--selected {
   color: #306df8;
-  font-size: 22px;
-  font-weight: 600;
-  opacity: 1;
-  text-shadow: 0 5px 14px rgba(48, 109, 248, 0.14);
-  transform: translateZ(34px) scale(1.02);
+  background: #edf4ff;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px rgba(48, 109, 248, 0.04);
 }
 
 .task-deadline-picker__hour-option--near {
-  font-size: 15px;
-  opacity: 0.42;
-  filter: blur(0.12px);
+  opacity: 1;
 }
 
 .task-deadline-picker__hour-option--far {
-  font-size: 13px;
-  opacity: 0.24;
-  filter: blur(0.55px);
+  opacity: 1;
 }
 
 .task-deadline-picker__hour-option--hidden {
-  opacity: 0.08;
-  transform: scale(0.78) translateZ(-42px);
+  opacity: 1;
 }
 
 .task-deadline-picker__hour-option--near.task-deadline-picker__hour-option--past {
-  transform: rotateX(32deg) scale(0.88) translateZ(-12px);
+  transform: none;
 }
 
 .task-deadline-picker__hour-option--near.task-deadline-picker__hour-option--future {
-  transform: rotateX(-32deg) scale(0.88) translateZ(-12px);
+  transform: none;
 }
 
 .task-deadline-picker__hour-option--far.task-deadline-picker__hour-option--past {
-  transform: rotateX(58deg) scale(0.72) translateZ(-30px);
+  transform: none;
 }
 
 .task-deadline-picker__hour-option--far.task-deadline-picker__hour-option--future {
-  transform: rotateX(-58deg) scale(0.72) translateZ(-30px);
+  transform: none;
 }
 
 .task-deadline-picker__footer {
-  grid-column: 2;
+  grid-column: 1 / -1;
   grid-row: 2;
-  display: flex;
-  align-self: start;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
   margin-top: 0;
+  border-top: 1px solid #dfe6f0;
+  padding: 8px 14px 8px 16px;
+}
+
+.task-deadline-picker__selected-summary {
+  min-width: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  color: #526072;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.task-deadline-picker__selected-summary strong {
+  overflow: hidden;
+  color: #344054;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-deadline-picker__footer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-deadline-picker__cancel,
+.task-deadline-picker__confirm {
+  width: 72px;
+  min-height: 32px;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .task-deadline-picker__confirm {
-  width: 104px;
-  min-height: 32px;
-  border: 1px solid #c9d8f6;
-  border-radius: 999px;
-  padding: 0 12px;
-  color: #306df8;
-  background: transparent;
-  font-size: 12px;
-  font-weight: 800;
+  border: 1px solid #306df8;
+  color: #ffffff;
+  background: #306df8;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.task-deadline-picker__cancel {
+  border: 1px solid #d7e1f1;
+  color: #64748b;
+  background: #ffffff;
   transition:
     color 160ms ease,
     background-color 160ms ease,
@@ -11142,11 +11439,26 @@ video.schema-field__show-resource-media {
   background: #f8fbff;
 }
 
-.task-publish-drawer .task-deadline-picker__confirm:hover:not(:disabled) {
-  border-color: #c9d6ee;
+.task-publish-drawer .task-deadline-picker__hour-option:hover:not(:disabled) {
+  border-color: transparent;
   color: #306df8;
-  background: #edf4ff;
+  background: #f4f8ff;
+}
+
+.task-publish-drawer .task-deadline-picker__cancel:hover:not(:disabled),
+.task-publish-drawer .task-deadline-picker__cancel:focus-visible:not(:disabled) {
+  border-color: #c7d5eb;
+  color: #475569;
+  background: #f8fbff;
   box-shadow: none;
+  outline: none;
+}
+
+.task-publish-drawer .task-deadline-picker__confirm:hover:not(:disabled) {
+  border-color: #245ddc;
+  color: #ffffff;
+  background: #245ddc;
+  box-shadow: 0 8px 18px rgba(48, 109, 248, 0.22);
 }
 
 @keyframes taskDeadlinePickerIn {
@@ -16421,6 +16733,14 @@ video.schema-field__show-resource-media {
   flex: 0 0 auto;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.agent-dashboard-export-message {
+  margin: 2px 0 0;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .agent-dashboard-range {
@@ -16499,6 +16819,15 @@ video.schema-field__show-resource-media {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 14px;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+  will-change: opacity, transform;
+}
+
+.agent-dashboard-grid.is-range-transitioning {
+  opacity: 0.96;
+  transform: translateY(1px);
 }
 
 .agent-dashboard-alert {
@@ -16742,20 +17071,25 @@ video.schema-field__show-resource-media {
 
 .agent-dashboard-trend-chart {
   position: relative;
-  min-height: 210px;
+  min-height: 236px;
   display: grid;
   gap: 6px;
 }
 
+.agent-dashboard-trend-plot {
+  width: 100%;
+  height: 236px;
+}
+
 .agent-dashboard-chart-legend {
   position: absolute;
-  top: -23px;
+  top: -52px;
   right: 0;
   display: flex;
   align-items: center;
   gap: 14px;
   color: #64748b;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -16763,6 +17097,7 @@ video.schema-field__show-resource-media {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  letter-spacing: 0;
 }
 
 .agent-dashboard-chart-legend span::before {
@@ -16772,71 +17107,26 @@ video.schema-field__show-resource-media {
   border-radius: 999px;
 }
 
-.agent-dashboard-chart-legend .is-bar::before {
-  background: rgba(48, 109, 248, 0.72);
-}
-
 .agent-dashboard-chart-legend .is-line::before {
   background: #16a34a;
 }
 
-.agent-dashboard-trend-chart svg {
-  width: 100%;
-  height: 210px;
-  display: block;
+.agent-dashboard-chart-legend .is-line {
+  color: #16a34a;
 }
 
-.agent-dashboard-chart-grid {
-  stroke: #eaf0f7;
-  stroke-width: 1;
-}
-
-.agent-dashboard-axis-label {
+.agent-dashboard-trend-plot .recharts-cartesian-axis-tick-value {
   fill: #64748b;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
 }
 
-.agent-dashboard-trend-bar {
-  fill: rgba(48, 109, 248, 0.66);
+.agent-dashboard-trend-plot .recharts-cartesian-axis-tick {
+  font-size: 14px;
 }
 
-.agent-dashboard-trend-line {
-  fill: none;
-  stroke: #16a34a;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 3;
-}
-
-.agent-dashboard-trend-dot {
-  fill: #ffffff;
-  stroke: #16a34a;
-  stroke-width: 3;
-}
-
-.agent-dashboard-trend-hotspots {
-  position: absolute;
-  inset: 22px 0 18px;
-  pointer-events: none;
-}
-
-.agent-dashboard-trend-hotspots button {
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  border: 0;
-  border-radius: 999px;
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-  pointer-events: auto;
-  transform: translate(-50%, -50%);
-}
-
-.agent-dashboard-trend-hotspots button:focus-visible {
-  outline: 2px solid rgba(48, 109, 248, 0.4);
-  outline-offset: 2px;
+.agent-dashboard-trend-plot .recharts-legend-item {
+  font-size: 14px;
 }
 
 .agent-dashboard-tooltip {
@@ -16852,13 +17142,17 @@ video.schema-field__show-resource-media {
   color: #334155;
   background: #ffffff;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .agent-dashboard-tooltip strong {
   color: #172b4d;
-  font-size: 13px;
+  font-size: 15px;
+}
+
+.agent-dashboard-trend-plot .recharts-text {
+  fill: #475569;
 }
 
 .agent-dashboard-quality {
@@ -17313,7 +17607,7 @@ video.schema-field__show-resource-media {
     min-height: 250px;
   }
 
-  .agent-dashboard-trend-chart svg {
+  .agent-dashboard-trend-plot {
     height: 250px;
   }
 
@@ -17379,6 +17673,16 @@ video.schema-field__show-resource-media {
 
 .agent-review-batch-table {
   min-width: 920px;
+}
+
+.agent-review-batch-table__sortable-header {
+  padding: 0;
+  background: transparent;
+}
+
+.agent-review-batch-table__sortable-header:hover,
+.agent-review-batch-table__sortable-header:focus-visible {
+  background: transparent;
 }
 
 .agent-review-batch-table__col-title {
@@ -21346,6 +21650,64 @@ video.schema-field__show-resource-media {
     padding: 24px;
   }
 
+  .task-deadline-picker__popover {
+    width: min(286px, calc(100vw - 48px));
+    grid-template-columns: minmax(0, 1fr) 82px;
+    column-gap: 4px;
+  }
+
+  .task-deadline-picker__calendar {
+    padding: 9px 7px 10px;
+  }
+
+  .task-deadline-picker__day {
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+  }
+
+  .task-deadline-picker__time {
+    padding: 10px 7px 9px;
+  }
+
+  .task-deadline-picker__time-heading {
+    font-size: 12px;
+  }
+
+  .task-deadline-picker__hour-wheel-shell {
+    height: 178px;
+  }
+
+  .task-deadline-picker__hour-wheel {
+    padding: 70px 3px;
+    scroll-padding-block: 70px;
+  }
+
+  .task-deadline-picker__hour-option {
+    font-size: 15px;
+  }
+
+  .task-deadline-picker__hour-option--selected {
+    font-size: 14px;
+  }
+
+  .task-deadline-picker__footer {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .task-deadline-picker__footer-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .task-deadline-picker__cancel,
+  .task-deadline-picker__confirm {
+    width: 100%;
+    min-height: 32px;
+  }
+
   .task-management-table-card {
     padding: 16px 16px 0;
   }
@@ -21622,7 +21984,6 @@ video.schema-field__show-resource-media {
   justify-items: center;
 }
 
-.task-progress-cell__meta,
 .task-market-table__actions {
   justify-content: center;
 }

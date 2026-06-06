@@ -258,19 +258,27 @@ describe('TaskListPage', () => {
       .getAllByRole('columnheader')
       .map((header) => header.textContent);
     expect(headers.slice(0, 7)).toEqual([
-      '任务ID',
+      '任务ID⇅',
       '任务名',
       '状态',
       '创建人',
       '进度',
-      '创建时间',
-      '截止时间',
+      '创建时间⇅',
+      '截止时间⇅',
     ]);
+    expect(within(table).getByRole('button', { name: '按任务ID排序' })).toHaveClass('task-table__sortable-header');
+    expect(within(table).getByRole('button', { name: '按创建时间排序' })).toHaveClass('task-table__sortable-header');
+    expect(within(table).getByRole('button', { name: '按截止时间排序' })).toHaveClass('task-table__sortable-header');
+    expect(within(table).queryByRole('button', { name: '按任务名排序' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '按状态排序' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '按创建人排序' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '按进度排序' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: '按操作排序' })).not.toBeInTheDocument();
     expect(headers).not.toContain('分发策略');
     expect(rows[1]).toHaveTextContent('直播话术安全审核');
     expect(rows[2]).toHaveTextContent('短视频脚本对齐评测');
     expect(within(table).getAllByText('张满').length).toBeGreaterThan(0);
-    expect(within(table).getAllByText('120 / 5,000').length).toBeGreaterThan(0);
+    expect(within(table).getAllByText('120 / 5,000 题')[0]).toHaveClass('task-progress-cell__count');
     expect(table.querySelectorAll('.task-date-cell').length).toBeGreaterThan(0);
     expect(table.querySelectorAll('.task-date-cell__date').length).toBeGreaterThan(0);
     expect(table.querySelectorAll('.task-date-cell__time').length).toBeGreaterThan(0);
@@ -465,6 +473,89 @@ describe('TaskListPage', () => {
     expect(within(rows[2]).getByText('T-0001')).toBeInTheDocument();
     expect(within(table).queryByText('cmpjpv2gcu0004z6pee7yxro8k')).not.toBeInTheDocument();
     expect(within(table).queryByText('cmpjpv2gcu0001z6peexxx1111')).not.toBeInTheDocument();
+  });
+
+  it('任务列表仅允许任务ID、创建时间和截止时间按指定方向排序', async () => {
+    const user = userEvent.setup();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          data: [
+            {
+              ...baseTask,
+              id: 'task_c',
+              title: '任务 C',
+              createdAt: '2026-06-03T00:00:00.000Z',
+              deadline: '2026-06-12T00:00:00.000Z',
+            },
+            {
+              ...baseTask,
+              id: 'task_a',
+              title: '任务 A',
+              createdAt: '2026-06-01T00:00:00.000Z',
+              deadline: '2026-06-11T00:00:00.000Z',
+            },
+            {
+              ...baseTask,
+              id: 'task_b',
+              title: '任务 B',
+              createdAt: '2026-06-02T00:00:00.000Z',
+              deadline: '2026-06-13T00:00:00.000Z',
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderTaskListPage();
+
+    const table = await screen.findByRole('table', { name: '任务列表' });
+    const getTaskTitles = () =>
+      Array.from(table.querySelectorAll('tbody tr')).map(
+        (row) => row.querySelector('.task-title-link')?.textContent?.trim() ?? '',
+      );
+
+    expect(getTaskTitles()).toEqual(['任务 C', '任务 B', '任务 A']);
+
+    const taskIdSortButton = within(table).getByRole('button', { name: '按任务ID排序' });
+    const createdAtSortButton = within(table).getByRole('button', { name: '按创建时间排序' });
+    const deadlineSortButton = within(table).getByRole('button', { name: '按截止时间排序' });
+
+    expect(taskIdSortButton).toHaveTextContent('任务ID⇅');
+    expect(createdAtSortButton).toHaveTextContent('创建时间⇅');
+    expect(deadlineSortButton).toHaveTextContent('截止时间⇅');
+
+    await user.click(taskIdSortButton);
+    expect(getTaskTitles()).toEqual(['任务 A', '任务 B', '任务 C']);
+    expect(taskIdSortButton).toHaveTextContent('任务ID↑');
+
+    await user.click(taskIdSortButton);
+    expect(getTaskTitles()).toEqual(['任务 C', '任务 B', '任务 A']);
+    expect(taskIdSortButton).toHaveTextContent('任务ID↓');
+
+    await user.click(createdAtSortButton);
+    expect(getTaskTitles()).toEqual(['任务 A', '任务 B', '任务 C']);
+    expect(taskIdSortButton).toHaveTextContent('任务ID⇅');
+    expect(createdAtSortButton).toHaveTextContent('创建时间↑');
+
+    await user.click(createdAtSortButton);
+    expect(getTaskTitles()).toEqual(['任务 C', '任务 B', '任务 A']);
+    expect(createdAtSortButton).toHaveTextContent('创建时间↓');
+
+    await user.click(deadlineSortButton);
+    expect(getTaskTitles()).toEqual(['任务 A', '任务 C', '任务 B']);
+    expect(createdAtSortButton).toHaveTextContent('创建时间⇅');
+    expect(deadlineSortButton).toHaveTextContent('截止时间↑');
+
+    await user.click(deadlineSortButton);
+    expect(getTaskTitles()).toEqual(['任务 B', '任务 C', '任务 A']);
+    expect(deadlineSortButton).toHaveTextContent('截止时间↓');
+
+    await user.click(deadlineSortButton);
+    expect(getTaskTitles()).toEqual(['任务 A', '任务 C', '任务 B']);
+    expect(deadlineSortButton).toHaveTextContent('截止时间↑');
   });
 
   it('能从发布抽屉发布草稿，并能暂停、恢复和结束任务', async () => {
@@ -1071,7 +1162,14 @@ describe('TaskListPage', () => {
     renderTaskListPage();
 
     const table = await screen.findByRole('table', { name: '任务列表' });
-    expect(within(table).getByText('0 / 30')).toBeInTheDocument();
+    expect(within(table).getByText('0 / 30 题')).toHaveClass('task-progress-cell__count');
+    const progressbar = within(table).getByRole('progressbar', {
+      name: '商品标题清洗 v3 · 抖音电商 完成进度',
+    });
+    expect(progressbar).toHaveClass('task-progress');
+    expect(within(progressbar.closest('.task-progress-cell') as HTMLElement).getByText('0%').tagName).toBe('STRONG');
+    expect(progressbar).toHaveAttribute('aria-valuenow', '0');
+    expect(progressbar).toHaveAttribute('aria-valuetext', '0 / 30，0%');
     expect(table.querySelector('.task-progress span')).toHaveStyle({ width: '0%' });
   });
 
@@ -1672,7 +1770,10 @@ describe('TaskListPage', () => {
     expect(within(table).getByText('创建时间')).toBeInTheDocument();
     expect(within(table).getByText('创建人')).toBeInTheDocument();
     expect(within(table).getByText('进度')).toBeInTheDocument();
-    expect(within(table).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(table).getAllByRole('button')).toHaveLength(3);
+    expect(within(table).getByRole('button', { name: '按任务ID排序' })).toHaveTextContent('任务ID⇅');
+    expect(within(table).getByRole('button', { name: '按创建时间排序' })).toHaveTextContent('创建时间⇅');
+    expect(within(table).getByRole('button', { name: '按截止时间排序' })).toHaveTextContent('截止时间⇅');
     const emptyIllustration = within(table).getByRole('img', { name: '空任务列表插画' });
     expect(emptyIllustration).toBeInTheDocument();
     expect(emptyIllustration.tagName).toBe('IMG');
@@ -1710,7 +1811,10 @@ describe('TaskListPage', () => {
     expect(within(table).getByText('创建时间')).toBeInTheDocument();
     expect(within(table).getByText('创建人')).toBeInTheDocument();
     expect(within(table).getByText('进度')).toBeInTheDocument();
-    expect(within(table).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(table).getAllByRole('button')).toHaveLength(3);
+    expect(within(table).getByRole('button', { name: '按任务ID排序' })).toHaveTextContent('任务ID⇅');
+    expect(within(table).getByRole('button', { name: '按创建时间排序' })).toHaveTextContent('创建时间⇅');
+    expect(within(table).getByRole('button', { name: '按截止时间排序' })).toHaveTextContent('截止时间⇅');
     expect(screen.queryByText('暂无匹配任务')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '新建任务' }));
 
@@ -2118,16 +2222,18 @@ describe('TaskListPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /选择截止时间/ }));
     expect(showPicker).not.toHaveBeenCalled();
     const deadlineDialog = screen.getByRole('dialog', { name: '选择截止时间' });
-    expect(within(deadlineDialog).getByText('2026年5月24日')).toBeInTheDocument();
+    expect(within(deadlineDialog).getByText('2026年5月')).toBeInTheDocument();
     expect(within(deadlineDialog).getByRole('button', { name: '2026-04-27 不可选' })).toBeDisabled();
     expect(within(deadlineDialog).getByRole('button', { name: '2026-05-23 不可选' })).toBeDisabled();
     expect(within(deadlineDialog).queryByRole('button', { name: '2026-04-27' })).not.toBeInTheDocument();
     const hourWheel = within(deadlineDialog).getByRole('spinbutton', { name: '截止整点' });
     expect(hourWheel).toHaveAttribute('aria-valuenow', '23');
+    expect(within(deadlineDialog).getByRole('region', { name: '截止时间' })).toHaveTextContent('时间');
+    expect(within(deadlineDialog).getByRole('region', { name: '截止时间' })).toHaveTextContent('23:00');
     expect(within(deadlineDialog).queryByText('小时')).not.toBeInTheDocument();
     expect(within(deadlineDialog).queryByLabelText('截止分钟')).not.toBeInTheDocument();
     expect(within(deadlineDialog).queryByLabelText('截止秒钟')).not.toBeInTheDocument();
-    expect(within(deadlineDialog).queryByRole('button', { name: '取消' })).not.toBeInTheDocument();
+    expect(within(deadlineDialog).getByRole('button', { name: '取消' })).toBeInTheDocument();
     const deadlineInput = screen.getByLabelText('截止日期时间') as HTMLInputElement;
     expect(deadlineInput).toHaveAttribute('type', 'datetime-local');
     expect(deadlineInput).toHaveAttribute('step', '1');
@@ -2136,7 +2242,7 @@ describe('TaskListPage', () => {
     fireEvent.change(deadlineInput, { target: { value: '2026-05-24T09:08:07' } });
     expect(screen.getByRole('button', { name: '选择截止时间' })).toBeInTheDocument();
     fireEvent.click(within(deadlineDialog).getByRole('button', { name: '2026-05-24' }));
-    expect(within(deadlineDialog).getByText('2026年5月24日')).toBeInTheDocument();
+    expect(within(deadlineDialog).getByText('2026年5月')).toBeInTheDocument();
     fireEvent.keyDown(hourWheel, { key: 'Home' });
     for (let index = 0; index < 9; index += 1) {
       fireEvent.keyDown(hourWheel, { key: 'ArrowUp' });
@@ -2144,9 +2250,20 @@ describe('TaskListPage', () => {
     expect(hourWheel).toHaveAttribute('aria-valuenow', '9');
     expect(within(deadlineDialog).getByRole('button', { name: '确定' })).toBeDisabled();
 
+    fireEvent.wheel(hourWheel, { deltaY: 10 });
+    expect(hourWheel).toHaveAttribute('aria-valuenow', '9');
+    fireEvent.wheel(hourWheel, { deltaY: 50 });
+    expect(hourWheel).toHaveAttribute('aria-valuenow', '9');
+    fireEvent.wheel(hourWheel, { deltaY: 70 });
+    expect(hourWheel).toHaveAttribute('aria-valuenow', '10');
+    fireEvent.wheel(hourWheel, { deltaY: -40 });
+    expect(hourWheel).toHaveAttribute('aria-valuenow', '10');
+    fireEvent.wheel(hourWheel, { deltaY: -90 });
+    expect(hourWheel).toHaveAttribute('aria-valuenow', '9');
+
     fireEvent(hourWheel, new MouseEvent('pointerdown', { bubbles: true, cancelable: true, clientY: 100 }));
-    fireEvent(hourWheel, new MouseEvent('pointermove', { bubbles: true, cancelable: true, clientY: 28 }));
-    fireEvent(hourWheel, new MouseEvent('pointerup', { bubbles: true, cancelable: true, clientY: 28 }));
+    fireEvent(hourWheel, new MouseEvent('pointermove', { bubbles: true, cancelable: true, clientY: -52 }));
+    fireEvent(hourWheel, new MouseEvent('pointerup', { bubbles: true, cancelable: true, clientY: -52 }));
     expect(hourWheel).toHaveAttribute('aria-valuenow', '11');
     fireEvent.click(within(deadlineDialog).getByRole('button', { name: '确定' }));
 

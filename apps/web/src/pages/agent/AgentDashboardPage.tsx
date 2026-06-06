@@ -1,4 +1,15 @@
-import { type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 import {
   DASHBOARD_RANGE_OPTIONS,
@@ -21,12 +32,19 @@ const DashboardPage = () => {
   const [range, setRange] = useState<DashboardRange>('7d');
   const [data, setData] = useState<AgentDashboardData>(() => emptyAgentDashboardData('7d'));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRangeChanging, setIsRangeChanging] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const dashboardRef = useRef<HTMLDivElement | null>(null);
+  const isRangeChangingRef = useRef(false);
+  const isBusy = isLoading || isRangeChanging || isExporting;
 
   useEffect(() => {
     let isCurrent = true;
-    setIsLoading(true);
+    if (!isRangeChangingRef.current) {
+      setIsLoading(true);
+    }
     setErrorMessage(null);
 
     loadAgentDashboardData(range)
@@ -44,6 +62,8 @@ const DashboardPage = () => {
       .finally(() => {
         if (isCurrent) {
           setIsLoading(false);
+          setIsRangeChanging(false);
+          isRangeChangingRef.current = false;
         }
       });
 
@@ -52,50 +72,59 @@ const DashboardPage = () => {
     };
   }, [range]);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    setErrorMessage(null);
-    try {
-      const [nextData] = await Promise.all([loadAgentDashboardData(range), wait(160)]);
-      setData(nextData);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '数据看板接口请求失败，请稍后重试。');
-    } finally {
-      setIsRefreshing(false);
+  const handleRangeChange = (nextRange: DashboardRange) => {
+    if (nextRange === range) {
+      return;
     }
+    isRangeChangingRef.current = true;
+    setIsRangeChanging(true);
+    setExportMessage(null);
+    setRange(nextRange);
   };
 
-  const handleExport = () => {
-    console.log('export-agent-dashboard-report', {
-      range,
-      updatedAt: data.updatedAt,
-    });
+  const handleExport = async () => {
+    setErrorMessage(null);
+    setExportMessage(null);
+    setIsExporting(true);
+    try {
+      const filename = triggerDashboardReportDownload(dashboardRef.current, data.rangeSubtitle);
+      setExportMessage(`已生成报告：${filename}`);
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? `导出报告失败：${error.message}` : '导出报告失败，请稍后重试。');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
     <section className="agent-dashboard-page" aria-label="AI 预审数据看板">
       <DashboardHeader
         activeRange={range}
-        isRefreshing={isRefreshing}
+        isExporting={isExporting}
+        isBusy={isBusy}
+        exportMessage={exportMessage}
         onExport={handleExport}
-        onRangeChange={setRange}
-        onRefresh={handleRefresh}
+        onRangeChange={handleRangeChange}
       />
 
       {errorMessage ? <p className="agent-dashboard-alert" role="alert">{errorMessage}</p> : null}
 
-      <div className={`agent-dashboard-grid${isLoading || isRefreshing ? ' is-loading' : ''}`} aria-busy={isLoading || isRefreshing}>
+      <div
+        ref={dashboardRef}
+        className={`agent-dashboard-grid${isLoading || isRangeChanging ? ' is-range-transitioning' : ''}`}
+        aria-busy={isLoading || isRangeChanging}
+      >
         <ul className="agent-dashboard-kpi-grid" aria-label="核心 KPI">
           {data.kpis.map((metric) => (
             <KpiCard key={metric.label} metric={metric} />
           ))}
         </ul>
 
-        <TrendChartCard data={data} isLoading={isLoading || isRefreshing} />
-        <QualityDistributionCard data={data} isLoading={isLoading || isRefreshing} />
-        <ProblemReasonCard items={data.problemReasons} isLoading={isLoading || isRefreshing} />
-        <HighRiskTaskCard tasks={data.highRiskTasks} isLoading={isLoading || isRefreshing} />
-        <AbnormalBatchCard batches={data.abnormalBatches} isLoading={isLoading || isRefreshing} />
+        <TrendChartCard data={data} isLoading={isLoading} />
+        <QualityDistributionCard data={data} isLoading={isLoading} />
+        <ProblemReasonCard items={data.problemReasons} isLoading={isLoading} />
+        <HighRiskTaskCard tasks={data.highRiskTasks} isLoading={isLoading} />
+        <AbnormalBatchCard batches={data.abnormalBatches} isLoading={isLoading} />
         <TaskStatusOverviewCard items={data.taskStatus} totalTasks={data.totalTasks} />
       </div>
     </section>
@@ -104,16 +133,18 @@ const DashboardPage = () => {
 
 const DashboardHeader = ({
   activeRange,
-  isRefreshing,
+  isExporting,
+  isBusy,
+  exportMessage,
   onExport,
   onRangeChange,
-  onRefresh,
 }: {
   activeRange: DashboardRange;
-  isRefreshing: boolean;
+  isExporting: boolean;
+  isBusy: boolean;
+  exportMessage: string | null;
   onExport: () => void;
   onRangeChange: (range: DashboardRange) => void;
-  onRefresh: () => void;
 }) => (
   <header className="agent-dashboard-header">
     <div className="agent-dashboard-heading">
@@ -134,12 +165,19 @@ const DashboardHeader = ({
           </button>
         ))}
       </div>
-      <button className="agent-dashboard-button" disabled={isRefreshing} onClick={onRefresh} type="button">
-        {isRefreshing ? '刷新中' : '刷新'}
+      <button
+        className="agent-dashboard-button agent-dashboard-button--primary"
+        disabled={isBusy}
+        onClick={onExport}
+        type="button"
+      >
+        {isExporting ? '导出中' : '导出报告'}
       </button>
-      <button className="agent-dashboard-button agent-dashboard-button--primary" onClick={onExport} type="button">
-        导出报告
-      </button>
+      {exportMessage ? (
+        <p className="agent-dashboard-export-message" role="status" aria-live="polite">
+          {exportMessage}
+        </p>
+      ) : null}
     </div>
   </header>
 );
@@ -251,7 +289,6 @@ const CardHeader = ({
 const TrendChartCard = ({ data, isLoading }: { data: AgentDashboardData; isLoading: boolean }) => (
   <section className="agent-dashboard-card agent-dashboard-card--trend" aria-labelledby="agent-dashboard-trend-title">
     <CardHeader
-      aside="处理题目数 / 通过率"
       id="agent-dashboard-trend-title"
       subtitle={data.rangeSubtitle}
       title="处理趋势"
@@ -263,137 +300,92 @@ const TrendChartCard = ({ data, isLoading }: { data: AgentDashboardData; isLoadi
 );
 
 const TrendChart = ({ points }: { points: TrendPoint[] }) => {
-  const [activePoint, setActivePoint] = useState<TrendPoint | null>(null);
-  const chart = useMemo(() => buildTrendChart(points), [points]);
+  const trendColor = '#16a34a';
+  const areaColor = '#dcfce7';
+
+  const chartData = useMemo(
+    () =>
+      points.map((point) => ({
+        label: point.label,
+        passRate: point.passRate,
+      })),
+    [points],
+  );
 
   return (
     <div className="agent-dashboard-trend-chart">
       <div className="agent-dashboard-chart-legend" aria-hidden="true">
-        <span className="is-bar">处理题目数</span>
         <span className="is-line">通过率</span>
       </div>
-      <svg viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label="处理趋势图">
-        <title>处理趋势图</title>
-        {chart.horizontalGrid.map((y) => (
-          <line className="agent-dashboard-chart-grid" key={y} x1={chart.padding.left} x2={chart.width - chart.padding.right} y1={y} y2={y} />
-        ))}
-        {chart.yAxisLabels.map((label) => (
-          <text className="agent-dashboard-axis-label" key={label.text} x={chart.padding.left - 12} y={label.y + 4} textAnchor="end">
-            {label.text}
-          </text>
-        ))}
-        {chart.rateAxisLabels.map((label) => (
-          <text className="agent-dashboard-axis-label" key={label.text} x={chart.width - chart.padding.right + 12} y={label.y + 4}>
-            {label.text}
-          </text>
-        ))}
-        {chart.bars.map((bar) => (
-          <g key={bar.label}>
-            <rect className="agent-dashboard-trend-bar" height={bar.height} rx="7" width={bar.width} x={bar.x} y={bar.y} />
-            {bar.showLabel ? (
-              <text className="agent-dashboard-axis-label" textAnchor="middle" x={bar.centerX} y={chart.height - 12}>
-                {bar.label}
-              </text>
-            ) : null}
-          </g>
-        ))}
-        <polyline className="agent-dashboard-trend-line" points={chart.linePoints} />
-        {chart.lineDots.map((dot) => (
-          <circle className="agent-dashboard-trend-dot" cx={dot.x} cy={dot.y} key={dot.label} r="4.5" />
-        ))}
-      </svg>
 
-      <div className="agent-dashboard-trend-hotspots" aria-label="趋势图数据点">
-        {chart.hotspots.map((hotspot) => (
-          <button
-            aria-label={`${hotspot.point.label} 处理题目数 ${hotspot.point.processed.toLocaleString()} 通过率 ${hotspot.point.passRate}%`}
-            key={hotspot.point.label}
-            onBlur={() => setActivePoint(null)}
-            onFocus={() => setActivePoint(hotspot.point)}
-            onMouseEnter={() => setActivePoint(hotspot.point)}
-            onMouseLeave={() => setActivePoint(null)}
-            style={{
-              left: `${hotspot.left}%`,
-              top: `${hotspot.top}%`,
-            }}
-            type="button"
-          />
-        ))}
+      <div className="agent-dashboard-trend-plot" role="img" aria-label="处理趋势图">
+        <ResponsiveContainer width="100%" height={236}>
+          <AreaChart data={chartData} margin={{ top: 12, right: 24, left: 22, bottom: 24 }}>
+            <defs>
+              <linearGradient id="trend-pass-rate-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={areaColor} stopOpacity={0.85} />
+                <stop offset="100%" stopColor={areaColor} stopOpacity={0.24} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="4 6" stroke="#edf2fb" vertical={false} />
+            <XAxis
+              axisLine={false}
+              dataKey="label"
+              tick={{ fill: '#64748b', fontSize: 14, fontWeight: 600 }}
+              tickLine={false}
+              minTickGap={18}
+              angle={points.length > 14 ? -25 : 0}
+              textAnchor={points.length > 14 ? 'end' : 'middle'}
+              interval="preserveStartEnd"
+            />
+            <YAxis
+              domain={[0, 100]}
+              tick={{ fill: '#64748b', fontSize: 14, fontWeight: 600 }}
+              width={52}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(value) => `${value}%`}
+            />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload || payload.length === 0) {
+                  return null;
+                }
+                const passRate = payload.find((item) => item.dataKey === 'passRate')?.value;
+                return (
+                  <div className="agent-dashboard-tooltip" role="tooltip">
+                    <strong>{label}</strong>
+                    <span>通过率 {Number(passRate).toFixed(1)}%</span>
+                  </div>
+                );
+              }}
+              cursor={false}
+            />
+            <Area
+              dataKey="passRate"
+              stroke="none"
+              fill="url(#trend-pass-rate-fill)"
+              strokeOpacity={0}
+              type="monotone"
+              baseValue={0}
+              connectNulls
+              name="通过率"
+            />
+            <Line
+              dataKey="passRate"
+              stroke={trendColor}
+              strokeWidth={3.2}
+              type="monotone"
+              dot={{ r: 3.5, fill: '#ffffff', stroke: trendColor, strokeWidth: 2.8 }}
+              activeDot={{ r: 5, fill: trendColor, strokeWidth: 0 }}
+              connectNulls
+              name="通过率"
+            />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
-
-      {activePoint ? (
-        <div className="agent-dashboard-tooltip" role="tooltip">
-          <strong>{activePoint.label}</strong>
-          <span>处理题目数 {activePoint.processed.toLocaleString()}</span>
-          <span>通过率 {activePoint.passRate}%</span>
-        </div>
-      ) : null}
     </div>
   );
-};
-
-const buildTrendChart = (points: TrendPoint[]) => {
-  const width = 720;
-  const height = 286;
-  const padding = { bottom: 36, left: 58, right: 58, top: 24 };
-  const plotWidth = width - padding.left - padding.right;
-  const plotHeight = height - padding.top - padding.bottom;
-  const maxProcessed = Math.max(0, ...points.map((point) => point.processed));
-  const processedCeil = Math.max(1, Math.ceil(maxProcessed / 1000) * 1000);
-  const minPassRate = Math.min(75, ...points.map((point) => point.passRate));
-  const maxPassRate = Math.max(90, ...points.map((point) => point.passRate));
-  const rateMin = Math.max(0, Math.floor(minPassRate / 5) * 5);
-  const rateMax = Math.max(rateMin + 5, Math.ceil(maxPassRate / 5) * 5);
-  const barWidth = Math.max(8, Math.min(34, (plotWidth / Math.max(1, points.length)) * 0.48));
-  const labelInterval = points.length > 14 ? 5 : points.length > 10 ? 2 : 1;
-  const horizontalGrid = [0, 1, 2, 3, 4].map((index) => padding.top + (plotHeight / 4) * index);
-  const yAxisLabels = horizontalGrid.map((y, index) => ({
-    text: `${Math.round(processedCeil - (processedCeil / 4) * index).toLocaleString()}`,
-    y,
-  }));
-  const rateAxisLabels = horizontalGrid.map((y, index) => ({
-    text: `${Math.round(rateMax - ((rateMax - rateMin) / 4) * index)}%`,
-    y,
-  }));
-  const bars = points.map((point, index) => {
-    const centerX = padding.left + (index / Math.max(1, points.length - 1)) * plotWidth;
-    const heightValue = (point.processed / processedCeil) * plotHeight;
-
-    return {
-      centerX,
-      height: heightValue,
-      label: point.label,
-      showLabel: index === 0 || index === points.length - 1 || index % labelInterval === 0,
-      width: barWidth,
-      x: centerX - barWidth / 2,
-      y: padding.top + plotHeight - heightValue,
-    };
-  });
-  const lineDots = points.map((point, index) => {
-    const x = padding.left + (index / Math.max(1, points.length - 1)) * plotWidth;
-    const y = padding.top + plotHeight - ((point.passRate - rateMin) / (rateMax - rateMin)) * plotHeight;
-
-    return { label: point.label, x, y };
-  });
-  const linePoints = lineDots.map((dot) => `${dot.x.toFixed(1)},${dot.y.toFixed(1)}`).join(' ');
-  const hotspots = lineDots.map((dot, index) => ({
-    left: (dot.x / width) * 100,
-    point: points[index],
-    top: (dot.y / height) * 100,
-  }));
-
-  return {
-    bars,
-    height,
-    horizontalGrid,
-    hotspots,
-    lineDots,
-    linePoints,
-    padding,
-    rateAxisLabels,
-    width,
-    yAxisLabels,
-  };
 };
 
 const QualityDistributionCard = ({ data, isLoading }: { data: AgentDashboardData; isLoading: boolean }) => (
@@ -657,8 +649,75 @@ const riskClassNameMap: Record<HighRiskTask['risk'], 'high' | 'medium' | 'low'> 
   高: 'high',
 };
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
-  });
+function triggerDashboardReportDownload(dashboardElement: HTMLElement | null, subtitle: string): string {
+  if (typeof Blob === 'undefined' || typeof document === 'undefined') {
+    throw new Error('当前运行环境不支持导出功能。');
+  }
+  if (!dashboardElement) {
+    throw new Error('导出失败：找不到可导出的看板区域。');
+  }
+
+  const dateLabel = new Date().toISOString().slice(0, 10);
+  const exportTime = new Date().toLocaleString('zh-CN', { hour12: false });
+  const styles = collectAllStyles();
+  const content = `<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 预审数据看板 - 看板快照</title>
+    <style>
+      ${styles}
+    </style>
+  </head>
+  <body>
+    <main style="padding: 24px; background: #f8fafc; min-height: 100vh;">
+      <h1>AI 预审数据看板</h1>
+      <p>导出时间：${exportTime}</p>
+      <p>时间范围：${subtitle}</p>
+      ${dashboardElement.outerHTML}
+    </main>
+  </body>
+</html>`;
+  const filename = `数据看板报告-${dateLabel}.html`;
+  const blob = new Blob([content], { type: 'text/html;charset=utf-8' });
+
+  const href = URL.createObjectURL ? URL.createObjectURL(blob) : `data:text/html;charset=utf-8,${encodeURIComponent(content)}`;
+  const link = document.createElement('a');
+
+  link.href = href;
+  link.download = filename;
+  link.rel = 'noopener';
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  if (typeof URL.revokeObjectURL === 'function' && href.startsWith('blob:')) {
+    URL.revokeObjectURL(href);
+  }
+
+  return filename;
+}
+
+function collectAllStyles(): string {
+  const stylesheetChunks: string[] = [];
+
+  for (const styleSheet of Array.from(document.styleSheets)) {
+    const node = styleSheet.ownerNode;
+    if (node instanceof HTMLStyleElement && node.textContent) {
+      stylesheetChunks.push(node.textContent);
+      continue;
+    }
+
+    try {
+      stylesheetChunks.push(Array.from(styleSheet.cssRules).map((rule) => rule.cssText).join('\n'));
+    } catch {
+      if (typeof styleSheet.href === 'string' && styleSheet.href) {
+        stylesheetChunks.push(`/* Unable to inline cross-origin stylesheet: ${styleSheet.href} */`);
+      }
+    }
+  }
+
+  return stylesheetChunks.join('\n\n');
 }
