@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type Ref } from 'react';
 
-import type { ExportFormat } from '@labelhub/shared';
+import type { DatasetRecord, ExportFormat } from '@labelhub/shared';
 import {
   createExport,
   getExportDownloadUrl,
@@ -9,6 +9,7 @@ import {
   type ExportFieldMapping,
   type ExportPreviewDto,
 } from '../../api/exports';
+import type { TaskItemDto } from '../../api/datasets';
 import { listTasks, type TaskDto } from '../../api/tasks';
 import exportIcon from '../../assets/export.svg';
 import eyeIcon from '../../assets/eye.svg';
@@ -16,6 +17,7 @@ import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
+import { DatasetPreviewModal } from './components/DatasetPreviewModal';
 import { createTaskDisplayIdMap } from './taskDisplayId';
 
 const OWNER_ID = 'user_owner_zhang_man';
@@ -25,6 +27,7 @@ const EXPORT_FORMAT_OPTIONS: Array<{ label: string; value: ExportFormat }> = [
   { label: 'XLSX', value: 'xlsx' },
   { label: 'CSV', value: 'csv' },
   { label: 'JSON', value: 'json' },
+  { label: 'JSONL', value: 'jsonl' },
 ];
 
 export const ExportCenterPage = () => {
@@ -45,6 +48,13 @@ export const ExportCenterPage = () => {
   });
 
   const taskDisplayIdMap = useMemo(() => createTaskDisplayIdMap(tasks), [tasks]);
+  const pendingExportTasks = useMemo(
+    () =>
+      pendingExportTaskIds
+        .map((taskId) => tasks.find((task) => task.id === taskId))
+        .filter((task): task is TaskDto => Boolean(task)),
+    [pendingExportTaskIds, tasks],
+  );
   const exportableTasks = useMemo(() => {
     const keyword = exportSearchKeyword.trim().toLowerCase();
 
@@ -134,9 +144,10 @@ export const ExportCenterPage = () => {
     try {
       const preview = await getExportPreview({ taskId, includeReviews: true });
       setPreviewDialog({
-        preview,
+        items: createExportPreviewItems(preview),
         task,
         taskDisplayId: taskDisplayIdMap.get(task.id) ?? task.id,
+        totalFinalApproved: preview.totalFinalApproved,
       });
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : '导出预览加载失败。');
@@ -253,19 +264,34 @@ export const ExportCenterPage = () => {
         isBusy={isBusy}
         isOpen={pendingExportTaskIds.length > 0}
         taskCount={pendingExportTaskIds.length}
+        taskDisplayIdMap={taskDisplayIdMap}
+        tasks={pendingExportTasks}
         onCancel={() => setPendingExportTaskIds([])}
         onConfirm={() => void handleConfirmExport()}
         onFormatChange={setSelectedExportFormat}
       />
-      <ExportPreviewDialog dialog={previewDialog} onClose={() => setPreviewDialog(null)} />
+      {previewDialog ? (
+        <DatasetPreviewModal
+          title={`任务内容预览 · ${previewDialog.task.title}`}
+          description={`${previewDialog.taskDisplayId} · 可导出 ${previewDialog.totalFinalApproved.toLocaleString()} 条`}
+          items={previewDialog.items}
+          isLoading={false}
+          errorMessage={null}
+          showItemMeta={false}
+          showCloseButton
+          tableLabel="任务内容预览表格"
+          onClose={() => setPreviewDialog(null)}
+        />
+      ) : null}
     </section>
   );
 };
 
 type ExportPreviewDialogState = {
-  preview: ExportPreviewDto;
+  items: TaskItemDto[];
   task: TaskDto;
   taskDisplayId: string;
+  totalFinalApproved: number;
 };
 
 type ExportableTaskTableProps = {
@@ -481,6 +507,8 @@ type ExportFormatDialogProps = {
   isBusy: boolean;
   isOpen: boolean;
   taskCount: number;
+  taskDisplayIdMap: Map<string, string>;
+  tasks: TaskDto[];
   onCancel: () => void;
   onConfirm: () => void;
   onFormatChange: (format: ExportFormat) => void;
@@ -491,6 +519,8 @@ const ExportFormatDialog = ({
   isBusy,
   isOpen,
   taskCount,
+  taskDisplayIdMap,
+  tasks,
   onCancel,
   onConfirm,
   onFormatChange,
@@ -511,6 +541,17 @@ const ExportFormatDialog = ({
           <h2 id="export-format-title">选择导出格式</h2>
           <p>{taskCount.toLocaleString()} 条导出记录</p>
         </header>
+        <section className="export-format-task-list" aria-label="本次导出任务">
+          <h3>本次导出任务</h3>
+          <ul>
+            {tasks.map((task) => (
+              <li key={task.id}>
+                <code>{taskDisplayIdMap.get(task.id) ?? task.id}</code>
+                <span>{task.title}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
         <div className="export-format-options" role="radiogroup" aria-label="导出文件格式">
           {EXPORT_FORMAT_OPTIONS.map((option) => (
             <label key={option.value} className={option.value === format ? 'is-selected' : undefined}>
@@ -526,84 +567,23 @@ const ExportFormatDialog = ({
           ))}
         </div>
         <footer>
-          <button type="button" className="secondary-action" disabled={isBusy} onClick={onCancel}>
+          <button
+            type="button"
+            className="secondary-action export-format-dialog__action"
+            disabled={isBusy}
+            onClick={onCancel}
+          >
             取消
           </button>
-          <button type="button" className="primary-action" disabled={isBusy} onClick={onConfirm}>
+          <button
+            type="button"
+            className="primary-action export-format-dialog__action"
+            disabled={isBusy}
+            onClick={onConfirm}
+          >
             确认导出
           </button>
         </footer>
-      </section>
-    </div>
-  );
-};
-
-const ExportPreviewDialog = ({
-  dialog,
-  onClose,
-}: {
-  dialog: ExportPreviewDialogState | null;
-  onClose: () => void;
-}) => {
-  if (!dialog) {
-    return null;
-  }
-
-  const headers = previewHeaders(dialog.preview);
-  const rows = dialog.preview.rows;
-
-  return (
-    <div className="task-dataset-preview-overlay task-dataset-preview-overlay--workspace" onMouseDown={onClose}>
-      <section
-        className="task-dataset-preview-modal task-dataset-preview-modal--entering"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`导出预览 · ${dialog.taskDisplayId}`}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header className="task-dataset-preview-modal__header">
-          <div>
-            <h2>导出预览 · {dialog.taskDisplayId}</h2>
-            <p>
-              {dialog.task.title} · 可导出 {dialog.preview.totalFinalApproved.toLocaleString()} 条
-            </p>
-          </div>
-          <button className="task-market-preview-close" type="button" aria-label="关闭导出预览" onClick={onClose}>
-            ×
-          </button>
-        </header>
-        <div className="task-dataset-preview-modal__body">
-          {headers.length > 0 ? (
-            <div className="export-preview-table">
-              <table aria-label="导出预览表格">
-                <thead>
-                  <tr>
-                    {headers.map((header) => (
-                      <th key={header}>{header}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.length > 0 ? (
-                    rows.map((row, index) => (
-                      <tr key={`${row.id?.toString() ?? 'row'}-${index}`}>
-                        {headers.map((header) => (
-                          <td key={header}>{formatPreviewValue(row[header])}</td>
-                        ))}
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={headers.length}>暂无可预览数据</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <TableEmptyState title="暂无可预览数据" illustrationAlt="空导出预览表格插画" />
-          )}
-        </div>
       </section>
     </div>
   );
@@ -631,30 +611,28 @@ function formatDateTimeMinute(value: string): string {
   return value.slice(0, 16).replace('T', ' ');
 }
 
-function previewHeaders(preview: ExportPreviewDto): string[] {
-  const rowHeaders = preview.rows[0] ? Object.keys(preview.rows[0]) : [];
-
-  if (rowHeaders.length > 0) {
-    return rowHeaders;
-  }
-
-  return preview.fieldMapping.filter((field) => field.enabled).map((field) => field.target);
+function createExportPreviewItems(preview: ExportPreviewDto): TaskItemDto[] {
+  return preview.rows.map((row, index) => ({
+    id: `${preview.taskId}:export-preview:${index}`,
+    taskId: preview.taskId,
+    externalId: readExportPreviewExternalId(row, index),
+    datasetKind: preview.datasetKind,
+    rawData: { ...row } as DatasetRecord,
+    status: 'COMPLETED',
+    sortOrder: index + 1,
+    createdAt: '',
+    updatedAt: '',
+  }));
 }
 
-function formatPreviewValue(value: unknown): string {
-  if (Array.isArray(value)) {
-    return value.map((item) => formatPreviewValue(item)).filter(Boolean).join(' | ');
+function readExportPreviewExternalId(row: Record<string, unknown>, index: number): string {
+  const externalId = row.id ?? row.externalId ?? row.external_id;
+
+  if (typeof externalId === 'string' || typeof externalId === 'number') {
+    return String(externalId);
   }
 
-  if (value === null || value === undefined) {
-    return '';
-  }
-
-  if (typeof value === 'object') {
-    return JSON.stringify(value);
-  }
-
-  return String(value);
+  return `preview-${index + 1}`;
 }
 
 function stableHash(value: string): string {

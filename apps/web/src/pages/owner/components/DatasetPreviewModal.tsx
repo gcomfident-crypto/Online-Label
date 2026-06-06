@@ -11,7 +11,10 @@ type DatasetPreviewModalProps = {
   onClose: () => void;
   coverage?: 'drawer' | 'workspace';
   description?: string;
+  closeLabel?: string;
   showItemMeta?: boolean;
+  showCloseButton?: boolean;
+  tableLabel?: string;
   title?: string;
 };
 
@@ -28,7 +31,10 @@ export const DatasetPreviewModal = ({
   onClose,
   coverage = 'drawer',
   description,
+  closeLabel = '关闭预览',
   showItemMeta = true,
+  showCloseButton = false,
+  tableLabel,
   title = '题目数据预览',
 }: DatasetPreviewModalProps) => {
   const fields = collectPreviewFields(items);
@@ -88,6 +94,16 @@ export const DatasetPreviewModal = ({
             <h2 id="task-dataset-preview-title">{title}</h2>
             <p>{description ?? `共 ${items.length.toLocaleString()} 条题目`}</p>
           </div>
+          {showCloseButton ? (
+            <button
+              className="task-dataset-preview-modal__close"
+              type="button"
+              aria-label={closeLabel}
+              onClick={requestClose}
+            >
+              ×
+            </button>
+          ) : null}
         </header>
 
         <div className="task-dataset-preview-modal__body">
@@ -99,7 +115,7 @@ export const DatasetPreviewModal = ({
           ) : null}
           {!isLoading && !errorMessage && items.length > 0 ? (
             <div className="task-dataset-preview-table-scroll">
-              <table className="task-dataset-preview-table">
+              <table className="task-dataset-preview-table" aria-label={tableLabel}>
                 <thead>
                   <tr>
                     {showItemMeta ? (

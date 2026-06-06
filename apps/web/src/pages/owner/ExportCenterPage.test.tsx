@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -198,12 +198,27 @@ describe('ExportCenterPage', () => {
     expect((latestTaskRow as HTMLElement).querySelector('.export-row-action')).toBeNull();
     expect((exportAction.querySelector('img') as HTMLImageElement | null)?.getAttribute('src')).toBe(exportIconAsset);
 
-    await user.click(previewAction);
-    const previewDialog = await screen.findByRole('dialog', { name: '导出预览 · T-0002' });
-    expect(previewDialog).toHaveTextContent('偏好对比评测');
-    expect(within(previewDialog).getByRole('table', { name: '导出预览表格' })).toBeInTheDocument();
-    await user.click(within(previewDialog).getByRole('button', { name: '关闭导出预览' }));
-    expect(screen.queryByRole('dialog', { name: '导出预览 · T-0002' })).not.toBeInTheDocument();
+    await user.click(within(exportableTaskTable).getByRole('button', { name: '预览 T-0001' }));
+    const previewDialog = await screen.findByRole('dialog', { name: '任务内容预览 · 问答质量标注' });
+    const previewOverlay = previewDialog.parentElement as HTMLElement;
+    expect(previewOverlay).toHaveClass('task-dataset-preview-overlay--drawer');
+    expect(previewOverlay).toHaveClass('task-dataset-preview-overlay--entering');
+    expect(previewDialog).toHaveClass('task-dataset-preview-modal--entering');
+    expect(previewDialog).toHaveTextContent('T-0001 · 可导出 1 条');
+    const previewTable = within(previewDialog).getByRole('table', { name: '任务内容预览表格' });
+    expect(previewTable).toHaveClass('task-dataset-preview-table');
+    expect(previewDialog.querySelector('.export-preview-table')).toBeNull();
+    expect(within(previewTable).getByRole('columnheader', { name: 'id' })).toBeInTheDocument();
+    expect(within(previewTable).getByRole('columnheader', { name: 'prompt' })).toBeInTheDocument();
+    expect(within(previewTable).getByRole('columnheader', { name: 'comment' })).toBeInTheDocument();
+    expect(within(previewTable).queryByRole('columnheader', { name: '状态' })).not.toBeInTheDocument();
+    expect(within(previewDialog).getByText('如何判断回答质量？')).toBeInTheDocument();
+    expect(within(previewDialog).getByText('覆盖关键点。')).toBeInTheDocument();
+    await user.click(within(previewDialog).getByRole('button', { name: '关闭预览' }));
+    expect(previewOverlay).toHaveClass('task-dataset-preview-overlay--closing');
+    expect(previewDialog).toHaveClass('task-dataset-preview-modal--closing');
+    fireEvent.animationEnd(previewDialog);
+    expect(screen.queryByRole('dialog', { name: '任务内容预览 · 问答质量标注' })).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText('搜索导出任务'), '问答');
     expect(within(exportableTaskTable).getByText('问答质量标注')).toBeInTheDocument();
@@ -212,17 +227,24 @@ describe('ExportCenterPage', () => {
     expect(await within(exportableTaskTable).findByText('偏好对比评测')).toBeInTheDocument();
 
     await user.click(within(exportableTaskTable).getByRole('button', { name: '导出 T-0002' }));
-    expect(screen.getByRole('dialog', { name: '选择导出格式' })).toHaveTextContent('1 条导出记录');
+    const singleExportDialog = screen.getByRole('dialog', { name: '选择导出格式' });
+    expect(singleExportDialog).toHaveTextContent('1 条导出记录');
+    expect(singleExportDialog).toHaveTextContent('偏好对比评测');
+    expect(singleExportDialog).toHaveTextContent('T-0002');
     expect(screen.getByRole('radio', { name: 'XLSX' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'CSV' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'JSON' })).toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: 'JSONL' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: 'JSON' }));
+    expect(screen.getByRole('radio', { name: 'JSONL' })).toBeInTheDocument();
+    expect(within(singleExportDialog).getByRole('button', { name: '取消' })).toHaveClass('export-format-dialog__action');
+    expect(within(singleExportDialog).getByRole('button', { name: '确认导出' })).toHaveClass(
+      'export-format-dialog__action',
+    );
+    await user.click(screen.getByRole('radio', { name: 'JSONL' }));
     await user.click(screen.getByRole('button', { name: '确认导出' }));
 
     await waitFor(() => expect(postExportCalls(fetchMock)).toHaveLength(1));
     expect(JSON.parse(postExportCalls(fetchMock)[0]?.[1]?.body as string)).toEqual(
-      expect.objectContaining({ taskId: 'task_pref', format: 'json' }),
+      expect.objectContaining({ taskId: 'task_pref', format: 'jsonl' }),
     );
     await waitFor(() => expect(downloadClickSpy).toHaveBeenCalledTimes(1));
     const firstDownloadLink = downloadClickSpy.mock.contexts[0] as HTMLAnchorElement | undefined;
@@ -231,7 +253,10 @@ describe('ExportCenterPage', () => {
 
     await user.click(within(exportableTaskTable).getByRole('checkbox', { name: '选择当前页导出记录' }));
     await user.click(screen.getByRole('button', { name: '批量导出 2 项' }));
-    expect(screen.getByRole('dialog', { name: '选择导出格式' })).toHaveTextContent('2 条导出记录');
+    const batchExportDialog = screen.getByRole('dialog', { name: '选择导出格式' });
+    expect(batchExportDialog).toHaveTextContent('2 条导出记录');
+    expect(batchExportDialog).toHaveTextContent('偏好对比评测');
+    expect(batchExportDialog).toHaveTextContent('问答质量标注');
     await user.click(screen.getByRole('radio', { name: 'CSV' }));
     await user.click(screen.getByRole('button', { name: '确认导出' }));
 

@@ -68,7 +68,7 @@ describe('ExportsService', () => {
     ]);
     await expect(service.downloadExport(job.id)).resolves.toEqual(
       expect.objectContaining({
-        fileName: 'export_1.csv',
+        fileName: '问答质量标注 任务导出结果.csv',
       }),
     );
   });
@@ -164,6 +164,11 @@ describe('ExportsService', () => {
       format: 'xlsx',
       includeReviews: true,
     });
+    await expect(service.downloadExport(xlsxJob.id)).resolves.toEqual(
+      expect.objectContaining({
+        fileName: '模版对比 xlsx 任务导出结果.xlsx',
+      }),
+    );
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(xlsxJob.filePath as string);
     const worksheet = workbook.getWorksheet('Export');
@@ -197,9 +202,11 @@ describe('ExportsService', () => {
       format: 'csv',
       includeReviews: true,
     });
+    const csvBuffer = await readFile(csvJob.filePath as string);
+    expect([...csvBuffer.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
     await expect(readFile(csvJob.filePath as string, 'utf8')).resolves.toBe(
       [
-        'id,prompt,response_a,response_b,preferred,dimensions,custom_tags,annotator_note',
+        '\uFEFFid,prompt,response_a,response_b,preferred,dimensions,custom_tags,annotator_note',
         'P9001,哪一个回答更准确？,回答 A 更完整。,回答 B 过于简略。,A,准确性｜实效性,事实充分｜表达清楚,A 覆盖了关键事实。',
         '',
       ].join('\n'),

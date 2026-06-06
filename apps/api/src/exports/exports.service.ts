@@ -141,6 +141,8 @@ const EXPORT_TASK_INCLUDE = {
   },
 } as const;
 
+const CSV_UTF8_BOM = '\uFEFF';
+
 @Injectable()
 export class ExportsService {
   constructor(
@@ -213,7 +215,18 @@ export class ExportsService {
       });
     }
 
-    return { filePath: job.filePath, fileName: basename(job.filePath) };
+    const task = await this.findTaskOrThrow(job.taskId).catch((error: unknown) => {
+      if (error instanceof NotFoundException) {
+        return null;
+      }
+
+      throw error;
+    });
+
+    return {
+      filePath: job.filePath,
+      fileName: task ? buildExportDownloadFileName(task.title, job.format) : basename(job.filePath),
+    };
   }
 
   async retryExport(exportJobId: string): Promise<ExportJobDto> {
@@ -579,7 +592,7 @@ function serializeExportContent(
 
   const headers = exportHeaders(fieldMapping, rows);
   const serializedRows = serializeRows(rows, headers);
-  return [
+  return CSV_UTF8_BOM + [
     headers.map(csvCell).join(','),
     ...serializedRows.map((row) => headers.map((header) => csvCell(row[header])).join(',')),
   ].join('\n') + '\n';
@@ -622,6 +635,20 @@ function cellValue(value: unknown): string | number | boolean {
   }
 
   return JSON.stringify(value);
+}
+
+function buildExportDownloadFileName(taskTitle: string, format: ExportFormat): string {
+  const safeTitle = sanitizeFileNameSegment(taskTitle) || '任务';
+
+  return `${safeTitle} 任务导出结果.${format}`;
+}
+
+function sanitizeFileNameSegment(value: string): string {
+  return value
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[. ]+$/g, '');
 }
 
 function toExportJobDto(job: ExportJobRecord): ExportJobDto {

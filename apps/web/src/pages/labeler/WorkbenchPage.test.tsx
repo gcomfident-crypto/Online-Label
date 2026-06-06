@@ -392,18 +392,35 @@ describe('WorkbenchPage', () => {
     const workbenchSummary = document.querySelector('.workbench-topline__identity') as HTMLElement;
     const taskNameField = within(workbenchSummary).getByLabelText('任务名称');
     const taskIdField = within(workbenchSummary).getByLabelText('任务ID');
-    expect(taskNameField).toHaveTextContent('任务名称');
     expect(taskNameField).toHaveTextContent('问答质量标注');
-    expect(taskIdField).toHaveTextContent('任务ID');
+    expect(within(workbenchSummary).queryByText('任务名称')).not.toBeInTheDocument();
     expect(taskIdField).toHaveTextContent('T-0001');
+    expect(within(workbenchSummary).queryByText('任务ID')).not.toBeInTheDocument();
+    const titleRow = workbenchSummary.querySelector('.workbench-topline__title-row') as HTMLElement;
+    expect([...titleRow.children].map((element) => element.textContent?.trim())).toEqual([
+      'T-0001',
+      '问答质量标注',
+    ]);
     expect(within(workbenchSummary).getByText('T-0001')).toHaveClass('workbench-task-id');
     expect(within(workbenchSummary).getByText('剩余 1 天 0 小时 0 分 0 秒')).toHaveClass(
       'workbench-deadline-countdown',
     );
-    expect(within(workbenchSummary).getByText('0.30 元 / 条')).toHaveClass('workbench-reward-pill');
-    expect(within(workbenchSummary).getByText('草稿已载入')).toHaveClass('autosave-indicator__text');
+    const statusMeta = within(workbenchSummary).getByLabelText('任务状态');
     const closeButton = screen.getByRole('button', { name: '返回我的工作台' });
-    expect(closeButton.closest('.workbench-topline__actions')).not.toBeNull();
+    expect(closeButton.closest('.workbench-topline')).not.toBeNull();
+    expect(closeButton.closest('.workbench-topline__actions')).toBeNull();
+    const workbenchActions = screen.getByLabelText('标注操作');
+    expect(workbenchActions.closest('.workbench-topline__meta')).toBe(statusMeta);
+    expect(within(workbenchActions).getByText('0.30 元 / 条')).toHaveClass('workbench-reward-pill');
+    expect(within(workbenchActions).getByText('草稿已载入')).toHaveClass('autosave-indicator__text');
+    expect([...statusMeta.children].map((element) => element.textContent?.trim())).toEqual([
+      '剩余 1 天 0 小时 0 分 0 秒',
+      '0.30 元 / 条草稿已载入',
+    ]);
+    expect([...workbenchActions.children].map((element) => element.textContent?.trim())).toEqual([
+      '0.30 元 / 条',
+      '草稿已载入',
+    ]);
     expect(screen.queryByText(/模板 r1/)).not.toBeInTheDocument();
     expect(screen.queryByText(/题目 ID/)).not.toBeInTheDocument();
     const navigationPanel = screen.getByRole('complementary', { name: '题目导航' });
@@ -424,11 +441,8 @@ describe('WorkbenchPage', () => {
     expect(screen.queryByText('任务信息')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '基础信息' })).not.toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: '标注信息' })).toBeInTheDocument();
-    const workbenchActions = screen.getByLabelText('标注操作');
     expect(screen.queryByLabelText('标注操作栏')).not.toBeInTheDocument();
     expect(within(workbenchActions).queryByText('基础信息')).not.toBeInTheDocument();
-    expect(within(workbenchActions).queryByText('0.30 元 / 条')).not.toBeInTheDocument();
-    expect(within(workbenchActions).queryByText('草稿已载入')).not.toBeInTheDocument();
     expect(within(workbenchActions).queryByRole('button', { name: '报告题目' })).not.toBeInTheDocument();
     const annotationCanvas = screen.getByRole('main', { name: '标注画布' });
     const submitActionButtons = within(annotationCanvas)

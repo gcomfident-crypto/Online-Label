@@ -669,40 +669,39 @@ export const WorkbenchPage = () => {
       className={workbenchPageEnterClass}
       aria-labelledby="labeler-workbench-title"
     >
+      <h1 id="labeler-workbench-title">{currentTaskTitle}</h1>
       <ToastViewport messages={messages} onDismiss={dismissToast} />
       <div className="workbench-topline">
         <div className="workbench-topline__identity">
           <div className="workbench-topline__title-row">
-            <div className="workbench-identity-field workbench-identity-field--title" aria-label="任务名称">
-              <span className="workbench-identity-label">任务名称</span>
-              <h1 id="labeler-workbench-title">{currentTaskTitle}</h1>
-            </div>
             <div className="workbench-identity-field workbench-identity-field--id" aria-label="任务ID">
-              <span className="workbench-identity-label">任务ID</span>
               <code className="workbench-task-id">{currentTaskDisplayId}</code>
+            </div>
+            <div className="workbench-identity-field workbench-identity-field--title" aria-label="任务名称">
+              <span className="workbench-task-title-value">{currentTaskTitle}</span>
             </div>
           </div>
           <div className="workbench-topline__meta" aria-label="任务状态">
             <span className="workbench-deadline-countdown">{deadlineCountdown}</span>
-            <span className="workbench-reward-pill">{workbench.task.rewardRule ?? '未设置'}</span>
-            <span className="autosave-indicator" aria-live="polite">
-              <span className="autosave-indicator__text" key={draftStatusRevision}>
-                {draftStatus}
+            <div className="workbench-topline__actions" aria-label="标注操作">
+              <span className="workbench-reward-pill">{workbench.task.rewardRule ?? '未设置'}</span>
+              <span className="autosave-indicator" aria-live="polite">
+                <span className="autosave-indicator__text" key={draftStatusRevision}>
+                  {draftStatus}
+                </span>
               </span>
-            </span>
+            </div>
           </div>
         </div>
-        <div className="workbench-topline__actions" aria-label="标注操作">
-          <button
-            className="workbench-close-button"
-            type="button"
-            aria-label="返回我的工作台"
-            onClick={() => navigate('/labeler/my-data')}
-            title="返回我的工作台"
-          >
-            ×
-          </button>
-        </div>
+        <button
+          className="workbench-close-button"
+          type="button"
+          aria-label="返回我的工作台"
+          onClick={() => navigate('/labeler/my-data')}
+          title="返回我的工作台"
+        >
+          ×
+        </button>
       </div>
 
       <div className="workbench-layout annotation-designer-layout">
