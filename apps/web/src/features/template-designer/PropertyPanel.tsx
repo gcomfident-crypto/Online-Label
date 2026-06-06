@@ -160,7 +160,10 @@ const BasicProperties = ({
             onChange={(event) => onUpdateField({ label: event.target.value })}
           />
         </PropertyRow>
-        <PropertyRow className="designer-property-row--metadata" label="字段说明">
+        <PropertyRow
+          className="designer-property-row--metadata designer-property-row--field-description"
+          label="字段说明"
+        >
           <input
             aria-label="字段说明"
             maxLength={FIELD_DESCRIPTION_MAX_LENGTH}
@@ -267,7 +270,7 @@ const GroupContainerProperties = ({
           onChange={(event) => onUpdateField({ label: event.target.value })}
         />
       </PropertyRow>
-      <PropertyRow label="字段说明">
+      <PropertyRow className="designer-property-row--field-description" label="字段说明">
         <input
           aria-label="字段说明"
           maxLength={FIELD_DESCRIPTION_MAX_LENGTH}
@@ -384,7 +387,7 @@ const TabsContainerProperties = ({
             onChange={(event) => onUpdateField({ label: event.target.value })}
           />
         </PropertyRow>
-        <PropertyRow label="字段说明">
+        <PropertyRow className="designer-property-row--field-description" label="字段说明">
           <input
             aria-label="字段说明"
             maxLength={FIELD_DESCRIPTION_MAX_LENGTH}
@@ -1178,6 +1181,7 @@ const LengthLimitEditor = ({
         {LENGTH_LIMIT_MODES.map((option) => (
           <button
             key={option.value}
+            className={option.value === 'none' ? 'designer-length-limit-mode__button--none' : undefined}
             type="button"
             aria-pressed={mode === option.value}
             onClick={() => handleModeChange(option.value)}

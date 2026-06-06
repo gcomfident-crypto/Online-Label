@@ -23,4 +23,4 @@ export const taskCreatedAtTimestamp = (task: TaskDto): number => {
   return Number.isNaN(timestamp) ? 0 : timestamp;
 };
 
-const formatGeneratedTaskDisplayId = (sequence: number): string => `T-${sequence.toString().padStart(4, '0')}`;
+const formatGeneratedTaskDisplayId = (sequence: number): string => `T-${sequence.toString().padStart(3, '0')}`;

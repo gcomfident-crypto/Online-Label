@@ -88,6 +88,88 @@ describe('AiReviewService', () => {
     ]);
   });
 
+  it('同一任务多次提交时队列表格只返回最新一条任务记录', async () => {
+    const olderBatchId = 'task-submit:task_qa:user_labeler_li_lei:assignment_1:1:older';
+    const latestBatchId = 'task-submit:task_qa:user_labeler_li_lei:assignment_1:2:latest';
+    const { service } = createService({
+      jobs: [
+        createJobRecord({
+          id: 'job_older_1',
+          submissionId: 'submission_older_1',
+          status: 'SUCCEEDED',
+          updatedAt: new Date('2026-05-21T10:00:00.000Z'),
+          submission: createSubmissionSummaryRecord({
+            id: 'submission_older_1',
+            assignmentId: 'assignment_1',
+            idempotencyKey: `${olderBatchId}:assignment_1:1`,
+            externalId: 'qa_1',
+            round: 1,
+            submittedAt: new Date('2026-05-21T09:00:00.000Z'),
+            reviewRecords: [createReviewRecord({ submissionId: 'submission_older_1', decision: 'reject' })],
+          }),
+        }),
+        createJobRecord({
+          id: 'job_older_2',
+          submissionId: 'submission_older_2',
+          status: 'SUCCEEDED',
+          updatedAt: new Date('2026-05-21T10:01:00.000Z'),
+          submission: createSubmissionSummaryRecord({
+            id: 'submission_older_2',
+            assignmentId: 'assignment_2',
+            idempotencyKey: `${olderBatchId}:assignment_2:1`,
+            externalId: 'qa_2',
+            round: 1,
+            submittedAt: new Date('2026-05-21T09:00:05.000Z'),
+            reviewRecords: [createReviewRecord({ id: 'record_older_2', submissionId: 'submission_older_2', decision: 'reject' })],
+          }),
+        }),
+        createJobRecord({
+          id: 'job_latest_1',
+          submissionId: 'submission_latest_1',
+          status: 'QUEUED',
+          round: 2,
+          updatedAt: new Date('2026-05-21T11:00:00.000Z'),
+          submission: createSubmissionSummaryRecord({
+            id: 'submission_latest_1',
+            assignmentId: 'assignment_1',
+            idempotencyKey: `${latestBatchId}:assignment_1:2`,
+            externalId: 'qa_1',
+            round: 2,
+            submittedAt: new Date('2026-05-21T11:00:00.000Z'),
+            reviewRecords: [],
+          }),
+        }),
+        createJobRecord({
+          id: 'job_latest_2',
+          submissionId: 'submission_latest_2',
+          status: 'QUEUED',
+          round: 2,
+          updatedAt: new Date('2026-05-21T11:01:00.000Z'),
+          submission: createSubmissionSummaryRecord({
+            id: 'submission_latest_2',
+            assignmentId: 'assignment_2',
+            idempotencyKey: `${latestBatchId}:assignment_2:2`,
+            externalId: 'qa_2',
+            round: 2,
+            submittedAt: new Date('2026-05-21T11:00:05.000Z'),
+            reviewRecords: [],
+          }),
+        }),
+      ],
+    });
+
+    const batches = await service.listBatches();
+
+    expect(batches).toHaveLength(1);
+    expect(batches[0]).toMatchObject({
+      batchId: latestBatchId,
+      taskId: 'task_qa',
+      itemCount: 2,
+      aggregateDecision: 'pending',
+      status: 'PENDING',
+    });
+  });
+
   it('任务级聚合结果按失败、打回、通过的优先级输出，历史 manual 记录按打回处理', async () => {
     const createBatchJob = (input: {
       assignmentId: string;
@@ -96,9 +178,11 @@ describe('AiReviewService', () => {
       externalId: string;
       jobId: string;
       status?: AiReviewJobRecord['status'];
+      taskId?: string;
     }) =>
       createJobRecord({
         id: input.jobId,
+        taskId: input.taskId ?? `task_${input.jobId}`,
         submissionId: `submission_${input.jobId}`,
         status: input.status ?? 'SUCCEEDED',
         submission: createSubmissionSummaryRecord({
@@ -113,10 +197,10 @@ describe('AiReviewService', () => {
       });
     const { service } = createService({
       jobs: [
-        createBatchJob({ assignmentId: 'assignment_failed', batchId: 'batch_failed', decision: 'reject', externalId: 'q1', jobId: 'failed', status: 'FAILED_FINAL' }),
-        createBatchJob({ assignmentId: 'assignment_reject', batchId: 'batch_reject', decision: 'reject', externalId: 'q2', jobId: 'reject' }),
-        createBatchJob({ assignmentId: 'assignment_manual', batchId: 'batch_manual', decision: 'manual', externalId: 'q3', jobId: 'manual' }),
-        createBatchJob({ assignmentId: 'assignment_pass', batchId: 'batch_pass', decision: 'pass', externalId: 'q4', jobId: 'pass' }),
+        createBatchJob({ assignmentId: 'assignment_failed', batchId: 'batch_failed', decision: 'reject', externalId: 'q1', jobId: 'failed', status: 'FAILED_FINAL', taskId: 'task_failed' }),
+        createBatchJob({ assignmentId: 'assignment_reject', batchId: 'batch_reject', decision: 'reject', externalId: 'q2', jobId: 'reject', taskId: 'task_reject' }),
+        createBatchJob({ assignmentId: 'assignment_manual', batchId: 'batch_manual', decision: 'manual', externalId: 'q3', jobId: 'manual', taskId: 'task_manual' }),
+        createBatchJob({ assignmentId: 'assignment_pass', batchId: 'batch_pass', decision: 'pass', externalId: 'q4', jobId: 'pass', taskId: 'task_pass' }),
       ],
     });
 

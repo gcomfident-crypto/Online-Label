@@ -6,6 +6,7 @@ export type ToastType = 'success' | 'warning' | 'error' | 'info';
 export type ToastMessage = {
   actionHref?: string;
   actionLabel?: string;
+  actionOnClick?: () => void;
   autoDismiss?: boolean;
   className?: string;
   id: string;
@@ -158,7 +159,11 @@ export const ToastViewport = ({
             {TOAST_ICON_LABELS[message.type]}
           </span>
           <span className="toast__text">{normalizeToastText(message.text)}</span>
-          {message.actionHref && message.actionLabel ? (
+          {message.actionOnClick && message.actionLabel ? (
+            <button className="toast__action" type="button" onClick={message.actionOnClick}>
+              {message.actionLabel}
+            </button>
+          ) : message.actionHref && message.actionLabel ? (
             <a className="toast__action" href={message.actionHref}>
               {message.actionLabel}
             </a>
@@ -217,7 +222,7 @@ export const useToastController = () => {
   }, []);
 
   const showStatusToast = useCallback(
-    (message: string, options?: Pick<ToastMessage, 'actionHref' | 'actionLabel' | 'className'>) => {
+    (message: string, options?: Pick<ToastMessage, 'actionHref' | 'actionLabel' | 'actionOnClick' | 'autoDismiss' | 'className'>) => {
       showToast({
         ...createStatusToast(message),
         ...options,
@@ -227,7 +232,7 @@ export const useToastController = () => {
   );
 
   const showInfoToast = useCallback(
-    (message: string, options?: Pick<ToastMessage, 'actionHref' | 'actionLabel' | 'className'>) => {
+    (message: string, options?: Pick<ToastMessage, 'actionHref' | 'actionLabel' | 'actionOnClick' | 'autoDismiss' | 'className'>) => {
       showToast({
         ...createInfoToast(message),
         ...options,
@@ -237,7 +242,7 @@ export const useToastController = () => {
   );
 
   const showErrorToast = useCallback(
-    (message: string, options?: Pick<ToastMessage, 'actionHref' | 'actionLabel' | 'className'>) => {
+    (message: string, options?: Pick<ToastMessage, 'actionHref' | 'actionLabel' | 'actionOnClick' | 'autoDismiss' | 'className'>) => {
       showToast({
         ...createErrorToast(message),
         ...options,

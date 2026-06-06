@@ -14,6 +14,7 @@ export type SchemaLinkageResult = {
   requiredFieldKeys: Set<string>;
   disabledFieldKeys: Set<string>;
   allowedOptionsByFieldKey: Map<string, Set<string>>;
+  overrideableOptionLimitFieldKeys: Set<string>;
   answers: Record<string, unknown>;
   normalizedAnswers: Record<string, unknown>;
   assertionErrors: SchemaValidationError[];
@@ -248,6 +249,37 @@ const intersectOptionSets = (
   return new Set([...current].filter((value) => next.has(value)));
 };
 
+const addLimitEdge = (
+  edges: Map<string, Set<string>>,
+  sourceFieldKey: string,
+  targetFieldKey: string,
+) => {
+  if (sourceFieldKey === targetFieldKey) {
+    return;
+  }
+
+  const targets = edges.get(sourceFieldKey) ?? new Set<string>();
+  targets.add(targetFieldKey);
+  edges.set(sourceFieldKey, targets);
+};
+
+const collectOverrideableOptionLimitFieldKeys = (
+  edges: ReadonlyMap<string, ReadonlySet<string>>,
+): Set<string> => {
+  const fieldKeys = new Set<string>();
+
+  for (const [sourceFieldKey, targetFieldKeys] of edges) {
+    for (const targetFieldKey of targetFieldKeys) {
+      if (edges.get(targetFieldKey)?.has(sourceFieldKey)) {
+        fieldKeys.add(sourceFieldKey);
+        fieldKeys.add(targetFieldKey);
+      }
+    }
+  }
+
+  return fieldKeys;
+};
+
 const normalizeLimitedOptionValue = (
   field: SchemaField | undefined,
   currentValue: unknown,
@@ -350,6 +382,8 @@ export const applySchemaLinkage = (
   const requiredFieldKeys = new Set<string>();
   const disabledFieldKeys = new Set<string>();
   const allowedOptionsByFieldKey = new Map<string, Set<string>>();
+  const conditionFieldKeysToClear = new Set<string>();
+  const matchedLimitEdges = new Map<string, Set<string>>();
   const assertionErrors: SchemaValidationError[] = [];
   const showTargetFieldKeys = new Set(
     rules.flatMap((rule) => rule.actions.filter((action) => action.type === 'show').map((action) => action.targetFieldKey)),
@@ -416,7 +450,19 @@ export const applySchemaLinkage = (
     }
 
     for (const action of getLimitOptionActions(rule)) {
-      if (isBidirectionalLimitAction(action) && changedFieldKey === action.targetFieldKey) {
+      for (const condition of rule.conditions) {
+        addLimitEdge(matchedLimitEdges, condition.fieldKey, action.targetFieldKey);
+      }
+
+      if (changedFieldKey === action.targetFieldKey) {
+        if (!valueMatchesAllowedOptions(nextAnswers[changedFieldKey], new Set(action.optionValues ?? []))) {
+          for (const condition of rule.conditions) {
+            if (condition.fieldKey !== changedFieldKey) {
+              conditionFieldKeysToClear.add(condition.fieldKey);
+            }
+          }
+        }
+
         continue;
       }
 
@@ -473,6 +519,12 @@ export const applySchemaLinkage = (
     );
   }
 
+  for (const fieldKey of conditionFieldKeysToClear) {
+    delete nextAnswers[fieldKey];
+  }
+
+  const overrideableOptionLimitFieldKeys = collectOverrideableOptionLimitFieldKeys(matchedLimitEdges);
+
   for (const [fieldKey, allowedOptions] of allowedOptionsByFieldKey) {
     const nextValue = normalizeLimitedOptionValue(
       fieldsByKey.get(fieldKey),
@@ -496,6 +548,7 @@ export const applySchemaLinkage = (
     requiredFieldKeys,
     disabledFieldKeys,
     allowedOptionsByFieldKey,
+    overrideableOptionLimitFieldKeys,
     answers: nextAnswers,
     normalizedAnswers,
     assertionErrors,
@@ -589,6 +642,31 @@ const fieldMessage = (label: string, message: string): string => {
 
 const validationMessage = (field: SchemaField, fallback: string): string => {
   return field.validation?.message ?? fallback;
+};
+
+const formatAllowedOptionLabels = (
+  field: SchemaField,
+  allowedOptions: ReadonlySet<string>,
+): string => {
+  const optionLabelByValue = new Map((field.options ?? []).map((option) => [option.value, option.label]));
+  const labels = [...allowedOptions].map((optionValue) => optionLabelByValue.get(optionValue) ?? optionValue);
+
+  return labels.length > 0 ? labels.join('、') : '当前没有可选项';
+};
+
+const optionValidationMessage = (
+  field: SchemaField,
+  allowedOptions: ReadonlySet<string> | undefined,
+  fallback: string,
+): string => {
+  if (!allowedOptions) {
+    return validationMessage(field, fallback);
+  }
+
+  return validationMessage(
+    field,
+    fieldMessage(field.label, `只能选择：${formatAllowedOptionLabels(field, allowedOptions)}。`),
+  );
 };
 
 const validateCustomKey = (
@@ -767,7 +845,11 @@ export const validateSchemaAnswers = (
     ) {
       errors.push({
         fieldKey,
-        message: validationMessage(field, fieldMessage(field.label, '必须选择有效选项。')),
+        message: optionValidationMessage(
+          field,
+          allowedOptions,
+          fieldMessage(field.label, '必须选择有效选项。'),
+        ),
       });
     }
 
@@ -783,7 +865,7 @@ export const validateSchemaAnswers = (
       ) {
         errors.push({
           fieldKey,
-          message: validationMessage(field, `${field.label}包含无效选项。`),
+          message: optionValidationMessage(field, allowedOptions, `${field.label}包含无效选项。`),
         });
       }
     }

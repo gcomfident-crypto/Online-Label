@@ -241,7 +241,7 @@ describe('Web 壳 smoke test', () => {
     expect(
       within(agentNav).getAllByRole('link').map((link) => link.getAttribute('aria-label')),
     ).toEqual(['数据看板', '机审队列']);
-    expect(screen.getByRole('heading', { name: '数据看板' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '数据看板' })).not.toBeInTheDocument();
     const agentDashboardIcon = screen.getByRole('link', { name: '数据看板' }).querySelector('.portal-nav__icon--dashboard');
     expect(agentDashboardIcon).toHaveClass('portal-nav__icon--asset');
     expect(agentDashboardIcon?.getAttribute('style')).toContain('url("');

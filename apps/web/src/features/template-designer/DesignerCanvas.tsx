@@ -1297,7 +1297,9 @@ const DesignerFieldCard = ({
               disabledFieldKeys={EMPTY_FIELD_KEY_SET}
               requiredFieldKeys={EMPTY_FIELD_KEY_SET}
               allowedOptionsByFieldKey={EMPTY_ALLOWED_OPTIONS_BY_FIELD_KEY}
+              overrideableOptionLimitFieldKeys={EMPTY_FIELD_KEY_SET}
               validationMessagesByField={EMPTY_VALIDATION_MESSAGES_BY_FIELD}
+              showValidationErrors={false}
               onFieldChange={() => undefined}
               disabled
             />

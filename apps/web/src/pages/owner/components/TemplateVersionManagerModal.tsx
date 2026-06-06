@@ -240,8 +240,7 @@ export const TemplateVersionManagerModal = ({
                         <th>版本</th>
                         <th>发布时间</th>
                         <th>发布人</th>
-                        <th>任务使用</th>
-                        <th>未完成任务</th>
+                        <th>占用状态</th>
                         <th>操作</th>
                       </tr>
                     </thead>
@@ -262,8 +261,18 @@ export const TemplateVersionManagerModal = ({
                           </td>
                           <td>{formatDateTime(version.publishedAt ?? version.createdAt)}</td>
                           <td>{formatPublisher(version.createdById)}</td>
-                          <td>{formatUsageCount(version.usageCount)}</td>
-                          <td>{formatActiveUsageCount(version.activeUsageCount)}</td>
+                          <td>
+                            <span
+                              className={`status-tag status-tag--sm status-tag--task template-version-table__occupy-status ${
+                                version.activeUsageCount > 0
+                                  ? 'template-version-table__occupy-status--occupied'
+                                  : 'template-version-table__occupy-status--idle'
+                              }`}
+                            >
+                              <span className="status-tag__dot" aria-hidden="true" />
+                              {version.activeUsageCount > 0 ? '占用中' : '空闲中'}
+                            </span>
+                          </td>
                           <td>
                             <div className="template-version-table__actions">
                               {!version.isCurrent ? (
@@ -371,10 +380,6 @@ const formatDateTime = (value: string): string => {
 };
 
 const formatDateTimePart = (value: number): string => String(value).padStart(2, '0');
-
-const formatUsageCount = (value: number): string => (value > 0 ? `${value} 个任务使用` : '未被任务使用');
-
-const formatActiveUsageCount = (value: number): string => (value > 0 ? `${value} 个未完成任务` : '无未完成任务');
 
 const formatPublisher = (createdById: string | null): string => {
   if (!createdById) {

@@ -27,8 +27,8 @@ describe('AgentDashboardPage', () => {
     const page = screen.getByRole('region', { name: 'AI 预审数据看板' });
     expect(page).toHaveClass('agent-dashboard-page');
     expect(within(page).queryByText('AI Review Command Center')).not.toBeInTheDocument();
-    expect(within(page).getByRole('heading', { name: '数据看板' })).toBeInTheDocument();
-    expect(within(page).getByText('集中查看任务运行、质检结果、异常原因和交付趋势。')).toBeInTheDocument();
+    expect(within(page).queryByRole('heading', { name: '数据看板' })).not.toBeInTheDocument();
+    expect(within(page).getByText('集中查看任务运行、质检结果、异常原因和交付趋势')).toBeInTheDocument();
 
     await screen.findByText('今日预审批次');
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/ai-review/batches', expect.objectContaining({ method: 'GET' })));

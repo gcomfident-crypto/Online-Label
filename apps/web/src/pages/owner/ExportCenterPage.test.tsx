@@ -169,13 +169,13 @@ describe('ExportCenterPage', () => {
     expect((exportPanel as HTMLElement).querySelector('.task-management-table-toolbar')).not.toBeNull();
     expect(document.querySelector('.export-records-toolbar')).toBeNull();
     expect(within(exportableTaskTable).getByRole('checkbox', { name: '选择当前页导出记录' })).toBeInTheDocument();
-    expect(within(exportableTaskTable).getByRole('checkbox', { name: '选择导出任务 T-0001' })).toBeInTheDocument();
+    expect(within(exportableTaskTable).getByRole('checkbox', { name: '选择导出任务 T-001' })).toBeInTheDocument();
     expect(within(exportableTaskTable).getByText('任务ID')).toBeInTheDocument();
     expect(within(exportableTaskTable).getByText('结束时间')).toBeInTheDocument();
     expect(within(exportableTaskTable).queryByText('已完成/总题目数')).not.toBeInTheDocument();
     expect(within(exportableTaskTable).queryByText('模板')).not.toBeInTheDocument();
-    expect(within(exportableTaskTable).getByText('T-0001')).toBeInTheDocument();
-    expect(within(exportableTaskTable).getByText('T-0002')).toBeInTheDocument();
+    expect(within(exportableTaskTable).getByText('T-001')).toBeInTheDocument();
+    expect(within(exportableTaskTable).getByText('T-002')).toBeInTheDocument();
     const taskNameCell = within(exportableTaskTable).getByText('偏好对比评测').closest('td');
     expect(taskNameCell).toHaveTextContent('偏好对比评测');
     expect(taskNameCell).not.toHaveTextContent('Owner：张满');
@@ -191,20 +191,20 @@ describe('ExportCenterPage', () => {
     expect(latestTaskRow).not.toBeNull();
     const latestTaskActions = (latestTaskRow as HTMLElement).querySelector('.task-table__actions');
     expect(latestTaskActions).not.toBeNull();
-    const previewAction = within(latestTaskRow as HTMLElement).getByRole('button', { name: '预览 T-0002' });
-    const exportAction = within(latestTaskRow as HTMLElement).getByRole('button', { name: '导出 T-0002' });
+    const previewAction = within(latestTaskRow as HTMLElement).getByRole('button', { name: '预览 T-002' });
+    const exportAction = within(latestTaskRow as HTMLElement).getByRole('button', { name: '导出 T-002' });
     expect(previewAction).toHaveClass('task-table-action', 'task-table-action--icon');
     expect(exportAction).toHaveClass('task-table-action', 'task-table-action--icon');
     expect((latestTaskRow as HTMLElement).querySelector('.export-row-action')).toBeNull();
     expect((exportAction.querySelector('img') as HTMLImageElement | null)?.getAttribute('src')).toBe(exportIconAsset);
 
-    await user.click(within(exportableTaskTable).getByRole('button', { name: '预览 T-0001' }));
+    await user.click(within(exportableTaskTable).getByRole('button', { name: '预览 T-001' }));
     const previewDialog = await screen.findByRole('dialog', { name: '任务内容预览 · 问答质量标注' });
     const previewOverlay = previewDialog.parentElement as HTMLElement;
     expect(previewOverlay).toHaveClass('task-dataset-preview-overlay--drawer');
     expect(previewOverlay).toHaveClass('task-dataset-preview-overlay--entering');
     expect(previewDialog).toHaveClass('task-dataset-preview-modal--entering');
-    expect(previewDialog).toHaveTextContent('T-0001 · 可导出 1 条');
+    expect(previewDialog).toHaveTextContent('T-001 · 可导出 1 条');
     const previewTable = within(previewDialog).getByRole('table', { name: '任务内容预览表格' });
     expect(previewTable).toHaveClass('task-dataset-preview-table');
     expect(previewDialog.querySelector('.export-preview-table')).toBeNull();
@@ -226,11 +226,11 @@ describe('ExportCenterPage', () => {
     await user.clear(screen.getByLabelText('搜索导出任务'));
     expect(await within(exportableTaskTable).findByText('偏好对比评测')).toBeInTheDocument();
 
-    await user.click(within(exportableTaskTable).getByRole('button', { name: '导出 T-0002' }));
+    await user.click(within(exportableTaskTable).getByRole('button', { name: '导出 T-002' }));
     const singleExportDialog = screen.getByRole('dialog', { name: '选择导出格式' });
     expect(singleExportDialog).toHaveTextContent('1 条导出记录');
     expect(singleExportDialog).toHaveTextContent('偏好对比评测');
-    expect(singleExportDialog).toHaveTextContent('T-0002');
+    expect(singleExportDialog).toHaveTextContent('T-002');
     expect(screen.getByRole('radio', { name: 'XLSX' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'CSV' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'JSON' })).toBeInTheDocument();
@@ -311,8 +311,8 @@ describe('ExportCenterPage', () => {
 
     const table = await screen.findByRole('table', { name: '导出记录列表' });
     const rows = within(table).getAllByRole('row');
-    expect(within(rows[1]).getByText('T-0002')).toBeInTheDocument();
-    expect(within(rows[2]).getByText('T-0001')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('T-002')).toBeInTheDocument();
+    expect(within(rows[2]).getByText('T-001')).toBeInTheDocument();
     expect(within(table).queryByText('cmpjpv2gcu0004z6pee7yxro8k')).not.toBeInTheDocument();
     expect(within(table).queryByText('cmpjpv2gcu0001z6peexxx1111')).not.toBeInTheDocument();
   });

@@ -117,8 +117,7 @@ const DashboardHeader = ({
 }) => (
   <header className="agent-dashboard-header">
     <div className="agent-dashboard-heading">
-      <h1>数据看板</h1>
-      <p>集中查看任务运行、质检结果、异常原因和交付趋势。</p>
+      <p>集中查看任务运行、质检结果、异常原因和交付趋势</p>
     </div>
 
     <div className="agent-dashboard-actions" aria-label="数据看板操作">

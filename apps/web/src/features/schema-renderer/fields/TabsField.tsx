@@ -52,10 +52,13 @@ export const TabsField = ({
   disabledFieldKeys,
   requiredFieldKeys,
   allowedOptionsByFieldKey,
+  overrideableOptionLimitFieldKeys,
   validationMessagesByField,
+  showValidationErrors,
   onFieldChange,
   activeFieldKey,
   onActiveFieldChange,
+  validationFocusFieldKey,
   getFieldNodeDecoration,
 }: BaseFieldProps) => {
   const tabs = useMemo(() => field.tabs ?? [], [field.tabs]);
@@ -97,10 +100,13 @@ export const TabsField = ({
       disabledFieldKeys={disabledFieldKeys}
       requiredFieldKeys={requiredFieldKeys}
       allowedOptionsByFieldKey={allowedOptionsByFieldKey}
+      overrideableOptionLimitFieldKeys={overrideableOptionLimitFieldKeys}
       validationMessagesByField={validationMessagesByField}
+      showValidationErrors={showValidationErrors}
       onFieldChange={onFieldChange}
       activeFieldKey={activeFieldKey}
       onActiveFieldChange={onActiveFieldChange}
+      validationFocusFieldKey={validationFocusFieldKey}
       getFieldNodeDecoration={getFieldNodeDecoration}
     />
   );

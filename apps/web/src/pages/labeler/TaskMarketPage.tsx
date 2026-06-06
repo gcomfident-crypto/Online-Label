@@ -365,7 +365,7 @@ const progressPercent = (task: MarketTaskDto): number => {
   return Math.min(100, (task.assignedCount / total) * 100);
 };
 
-const formatMarketTaskDisplayId = (sequence: number): string => `T-${sequence.toString().padStart(4, '0')}`;
+const formatMarketTaskDisplayId = (sequence: number): string => `T-${sequence.toString().padStart(3, '0')}`;
 
 const marketTaskSequenceTime = (task: MarketTaskDto): number => {
   const updatedTime = Date.parse(task.updatedAt);

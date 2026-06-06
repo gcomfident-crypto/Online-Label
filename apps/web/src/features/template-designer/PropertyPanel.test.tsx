@@ -94,6 +94,9 @@ describe('PropertyPanel', () => {
     expect(screen.getByLabelText('字段说明').closest('.designer-property-row')).toHaveClass(
       'designer-property-row--metadata',
     );
+    expect(screen.getByLabelText('字段说明').closest('.designer-property-row')).toHaveClass(
+      'designer-property-row--field-description',
+    );
     expect(screen.getByLabelText('字段说明')).toHaveAttribute('maxlength', '20');
     expect(screen.getByLabelText('必填')).toBeChecked();
     expect(screen.getByLabelText('占位符')).toHaveValue('请填写清洗后的标题...');
@@ -249,6 +252,9 @@ describe('PropertyPanel', () => {
     expect(within(lengthLimitEditor).getByLabelText('最小长度')).toHaveValue(2);
     expect(within(lengthLimitEditor).getByLabelText('最大长度')).toHaveValue(20);
     expect(within(lengthLimitEditor).getByText('字符')).toBeInTheDocument();
+    expect(within(lengthLimitEditor).getByRole('button', { name: '不限制' })).toHaveClass(
+      'designer-length-limit-mode__button--none',
+    );
 
     fireEvent.change(within(lengthLimitEditor).getByLabelText('最小长度'), { target: { value: '3' } });
     expect(onUpdateValidation).toHaveBeenLastCalledWith({ minLength: 3 });
@@ -871,6 +877,10 @@ describe('PropertyPanel', () => {
     expect(fieldSelect).toHaveTextContent('选择字段');
     fireEvent.click(fieldSelect);
     const conditionFieldMenu = screen.getByRole('listbox', { name: '规则 1 条件字段 1选项' });
+    expect(conditionFieldMenu.parentElement).toBe(document.body);
+    expect(conditionFieldMenu).toHaveClass('designer-linkage-rule-editor__inline-choice-menu--portal');
+    expect(conditionFieldMenu.style.top).toMatch(/px$/);
+    expect(conditionFieldMenu.style.left).toMatch(/px$/);
     expect(within(conditionFieldMenu).queryByRole('option', { name: '题目展示 · show_item' })).not.toBeInTheDocument();
     expect(within(conditionFieldMenu).getByRole('option', { name: '状态 · status' })).toBeInTheDocument();
 

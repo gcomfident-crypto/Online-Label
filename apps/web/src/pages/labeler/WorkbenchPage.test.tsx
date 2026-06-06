@@ -121,6 +121,30 @@ const taskAssignments = [
   },
 ];
 
+const taskAssignmentsWithCompletedSecondDraft = taskAssignments.map((assignment) =>
+  assignment.assignmentId === 'assignment_2'
+    ? {
+        ...assignment,
+        status: 'IN_PROGRESS',
+        draftAnswers: { quality: 'excellent' },
+        draftUpdatedAt: '2026-05-21T08:04:00.000Z',
+      }
+    : assignment,
+);
+
+const currentOnlySubmittableTaskAssignments = taskAssignments.map((assignment) =>
+  assignment.assignmentId === 'assignment_2'
+    ? {
+        ...assignment,
+        status: 'SUBMITTED',
+        latestSubmissionStatus: 'AI_QUEUED',
+        latestSubmittedAt: '2026-05-21T08:03:00.000Z',
+        draftAnswers: { quality: 'excellent' },
+        draftUpdatedAt: '2026-05-21T08:04:00.000Z',
+      }
+    : assignment,
+);
+
 const taskList = [
   {
     id: 'task_qa',
@@ -311,6 +335,43 @@ const historyWorkbench = {
   ],
 };
 
+const finalApprovedWorkbench = {
+  ...qaWorkbench,
+  assignment: { ...qaWorkbench.assignment, status: 'FINAL_APPROVED' },
+  taskItem: { ...qaWorkbench.taskItem, status: 'COMPLETED' },
+  rejectionNotice: null,
+  submissionHistory: [
+    {
+      id: 'submission_final',
+      status: 'FINAL_APPROVED',
+      round: 1,
+      answers: { quality: 'excellent', comment: '回答完整且依据充分。' },
+      schemaVersion: 'r1',
+      submittedAt: '2026-05-16T14:22:00.000Z',
+      reviewRecords: [
+        {
+          stage: 'AI_PRECHECK',
+          reviewerType: 'AI',
+          assignedReviewerId: null,
+          decision: 'pass',
+          comment: 'AI 预审通过。',
+          scores: { overall: 92 },
+          createdAt: '2026-05-16T14:22:30.000Z',
+        },
+        {
+          stage: 'RECHECK',
+          reviewerType: 'HUMAN',
+          assignedReviewerId: 'user_reviewer_wang_fang',
+          decision: 'pass',
+          comment: '复审通过。',
+          scores: {},
+          createdAt: '2026-05-16T15:08:00.000Z',
+        },
+      ],
+    },
+  ],
+};
+
 describe('WorkbenchPage', () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -332,7 +393,7 @@ describe('WorkbenchPage', () => {
         },
       }))
       .mockResolvedValueOnce(jsonResponse({ data: stats }))
-      .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: taskAssignmentsWithCompletedSecondDraft }))
       .mockResolvedValueOnce(jsonResponse({ data: taskList }))
       .mockResolvedValueOnce(
         jsonResponse({
@@ -394,14 +455,14 @@ describe('WorkbenchPage', () => {
     const taskIdField = within(workbenchSummary).getByLabelText('任务ID');
     expect(taskNameField).toHaveTextContent('问答质量标注');
     expect(within(workbenchSummary).queryByText('任务名称')).not.toBeInTheDocument();
-    expect(taskIdField).toHaveTextContent('T-0001');
+    expect(taskIdField).toHaveTextContent('T-001');
     expect(within(workbenchSummary).queryByText('任务ID')).not.toBeInTheDocument();
     const titleRow = workbenchSummary.querySelector('.workbench-topline__title-row') as HTMLElement;
     expect([...titleRow.children].map((element) => element.textContent?.trim())).toEqual([
-      'T-0001',
+      'T-001',
       '问答质量标注',
     ]);
-    expect(within(workbenchSummary).getByText('T-0001')).toHaveClass('workbench-task-id');
+    expect(within(workbenchSummary).getByText('T-001')).toHaveClass('workbench-task-id');
     expect(within(workbenchSummary).getByText('剩余 1 天 0 小时 0 分 0 秒')).toHaveClass(
       'workbench-deadline-countdown',
     );
@@ -425,7 +486,7 @@ describe('WorkbenchPage', () => {
     expect(screen.queryByText(/题目 ID/)).not.toBeInTheDocument();
     const navigationPanel = screen.getByRole('complementary', { name: '题目导航' });
     expect(within(navigationPanel).getByRole('heading', { name: '题目导航' })).toBeInTheDocument();
-    expect(navigationPanel).toHaveTextContent('已完成 50% · 当前第 1 题');
+    expect(navigationPanel).toHaveTextContent('已完成 100% · 当前第 1 题');
     expect(navigationPanel).not.toHaveTextContent('1 / 2');
     expect(navigationPanel).not.toHaveTextContent('当前题 qa_1');
     expect(navigationPanel).toHaveTextContent('qa_1');
@@ -474,7 +535,7 @@ describe('WorkbenchPage', () => {
     await user.keyboard('{Control>}Enter{/Control}');
     expect(fetchMock.mock.calls.filter(([url]) => url === '/submissions/task')).toHaveLength(1);
     const itemHistory = screen.getByLabelText('本题历史列表');
-    expect(itemHistory.textContent?.match(/李雷 · 提交/g)).toHaveLength(1);
+    expect(itemHistory.textContent?.match(/标注员 李雷 · 提交/g)).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledWith(
       '/submissions/task',
       expect.objectContaining({
@@ -505,7 +566,7 @@ describe('WorkbenchPage', () => {
     renderWorkbenchPage({ withState: false });
 
     expect(await screen.findByRole('heading', { name: '问答质量标注' })).toBeInTheDocument();
-    expect(screen.getByText('T-0001')).toHaveClass('workbench-task-id');
+    expect(screen.getByText('T-001')).toHaveClass('workbench-task-id');
     expect(screen.queryByText(rawTaskIdTitle)).not.toBeInTheDocument();
   });
 
@@ -524,7 +585,7 @@ describe('WorkbenchPage', () => {
         }),
       )
       .mockResolvedValueOnce(jsonResponse({ data: stats }))
-      .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: currentOnlySubmittableTaskAssignments }))
       .mockResolvedValueOnce(jsonResponse({ data: taskList }))
       .mockResolvedValueOnce(
         jsonResponse({
@@ -831,21 +892,60 @@ describe('WorkbenchPage', () => {
     expect(within(contribution).getByText('5')).toHaveClass('labeler-info-stat__value--rejected');
 
     const history = within(infoPanel).getByLabelText('本题历史列表');
-    expect(history).toHaveTextContent('李雷 · 提交');
+    expect(history).toHaveTextContent('标注员 李雷 · 提交');
     expect(history).toHaveTextContent('AI 预审 · 打回');
-    expect(history).toHaveTextContent('王芳 · 复审打回');
-    expect(history).toHaveTextContent('李雷 · 修改中');
+    expect(history).toHaveTextContent('复审员 王芳 · 复审打回');
+    expect(history).toHaveTextContent('标注员 李雷 · 修改中');
     expect(history).toHaveTextContent('05-16 14:22');
     expect(history).toHaveTextContent('05-16 15:08');
     expect(history).toHaveTextContent('当前');
 
-    expect(within(infoPanel).getByText('⌘+Enter 提交本题')).toBeInTheDocument();
+    expect(within(infoPanel).queryByText('⌘+Enter 提交本题')).not.toBeInTheDocument();
     expect(within(infoPanel).getByText('⌘+S 保存草稿')).toBeInTheDocument();
     expect(within(infoPanel).getByText('← / → 上一题 / 下一题')).toBeInTheDocument();
     expect(within(infoPanel).getByText('J 跳题 · R 报告题目')).toBeInTheDocument();
     expect(screen.queryByText(/属性配置/)).not.toBeInTheDocument();
     expect(screen.queryByText('任务信息')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '基础信息' })).not.toBeInTheDocument();
+  });
+
+  it('完成后的题目历史不追加当前行，并将倒计时和报告入口置为完成态', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse({ data: finalApprovedWorkbench }))
+        .mockResolvedValueOnce(jsonResponse({ data: { ...stats, submittedCount: 1, approvedCount: 1 } }))
+        .mockResolvedValueOnce(
+          jsonResponse({
+            data: taskAssignments.map((assignment) =>
+              assignment.assignmentId === 'assignment_1'
+                ? { ...assignment, status: 'FINAL_APPROVED', latestSubmissionStatus: 'FINAL_APPROVED' }
+                : assignment,
+            ),
+          }),
+        )
+        .mockResolvedValueOnce(jsonResponse({ data: taskList })),
+    );
+
+    renderWorkbenchPage();
+
+    const workbenchSummary = await screen.findByLabelText('任务状态');
+    expect(within(workbenchSummary).getByText('已完成')).toHaveClass('workbench-deadline-countdown');
+    expect(within(workbenchSummary).queryByText(/剩余/)).not.toBeInTheDocument();
+
+    const reportButton = screen.getByRole('button', { name: '报告题目' });
+    expect(reportButton).toBeDisabled();
+    await user.keyboard('r');
+    expect(screen.queryByText('请在本题备注中说明异常，提交任务后会随答案进入审核。')).not.toBeInTheDocument();
+
+    const history = screen.getByLabelText('本题历史列表');
+    expect(history).toHaveTextContent('标注员 李雷 · 提交');
+    expect(history).toHaveTextContent('AI 预审 · 通过');
+    expect(history).toHaveTextContent('复审员 王芳 · 复审通过');
+    expect(history).not.toHaveTextContent('当前');
+    expect(history).not.toHaveTextContent('标注员 李雷 · 已完成');
   });
 
   it('未启用 AI 预审时提交后直接提示进入人工复审且不启动 AI 轮询', async () => {
@@ -862,7 +962,7 @@ describe('WorkbenchPage', () => {
         }),
       )
       .mockResolvedValueOnce(jsonResponse({ data: stats }))
-      .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: currentOnlySubmittableTaskAssignments }))
       .mockResolvedValueOnce(jsonResponse({ data: taskList }))
       .mockResolvedValueOnce(
         jsonResponse({
@@ -918,7 +1018,7 @@ describe('WorkbenchPage', () => {
       .fn()
       .mockResolvedValueOnce(jsonResponse({ data: { ...qaWorkbench, draft: { answers: { quality: 'pass' } } } }))
       .mockResolvedValueOnce(jsonResponse({ data: stats }))
-      .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: currentOnlySubmittableTaskAssignments }))
       .mockResolvedValueOnce(jsonResponse({ data: taskList }))
       .mockResolvedValueOnce(
         jsonResponse({
@@ -995,8 +1095,252 @@ describe('WorkbenchPage', () => {
     const alerts = await screen.findAllByRole('alert');
     const toast = alerts.find((alert) => alert.classList.contains('toast')) as HTMLElement;
     expect(toast).toHaveClass('toast');
-    expect(toast).toHaveTextContent('提交前请修正 1 项内容：整体质量为必填项');
+    expect(toast).toHaveTextContent('题目 qa_1：整体质量为必填项');
+    expect(within(toast).getByRole('button', { name: '去修正' })).toBeInTheDocument();
+    expect(screen.getByText('整体质量为必填项。').closest('.schema-field__errors')).not.toBeNull();
+    expect(document.querySelector('[data-field-key="quality"]')).toHaveClass('is-active');
+    await waitFor(() => {
+      expect(document.querySelector('[data-field-key="quality"]')).toHaveClass('is-validation-focus-pulse');
+    });
     expect(document.querySelector('.submission-validation-summary')).toBeNull();
+  });
+
+  it('多项提交错误时 toast 只显示首项，字段旁展示完整错误', async () => {
+    const user = userEvent.setup();
+    const workbenchWithTwoRequiredFields = {
+      ...qaWorkbench,
+      task: {
+        ...qaWorkbench.task,
+        schema: {
+          ...qaWorkbench.task.schema,
+          fields: qaWorkbench.task.schema.fields.map((field) =>
+            field.fieldKey === 'comment'
+              ? { ...field, validation: { required: true } }
+              : field,
+          ),
+        },
+      },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: workbenchWithTwoRequiredFields }))
+      .mockResolvedValueOnce(jsonResponse({ data: stats }))
+      .mockResolvedValueOnce(jsonResponse({ data: currentOnlySubmittableTaskAssignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: taskList }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage();
+
+    await screen.findByRole('heading', { name: /问答质量标注/ });
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
+
+    const alerts = await screen.findAllByRole('alert');
+    const toast = alerts.find((alert) => alert.classList.contains('toast')) as HTMLElement;
+    expect(toast).toHaveTextContent('题目 qa_1：整体质量为必填项');
+    expect(toast).not.toHaveTextContent('提交前请修正');
+    expect(toast).not.toHaveTextContent('首项');
+    expect(toast).not.toHaveTextContent('审核意见为必填项');
+    expect(within(toast).getByRole('button', { name: '去修正' })).toBeInTheDocument();
+    expect(screen.getByText('整体质量为必填项。').closest('.schema-field__errors')).not.toBeNull();
+    expect(screen.getByText('审核意见为必填项。').closest('.schema-field__errors')).not.toBeNull();
+    expect(fetchMock.mock.calls.some(([url]) => url === '/submissions/task')).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
+    const repeatedToast = latestToast();
+    expect(repeatedToast).toHaveTextContent('题目 qa_1：整体质量为必填项');
+    expect(repeatedToast).not.toHaveTextContent('审核意见为必填项');
+
+    await user.click(screen.getByLabelText('优秀'));
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
+    const nextToast = latestToast();
+    expect(nextToast).toHaveTextContent('题目 qa_1：审核意见为必填项');
+    expect(nextToast).not.toHaveTextContent('整体质量为必填项');
+  });
+
+  it('后端兜底 schema 校验错误不会直接暴露工程文案', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: { ...qaWorkbench, draft: { answers: { quality: 'pass' } } } }))
+      .mockResolvedValueOnce(jsonResponse({ data: stats }))
+      .mockResolvedValueOnce(jsonResponse({ data: currentOnlySubmittableTaskAssignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: taskList }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            id: 'draft_1',
+            assignmentId: 'assignment_1',
+            answers: { quality: 'pass' },
+            schemaVersion: 'r1',
+            createdAt: '2026-05-21T00:00:00.000Z',
+            updatedAt: '2026-05-21T08:02:31.000Z',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(errorResponse({
+        error: { message: '题目 qa_1 的答案未通过 Schema 校验。' },
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage();
+
+    await screen.findByRole('heading', { name: /问答质量标注/ });
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
+
+    const alerts = await screen.findAllByRole('alert');
+    const toast = alerts.find((alert) => alert.classList.contains('toast')) as HTMLElement;
+    expect(toast).toHaveTextContent('题目 qa_1：答案填写有误');
+    expect(toast).not.toHaveTextContent('Schema 校验');
+  });
+
+  it('AI 预审模型未配置时直接展示后端提交错误', async () => {
+    const user = userEvent.setup();
+    const message = '当前无法提交：AI 预审模型未配置，请检查 DEEPSEEK_API_KEY、OPENAI_API_KEY、LLM_API_KEY 或 LLM_PROVIDER。';
+    const visibleMessage = message.replace(/。$/g, '');
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: { ...qaWorkbench, draft: { answers: { quality: 'pass' } } } }))
+      .mockResolvedValueOnce(jsonResponse({ data: stats }))
+      .mockResolvedValueOnce(jsonResponse({ data: currentOnlySubmittableTaskAssignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: taskList }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            id: 'draft_1',
+            assignmentId: 'assignment_1',
+            answers: { quality: 'pass' },
+            schemaVersion: 'r1',
+            createdAt: '2026-05-21T00:00:00.000Z',
+            updatedAt: '2026-05-21T08:02:31.000Z',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(errorResponse({
+        error: {
+          code: 'AI_REVIEW_MODEL_NOT_CONFIGURED',
+          message,
+        },
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage();
+
+    await screen.findByRole('heading', { name: /问答质量标注/ });
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
+
+    const alerts = await screen.findAllByRole('alert');
+    const toast = alerts.find((alert) => alert.classList.contains('toast')) as HTMLElement;
+    expect(toast).toHaveTextContent(visibleMessage);
+    expect(toast).not.toHaveTextContent('答案填写有误');
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/submissions/task')).toHaveLength(1);
+  });
+
+  it('在非错误题提交时会跳到第一道错误题并使用同一种字段级错误格式', async () => {
+    const user = userEvent.setup();
+    const firstWorkbench = {
+      ...qaWorkbench,
+      taskItem: {
+        ...qaWorkbench.taskItem,
+        externalId: 'P0001',
+      },
+    };
+    const secondWorkbench = {
+      ...qaWorkbench,
+      assignment: {
+        ...qaWorkbench.assignment,
+        id: 'assignment_2',
+        taskItemId: 'item_qa_2',
+        status: 'IN_PROGRESS',
+      },
+      taskItem: {
+        ...qaWorkbench.taskItem,
+        id: 'item_qa_2',
+        externalId: 'P0002',
+        rawData: {
+          ...qaWorkbench.taskItem.rawData,
+          prompt: '第二道题如何判断回答质量？',
+        },
+        sortOrder: 9,
+      },
+      draft: { answers: { quality: 'pass' } },
+      rejectionNotice: null,
+      submissionHistory: [],
+    };
+    const assignmentsWithQuestionCodes = taskAssignments.map((assignment) => {
+      if (assignment.assignmentId === 'assignment_1') {
+        return { ...assignment, externalId: 'P0001', status: 'IN_PROGRESS' };
+      }
+
+      return {
+        ...assignment,
+        externalId: 'P0002',
+        status: 'IN_PROGRESS',
+        draftAnswers: { quality: 'pass' },
+        draftUpdatedAt: '2026-05-21T08:04:00.000Z',
+      };
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/assignments/assignment_1/workbench') {
+        return jsonResponse({ data: firstWorkbench });
+      }
+
+      if (url === '/assignments/assignment_2/workbench') {
+        return jsonResponse({ data: secondWorkbench });
+      }
+
+      if (url.startsWith('/labeler/stats')) {
+        return jsonResponse({ data: { ...stats, totalAssignments: 2 } });
+      }
+
+      if (url.startsWith('/labeler/assignments')) {
+        return jsonResponse({ data: assignmentsWithQuestionCodes });
+      }
+
+      if (url === '/tasks') {
+        return jsonResponse({ data: taskList });
+      }
+
+      if (url === '/submissions/task') {
+        return errorResponse({
+          error: { message: '题目 P0001 的答案未通过 Schema 校验。' },
+        });
+      }
+
+      return jsonResponse({ data: null });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage({ assignmentId: 'assignment_2', itemId: 'item_qa_2' });
+
+    await screen.findByRole('heading', { name: /问答质量标注/ });
+    expect(screen.getByTestId('location-path')).toHaveTextContent(
+      '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
+    );
+
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
+
+    const alerts = await screen.findAllByRole('alert');
+    const toast = alerts.find((alert) => alert.classList.contains('toast')) as HTMLElement;
+    expect(toast).toHaveClass('toast');
+    expect(toast).toHaveTextContent('题目 P0001：整体质量为必填项');
+    expect(within(toast).getByRole('button', { name: '去修正' })).toBeInTheDocument();
+    expect(toast).not.toHaveTextContent('Schema 校验');
+    expect(fetchMock.mock.calls.some(([url]) => url === '/submissions/task')).toBe(false);
+    expect(screen.getByTestId('location-path')).toHaveTextContent(
+      '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
+    );
+
+    await user.click(within(toast).getByRole('button', { name: '去修正' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location-path')).toHaveTextContent(
+        '/labeler/tasks/task_qa/items/item_qa_1?assignmentId=assignment_1',
+      );
+    });
+    expect(await screen.findByText('整体质量为必填项。')).toBeInTheDocument();
+    expect(screen.getByText('整体质量为必填项。').closest('.schema-field__errors')).not.toBeNull();
+    expect(document.querySelector('[data-field-key="quality"]')).toHaveClass('is-active');
+    expect(document.querySelector('[data-field-key="quality"]')).toHaveClass('is-validation-focus-pulse');
   });
 
   it('AI 预审打回时展示字段级评估结果和重新标注入口', async () => {
@@ -1128,6 +1472,19 @@ describe('WorkbenchPage', () => {
     );
     expect(fetchMock.mock.calls.some(([url]) => url === '/submissions' || url === '/submissions/task')).toBe(false);
 
+    await user.keyboard('{Control>}Enter{/Control}');
+    expect(fetchMock.mock.calls.some(([url]) => url === '/submissions' || url === '/submissions/task')).toBe(false);
+
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByTestId('location-path')).toHaveTextContent(
+      '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
+    );
+
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByTestId('location-path')).toHaveTextContent(
+      '/labeler/tasks/task_qa/items/item_qa_1?assignmentId=assignment_1',
+    );
+
     await user.keyboard('j');
     expect(screen.getByTestId('location-path')).toHaveTextContent(
       '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
@@ -1191,18 +1548,24 @@ describe('WorkbenchPage', () => {
   });
 });
 
-const renderWorkbenchPage = (options: { withState?: boolean } = {}) => {
+const renderWorkbenchPage = (options: {
+  assignmentId?: string;
+  itemId?: string;
+  withState?: boolean;
+} = {}) => {
+  const assignmentId = options.assignmentId ?? 'assignment_1';
+  const itemId = options.itemId ?? 'item_qa_1';
   const routeEntry = {
-    pathname: '/labeler/tasks/task_qa/items/item_qa_1',
-    search: '?assignmentId=assignment_1',
-    state: { source: 'my-data-table', taskDisplayId: 'T-0001', taskTitle: '问答质量标注' },
+    pathname: `/labeler/tasks/task_qa/items/${itemId}`,
+    search: `?assignmentId=${assignmentId}`,
+    state: { source: 'my-data-table', taskDisplayId: 'T-001', taskTitle: '问答质量标注' },
   };
 
   render(
     <MemoryRouter
       initialEntries={[
         options.withState === false
-          ? '/labeler/tasks/task_qa/items/item_qa_1?assignmentId=assignment_1'
+          ? `/labeler/tasks/task_qa/items/${itemId}?assignmentId=${assignmentId}`
           : routeEntry,
       ]}
     >
@@ -1220,8 +1583,21 @@ const LocationProbe = () => {
   return <output data-testid="location-path">{`${location.pathname}${location.search}`}</output>;
 };
 
+const latestToast = (): HTMLElement => {
+  const toasts = screen.getAllByRole('alert').filter((alert) => alert.classList.contains('toast'));
+
+  return toasts[toasts.length - 1] as HTMLElement;
+};
+
 const jsonResponse = (body: unknown): Response =>
   ({
     ok: true,
+    json: async () => body,
+  }) as Response;
+
+const errorResponse = (body: unknown): Response =>
+  ({
+    ok: false,
+    status: 400,
     json: async () => body,
   }) as Response;

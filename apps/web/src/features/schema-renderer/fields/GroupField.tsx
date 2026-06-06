@@ -26,10 +26,13 @@ export const GroupField = ({
   disabledFieldKeys,
   requiredFieldKeys,
   allowedOptionsByFieldKey,
+  overrideableOptionLimitFieldKeys,
   validationMessagesByField,
+  showValidationErrors,
   onFieldChange,
   activeFieldKey,
   onActiveFieldChange,
+  validationFocusFieldKey,
   getFieldNodeDecoration,
 }: BaseFieldProps) => {
   const layout = field.layout === 'two_columns' ? 'two_columns' : 'single_column';
@@ -91,10 +94,13 @@ export const GroupField = ({
               disabledFieldKeys={disabledFieldKeys}
               requiredFieldKeys={requiredFieldKeys}
               allowedOptionsByFieldKey={allowedOptionsByFieldKey}
+              overrideableOptionLimitFieldKeys={overrideableOptionLimitFieldKeys}
               validationMessagesByField={validationMessagesByField}
+              showValidationErrors={showValidationErrors}
               onFieldChange={onFieldChange}
               activeFieldKey={activeFieldKey}
               onActiveFieldChange={onActiveFieldChange}
+              validationFocusFieldKey={validationFocusFieldKey}
               getFieldNodeDecoration={getFieldNodeDecoration}
             />
           ))}

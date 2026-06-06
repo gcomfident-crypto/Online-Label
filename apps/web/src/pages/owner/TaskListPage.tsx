@@ -290,9 +290,10 @@ export const TaskListPage = () => {
     clearTemplateReturnAnimationTimer();
     setIsDrawerClosing(false);
     setIsReturningFromTemplate(true);
-    setTemplateOptions(mergeTaskTemplates(handoff.templateOptions));
+    const publishedTemplateOptions = mergeTaskTemplates(handoff.templateOptions);
+    setTemplateOptions(publishedTemplateOptions);
     setSelectedTask(handoff.selectedTask);
-    setTaskForm(handoff.form);
+    setTaskForm(sanitizeTaskTemplateSelection(handoff.form, publishedTemplateOptions));
     setDrawerMode(handoff.drawerMode);
     setDatasetFile(handoff.datasetFile);
     setDatasetTemplateDraft(handoff.datasetTemplateDraft);
@@ -1216,8 +1217,22 @@ const taskToForm = (task: TaskDto): TaskFormInput => ({
   distributionStrategy: task.distributionStrategy ?? 'FIRST_COME_FIRST_SERVE',
   aiPreReviewEnabled: task.aiPreReviewEnabled ?? false,
   aiRuleName: task.aiRuleName ?? null,
-  templateId: task.templateId ?? '',
+  templateId: isPublishedTaskTemplate(task.template) ? task.templateId : '',
 });
+
+const sanitizeTaskTemplateSelection = (
+  form: TaskFormInput,
+  templateOptions: readonly TaskTemplateSummary[],
+): TaskFormInput => {
+  if (!form.templateId || templateOptions.some((template) => template.id === form.templateId)) {
+    return form;
+  }
+
+  return {
+    ...form,
+    templateId: '',
+  };
+};
 
 const normalizeTaskForm = (form: TaskFormInput): TaskFormInput => ({
   ...form,
@@ -1404,7 +1419,7 @@ const mergeTaskTemplates = (templates: TaskTemplateSummary[]): TaskTemplateSumma
   const merged: TaskTemplateSummary[] = [];
 
   templates.forEach((template) => {
-    if (!template?.id) {
+    if (!isPublishedTaskTemplate(template)) {
       return;
     }
 
@@ -1418,6 +1433,10 @@ const mergeTaskTemplates = (templates: TaskTemplateSummary[]): TaskTemplateSumma
 
   return merged;
 };
+
+const isPublishedTaskTemplate = (
+  template: TaskTemplateSummary | null | undefined,
+): template is TaskTemplateSummary => Boolean(template?.id && template.status === 'PUBLISHED');
 
 const inferDatasetKindFromFileName = (fileName: string): DatasetKind | null => {
   const lowerFileName = fileName.toLowerCase();

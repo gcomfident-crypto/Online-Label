@@ -17,6 +17,9 @@ import {
 
 import { normalizeAiReviewProvider } from '../common/ai-review-runtime.ts';
 
+const REAL_FIELD_CLASSIFIER_REQUIRED_MESSAGE =
+  '字段分类必须使用真实模型，请配置 DEEPSEEK_API_KEY、OPENAI_API_KEY 或 LLM_PROVIDER=deepseek/openai/custom。';
+
 type LlmAssistBody = {
   answers?: unknown;
   datasetKind?: unknown;
@@ -141,7 +144,21 @@ export class LlmService {
     const provider = resolveLlmProvider(process.env);
 
     if (provider === 'mock') {
-      return createMockTemplateFieldClassification(request);
+      if (allowsMockTemplateFieldClassifier(process.env)) {
+        return createMockTemplateFieldClassification(request);
+      }
+
+      throw new BadRequestException({
+        code: 'LLM_FIELD_CLASSIFIER_REQUIRES_REAL_MODEL',
+        message: REAL_FIELD_CLASSIFIER_REQUIRED_MESSAGE,
+      });
+    }
+
+    if (!provider) {
+      throw new BadRequestException({
+        code: 'LLM_FIELD_CLASSIFIER_REQUIRES_REAL_MODEL',
+        message: REAL_FIELD_CLASSIFIER_REQUIRED_MESSAGE,
+      });
     }
 
     const remoteConfig = resolveOpenAiCompatibleConfig(provider, process.env);
@@ -149,7 +166,7 @@ export class LlmService {
     if (!remoteConfig) {
       throw new BadRequestException({
         code: 'LLM_FIELD_CLASSIFIER_NOT_CONFIGURED',
-        message: '字段分类模型未配置，请检查 DEEPSEEK_API_KEY 或 LLM_PROVIDER。',
+        message: '字段分类模型未配置，请检查 DEEPSEEK_API_KEY、OPENAI_API_KEY 或 LLM_PROVIDER。',
       });
     }
 
@@ -391,14 +408,21 @@ function resolveLlmProvider(env: NodeJS.ProcessEnv): string {
     return configuredProvider.toLowerCase();
   }
 
-  if (
-    env.NODE_ENV !== 'test' &&
-    hasUsableApiKey(env.DEEPSEEK_API_KEY, 'replace_with_deepseek_api_key')
-  ) {
-    return 'deepseek';
+  if (env.NODE_ENV !== 'test') {
+    if (hasUsableApiKey(env.DEEPSEEK_API_KEY, 'replace_with_deepseek_api_key')) {
+      return 'deepseek';
+    }
+
+    if (hasUsableApiKey(env.OPENAI_API_KEY, '')) {
+      return 'openai';
+    }
   }
 
   return 'mock';
+}
+
+function allowsMockTemplateFieldClassifier(env: NodeJS.ProcessEnv): boolean {
+  return env.NODE_ENV === 'test' && env.LLM_PROVIDER?.trim().toLowerCase() === 'mock';
 }
 
 function resolveOpenAiCompatibleConfig(
@@ -486,6 +510,7 @@ async function callOpenAiCompatibleAiReview(
             '你是 LabelHub 的 AI 自动预审 Agent，只输出合法 JSON。',
             'fieldReviews 必须覆盖每个字段审核标准中的字段，不能增删字段。',
             '每个 fieldReviews.comment 必须是 AI 对当前字段标注内容的评语，要结合 ShowItem、AI 预审标准和当前标注内容说明通过或打回原因。',
+            '上传文件中与待标注字段同名或映射到待标注字段的值，仅用于 owner 配置模板参考，不是标准答案，不得用于和当前标注答案做一致性比较。',
             '每个字段必须输出 fieldKey、label、score、decision、comment、suggestions。',
             'verdict 只能是 pass 或 reject；任一字段 decision 为 reject 时 verdict 必须是 reject。',
             '不要输出 mock、模拟、占位、Markdown 或代码块。',
@@ -499,7 +524,7 @@ async function callOpenAiCompatibleAiReview(
             `数据集类型：${request.datasetKind}`,
             `通过阈值：${request.passThreshold}`,
             `结构化输出模式：${request.structuredOutputMode}`,
-            `题目原始数据：${JSON.stringify(request.rawData)}`,
+            `题目可审上下文：${JSON.stringify(request.rawData)}`,
             `当前标注答案：${JSON.stringify(request.answers)}`,
             `需要预审的字段和标准：${JSON.stringify(request.fieldRequirements)}`,
             '',

@@ -264,63 +264,53 @@ describe('LabelHub API shell', () => {
     });
   });
 
-  it('LLM 字段分类接口返回展示字段和需要打标的物料类型', async () => {
-    const response = await request(app.getHttpServer())
-      .post('/llm/template-fields/classify')
-      .send({
-        fileName: 'preference_compare.json',
-        fields: [
-          { sourceKey: 'id', samples: ['P0001'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
-          { sourceKey: 'prompt', samples: ['题目'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
-          { sourceKey: 'response_a', samples: ['回答 A'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
-          { sourceKey: 'response_b', samples: ['回答 B'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
-          { sourceKey: 'preferred', samples: ['A'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
-          { sourceKey: 'annotator_note', samples: ['需要复核'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
-        ],
-        records: [
-          {
-            id: 'P0001',
-            prompt: '题目',
-            response_a: '回答 A',
-            response_b: '回答 B',
-            preferred: 'A',
-            annotator_note: '需要复核',
-          },
-        ],
-      })
-      .expect(201);
+  it('LLM 字段分类接口未配置真实模型时拒绝返回 mock 结果', async () => {
+    const originalProvider = process.env.LLM_PROVIDER;
+    const originalDeepSeekKey = process.env.DEEPSEEK_API_KEY;
+    const originalOpenAiKey = process.env.OPENAI_API_KEY;
 
-    expect(response.body.data).toEqual({
-      layout: 'comparison',
-      displayFields: [
-        { sourceKey: 'id', label: 'id', area: 'meta', format: 'badge' },
-        { sourceKey: 'prompt', label: 'prompt', area: 'primary', format: 'long_text', maxLines: 8 },
-        { sourceKey: 'response_a', label: 'response_a', area: 'content', format: 'long_text', maxLines: 12 },
-        { sourceKey: 'response_b', label: 'response_b', area: 'content', format: 'long_text', maxLines: 12 },
-      ],
-      annotationFields: [
-        {
-          sourceKey: 'preferred',
-          label: 'preferred',
-          type: 'radio',
-          description: '选择preferred结果',
-          options: [
-            { label: 'A', value: 'A' },
-            { label: 'B', value: 'B' },
+    try {
+      delete process.env.LLM_PROVIDER;
+      delete process.env.DEEPSEEK_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+
+      const response = await request(app.getHttpServer())
+        .post('/llm/template-fields/classify')
+        .send({
+          fileName: 'preference_compare.json',
+          fields: [
+            { sourceKey: 'id', samples: ['P0001'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+            { sourceKey: 'prompt', samples: ['题目'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+            { sourceKey: 'response_a', samples: ['回答 A'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+            { sourceKey: 'response_b', samples: ['回答 B'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+            { sourceKey: 'preferred', samples: ['A'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+            { sourceKey: 'annotator_note', samples: ['需要复核'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
           ],
-          required: true,
+          records: [
+            {
+              id: 'P0001',
+              prompt: '题目',
+              response_a: '回答 A',
+              response_b: '回答 B',
+              preferred: 'A',
+              annotator_note: '需要复核',
+            },
+          ],
+        })
+        .expect(400);
+
+      expect(response.body).toEqual({
+        error: {
+          code: 'LLM_FIELD_CLASSIFIER_REQUIRES_REAL_MODEL',
+          message: '字段分类必须使用真实模型，请配置 DEEPSEEK_API_KEY、OPENAI_API_KEY 或 LLM_PROVIDER=deepseek/openai/custom。',
         },
-        {
-          sourceKey: 'annotator_note',
-          label: 'annotator_note',
-          type: 'textarea',
-          description: '填写annotator_note说明',
-        },
-      ],
-      provider: 'mock',
-      model: 'mock-field-classifier',
-      reasoning: 'mock provider classified source/context fields for display and reviewer target fields for annotation.',
-    });
+        requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
+      });
+    } finally {
+      setOptionalEnv('LLM_PROVIDER', originalProvider);
+      setOptionalEnv('DEEPSEEK_API_KEY', originalDeepSeekKey);
+      setOptionalEnv('OPENAI_API_KEY', originalOpenAiKey);
+    }
   });
 
   it('LLM 字段分类接口拒绝没有字段的请求', async () => {
@@ -411,4 +401,13 @@ async function createTestApp() {
   const app = moduleRef.createNestApplication();
   await app.init();
   return app;
+}
+
+function setOptionalEnv(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+
+  process.env[key] = value;
 }

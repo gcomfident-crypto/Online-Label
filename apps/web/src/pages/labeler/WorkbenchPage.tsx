@@ -26,6 +26,11 @@ type WorkbenchTaskIdentity = {
   displayId: string;
   title: string;
 };
+type ValidationFocusTarget = {
+  assignmentId: string;
+  taskItemId: string;
+  fieldKey: string;
+};
 
 export const WorkbenchPage = () => {
   const navigate = useNavigate();
@@ -38,6 +43,9 @@ export const WorkbenchPage = () => {
   const [taskAssignments, setTaskAssignments] = useState<LabelerAssignmentDto[]>([]);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [activeFieldKey, setActiveFieldKey] = useState<string | null>(null);
+  const [validationFocusFieldKey, setValidationFocusFieldKey] = useState<string | null>(null);
+  const [pendingValidationFocus, setPendingValidationFocus] = useState<ValidationFocusTarget | null>(null);
+  const [showSubmissionValidationErrors, setShowSubmissionValidationErrors] = useState(false);
   const [draftStatus, setDraftStatus] = useState('正在加载草稿。');
   const [draftStatusRevision, setDraftStatusRevision] = useState(0);
   const [localQuestionProgress, setLocalQuestionProgress] = useState<Record<string, QuestionProgressState>>({});
@@ -55,6 +63,7 @@ export const WorkbenchPage = () => {
   const hydratedRef = useRef(false);
   const loadWorkbenchRequestRef = useRef(0);
   const taskSubmitInFlightRef = useRef(false);
+  const validationFocusTimerRef = useRef<number | null>(null);
   const workbenchNavigationState = useMemo(
     () => (location.state as WorkbenchNavigationState | null),
     [location.state],
@@ -70,6 +79,15 @@ export const WorkbenchPage = () => {
   }, []);
 
   useEffect(() => clearAiReviewPolling, [clearAiReviewPolling]);
+
+  useEffect(
+    () => () => {
+      if (validationFocusTimerRef.current !== null) {
+        window.clearTimeout(validationFocusTimerRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!assignmentId) {
@@ -280,8 +298,209 @@ export const WorkbenchPage = () => {
   const isCurrentQuestionEditable = workbench
     ? !hasSubmittedCurrentTask && isEditableAssignmentStatus(workbench.assignment.status)
     : false;
+  const isCurrentQuestionCompleted = workbench
+    ? isCompletedAssignmentStatus(workbench.assignment.status)
+    : false;
+  const canReportCurrentIssue = workbench ? !isCurrentQuestionCompleted : false;
   const isTaskSubmitDisabled =
     isSubmitting || hasSubmittedCurrentTask || !hasSubmittableCurrentTask;
+
+  const orderedTaskAssignments = useMemo(
+    () => [...taskAssignments].sort(compareLabelerAssignments),
+    [taskAssignments],
+  );
+  const isWorkbenchForCurrentRoute = Boolean(
+    workbench &&
+      (workbench.assignment.id === assignmentId || workbench.taskItem.id === itemId),
+  );
+  const navigationAssignmentId = workbench && !isWorkbenchForCurrentRoute ? workbench.assignment.id : assignmentId;
+  const navigationItemId = workbench && !isWorkbenchForCurrentRoute ? workbench.taskItem.id : itemId;
+  const routeAssignmentIndex = useMemo(() => {
+    const index = orderedTaskAssignments.findIndex((assignment) =>
+      assignment.assignmentId === assignmentId ||
+      assignment.taskItemId === itemId,
+    );
+
+    if (index >= 0) {
+      return index;
+    }
+
+    const sortOrderIndex = (workbench?.taskItem.sortOrder ?? 1) - 1;
+    return Math.max(0, sortOrderIndex);
+  }, [assignmentId, itemId, orderedTaskAssignments, workbench?.taskItem.sortOrder]);
+  const currentAssignmentIndex = useMemo(() => {
+    const index = orderedTaskAssignments.findIndex((assignment) =>
+      assignment.assignmentId === navigationAssignmentId ||
+      assignment.taskItemId === navigationItemId,
+    );
+
+    if (index >= 0) {
+      return index;
+    }
+
+    const sortOrderIndex = (workbench?.taskItem.sortOrder ?? 1) - 1;
+    return Math.max(0, sortOrderIndex);
+  }, [navigationAssignmentId, navigationItemId, orderedTaskAssignments, workbench?.taskItem.sortOrder]);
+  const totalCount = useMemo(
+    () => Math.max(1, orderedTaskAssignments.length || stats?.totalAssignments || 1),
+    [orderedTaskAssignments.length, stats?.totalAssignments],
+  );
+  const routeQuestionIndex = Math.min(routeAssignmentIndex, totalCount - 1);
+  const currentQuestionIndex = Math.min(currentAssignmentIndex, totalCount - 1);
+  const currentQuestionProgress = useMemo(
+    () => (workbench ? resolveAnswerProgressState(workbench, answers) : 'empty'),
+    [answers, workbench],
+  );
+  const currentTaskDisplayId = workbench
+    ? taskIdentity?.displayId.trim() ||
+      workbenchNavigationState?.taskDisplayId?.trim() ||
+      workbench.assignment.taskId
+    : workbenchNavigationState?.taskDisplayId?.trim() || '';
+  const currentTaskTitle = workbench
+    ? taskIdentity?.title.trim() ||
+      workbenchNavigationState?.taskTitle?.trim() ||
+      workbench.task.title
+    : workbenchNavigationState?.taskTitle?.trim() || '标注台';
+  const deadlineCountdown = workbench
+    ? isCurrentQuestionCompleted
+      ? '已完成'
+      : formatDeadlineCountdown(workbench.task.deadline, currentTimeMs)
+    : '';
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTimeMs(Date.now()), COUNTDOWN_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!workbench || !isWorkbenchForCurrentRoute || !isSubmittableAssignmentStatus(workbench.assignment.status)) {
+      return;
+    }
+
+    setLocalQuestionProgress((current) => {
+      const assignmentKey = workbench.assignment.id;
+      if (current[assignmentKey] === currentQuestionProgress) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [assignmentKey]: currentQuestionProgress,
+      };
+    });
+  }, [
+    currentQuestionProgress,
+    isWorkbenchForCurrentRoute,
+    workbench?.assignment.id,
+    workbench?.assignment.status,
+  ]);
+
+  const navigatorItems = useMemo(
+    () =>
+      orderedTaskAssignments.map((assignment, index) => ({
+        label: assignment.externalId,
+        statusLabel:
+          index === currentQuestionIndex && isWorkbenchForCurrentRoute
+            ? resolveCurrentQuestionStatusLabel(assignment.status, currentQuestionProgress)
+            : resolveNavigationQuestionStatusLabel(
+                assignment,
+                localQuestionProgress[assignment.assignmentId],
+                workbench?.task.schema,
+              ),
+      })),
+    [
+      currentQuestionIndex,
+      currentQuestionProgress,
+      isWorkbenchForCurrentRoute,
+      localQuestionProgress,
+      orderedTaskAssignments,
+      workbench?.task.schema,
+    ],
+  );
+
+  const triggerValidationFocusPulse = useCallback((fieldKey: string) => {
+    if (validationFocusTimerRef.current !== null) {
+      window.clearTimeout(validationFocusTimerRef.current);
+    }
+
+    setValidationFocusFieldKey(null);
+    validationFocusTimerRef.current = window.setTimeout(() => {
+      const fieldNode = findSchemaFieldNode(fieldKey);
+      if (typeof fieldNode?.scrollIntoView === 'function') {
+        fieldNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      focusFirstEditableControl(fieldNode);
+      setValidationFocusFieldKey(fieldKey);
+      validationFocusTimerRef.current = null;
+    }, 0);
+  }, []);
+
+  const navigateToAssignment = useCallback(
+    (assignment: LabelerAssignmentDto) => {
+      navigate(workbenchHref(assignment), {
+        state: {
+          ...(workbenchNavigationState?.source ? { source: workbenchNavigationState.source } : {}),
+          taskDisplayId: currentTaskDisplayId || assignment.taskId,
+          taskTitle: currentTaskTitle || assignment.taskTitle,
+        } satisfies WorkbenchNavigationState,
+      });
+    },
+    [currentTaskDisplayId, currentTaskTitle, navigate, workbenchNavigationState?.source],
+  );
+
+  const focusValidationIssue = useCallback(
+    (issue: TaskSubmissionValidationIssue) => {
+      setShowSubmissionValidationErrors(true);
+      setActiveCanvasTab('annotation');
+      setActiveFieldKey(issue.fieldKey);
+
+      if (issue.assignmentId !== navigationAssignmentId) {
+        const targetAssignment = orderedTaskAssignments.find(
+          (assignment) => assignment.assignmentId === issue.assignmentId,
+        );
+
+        if (targetAssignment) {
+          setPendingValidationFocus({
+            assignmentId: issue.assignmentId,
+            taskItemId: issue.taskItemId,
+            fieldKey: issue.fieldKey,
+          });
+          navigateToAssignment(targetAssignment);
+          return;
+        }
+      }
+
+      setPendingValidationFocus(null);
+      triggerValidationFocusPulse(issue.fieldKey);
+    },
+    [navigateToAssignment, navigationAssignmentId, orderedTaskAssignments, triggerValidationFocusPulse],
+  );
+
+  useEffect(() => {
+    if (!pendingValidationFocus || !workbench || !isWorkbenchForCurrentRoute) {
+      return;
+    }
+
+    const isTargetWorkbench =
+      workbench.assignment.id === pendingValidationFocus.assignmentId ||
+      workbench.taskItem.id === pendingValidationFocus.taskItemId;
+
+    if (!isTargetWorkbench) {
+      return;
+    }
+
+    setShowSubmissionValidationErrors(true);
+    setActiveCanvasTab('annotation');
+    setActiveFieldKey(pendingValidationFocus.fieldKey);
+    triggerValidationFocusPulse(pendingValidationFocus.fieldKey);
+    setPendingValidationFocus(null);
+  }, [
+    isWorkbenchForCurrentRoute,
+    pendingValidationFocus,
+    triggerValidationFocusPulse,
+    workbench,
+  ]);
 
   const submitCurrent = useCallback(async () => {
     if (!workbench) {
@@ -293,19 +512,31 @@ export const WorkbenchPage = () => {
       return;
     }
 
-    const linkageResult = applySchemaLinkage(workbench.task.schema, answers);
-    const submitAnswers = linkageResult.normalizedAnswers;
-    const errors = validateSchemaAnswers(workbench.task.schema, submitAnswers, linkageResult);
-    if (errors.length > 0) {
-      const firstError = errors[0]?.message;
-      setActiveFieldKey(errors[0]?.fieldKey ?? null);
-      showErrorToast(
-        firstError
-          ? `提交前请修正 ${errors.length.toLocaleString()} 项内容：${firstError}`
-          : '提交前请修正表单内容。',
-      );
+    const validationIssues = collectTaskSubmissionValidationIssues(
+      workbench,
+      orderedTaskAssignments,
+      answers,
+    );
+    if (validationIssues.length > 0) {
+      const firstIssue = validationIssues[0];
+      setShowSubmissionValidationErrors(true);
+      setActiveCanvasTab('annotation');
+      setActiveFieldKey(firstIssue.fieldKey);
+      if (firstIssue.assignmentId === navigationAssignmentId) {
+        focusValidationIssue(firstIssue);
+      }
+      showErrorToast(formatTaskSubmissionValidationIssue(firstIssue), {
+        actionLabel: '去修正',
+        actionOnClick: () => focusValidationIssue(firstIssue),
+        autoDismiss: false,
+      });
+
       return;
     }
+
+    setShowSubmissionValidationErrors(false);
+    const linkageResult = applySchemaLinkage(workbench.task.schema, answers);
+    const submitAnswers = linkageResult.normalizedAnswers;
 
     taskSubmitInFlightRef.current = true;
     setIsSubmitting(true);
@@ -377,146 +608,24 @@ export const WorkbenchPage = () => {
         startAiReviewPolling(currentSubmission.id);
       }
     } catch (error) {
-      showErrorToast(error instanceof Error ? error.message : '提交失败。');
+      showErrorToast(formatTaskSubmissionErrorMessage(error));
     } finally {
       taskSubmitInFlightRef.current = false;
       setIsSubmitting(false);
     }
   }, [
     answers,
+    focusValidationIssue,
     hasSubmittedCurrentTask,
     hasSubmittableCurrentTask,
+    navigationAssignmentId,
+    orderedTaskAssignments,
     saveDraftNow,
     showErrorToast,
     showStatusToast,
     startAiReviewPolling,
     workbench,
   ]);
-
-  const orderedTaskAssignments = useMemo(
-    () => [...taskAssignments].sort(compareLabelerAssignments),
-    [taskAssignments],
-  );
-  const isWorkbenchForCurrentRoute = Boolean(
-    workbench &&
-      (workbench.assignment.id === assignmentId || workbench.taskItem.id === itemId),
-  );
-  const navigationAssignmentId = workbench && !isWorkbenchForCurrentRoute ? workbench.assignment.id : assignmentId;
-  const navigationItemId = workbench && !isWorkbenchForCurrentRoute ? workbench.taskItem.id : itemId;
-  const routeAssignmentIndex = useMemo(() => {
-    const index = orderedTaskAssignments.findIndex((assignment) =>
-      assignment.assignmentId === assignmentId ||
-      assignment.taskItemId === itemId,
-    );
-
-    if (index >= 0) {
-      return index;
-    }
-
-    const sortOrderIndex = (workbench?.taskItem.sortOrder ?? 1) - 1;
-    return Math.max(0, sortOrderIndex);
-  }, [assignmentId, itemId, orderedTaskAssignments, workbench?.taskItem.sortOrder]);
-  const currentAssignmentIndex = useMemo(() => {
-    const index = orderedTaskAssignments.findIndex((assignment) =>
-      assignment.assignmentId === navigationAssignmentId ||
-      assignment.taskItemId === navigationItemId,
-    );
-
-    if (index >= 0) {
-      return index;
-    }
-
-    const sortOrderIndex = (workbench?.taskItem.sortOrder ?? 1) - 1;
-    return Math.max(0, sortOrderIndex);
-  }, [navigationAssignmentId, navigationItemId, orderedTaskAssignments, workbench?.taskItem.sortOrder]);
-  const totalCount = useMemo(
-    () => Math.max(1, orderedTaskAssignments.length || stats?.totalAssignments || 1),
-    [orderedTaskAssignments.length, stats?.totalAssignments],
-  );
-  const routeQuestionIndex = Math.min(routeAssignmentIndex, totalCount - 1);
-  const currentQuestionIndex = Math.min(currentAssignmentIndex, totalCount - 1);
-  const currentQuestionProgress = useMemo(
-    () => (workbench ? resolveAnswerProgressState(workbench, answers) : 'empty'),
-    [answers, workbench],
-  );
-  const currentTaskDisplayId = workbench
-    ? taskIdentity?.displayId.trim() ||
-      workbenchNavigationState?.taskDisplayId?.trim() ||
-      workbench.assignment.taskId
-    : workbenchNavigationState?.taskDisplayId?.trim() || '';
-  const currentTaskTitle = workbench
-    ? taskIdentity?.title.trim() ||
-      workbenchNavigationState?.taskTitle?.trim() ||
-      workbench.task.title
-    : workbenchNavigationState?.taskTitle?.trim() || '标注台';
-  const deadlineCountdown = workbench
-    ? formatDeadlineCountdown(workbench.task.deadline, currentTimeMs)
-    : '';
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setCurrentTimeMs(Date.now()), COUNTDOWN_REFRESH_INTERVAL_MS);
-
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (!workbench || !isWorkbenchForCurrentRoute || !isSubmittableAssignmentStatus(workbench.assignment.status)) {
-      return;
-    }
-
-    setLocalQuestionProgress((current) => {
-      const assignmentKey = workbench.assignment.id;
-      if (current[assignmentKey] === currentQuestionProgress) {
-        return current;
-      }
-
-      return {
-        ...current,
-        [assignmentKey]: currentQuestionProgress,
-      };
-    });
-  }, [
-    currentQuestionProgress,
-    isWorkbenchForCurrentRoute,
-    workbench?.assignment.id,
-    workbench?.assignment.status,
-  ]);
-
-  const navigatorItems = useMemo(
-    () =>
-      orderedTaskAssignments.map((assignment, index) => ({
-        label: assignment.externalId,
-        statusLabel:
-          index === currentQuestionIndex && isWorkbenchForCurrentRoute
-            ? resolveCurrentQuestionStatusLabel(assignment.status, currentQuestionProgress)
-            : resolveNavigationQuestionStatusLabel(
-                assignment,
-                localQuestionProgress[assignment.assignmentId],
-                workbench?.task.schema,
-              ),
-      })),
-    [
-      currentQuestionIndex,
-      currentQuestionProgress,
-      isWorkbenchForCurrentRoute,
-      localQuestionProgress,
-      orderedTaskAssignments,
-      workbench?.task.schema,
-    ],
-  );
-
-  const navigateToAssignment = useCallback(
-    (assignment: LabelerAssignmentDto) => {
-      navigate(workbenchHref(assignment), {
-        state: {
-          ...(workbenchNavigationState?.source ? { source: workbenchNavigationState.source } : {}),
-          taskDisplayId: currentTaskDisplayId || assignment.taskId,
-          taskTitle: currentTaskTitle || assignment.taskTitle,
-        } satisfies WorkbenchNavigationState,
-      });
-    },
-    [currentTaskDisplayId, currentTaskTitle, navigate, workbenchNavigationState?.source],
-  );
 
   const handlePrevious = useCallback(() => {
     const previousAssignment = orderedTaskAssignments[routeQuestionIndex - 1];
@@ -549,8 +658,12 @@ export const WorkbenchPage = () => {
   }, [navigateToAssignment, orderedTaskAssignments, showErrorToast]);
 
   const reportCurrentIssue = useCallback(() => {
+    if (!canReportCurrentIssue) {
+      return;
+    }
+
     showInfoToast('请在本题备注中说明异常，提交任务后会随答案进入审核。');
-  }, [showInfoToast]);
+  }, [canReportCurrentIssue, showInfoToast]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -563,18 +676,13 @@ export const WorkbenchPage = () => {
         void saveDraftNow('manual');
       }
 
-      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-        event.preventDefault();
-        void submitCurrent();
-      }
-
       if (!(event.metaKey || event.ctrlKey || event.altKey)) {
         const key = event.key.toLowerCase();
-        if (key === 'j') {
+        if (key === 'j' || event.key === 'ArrowRight') {
           event.preventDefault();
           handleNext();
         }
-        if (key === 'k') {
+        if (key === 'k' || event.key === 'ArrowLeft') {
           event.preventDefault();
           handlePrevious();
         }
@@ -587,7 +695,7 @@ export const WorkbenchPage = () => {
 
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
-  }, [handleNext, handlePrevious, reportCurrentIssue, saveDraftNow, submitCurrent]);
+  }, [handleNext, handlePrevious, reportCurrentIssue, saveDraftNow]);
 
   const schemaFields = useMemo(
     () => (workbench ? getFlattenedSchemaFields(workbench.task.schema.fields) : []),
@@ -766,6 +874,8 @@ export const WorkbenchPage = () => {
                   onChange={setAnswers}
                   activeFieldKey={activeField ? getSchemaFieldKey(activeField) : activeFieldKey}
                   onActiveFieldChange={setActiveFieldKey}
+                  validationFocusFieldKey={validationFocusFieldKey}
+                  showValidationErrors={showSubmissionValidationErrors}
                 />
               </>
             )}
@@ -780,7 +890,7 @@ export const WorkbenchPage = () => {
               </button>
             </div>
             <div className="annotation-submit-bar__actions">
-              <button type="button" onClick={reportCurrentIssue}>
+              <button type="button" disabled={!canReportCurrentIssue} onClick={reportCurrentIssue}>
                 报告题目
               </button>
               <button
@@ -1012,7 +1122,6 @@ const LabelerWorkbenchInfoPanel = ({
       <section className="labeler-info-section">
         <h2>快捷键</h2>
         <ul className="labeler-shortcut-list">
-          <li>⌘+Enter 提交本题</li>
           <li>⌘+S 保存草稿</li>
           <li>← / → 上一题 / 下一题</li>
           <li>J 跳题 · R 报告题目</li>
@@ -1135,11 +1244,12 @@ function formatTaskSubmissionStatusMessage(taskSubmission: TaskSubmissionDto): s
 }
 
 function buildQuestionHistory(workbench: WorkbenchDto): QuestionHistoryEntry[] {
+  const labelerActorName = formatLabelerActorName(workbench.assignment.assigneeId);
   const entries = workbench.submissionHistory.flatMap((submission) => {
     const submissionEntries: QuestionHistoryEntry[] = [
       {
         id: `${submission.id}:submit`,
-        label: `${formatUserName(workbench.assignment.assigneeId)} · 提交`,
+        label: `${labelerActorName} · 提交`,
         timeText: formatHistoryTime(submission.submittedAt),
         dateTime: submission.submittedAt,
       },
@@ -1150,7 +1260,7 @@ function buildQuestionHistory(workbench: WorkbenchDto): QuestionHistoryEntry[] {
       .map((record, index) => {
         const isRecheck = isHumanRecheckRecord(record);
         const actorName = isRecheck
-          ? formatReviewerName(record.assignedReviewerId)
+          ? formatRecheckActorName(record.assignedReviewerId)
           : 'AI 预审';
 
         return {
@@ -1166,11 +1276,15 @@ function buildQuestionHistory(workbench: WorkbenchDto): QuestionHistoryEntry[] {
 
   entries.sort((first, second) => (first.dateTime ?? '').localeCompare(second.dateTime ?? ''));
 
+  if (isCompletedAssignmentStatus(workbench.assignment.status)) {
+    return entries;
+  }
+
   return [
     ...entries,
     {
       id: 'current',
-      label: `${formatUserName(workbench.assignment.assigneeId)} · ${formatCurrentHistoryAction(workbench)}`,
+      label: `${labelerActorName} · ${formatCurrentHistoryAction(workbench)}`,
       timeText: '当前',
       isCurrent: true,
     },
@@ -1474,6 +1588,149 @@ function getAnswerFields(fields: readonly SchemaField[]): SchemaField[] {
 
 type QuestionProgressState = 'empty' | 'draft' | 'complete';
 
+type TaskSubmissionValidationIssue = {
+  assignmentId: string;
+  taskItemId: string;
+  externalId: string;
+  fieldKey: string;
+  message: string;
+};
+
+type TaskSubmissionValidationSnapshot = {
+  assignmentId: string;
+  taskItemId: string;
+  externalId: string;
+  sortOrder: number;
+  answers: Record<string, unknown>;
+};
+
+function collectTaskSubmissionValidationIssues(
+  workbench: WorkbenchDto,
+  taskAssignments: readonly LabelerAssignmentDto[],
+  currentAnswers: Record<string, unknown>,
+): TaskSubmissionValidationIssue[] {
+  const snapshotsByAssignmentId = new Map<string, TaskSubmissionValidationSnapshot>();
+  const fieldOrderByKey = new Map(
+    getFlattenedSchemaFields(workbench.task.schema.fields).map((field, index) => [
+      getSchemaFieldKey(field),
+      index,
+    ]),
+  );
+
+  for (const assignment of taskAssignments) {
+    if (assignment.taskId !== workbench.assignment.taskId || !isSubmittableAssignmentStatus(assignment.status)) {
+      continue;
+    }
+
+    snapshotsByAssignmentId.set(assignment.assignmentId, {
+      assignmentId: assignment.assignmentId,
+      taskItemId: assignment.taskItemId,
+      externalId: assignment.externalId,
+      sortOrder: assignment.taskItemSortOrder,
+      answers: resolveSubmissionValidationAnswers(workbench, assignment, currentAnswers),
+    });
+  }
+
+  if (
+    isSubmittableAssignmentStatus(workbench.assignment.status) &&
+    !snapshotsByAssignmentId.has(workbench.assignment.id)
+  ) {
+    snapshotsByAssignmentId.set(workbench.assignment.id, {
+      assignmentId: workbench.assignment.id,
+      taskItemId: workbench.assignment.taskItemId,
+      externalId: workbench.taskItem.externalId,
+      sortOrder: workbench.taskItem.sortOrder,
+      answers: currentAnswers,
+    });
+  }
+
+  return [...snapshotsByAssignmentId.values()]
+    .sort(compareTaskSubmissionValidationSnapshots)
+    .flatMap((snapshot) => {
+      const linkageResult = applySchemaLinkage(workbench.task.schema, snapshot.answers);
+      const errors = validateSchemaAnswers(
+        workbench.task.schema,
+        linkageResult.normalizedAnswers,
+        linkageResult,
+      );
+
+      return [...errors]
+        .sort((first, second) =>
+          (fieldOrderByKey.get(first.fieldKey) ?? Number.MAX_SAFE_INTEGER) -
+          (fieldOrderByKey.get(second.fieldKey) ?? Number.MAX_SAFE_INTEGER),
+        )
+        .map((error) => ({
+          assignmentId: snapshot.assignmentId,
+          taskItemId: snapshot.taskItemId,
+          externalId: snapshot.externalId,
+          fieldKey: error.fieldKey,
+          message: error.message,
+        }));
+    });
+}
+
+function resolveSubmissionValidationAnswers(
+  workbench: WorkbenchDto,
+  assignment: LabelerAssignmentDto,
+  currentAnswers: Record<string, unknown>,
+): Record<string, unknown> {
+  if (assignment.assignmentId === workbench.assignment.id) {
+    return currentAnswers;
+  }
+
+  return assignment.draftAnswers ?? {};
+}
+
+function compareTaskSubmissionValidationSnapshots(
+  first: TaskSubmissionValidationSnapshot,
+  second: TaskSubmissionValidationSnapshot,
+): number {
+  if (first.sortOrder !== second.sortOrder) {
+    return first.sortOrder - second.sortOrder;
+  }
+
+  return first.externalId.localeCompare(second.externalId, 'zh-CN', { numeric: true });
+}
+
+function formatTaskSubmissionValidationIssue(issue: TaskSubmissionValidationIssue): string {
+  return `题目 ${issue.externalId}：${normalizeInlineValidationMessage(issue.message)}`;
+}
+
+function normalizeInlineValidationMessage(message: string): string {
+  const normalizedMessage = message.replace(/[。.!！]+$/g, '').trim();
+
+  return normalizedMessage || '答案填写有误';
+}
+
+function formatTaskSubmissionErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message.trim() : '';
+  if (!message) {
+    return '提交失败';
+  }
+
+  if (/答案未通过\s*Schema\s*校验/i.test(message)) {
+    const externalId = message.match(/题目\s*(.+?)\s*的答案未通过\s*Schema\s*校验/i)?.[1]?.trim();
+
+    return externalId ? `题目 ${externalId}：答案填写有误` : '提交前请修正题目答案后再提交';
+  }
+
+  return message;
+}
+
+function findSchemaFieldNode(fieldKey: string): HTMLElement | null {
+  return [...document.querySelectorAll<HTMLElement>('[data-field-key]')].find(
+    (element) => element.dataset.fieldKey === fieldKey,
+  ) ?? null;
+}
+
+function focusFirstEditableControl(fieldNode: HTMLElement | null): void {
+  fieldNode
+    ?.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | HTMLElement>(
+      'input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [contenteditable="true"]',
+    )
+    ?.focus();
+}
+
 function resolveAnswerProgressState(workbench: WorkbenchDto, answers: Record<string, unknown>): QuestionProgressState {
   return resolveSchemaAnswerProgressState(workbench.task.schema, answers);
 }
@@ -1590,6 +1847,10 @@ function isEditableAssignmentStatus(status: AssignmentStatus): boolean {
 
 function isSubmittableAssignmentStatus(status: AssignmentStatus): boolean {
   return status === 'ASSIGNED' || status === 'IN_PROGRESS' || status === 'NEEDS_REVISION';
+}
+
+function isCompletedAssignmentStatus(status: AssignmentStatus): boolean {
+  return status === 'FINAL_APPROVED';
 }
 
 function createTaskSubmissionIdempotencyKey(
@@ -1709,6 +1970,16 @@ function formatReviewerName(reviewerId: string | null | undefined): string {
   }
 
   return '复审员';
+}
+
+function formatLabelerActorName(labelerId: string | null | undefined): string {
+  const labelerName = formatUserName(labelerId);
+  return labelerName === '标注员' ? labelerName : `标注员 ${labelerName}`;
+}
+
+function formatRecheckActorName(reviewerId: string | null | undefined): string {
+  const reviewerName = formatReviewerName(reviewerId);
+  return reviewerName.startsWith('复审员') ? reviewerName : `复审员 ${reviewerName}`;
 }
 
 function stringValue(value: unknown): string {

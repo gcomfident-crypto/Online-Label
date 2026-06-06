@@ -120,7 +120,7 @@ describe('TaskMarketPage', () => {
     const taskRow = within(table).getByText('问答质量标注').closest('tr');
     expect(taskRow).not.toBeNull();
     expect(document.querySelector('.task-market-card')).toBeNull();
-    expect(within(taskRow as HTMLElement).getByText('T-0001')).toBeInTheDocument();
+    expect(within(taskRow as HTMLElement).getByText('T-001')).toBeInTheDocument();
     expect(within(taskRow as HTMLElement).getByText('张满')).toBeInTheDocument();
     expect(within(taskRow as HTMLElement).getByText('可领取')).toBeInTheDocument();
     expect(within(taskRow as HTMLElement).getByText('0.30 元 / 条')).toBeInTheDocument();
@@ -229,8 +229,8 @@ describe('TaskMarketPage', () => {
     const earliestRow = within(table).getByText('最早发布任务').closest('tr');
     expect(latestRow).not.toBeNull();
     expect(earliestRow).not.toBeNull();
-    expect(within(latestRow as HTMLElement).getByText('T-0002')).toBeInTheDocument();
-    expect(within(earliestRow as HTMLElement).getByText('T-0001')).toBeInTheDocument();
+    expect(within(latestRow as HTMLElement).getByText('T-002')).toBeInTheDocument();
+    expect(within(earliestRow as HTMLElement).getByText('T-001')).toBeInTheDocument();
   });
 
   it('已领取任务不再展示在任务广场', async () => {

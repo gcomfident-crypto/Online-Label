@@ -429,6 +429,29 @@ describe('LlmService template field classifier', () => {
     });
   });
 
+  it('字段分类未配置真实模型时拒绝使用 mock 结果', async () => {
+    delete process.env.LLM_PROVIDER;
+    delete process.env.DEEPSEEK_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    process.env.NODE_ENV = 'development';
+
+    await expect(
+      new LlmService().classifyTemplateFields({
+        fileName: 'preference_compare.jsonl',
+        fields: [
+          { sourceKey: 'prompt', samples: ['比较 A/B 回答'], valueTypes: ['string'], filledCount: 1, totalCount: 1 },
+          { sourceKey: 'preferred', samples: [], valueTypes: ['string'], filledCount: 0, totalCount: 1 },
+        ],
+        records: [{ prompt: '比较 A/B 回答', preferred: '' }],
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'LLM_FIELD_CLASSIFIER_REQUIRES_REAL_MODEL',
+        message: '字段分类必须使用真实模型，请配置 DEEPSEEK_API_KEY、OPENAI_API_KEY 或 LLM_PROVIDER=deepseek/openai/custom。',
+      },
+    });
+  });
+
   it('按字段顺序寻找分水岭，并从右侧打标字段值中提取物料选项', async () => {
     process.env.LLM_PROVIDER = 'mock';
     process.env.NODE_ENV = 'test';

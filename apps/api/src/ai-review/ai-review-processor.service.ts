@@ -35,6 +35,10 @@ type AiReviewProcessorPrismaClient = {
       maxAttempts: number;
       logs: unknown;
     }>>;
+    updateMany: (args: {
+      where: Record<string, unknown>;
+      data: Record<string, unknown>;
+    }) => Promise<{ count: number }>;
     update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<unknown>;
   };
   reviewRule: {
@@ -77,6 +81,7 @@ type AiReviewContext = {
   answerData: Record<string, unknown>;
   fieldRequirements: readonly AiReviewFieldRequirement[];
   prompt: string;
+  rawData: Record<string, unknown>;
 };
 
 const DEFAULT_PROCESSOR_LIMIT = 5;
@@ -142,6 +147,11 @@ export class AiReviewProcessorService implements OnApplicationBootstrap, OnModul
       });
 
       for (const job of jobs) {
+        const claimed = await this.claimQueuedJob(job);
+        if (!claimed) {
+          continue;
+        }
+
         try {
           const detail = await this.aiReviewService.getSubmissionReview(job.submissionId);
           const rule = await this.findActiveRule(job.taskId);
@@ -176,6 +186,33 @@ export class AiReviewProcessorService implements OnApplicationBootstrap, OnModul
     }
   }
 
+  private async claimQueuedJob(job: { id: string; attempts: number; logs: unknown }): Promise<boolean> {
+    const startedAt = new Date();
+    const claimed = await this.prisma.aiReviewJob.updateMany({
+      where: {
+        id: job.id,
+        status: 'QUEUED',
+      },
+      data: {
+        status: 'RUNNING',
+        attempts: {
+          increment: 1,
+        },
+        startedAt,
+        logs: [
+          ...toLogArray(job.logs),
+          {
+            level: 'run',
+            message: 'AI 预审开始处理提交。',
+            at: startedAt.toISOString(),
+          },
+        ],
+      },
+    });
+
+    return claimed.count === 1;
+  }
+
   private async findActiveRule(taskId: string): Promise<ReviewRuleRecord> {
     const rule = await this.prisma.reviewRule.findFirst({
       where: {
@@ -190,10 +227,10 @@ export class AiReviewProcessorService implements OnApplicationBootstrap, OnModul
   }
 
   private async markJobFailed(
-    job: { id: string; attempts: number; maxAttempts: number; logs: unknown },
+    job: { id: string; attempts: number; maxAttempts: number; status?: string; logs: unknown },
     error: unknown,
   ): Promise<void> {
-    const nextAttempts = job.attempts + 1;
+    const nextAttempts = job.status === 'RUNNING' ? Math.max(1, job.attempts) : job.attempts + 1;
     const message = error instanceof Error ? error.message : 'AI 预审处理失败。';
     await this.prisma.aiReviewJob.update({
       where: { id: job.id },
@@ -229,9 +266,14 @@ function buildReviewContext(rule: ReviewRuleRecord, detail: AiReviewDetailDto): 
       answerData: compiledPrompt.answerData,
       fieldRequirements: compiledPrompt.fieldRequirements,
       prompt: compiledPrompt.prompt,
+      rawData: compiledPrompt.reviewableRawData,
     };
   }
 
+  const reviewableRawData = omitAnswerKeysFromRawData(
+    detail.taskItem.rawData,
+    Object.keys(detail.submission.answers),
+  );
   const fieldRequirements = Object.keys(detail.submission.answers).map<AiReviewFieldRequirement>((fieldKey) => ({
     fieldKey,
     label: fieldKey,
@@ -246,11 +288,13 @@ function buildReviewContext(rule: ReviewRuleRecord, detail: AiReviewDetailDto): 
     prompt: [
     rule.promptTemplate,
     '',
-    `题目 rawData：${JSON.stringify(detail.taskItem.rawData)}`,
+    '上传文件中与待标注字段同名或映射到待标注字段的值，仅用于 owner 配置模板参考，不是标准答案，不得用于和当前标注答案做一致性比较。',
+    `题目可审上下文：${JSON.stringify(reviewableRawData)}`,
     `标注 answers：${JSON.stringify(detail.submission.answers)}`,
     '',
       '请只输出 JSON：{"verdict":"pass|reject","fieldReviews":[{"fieldKey":"...","label":"...","score":0,"decision":"pass|reject","comment":"...","suggestions":[]}],"overallComment":"..."}',
     ].join('\n'),
+    rawData: reviewableRawData,
   };
 }
 
@@ -267,7 +311,7 @@ async function evaluateWithAgent(
     model: rule.model,
     passThreshold: rule.passThreshold,
     provider: rule.provider,
-    rawData: detail.taskItem.rawData,
+    rawData: reviewContext.rawData,
     rawPrompt: reviewContext.prompt,
     structuredOutputMode: structuredOutputMode(rule),
     temperature: rule.temperature,
@@ -324,6 +368,17 @@ function resolveRuntimeReviewRule(rule: ReviewRuleRecord): ReviewRuleRecord {
 
 function structuredOutputMode(rule: ReviewRuleRecord): string {
   return rule.config?.structuredOutputMode === 'json_schema' ? 'json_schema' : 'function_calling';
+}
+
+function omitAnswerKeysFromRawData(
+  rawData: Record<string, unknown>,
+  answerKeys: readonly string[],
+): Record<string, unknown> {
+  const answerKeySet = new Set(answerKeys);
+
+  return Object.fromEntries(
+    Object.entries(rawData).filter(([key]) => !answerKeySet.has(key)),
+  );
 }
 
 function processorIntervalMs(): number {

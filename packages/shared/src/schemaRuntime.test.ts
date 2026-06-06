@@ -296,6 +296,48 @@ describe('schema runtime', () => {
     expect(sourceWins.answers).toEqual({ preferred: 'A' });
   });
 
+  it('两条互相限制的 limitOptions 规则不会把最后改动字段锁回旧值', () => {
+    const schema = {
+      ...preferenceLimitSchema(false),
+      linkageRules: [
+        {
+          when: { fieldKey: 'preferred', operator: 'equals', value: 'tie' },
+          action: 'limitOptions',
+          targetFieldKey: 'margin',
+          optionValues: ['相当'],
+        },
+        {
+          when: { fieldKey: 'margin', operator: 'equals', value: '相当' },
+          action: 'limitOptions',
+          targetFieldKey: 'preferred',
+          optionValues: ['tie'],
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    const sourceWins = applySchemaLinkage(
+      schema,
+      { preferred: 'A', margin: '相当' },
+      { changedFieldKey: 'preferred' },
+    );
+
+    expect(sourceWins.allowedOptionsByFieldKey.has('preferred')).toBe(false);
+    expect(sourceWins.answers).toEqual({ preferred: 'A' });
+
+    const lockedPair = applySchemaLinkage(schema, { preferred: 'tie', margin: '相当' });
+
+    expect([...lockedPair.overrideableOptionLimitFieldKeys].sort()).toEqual(['margin', 'preferred']);
+
+    const targetWins = applySchemaLinkage(
+      schema,
+      { preferred: 'A', margin: '相当' },
+      { changedFieldKey: 'margin' },
+    );
+
+    expect(targetWins.allowedOptionsByFieldKey.has('margin')).toBe(false);
+    expect(targetWins.answers).toEqual({ preferred: 'tie', margin: '相当' });
+  });
+
   it('limitOptions 关闭双向约束后不会反向约束源字段', () => {
     const schema = preferenceLimitSchema(false);
     const changedTarget = applySchemaLinkage(schema, { margin: '相当' }, { changedFieldKey: 'margin' });
@@ -335,7 +377,7 @@ describe('schema runtime', () => {
     const linkage = applySchemaLinkage(schema, { preferred: 'A' });
 
     expect(validateSchemaAnswers(schema, { preferred: 'A', margin: '明显逊于' }, linkage)).toEqual([
-      { fieldKey: 'margin', message: '优劣程度必须选择有效选项。' },
+      { fieldKey: 'margin', message: '优劣程度只能选择：明显优于。' },
     ]);
   });
 

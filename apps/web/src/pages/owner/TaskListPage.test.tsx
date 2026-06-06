@@ -118,7 +118,7 @@ describe('TaskListPage', () => {
     const enteringRow = screen.getByText('自然入场任务').closest('tr');
     expect(enteringRow).not.toBeNull();
     expect(enteringRow).toHaveClass('is-entering');
-    expect(enteringRow?.querySelectorAll('.task-table__cell-inner')).toHaveLength(8);
+    expect(enteringRow?.querySelectorAll('.task-table__cell-inner')).toHaveLength(7);
   });
 
   it('未选择关联模板保存草稿后再次打开仍显示请选择评测模板', async () => {
@@ -207,7 +207,7 @@ describe('TaskListPage', () => {
     const deletingRow = within(table).getByText('待删除任务').closest('tr');
     expect(deletingRow).not.toBeNull();
     await waitFor(() => expect(deletingRow).toHaveClass('is-removing'));
-    expect(deletingRow?.querySelectorAll('.task-table__cell-inner')).toHaveLength(8);
+    expect(deletingRow?.querySelectorAll('.task-table__cell-inner')).toHaveLength(7);
     const deleteToastText = await screen.findByText('任务已删除');
     expect(deleteToastText.closest('.toast')).toHaveClass('toast--delete-success');
     expect(within(table).getByText('待删除任务')).toBeInTheDocument();
@@ -280,7 +280,7 @@ describe('TaskListPage', () => {
     expect(within(rows[1]).getByText('15:59')).toBeInTheDocument();
     expect(within(table).queryByText('2026-05-20 00:00')).not.toBeInTheDocument();
     expect(within(table).getByText('商品标题清洗 v3 · 抖音电商')).toBeInTheDocument();
-    expect(within(table).getByText('T-0001')).toBeInTheDocument();
+    expect(within(table).getByText('T-001')).toBeInTheDocument();
     expect(within(table).queryByText('task_published')).not.toBeInTheDocument();
     expect(within(table).getByText('进行中')).toBeInTheDocument();
     expect(within(table).getByText('已暂停')).toBeInTheDocument();
@@ -306,7 +306,7 @@ describe('TaskListPage', () => {
 
     await userEvent.click(within(summaryRegion as HTMLElement).getByRole('button', { name: /进行中/ }));
     expect(within(summaryRegion as HTMLElement).getByRole('button', { name: /进行中/ })).toHaveClass('is-active');
-    expect(within(table).getByText('T-0001')).toBeInTheDocument();
+    expect(within(table).getByText('T-001')).toBeInTheDocument();
     expect(within(table).queryByText('task_draft')).not.toBeInTheDocument();
 
     await userEvent.click(within(summaryRegion as HTMLElement).getByRole('button', { name: /总任务/ }));
@@ -461,8 +461,8 @@ describe('TaskListPage', () => {
 
     const table = await screen.findByRole('table', { name: '任务列表' });
     const rows = within(table).getAllByRole('row');
-    expect(within(rows[1]).getByText('T-0002')).toBeInTheDocument();
-    expect(within(rows[2]).getByText('T-0001')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('T-002')).toBeInTheDocument();
+    expect(within(rows[2]).getByText('T-001')).toBeInTheDocument();
     expect(within(table).queryByText('cmpjpv2gcu0004z6pee7yxro8k')).not.toBeInTheDocument();
     expect(within(table).queryByText('cmpjpv2gcu0001z6peexxx1111')).not.toBeInTheDocument();
   });
@@ -499,6 +499,15 @@ describe('TaskListPage', () => {
         body: JSON.stringify({ status: 'PUBLISHED', actorId: 'user_owner_zhang_man', confirm: true }),
       }),
     );
+  });
+
+  it('已完成任务在列表中的删除按钮为禁用态', async () => {
+    renderTaskListPage();
+
+    const table = await screen.findByRole('table', { name: '任务列表' });
+    const deleteEndTaskButton = within(table).getByRole('button', { name: '删除 AIGC 图文质量打分' });
+
+    expect(deleteEndTaskButton).toBeDisabled();
   });
 
   it('点击结束按钮的 SVG 图标不会继续冒泡打开任务抽屉', async () => {
@@ -1195,7 +1204,7 @@ describe('TaskListPage', () => {
     await user.click(screen.getByLabelText('关联模板'));
     expect(screen.getByRole('option', { name: 'M-001 · 偏好对比模板 · v1' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'M-002 · 问答质量模板 · v1' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'M-003 · 草稿评测模板 · v1' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'M-003 · 草稿评测模板 · v1' })).not.toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'M-001 · 商品清洗 · v3' })).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText('关联模板'), '问答');
@@ -1466,7 +1475,7 @@ describe('TaskListPage', () => {
     );
   });
 
-  it('从关联模板查看使用中的模板并另存后恢复任务抽屉并选中新模板', async () => {
+  it('从关联模板查看使用中的模板并另存草稿后恢复任务抽屉但不选中草稿模板', async () => {
     const user = userEvent.setup();
     const editableSchema = createLabelHubSchema({
       schemaVersion: 'r1',
@@ -1554,9 +1563,8 @@ describe('TaskListPage', () => {
     expect(screen.getByRole('heading', { name: '任务管理' })).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
     expect(within(restoredDrawer).getByLabelText('任务标题')).toHaveValue('使用中模板另存后应恢复的任务');
-    expect(within(restoredDrawer).getByLabelText('关联模板')).toHaveValue(
-      'M-001 · 使用中的问答模板 副本 · v1',
-    );
+    expect(within(restoredDrawer).getByLabelText('关联模板')).toHaveAttribute('placeholder', '请选择评测模板');
+    expect(within(restoredDrawer).getByLabelText('关联模板')).toHaveValue('');
   });
 
   it('已保存草稿重新打开后仍可切换关联模板', async () => {
@@ -1621,12 +1629,14 @@ describe('TaskListPage', () => {
     await user.click(screen.getByRole('row', { name: /草稿模板可切换任务/ }));
 
     const templateInput = screen.getByRole('combobox', { name: '关联模板' });
-    expect(templateInput).toHaveValue('M-001 · 问答质量 副本');
+    expect(templateInput).toHaveAttribute('placeholder', '请选择评测模板');
+    expect(templateInput).toHaveValue('');
 
     await user.click(templateInput);
-    expect(await screen.findByRole('option', { name: 'M-002 · 偏好对比模板 · v1' })).toBeInTheDocument();
-    await user.click(screen.getByRole('option', { name: 'M-002 · 偏好对比模板 · v1' }));
-    expect(templateInput).toHaveValue('M-002 · 偏好对比模板 · v1');
+    expect(screen.queryByRole('option', { name: 'M-001 · 问答质量 副本' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'M-001 · 偏好对比模板 · v1' })).toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: 'M-001 · 偏好对比模板 · v1' }));
+    expect(templateInput).toHaveValue('M-001 · 偏好对比模板 · v1');
 
     await user.click(screen.getByRole('button', { name: '存为草稿' }));
 

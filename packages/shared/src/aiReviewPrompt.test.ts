@@ -198,6 +198,86 @@ describe('compileAiReviewPrompt', () => {
     expect(compiled.prompt).not.toContain('hidden_answer');
   });
 
+  it('AI 预审上下文不把待标注字段在上传文件里的演示值当作题目依据', () => {
+    const schema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [
+        {
+          key: 'show_item',
+          type: 'show_item',
+          label: '题目展示',
+          displayConfig: {
+            layout: 'comparison',
+            fields: [
+              { sourceKey: 'prompt', label: '题目', format: 'long_text' },
+              { sourceKey: 'response_a', label: '回答 A', format: 'long_text' },
+              { sourceKey: 'response_b', label: '回答 B', format: 'long_text' },
+            ],
+          },
+        },
+        {
+          key: 'dimensions_field',
+          fieldKey: 'dimensions',
+          sourceKey: 'dimensions',
+          type: 'checkbox',
+          label: '评估维度',
+          options: [
+            { label: '准确性', value: '准确性' },
+            { label: '完整性', value: '完整性' },
+            { label: '可读性', value: '可读性' },
+          ],
+          aiReview: {
+            enabled: true,
+            requirement: '维度选择应符合本次标注判断。',
+          },
+        },
+        {
+          key: 'annotator_note_field',
+          fieldKey: 'annotator_note',
+          sourceKey: 'annotator_note',
+          type: 'textarea',
+          label: '标注备注',
+          aiReview: {
+            enabled: true,
+            requirement: '备注应解释本次判断依据。',
+          },
+        },
+      ],
+    });
+
+    const compiled = compileAiReviewPrompt({
+      schema,
+      rawData: {
+        prompt: '请比较两个回答',
+        response_a: '回答 A 内容',
+        response_b: '回答 B 内容',
+        dimensions: ['准确性', '完整性', '可读性'],
+        annotator_note: '演示备注：三个维度都需要关注。',
+      },
+      answers: {
+        dimensions: ['准确性'],
+        annotator_note: '我认为回答 A 更准确。',
+      },
+      reviewFieldKeys: ['dimensions', 'annotator_note'],
+    });
+
+    expect(compiled.reviewableRawData).toEqual({
+      prompt: '请比较两个回答',
+      response_a: '回答 A 内容',
+      response_b: '回答 B 内容',
+    });
+    expect(compiled.showItemData).toEqual([
+      { sourceKey: 'prompt', label: '题目', format: 'long_text', value: '请比较两个回答' },
+      { sourceKey: 'response_a', label: '回答 A', format: 'long_text', value: '回答 A 内容' },
+      { sourceKey: 'response_b', label: '回答 B', format: 'long_text', value: '回答 B 内容' },
+    ]);
+    expect(compiled.prompt).not.toContain('"sourceKey": "dimensions"');
+    expect(compiled.prompt).not.toContain('["准确性","完整性","可读性"]');
+    expect(compiled.prompt).not.toContain('演示备注：三个维度都需要关注。');
+    expect(compiled.prompt).toContain('上传文件中与待标注字段同名或映射到待标注字段的值，仅用于 owner 配置模板参考，不是标准答案');
+  });
+
   it('支持模板保存分段 Prompt 编辑内容', () => {
     const schema = createLabelHubSchema({
       schemaVersion: 'draft',

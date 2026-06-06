@@ -24,6 +24,23 @@ export function resolveAiReviewRuntimeConfig(env: NodeJS.ProcessEnv = process.en
   };
 }
 
+export function resolveConfiguredAiReviewRuntimeConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): AiReviewRuntimeConfig | null {
+  const configuredProvider = normalizeAiReviewProvider(
+    env.AI_REVIEW_PROVIDER?.trim() || env.LLM_PROVIDER?.trim() || '',
+  );
+  const provider = resolveConfiguredAiReviewRuntimeProvider(configuredProvider, env);
+
+  return provider
+    ? {
+        provider,
+        model: resolveAiReviewRuntimeModel(provider, env),
+        structuredOutputMode: DEFAULT_AI_REVIEW_STRUCTURED_OUTPUT_MODE,
+      }
+    : null;
+}
+
 export function resolveAiReviewRuntimeProvider(env: NodeJS.ProcessEnv = process.env): string {
   const configuredProvider = normalizeAiReviewProvider(
     env.AI_REVIEW_PROVIDER?.trim() || env.LLM_PROVIDER?.trim() || '',
@@ -69,6 +86,47 @@ export function resolveAiReviewRuntimeModel(
   }
 
   return DEFAULT_AI_REVIEW_MODEL;
+}
+
+function resolveConfiguredAiReviewRuntimeProvider(
+  configuredProvider: string,
+  env: NodeJS.ProcessEnv,
+): string | null {
+  if (configuredProvider && configuredProvider !== 'mock') {
+    return hasUsableProviderConfig(configuredProvider, env) ? configuredProvider : null;
+  }
+
+  if (hasUsableSecret(env.DEEPSEEK_API_KEY, 'replace_with_deepseek_api_key')) {
+    return 'deepseek';
+  }
+
+  if (hasUsableSecret(env.OPENAI_API_KEY)) {
+    return 'openai';
+  }
+
+  if (hasUsableSecret(env.LLM_API_KEY) && hasUsableSecret(env.LLM_API_BASE_URL)) {
+    return 'custom';
+  }
+
+  return null;
+}
+
+function hasUsableProviderConfig(provider: string, env: NodeJS.ProcessEnv): boolean {
+  const normalizedProvider = normalizeAiReviewProvider(provider);
+
+  if (normalizedProvider === 'deepseek') {
+    return hasUsableSecret(env.DEEPSEEK_API_KEY, 'replace_with_deepseek_api_key');
+  }
+
+  if (normalizedProvider === 'openai') {
+    return hasUsableSecret(env.OPENAI_API_KEY);
+  }
+
+  if (normalizedProvider === 'custom') {
+    return hasUsableSecret(env.LLM_API_KEY) && hasUsableSecret(env.LLM_API_BASE_URL);
+  }
+
+  return false;
 }
 
 function hasUsableSecret(value: unknown, placeholder?: string): boolean {

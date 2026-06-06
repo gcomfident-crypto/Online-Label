@@ -92,11 +92,12 @@ describe('MyDataPage', () => {
     expect(within(table).getByText('任务ID')).toBeInTheDocument();
     expect(within(table).getByText('任务名')).toBeInTheDocument();
     expect(within(table).queryByRole('columnheader', { name: '任务' })).not.toBeInTheDocument();
-    expect(within(table).getByText('T-0001')).toBeInTheDocument();
+    expect(within(table).getByText('T-001')).toBeInTheDocument();
     expect(within(table).getByText('2 条')).toBeInTheDocument();
+    expect(within(table).getByText('0/2')).toBeInTheDocument();
     expect(within(table).queryByText('问答质量官方模板 · r1')).not.toBeInTheDocument();
     expect(within(table).queryByText(/下一条/)).not.toBeInTheDocument();
-    expect(within(table).getAllByText('待标注')).not.toHaveLength(0);
+    expect(within(table).queryByText('待标注')).not.toBeInTheDocument();
     expect(within(table).queryByText('操作')).not.toBeInTheDocument();
     expect(table.querySelectorAll('tbody tr:first-child .my-data-table__cell')).toHaveLength(7);
     expect(screen.queryByRole('link', { name: '继续标注 问答质量标注' })).not.toBeInTheDocument();
@@ -107,7 +108,7 @@ describe('MyDataPage', () => {
       '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
     );
     expect(screen.getByTestId('location-state')).toHaveTextContent(
-      JSON.stringify({ source: 'my-data-table', taskDisplayId: 'T-0001', taskTitle: '问答质量标注' }),
+      JSON.stringify({ source: 'my-data-table', taskDisplayId: 'T-001', taskTitle: '问答质量标注' }),
     );
   });
 
@@ -150,6 +151,141 @@ describe('MyDataPage', () => {
     await user.type(screen.getByLabelText('搜索任务'), '不存在');
 
     expect(within(table).getByText('暂无领取任务')).toBeInTheDocument();
+  });
+
+  it('进度列未完成任务显示完成数，全完成任务只显示绿色已完成气泡', async () => {
+    const progressAssignments = [
+      createAssignment({
+        assignmentId: 'partial_1',
+        taskId: 'task_partial',
+        taskTitle: '部分完成任务',
+        taskItemId: 'partial_item_1',
+        taskItemSortOrder: 1,
+        externalId: 'partial_1',
+        status: 'FINAL_APPROVED',
+        latestSubmissionStatus: 'FINAL_APPROVED',
+        latestSubmittedAt: '2026-05-21T08:10:00.000Z',
+        claimedAt: '2026-05-21T08:00:00.000Z',
+      }),
+      createAssignment({
+        assignmentId: 'partial_2',
+        taskId: 'task_partial',
+        taskTitle: '部分完成任务',
+        taskItemId: 'partial_item_2',
+        taskItemSortOrder: 2,
+        externalId: 'partial_2',
+        status: 'IN_PROGRESS',
+        claimedAt: '2026-05-21T08:05:00.000Z',
+      }),
+      createAssignment({
+        assignmentId: 'completed_1',
+        taskId: 'task_completed',
+        taskTitle: '全部完成任务',
+        taskItemId: 'completed_item_1',
+        taskItemSortOrder: 1,
+        externalId: 'completed_1',
+        status: 'FINAL_APPROVED',
+        latestSubmissionStatus: 'FINAL_APPROVED',
+        latestSubmittedAt: '2026-05-21T09:10:00.000Z',
+        claimedAt: '2026-05-21T09:00:00.000Z',
+      }),
+      createAssignment({
+        assignmentId: 'completed_2',
+        taskId: 'task_completed',
+        taskTitle: '全部完成任务',
+        taskItemId: 'completed_item_2',
+        taskItemSortOrder: 2,
+        externalId: 'completed_2',
+        status: 'FINAL_APPROVED',
+        latestSubmissionStatus: 'FINAL_APPROVED',
+        latestSubmittedAt: '2026-05-21T09:20:00.000Z',
+        claimedAt: '2026-05-21T09:05:00.000Z',
+      }),
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce(jsonResponse({ data: progressAssignments }))
+        .mockResolvedValueOnce(jsonResponse({
+          data: [
+            createTaskDto({ id: 'task_partial', title: '部分完成任务', createdAt: '2026-05-21T08:00:00.000Z' }),
+            createTaskDto({ id: 'task_completed', title: '全部完成任务', createdAt: '2026-05-21T09:00:00.000Z' }),
+          ],
+        })),
+    );
+
+    render(
+      <MemoryRouter>
+        <MyDataPage />
+      </MemoryRouter>,
+    );
+
+    const table = await screen.findByRole('table', { name: '工作台任务列表' });
+    const partialRow = within(table).getByText('部分完成任务').closest('tr') as HTMLElement;
+    const completedRow = within(table).getByText('全部完成任务').closest('tr') as HTMLElement;
+
+    expect(within(partialRow).getByText('1/2')).toBeInTheDocument();
+    expect(within(partialRow).queryByText('已完成')).not.toBeInTheDocument();
+    expect(within(completedRow).queryByText('2/2')).not.toBeInTheDocument();
+    expect(within(completedRow).getByText('已完成')).toHaveClass(
+      'labeler-assignment-status',
+      'labeler-assignment-status--final_approved',
+    );
+  });
+
+  it('进度列在任务已提交并等待 AI 预审时显示 AI预审胶囊', async () => {
+    const aiReviewAssignments = [
+      createAssignment({
+        assignmentId: 'ai_review_1',
+        taskId: 'task_ai_review',
+        taskTitle: '等待 AI 预审任务',
+        taskItemId: 'ai_review_item_1',
+        taskItemSortOrder: 1,
+        externalId: 'ai_review_1',
+        status: 'SUBMITTED',
+        latestSubmissionStatus: 'AI_QUEUED',
+        latestSubmittedAt: '2026-05-21T10:10:00.000Z',
+        claimedAt: '2026-05-21T10:00:00.000Z',
+      }),
+      createAssignment({
+        assignmentId: 'ai_review_2',
+        taskId: 'task_ai_review',
+        taskTitle: '等待 AI 预审任务',
+        taskItemId: 'ai_review_item_2',
+        taskItemSortOrder: 2,
+        externalId: 'ai_review_2',
+        status: 'SUBMITTED',
+        latestSubmissionStatus: 'AI_REVIEWING',
+        latestSubmittedAt: '2026-05-21T10:10:05.000Z',
+        claimedAt: '2026-05-21T10:01:00.000Z',
+      }),
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce(jsonResponse({ data: aiReviewAssignments }))
+        .mockResolvedValueOnce(jsonResponse({
+          data: [
+            createTaskDto({ id: 'task_ai_review', title: '等待 AI 预审任务', createdAt: '2026-05-21T10:00:00.000Z' }),
+          ],
+        })),
+    );
+
+    render(
+      <MemoryRouter>
+        <MyDataPage />
+      </MemoryRouter>,
+    );
+
+    const table = await screen.findByRole('table', { name: '工作台任务列表' });
+    const row = within(table).getByText('等待 AI 预审任务').closest('tr') as HTMLElement;
+    const aiReviewPill = within(row).getByText('AI预审');
+
+    expect(within(row).queryByText('0/2')).not.toBeInTheDocument();
+    expect(aiReviewPill).toHaveClass(
+      'labeler-assignment-status',
+      'labeler-assignment-status--ai_review',
+    );
   });
 
   it('没有领取记录时仍保留工作台表格结构', async () => {

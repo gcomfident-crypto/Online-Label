@@ -497,6 +497,37 @@ describe('autoShowItemTemplate', () => {
     ]);
   });
 
+  it('AI 只返回 placeholder 时将其作为字段说明正式写入 schema', () => {
+    const schema = createAutoShowItemTemplateSchema(
+      [{ preferred: 'A' }],
+      'preference_compare.json',
+      {
+        annotationFields: [
+          {
+            sourceKey: 'preferred',
+            label: '偏好选择',
+            type: 'radio',
+            placeholder: '选择更优的回答',
+            options: [
+              { label: 'A', value: 'A' },
+              { label: 'B', value: 'B' },
+            ],
+          },
+        ],
+      },
+    );
+
+    expect(schema.fields[0]).toMatchObject({
+      key: 'preferred',
+      fieldKey: 'preferred',
+      sourceKey: 'preferred',
+      type: 'radio',
+      label: '偏好选择',
+      description: '选择更优的回答',
+    });
+    expect(schema.fields[0]).not.toHaveProperty('placeholder');
+  });
+
   it('空文件数据回退为 id 字段，保证模板可保存', () => {
     const schema = createAutoShowItemTemplateSchema([], 'empty.json');
 

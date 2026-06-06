@@ -280,8 +280,7 @@ const normalizeAnnotationFields = (
           type: isAutoTemplateAnnotationFieldType(field.type) ? field.type : 'text',
           options: normalizeOptions(field.options),
           required: true,
-          ...normalizeDescriptionProperty(field.description),
-          ...normalizeTextProperty('placeholder', field.placeholder),
+          ...normalizeAnnotationInstructionProperties(field),
         },
         fieldStatsMap.get(field.sourceKey),
       ),
@@ -512,8 +511,7 @@ const createAnnotationSchemaField = (
     sourceKey: field.sourceKey,
     type,
     label: normalizeAnnotationLabel(field.label, field.sourceKey),
-    ...normalizeDescriptionProperty(field.description),
-    ...normalizeTextProperty('placeholder', field.placeholder),
+    ...normalizeAnnotationInstructionProperties(field),
     ...(isRequired ? { validation: { required: true } } : {}),
   };
 
@@ -799,6 +797,21 @@ const normalizeDescriptionProperty = (
   const description = value.trim().replace(/\s+/g, ' ').slice(0, AUTO_FIELD_DESCRIPTION_MAX_LENGTH);
 
   return description ? { description } : {};
+};
+
+const normalizeAnnotationInstructionProperties = (
+  field: Pick<AutoTemplateAnnotationField, 'description' | 'placeholder'>,
+): Partial<Pick<SchemaField, 'description' | 'placeholder'>> => {
+  const descriptionProperty = normalizeDescriptionProperty(field.description);
+
+  if (descriptionProperty.description) {
+    return {
+      ...descriptionProperty,
+      ...normalizeTextProperty('placeholder', field.placeholder),
+    };
+  }
+
+  return normalizeDescriptionProperty(field.placeholder);
 };
 
 const uniqueSchemaFieldKey = (

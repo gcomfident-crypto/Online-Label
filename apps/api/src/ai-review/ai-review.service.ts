@@ -365,7 +365,7 @@ export class AiReviewService {
       include: JOB_INCLUDE,
       orderBy: [{ updatedAt: 'desc' }, { queuedAt: 'desc' }],
     });
-    const batches = toBatchDtos(jobs);
+    const batches = latestBatchDtosByTask(toBatchDtos(jobs));
 
     return query.status ? batches.filter((batch) => batch.status === query.status) : batches;
   }
@@ -470,25 +470,28 @@ export class AiReviewService {
       }
 
       const startedAt = new Date();
+      const currentAttempt = job.status === 'RUNNING' ? Math.max(1, job.attempts) : job.attempts + 1;
       let currentStatus = submission.status as SubmissionStatus;
       if (currentStatus === 'AI_QUEUED') {
         assertSubmissionTransition(currentStatus, 'AI_REVIEWING');
-        await client.aiReviewJob.update({
-          where: { id: job.id },
-          data: {
-            status: 'RUNNING',
-            attempts: job.attempts + 1,
-            startedAt: job.startedAt ?? startedAt,
-            logs: [
-              ...toLogArray(job.logs),
-              {
-                level: 'run',
-                message: 'AI 预审开始处理提交。',
-                at: startedAt.toISOString(),
-              },
-            ],
-          },
-        });
+        if (job.status !== 'RUNNING') {
+          await client.aiReviewJob.update({
+            where: { id: job.id },
+            data: {
+              status: 'RUNNING',
+              attempts: currentAttempt,
+              startedAt: job.startedAt ?? startedAt,
+              logs: [
+                ...toLogArray(job.logs),
+                {
+                  level: 'run',
+                  message: 'AI 预审开始处理提交。',
+                  at: startedAt.toISOString(),
+                },
+              ],
+            },
+          });
+        }
         await client.submission.update({
           where: { id: submission.id },
           data: { status: 'AI_REVIEWING' },
@@ -516,7 +519,7 @@ export class AiReviewService {
           rawOutput: input.rawOutput,
           structuredOutput,
           modelMetadata: input.modelMetadata,
-          retryCount: job.attempts + 1,
+          retryCount: currentAttempt,
           idempotencyKey: job.idempotencyKey,
         },
       });
@@ -548,6 +551,7 @@ export class AiReviewService {
         where: { id: job.id },
         data: {
           status: 'SUCCEEDED',
+          attempts: currentAttempt,
           lastError: null,
           finishedAt: new Date(),
           logs: [
@@ -766,6 +770,31 @@ function toBatchDtos(jobs: AiReviewJobRecord[]): AiReviewBatchDto[] {
   return [...groupedJobs.values()]
     .map(toBatchDto)
     .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
+}
+
+function latestBatchDtosByTask(batches: AiReviewBatchDto[]): AiReviewBatchDto[] {
+  const latestByTaskId = new Map<string, AiReviewBatchDto>();
+
+  for (const batch of batches) {
+    const taskKey = batch.taskId || batch.batchId;
+    const current = latestByTaskId.get(taskKey);
+
+    if (!current || compareBatchRecency(batch, current) > 0) {
+      latestByTaskId.set(taskKey, batch);
+    }
+  }
+
+  return [...latestByTaskId.values()]
+    .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
+}
+
+function compareBatchRecency(first: AiReviewBatchDto, second: AiReviewBatchDto): number {
+  const submittedDiff = Date.parse(first.submittedAt) - Date.parse(second.submittedAt);
+  if (submittedDiff !== 0) {
+    return submittedDiff;
+  }
+
+  return Date.parse(first.updatedAt) - Date.parse(second.updatedAt);
 }
 
 function toBatchDetailDto(jobs: AiReviewJobRecord[]): AiReviewBatchDetailDto {

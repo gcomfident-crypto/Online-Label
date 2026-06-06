@@ -2761,6 +2761,83 @@ describe('SchemaRenderer', () => {
     expect(onChange).toHaveBeenLastCalledWith({ preferred: 'A' });
   });
 
+  it('Renderer 在两条互相限制的 limitOptions 规则中允许用户改动任一字段打破锁定', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const schema = {
+      ...baseSchema([
+        {
+          key: 'preferred',
+          type: 'radio',
+          label: '偏好选择',
+          options: [
+            { label: 'A', value: 'A' },
+            { label: 'B', value: 'B' },
+            { label: 'tie', value: 'tie' },
+          ],
+        },
+        {
+          key: 'margin',
+          type: 'radio',
+          label: '优劣程度',
+          options: [
+            { label: '明显优于', value: '明显优于' },
+            { label: '略优于', value: '略优于' },
+            { label: '明显逊于', value: '明显逊于' },
+            { label: '略逊于', value: '略逊于' },
+            { label: '相当', value: '相当' },
+          ],
+        },
+      ]),
+      linkageRules: [
+        {
+          when: { fieldKey: 'preferred', operator: 'equals', value: 'tie' },
+          action: 'limitOptions',
+          targetFieldKey: 'margin',
+          optionValues: ['相当'],
+        },
+        {
+          when: { fieldKey: 'margin', operator: 'equals', value: '相当' },
+          action: 'limitOptions',
+          targetFieldKey: 'preferred',
+          optionValues: ['tie'],
+        },
+      ],
+    } satisfies LabelHubSchema;
+
+    const ControlledRenderer = () => {
+      const [answers, setAnswers] = useState<Record<string, unknown>>({});
+
+      return (
+        <SchemaRenderer
+          schema={schema}
+          rawData={{}}
+          value={answers}
+          mode="answer"
+          onChange={(next) => {
+            setAnswers(next);
+            onChange(next);
+          }}
+        />
+      );
+    };
+
+    render(<ControlledRenderer />);
+
+    await user.click(screen.getByLabelText('tie'));
+
+    expect(screen.getByLabelText('tie')).toBeChecked();
+    expect(screen.getByLabelText('相当')).toBeChecked();
+
+    await user.click(screen.getByLabelText('A'));
+
+    expect(screen.getByLabelText('A')).toBeChecked();
+    expect(screen.getByLabelText('明显优于')).toBeInTheDocument();
+    expect(screen.getByLabelText('略优于')).toBeInTheDocument();
+    expect(screen.getByLabelText('相当')).not.toBeChecked();
+    expect(onChange).toHaveBeenLastCalledWith({ preferred: 'A' });
+  });
+
   it('隐藏字段不触发必填校验', () => {
     const schema = {
       ...baseSchema([

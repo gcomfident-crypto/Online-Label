@@ -157,12 +157,12 @@ describe('AiReviewQueuePage', () => {
     const qaRow = within(table).getByRole('row', { name: /问答质量标注/ });
     const qaCells = within(qaRow).getAllByRole('cell');
     expect(qaCells[0]).toHaveClass('task-table__id');
-    expect(within(qaCells[0]).getByText('T-0001').tagName).toBe('CODE');
-    expect(qaCells[0]).toHaveTextContent('T-0001');
+    expect(within(qaCells[0]).getByText('T-001').tagName).toBe('CODE');
+    expect(qaCells[0]).toHaveTextContent('T-001');
     const qaTitleCell = qaCells[1];
     expect(within(qaTitleCell).getByText('问答质量标注')).toBeInTheDocument();
-    expect(qaTitleCell).not.toHaveTextContent('T-0001');
-    expect(within(table).getByText('T-0002').closest('td')).toHaveClass('task-table__id');
+    expect(qaTitleCell).not.toHaveTextContent('T-001');
+    expect(within(table).getByText('T-002').closest('td')).toHaveClass('task-table__id');
     expect(within(table).getByText('偏好安全评测')).toBeInTheDocument();
     expect(within(table).queryByRole('button', { name: '问答质量标注' })).not.toBeInTheDocument();
     expect(within(table).queryByRole('button', { name: '查看详情' })).not.toBeInTheDocument();
@@ -204,6 +204,21 @@ describe('AiReviewQueuePage', () => {
     expect(dot).toHaveAttribute('aria-hidden', 'true');
   });
 
+  it('AI 建议打回和等待预审气泡同样带有圆点', async () => {
+    vi.stubGlobal('fetch', createFetchMock([pendingBatch, rejectedBatch]));
+
+    render(<AiReviewQueuePage />);
+
+    const table = await screen.findByRole('table', { name: '任务级 AI 预审队列表格' });
+    const rejectPill = within(table).getByText('建议打回');
+    const pendingPill = within(table).getByText('等待预审');
+
+    expect(rejectPill).toHaveClass('agent-review-decision-pill', 'is-reject');
+    expect(rejectPill.querySelector('.status-tag__dot')).not.toBeNull();
+    expect(pendingPill).toHaveClass('agent-review-decision-pill', 'is-pending');
+    expect(pendingPill.querySelector('.status-tag__dot')).not.toBeNull();
+  });
+
   it('搜索作用于聚合后的任务级记录', async () => {
     const user = userEvent.setup();
     vi.stubGlobal('fetch', createFetchMock());
@@ -219,7 +234,7 @@ describe('AiReviewQueuePage', () => {
     expect(within(table).queryByText('问答质量标注')).not.toBeInTheDocument();
 
     await user.clear(screen.getByPlaceholderText('搜索任务名 / 标注员 / 题目ID'));
-    await user.type(screen.getByPlaceholderText('搜索任务名 / 标注员 / 题目ID'), 'T-0001');
+    await user.type(screen.getByPlaceholderText('搜索任务名 / 标注员 / 题目ID'), 'T-001');
     expect(within(table).getByText('问答质量标注')).toBeInTheDocument();
     expect(within(table).queryByText('偏好安全评测')).not.toBeInTheDocument();
 

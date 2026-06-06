@@ -593,12 +593,22 @@ describe('TemplateDesignerPage', () => {
     expect(description).toHaveClass('designer-field-card__description');
   });
 
-  it('输入文件字段分类失败时静默降级使用本地解析模板并打开配置抽屉', async () => {
+  it('输入文件字段分类失败时提示错误且不使用本地解析模板', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: RequestInfo | URL) => {
         if (String(url) === '/llm/template-fields/classify') {
-          return Promise.resolve(new Response('', { status: 500 }));
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: {
+                  code: 'LLM_FIELD_CLASSIFIER_REQUIRES_REAL_MODEL',
+                  message: '字段分类必须使用真实模型，请配置 DEEPSEEK_API_KEY、OPENAI_API_KEY 或 LLM_PROVIDER=deepseek/openai/custom。',
+                },
+              }),
+              { status: 400, headers: { 'Content-Type': 'application/json' } },
+            ),
+          );
         }
 
         return Promise.resolve(jsonResponse({ data: [] }));
@@ -627,10 +637,14 @@ describe('TemplateDesignerPage', () => {
 
     render(<TemplateDesignerPage />);
 
-    const dialog = await screen.findByRole('dialog', { name: '模板配置' });
-    expect(within(dialog).getByText('失败样例')).toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(screen.queryByText('字段分类接口不可用，已使用本地解析结果创建模板')).not.toBeInTheDocument();
+    const alert = await screen.findByRole('alert');
+    expect(
+      within(alert).getByText(
+        '字段分类失败，未创建模板。字段分类必须使用真实模型，请配置 DEEPSEEK_API_KEY、OPENAI_API_KEY 或 LLM_PROVIDER=deepseek/openai/custom',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
+    expect(screen.queryByText('失败样例')).not.toBeInTheDocument();
   });
 
   it('用户在右侧修改 ShowItem 字段显示名时，画布立即更新且保留上传样例值', async () => {
@@ -821,6 +835,7 @@ describe('TemplateDesignerPage', () => {
     );
     expect(within(templateTable).queryByText('数据类型')).not.toBeInTheDocument();
     expect(templateTable.querySelectorAll('colgroup col')).toHaveLength(8);
+    expect(within(templateTable).getByRole('columnheader', { name: '上次更改' })).toBeInTheDocument();
     expect(templateTable.querySelector('.template-manager-table__col-name')).not.toBeNull();
     expect(templateTable.querySelector('.template-manager-table__col-dataset')).toBeNull();
     expect(templateTable.querySelector('.template-manager-table__col-status')).not.toBeNull();
@@ -843,7 +858,7 @@ describe('TemplateDesignerPage', () => {
     expect(publishedStatusTag?.style.getPropertyValue('--status-dot-color')).toBe('#0FB86B');
     expect(publishedStatusTag?.style.getPropertyValue('--status-text-color')).toBe('#0FB86B');
     expect(publishedStatusTag?.style.getPropertyValue('--status-bg-color')).toBe('#E8F7EF');
-    expect(screen.getByText('2026-05-21 00:00')).toBeInTheDocument();
+    expect(within(publishedTemplateRow).getAllByText('2026-05-21 00:00')).toHaveLength(2);
     expect(screen.queryByText('暂无自定义模板')).not.toBeInTheDocument();
     expect(screen.queryByText('暂无模板')).not.toBeInTheDocument();
 
@@ -910,6 +925,81 @@ describe('TemplateDesignerPage', () => {
     expect(screen.queryByRole('button', { name: '选择 题目原始数据' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '使用 qa_quality' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '使用 preference_compare' })).not.toBeInTheDocument();
+  });
+
+  it('评测模板列表按模板ID编号降序展示（编号越大越靠前）', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: [
+          createTemplateDto({
+            id: 'M-001',
+            name: '老模板',
+            schema: qaQualitySampleSchema,
+            status: 'PUBLISHED',
+          }),
+          createTemplateDto({
+            id: 'M-003',
+            name: '新模板',
+            schema: qaQualitySampleSchema,
+            status: 'PUBLISHED',
+          }),
+          createTemplateDto({
+            id: 'M-002',
+            name: '中间模板',
+            schema: qaQualitySampleSchema,
+            status: 'PUBLISHED',
+          }),
+        ],
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+
+    const templateTable = await screen.findByRole('table', { name: '模板列表' });
+    const templateRows = within(templateTable).getAllByRole('button', { name: /打开模板 / });
+    expect(within(templateRows[0]).getByText('M-003')).toBeInTheDocument();
+    expect(within(templateRows[1]).getByText('M-002')).toBeInTheDocument();
+    expect(within(templateRows[2]).getByText('M-001')).toBeInTheDocument();
+  });
+
+  it('评测模板列表兼容无短横线模板ID，编号大的也应排在前面', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: [
+          createTemplateDto({
+            id: 'M1',
+            name: '最老模板',
+            createdAt: '2026-05-21T00:00:00.000Z',
+            schema: qaQualitySampleSchema,
+            status: 'PUBLISHED',
+          }),
+          createTemplateDto({
+            id: 'M002',
+            name: '新模板',
+            createdAt: '2026-05-23T00:00:00.000Z',
+            schema: qaQualitySampleSchema,
+            status: 'PUBLISHED',
+          }),
+          createTemplateDto({
+            id: 'M001',
+            name: '中间模板',
+            createdAt: '2026-05-22T00:00:00.000Z',
+            schema: qaQualitySampleSchema,
+            status: 'PUBLISHED',
+          }),
+        ],
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+
+    const templateTable = await screen.findByRole('table', { name: '模板列表' });
+    const templateRows = within(templateTable).getAllByRole('button', { name: /打开模板 / });
+    expect(within(templateRows[0]).getByText('M002')).toBeInTheDocument();
+    expect(within(templateRows[1]).getByText('M001')).toBeInTheDocument();
+    expect(within(templateRows[2]).getByText('M1')).toBeInTheDocument();
   });
 
   it('从任务抽屉预览模板带着 URL templateId 进入时，点击外侧会返回任务管理', async () => {
@@ -1242,14 +1332,23 @@ describe('TemplateDesignerPage', () => {
     expect(within(modal).getByText('模板版本管理')).toBeInTheDocument();
     expect(within(modal).getByText(/当前版本 v3/)).toBeInTheDocument();
     expect(within(modal).getAllByText('张满')).toHaveLength(3);
-    expect(within(modal).getByText('1 个未完成任务')).toBeInTheDocument();
-    expect(within(modal).getAllByText('无未完成任务')).toHaveLength(2);
+    expect(within(modal).getByText('占用中')).toBeInTheDocument();
+    expect(within(modal).getAllByText('空闲中')).toHaveLength(2);
     const versionTable = within(modal).getByRole('table', { name: '模板历史版本列表' });
     expect(within(versionTable).getByRole('columnheader', { name: '版本' })).toBeInTheDocument();
     expect(within(versionTable).queryByRole('columnheader', { name: '状态' })).not.toBeInTheDocument();
     expect(within(versionTable).getAllByText('2026-05-21 08:00')).toHaveLength(3);
-    expect(within(versionTable).getByRole('columnheader', { name: '任务使用' })).toBeInTheDocument();
+    expect(within(versionTable).getByRole('columnheader', { name: '占用状态' })).toBeInTheDocument();
+    expect(within(versionTable).queryByRole('columnheader', { name: '任务使用' })).not.toBeInTheDocument();
+    expect(within(versionTable).queryByRole('columnheader', { name: '未完成任务' })).not.toBeInTheDocument();
+    const currentVersionRow = within(versionTable).getByRole('row', { name: /v3/ });
+    const currentVersionStatus = within(currentVersionRow).getByText('占用中');
+    expect(currentVersionStatus.closest('.template-version-table__occupy-status')).not.toBeNull();
+    const currentVersionStatusContainer = currentVersionStatus.closest('.template-version-table__occupy-status');
+    expect(currentVersionStatusContainer).not.toBeNull();
+    expect(currentVersionStatusContainer?.querySelector('.status-tag__dot')).not.toBeNull();
     const v1Row = within(versionTable).getByRole('row', { name: /v1/ });
+    expect(within(v1Row).getByText('空闲中')).not.toBeNull();
     const diffButton = within(v1Row).getByRole('button', { name: 'Diff' });
     expect(diffButton).toHaveClass('template-manager-row-action', 'template-version-table__icon-action');
     expect(diffButton).toHaveTextContent('');
@@ -2915,6 +3014,193 @@ describe('TemplateDesignerPage', () => {
     expect(screen.getByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
   });
 
+  it('已发布模板改动后点击抽屉外侧确认保存并发布会生成新版本并关闭抽屉', async () => {
+    const user = userEvent.setup();
+    const originalTemplate = createTemplateDto({
+      id: 'template_outside_publish_v1',
+      name: '外侧发布模板',
+      schema: qaQualitySampleSchema,
+      status: 'PUBLISHED',
+      version: 1,
+      rootTemplateId: 'template_outside_publish_v1',
+      createdById: 'user_owner_zhang_man',
+    });
+    const draftTemplate = createTemplateDto({
+      id: 'template_outside_publish_v2',
+      name: '外侧发布模板',
+      schema: {
+        ...qaQualitySampleSchema,
+        schemaVersion: 'draft',
+      },
+      status: 'DRAFT',
+      version: 1,
+      parentTemplateId: 'template_outside_publish_v1',
+      rootTemplateId: 'template_outside_publish_v1',
+      createdById: 'user_owner_zhang_man',
+    });
+    const publishedTemplate = createTemplateDto({
+      ...draftTemplate,
+      status: 'PUBLISHED',
+      version: 2,
+      schema: {
+        ...draftTemplate.schema,
+        schemaVersion: 'v2',
+      },
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({ data: [originalTemplate] });
+      }
+
+      if (path === '/templates' && method === 'POST') {
+        return jsonResponse({ data: draftTemplate });
+      }
+
+      if (path === '/templates/template_outside_publish_v2/publish' && method === 'POST') {
+        return jsonResponse({
+          data: {
+            template: publishedTemplate,
+            compatibilityReport: {
+              addedFieldKeys: [],
+              removedFieldKeys: [],
+              changedFieldTypes: [],
+              compatible: true,
+              riskMessages: [],
+            },
+          },
+        });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+    await openTemplateByName(user, '外侧发布模板');
+    await user.click(screen.getByRole('button', { name: '选择 相关性评分' }));
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: '相关性评分修改' },
+    });
+    await user.click(screen.getByTestId('template-designer-backdrop'));
+
+    expect(screen.getByRole('dialog', { name: '保存并发布新版本？' })).toBeInTheDocument();
+    expect(screen.getByText('当前改动会发布为新版本，原已发布版本不会被直接覆盖。')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '保存并发布' }));
+
+    expect(await screen.findByText('"外侧发布模板" 模版已发布为v2')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/templates',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"parentTemplateId":"template_outside_publish_v1"'),
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/templates/template_outside_publish_v2/publish',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ versionName: 'v2', actorId: 'user_owner_zhang_man' }),
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument(),
+    );
+    const templateTable = screen.getByRole('table', { name: '模板列表' });
+    expect(within(templateTable).getByText('v2')).toBeInTheDocument();
+    expect(within(templateTable).queryByText('v1')).not.toBeInTheDocument();
+  });
+
+  it('已发布模板外侧发布确认中取消会继续编辑，不保存会丢弃并关闭', async () => {
+    const user = userEvent.setup();
+    const publishedTemplate = createTemplateDto({
+      id: 'template_outside_cancel',
+      name: '外侧取消模板',
+      schema: qaQualitySampleSchema,
+      status: 'PUBLISHED',
+      version: 1,
+      rootTemplateId: 'template_outside_cancel',
+      createdById: 'user_owner_zhang_man',
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({ data: [publishedTemplate] });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+    await openTemplateByName(user, '外侧取消模板');
+    await user.click(screen.getByRole('button', { name: '选择 相关性评分' }));
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: '相关性评分取消测试' },
+    });
+
+    await user.click(screen.getByTestId('template-designer-backdrop'));
+    expect(screen.getByRole('dialog', { name: '保存并发布新版本？' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '取消' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '保存并发布新版本？' })).not.toBeInTheDocument());
+    expect(screen.getByRole('dialog', { name: '模板配置' })).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([, init]) => (init?.method ?? 'GET') !== 'GET')).toBe(false);
+
+    await user.click(screen.getByTestId('template-designer-backdrop'));
+    await user.click(screen.getByRole('button', { name: '不保存' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument(),
+    );
+    expect(fetchMock.mock.calls.some(([, init]) => (init?.method ?? 'GET') !== 'GET')).toBe(false);
+  });
+
+  it('已发布模板被占用时外侧确认保存并发布会进入另存为新模板流程', async () => {
+    const user = userEvent.setup();
+    const lockedTemplate = createTemplateDto({
+      id: 'template_outside_locked',
+      name: '外侧占用模板',
+      schema: qaQualitySampleSchema,
+      status: 'PUBLISHED',
+      version: 1,
+      rootTemplateId: 'template_outside_locked',
+      createdById: 'user_owner_zhang_man',
+      activeUsageCount: 1,
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({ data: [lockedTemplate] });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+    await openTemplateByName(user, '外侧占用模板');
+    await user.click(screen.getByRole('button', { name: '选择 相关性评分' }));
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: '相关性评分占用测试' },
+    });
+    await user.click(screen.getByTestId('template-designer-backdrop'));
+    await user.click(screen.getByRole('button', { name: '保存并发布' }));
+
+    const saveAsDialog = await screen.findByRole('dialog', { name: '模板正在使用中' });
+    expect(within(saveAsDialog).getByText(/该模板当前正在被未完成任务使用，不能直接发布新版本。/)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '保存并发布新版本？' })).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(
+        ([input, init]) => input.toString().includes('/publish') && init?.method === 'POST',
+      ),
+    ).toBe(false);
+  });
+
   it('保存草稿并发布版本时调用模板 API', async () => {
     const user = userEvent.setup();
     const fetchMock = vi
@@ -3083,6 +3369,75 @@ describe('TemplateDesignerPage', () => {
         ([input, init]) => input.toString() === '/templates/template_locked/publish' && init?.method === 'POST',
       ),
     ).toBe(false);
+  });
+
+  it('草稿模板没有内容变更时仍允许发布为 v1', async () => {
+    const user = userEvent.setup();
+    const draftTemplate = createTemplateDto({
+      id: 'template_draft_unmodified',
+      name: '待发布草稿模板',
+      schema: qaQualitySampleSchema,
+      status: 'DRAFT',
+      version: 0,
+      createdById: 'user_owner_zhang_man',
+    });
+    const publishedTemplate = createTemplateDto({
+      ...draftTemplate,
+      status: 'PUBLISHED',
+      version: 1,
+      schema: {
+        ...draftTemplate.schema,
+        schemaVersion: 'v1',
+      },
+      rootTemplateId: 'template_draft_unmodified',
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/templates' && method === 'GET') {
+        return jsonResponse({ data: [draftTemplate] });
+      }
+
+      if (path === '/templates/template_draft_unmodified' && method === 'PATCH') {
+        return jsonResponse({ data: draftTemplate });
+      }
+
+      if (path === '/templates/template_draft_unmodified/publish' && method === 'POST') {
+        return jsonResponse({
+          data: {
+            template: publishedTemplate,
+            compatibilityReport: {
+              addedFieldKeys: [],
+              removedFieldKeys: [],
+              changedFieldTypes: [],
+              compatible: true,
+              riskMessages: [],
+            },
+          },
+        });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TemplateDesignerPage />);
+    await openTemplateByName(user, '待发布草稿模板');
+    await user.click(screen.getByRole('button', { name: '保存并发布版本 v1' }));
+
+    expect(await screen.findByText('"待发布草稿模板" 模版已发布为v1')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/templates/template_draft_unmodified',
+      expect.objectContaining({ method: 'PATCH' }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/templates/template_draft_unmodified/publish',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ versionName: 'v1', actorId: 'user_owner_zhang_man' }),
+      }),
+    );
   });
 
   it('模板没有任何变更时不允许保存并发布新版本', async () => {
@@ -3305,6 +3660,8 @@ const createTemplateDto = ({
   archivedAt = null,
   restoredFromTemplateId = null,
   createdById = null,
+  createdAt = '2026-05-21T00:00:00.000Z',
+  updatedAt = '2026-05-21T00:00:00.000Z',
   usageCount = 0,
   activeUsageCount = 0,
 }: {
@@ -3318,6 +3675,8 @@ const createTemplateDto = ({
   archivedAt?: string | null;
   restoredFromTemplateId?: string | null;
   createdById?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   usageCount?: number;
   activeUsageCount?: number;
 }) => ({
@@ -3335,8 +3694,8 @@ const createTemplateDto = ({
   restoredFromTemplateId,
   createdById,
   publishedAt: status === 'PUBLISHED' ? '2026-05-21T00:00:00.000Z' : null,
-  createdAt: '2026-05-21T00:00:00.000Z',
-  updatedAt: '2026-05-21T00:00:00.000Z',
+  createdAt,
+  updatedAt,
   usageCount,
   activeUsageCount,
 });

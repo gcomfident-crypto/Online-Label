@@ -112,9 +112,7 @@ export const TaskTable = ({
                     onKeyDown={(event) => handleTaskRowKeyDown(event, task)}
                   >
                     <td className="task-table__id">
-                      <TaskTableCellInner>
-                        <code>{getTaskDisplayId(task)}</code>
-                      </TaskTableCellInner>
+                      <code>{getTaskDisplayId(task)}</code>
                     </td>
                     <td>
                       <TaskTableCellInner>
@@ -215,6 +213,7 @@ const TaskActions = ({ isDeleting, task, onPublish, onPause, onResume, onEnd, on
   const canResume = task.status === 'PAUSED';
   const canPause = task.status === 'PUBLISHED';
   const canEnd = task.status === 'PUBLISHED' || task.status === 'PAUSED';
+  const canDelete = task.status !== 'ENDED';
 
   return (
     <div className="task-table__actions">
@@ -239,7 +238,7 @@ const TaskActions = ({ isDeleting, task, onPublish, onPause, onResume, onEnd, on
       <TaskActionIconButton
         icon="delete"
         label={`删除 ${task.title}`}
-        disabled={isDeleting}
+        disabled={isDeleting || !canDelete}
         onClick={() => onDelete(task)}
       />
     </div>

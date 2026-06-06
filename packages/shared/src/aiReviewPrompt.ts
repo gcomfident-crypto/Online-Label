@@ -39,6 +39,7 @@ export type CompiledAiReviewPrompt = {
   sections: readonly AiReviewPromptSection[];
   fieldRequirements: readonly AiReviewFieldRequirement[];
   showItemData: readonly Record<string, unknown>[];
+  reviewableRawData: Record<string, unknown>;
   answerData: Record<string, unknown>;
 };
 
@@ -69,7 +70,9 @@ export const compileAiReviewPrompt = ({
 }: CompileAiReviewPromptInput): CompiledAiReviewPrompt => {
   const flattenedFields = flattenSchemaFields(schema.fields);
   const reviewFieldKeySet = reviewFieldKeys ? new Set(reviewFieldKeys) : undefined;
-  const showItemData = buildShowItemData(flattenedFields, rawData);
+  const answerRawDataKeys = collectAnswerRawDataKeys(flattenedFields);
+  const showItemData = buildShowItemData(flattenedFields, rawData, answerRawDataKeys);
+  const reviewableRawData = buildReviewableRawData(showItemData);
   const answerData = buildAnswerData(flattenedFields, answers, reviewFieldKeySet);
   const fieldRequirements = buildFieldRequirements(flattenedFields, reviewFieldKeySet);
   const sections = applyPromptSectionOverrides([
@@ -101,6 +104,7 @@ export const compileAiReviewPrompt = ({
       title: '输出格式约束',
       content: [
         '你必须只输出合法 JSON，不要输出 Markdown、解释文本或代码块。',
+        '上传文件中与待标注字段同名或映射到待标注字段的值，仅用于 owner 配置模板参考，不是标准答案，不得用于和当前标注答案做一致性比较。',
         'fieldReviews 必须覆盖字段级审核标准中的每一个字段。',
         'fieldReviews 内每一项必须包含 fieldKey、label、score、decision、comment 和 suggestions。',
         'verdict 只能是 pass 或 reject。',
@@ -121,6 +125,7 @@ export const compileAiReviewPrompt = ({
     sections,
     fieldRequirements,
     showItemData,
+    reviewableRawData,
     answerData,
   };
 };
@@ -173,17 +178,21 @@ const flattenSchemaFields = (fields: readonly SchemaField[]): SchemaField[] => {
 const buildShowItemData = (
   fields: readonly SchemaField[],
   rawData: Record<string, unknown>,
+  excludedRawDataKeys: ReadonlySet<string>,
 ): readonly Record<string, unknown>[] => {
   const displayFields = fields
     .filter((field) => field.type === 'show_item')
-    .flatMap((field) => normalizeShowItemDisplayFields(field));
+    .flatMap((field) => normalizeShowItemDisplayFields(field))
+    .filter((field) => !excludedRawDataKeys.has(field.sourceKey));
 
   if (displayFields.length === 0) {
-    return Object.keys(rawData).map((sourceKey) => ({
-      sourceKey,
-      label: sourceKey,
-      value: rawData[sourceKey] ?? null,
-    }));
+    return Object.keys(rawData)
+      .filter((sourceKey) => !excludedRawDataKeys.has(sourceKey))
+      .map((sourceKey) => ({
+        sourceKey,
+        label: sourceKey,
+        value: rawData[sourceKey] ?? null,
+      }));
   }
 
   return displayFields.map((field) => ({
@@ -192,6 +201,45 @@ const buildShowItemData = (
     format: field.format ?? 'text',
     value: rawData[field.sourceKey] ?? null,
   }));
+};
+
+const buildReviewableRawData = (
+  showItemData: readonly Record<string, unknown>[],
+): Record<string, unknown> => {
+  const reviewableRawData: Record<string, unknown> = {};
+
+  for (const item of showItemData) {
+    if (typeof item.sourceKey !== 'string' || !item.sourceKey.trim()) {
+      continue;
+    }
+
+    reviewableRawData[item.sourceKey] = item.value ?? null;
+  }
+
+  return reviewableRawData;
+};
+
+const collectAnswerRawDataKeys = (fields: readonly SchemaField[]): ReadonlySet<string> => {
+  const keys = new Set<string>();
+
+  for (const field of fields) {
+    if (!isAnswerField(field)) {
+      continue;
+    }
+
+    for (const key of [
+      field.key,
+      field.fieldKey,
+      field.sourceKey,
+      ...(field.sourceKeys ?? []),
+    ]) {
+      if (typeof key === 'string' && key.trim()) {
+        keys.add(key);
+      }
+    }
+  }
+
+  return keys;
 };
 
 const normalizeShowItemDisplayFields = (field: SchemaField): ShowItemDisplayField[] => {

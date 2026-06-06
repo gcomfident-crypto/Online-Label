@@ -32,6 +32,11 @@ const withAllowedOptions = (
 export const FieldRenderer = (props: FieldRendererProps) => {
   const fieldKey = getSchemaFieldKey(props.field);
   const allowedOptions = props.allowedOptionsByFieldKey.get(fieldKey);
+  const shouldApplyAllowedOptions =
+    Boolean(allowedOptions) && !props.overrideableOptionLimitFieldKeys.has(fieldKey);
+  const validationMessages = props.showValidationErrors
+    ? props.validationMessagesByField.get(fieldKey) ?? []
+    : [];
 
   if (props.hiddenFieldKeys.has(fieldKey)) {
     return null;
@@ -40,7 +45,7 @@ export const FieldRenderer = (props: FieldRendererProps) => {
   const isRequiredByLinkage = props.requiredFieldKeys.has(fieldKey);
   const restrictedField = withAllowedOptions(
     props.field,
-    allowedOptions,
+    shouldApplyAllowedOptions ? allowedOptions : undefined,
   );
   const field = isRequiredByLinkage && !restrictedField.validation?.required
     ? {
@@ -106,6 +111,7 @@ export const FieldRenderer = (props: FieldRendererProps) => {
   const decoration = props.getFieldNodeDecoration?.(field) ?? null;
   const className = [
     props.activeFieldKey === fieldKey ? 'schema-renderer__field-node is-active' : 'schema-renderer__field-node',
+    props.validationFocusFieldKey === fieldKey ? 'is-validation-focus-pulse' : '',
     decoration ? `schema-renderer__field-node--diff-${decoration.state}` : '',
   ]
     .filter(Boolean)
@@ -123,6 +129,15 @@ export const FieldRenderer = (props: FieldRendererProps) => {
         <span className="schema-renderer__field-diff-badge">{decoration.label}</span>
       ) : null}
       {fieldElement}
+      {validationMessages.length > 0 ? (
+        <ul className="schema-field__errors" role="alert">
+          {validationMessages.map((message) => (
+            <li className="schema-field__error-text" key={message}>
+              {message}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 };

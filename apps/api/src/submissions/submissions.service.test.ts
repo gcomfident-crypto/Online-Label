@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { SchemaService } from '../schema/schema.service.ts';
 import { SubmissionsService } from './submissions.service.ts';
@@ -90,6 +90,14 @@ type MockSubmissionsPrisma = {
 };
 
 describe('SubmissionsService', () => {
+  beforeEach(() => {
+    configureAiReviewEnv();
+  });
+
+  afterEach(() => {
+    restoreAiReviewEnv();
+  });
+
   it('提交合法答案时创建 AI_QUEUED 快照、round=1 并写入审计日志', async () => {
     const { service, submissions, assignments, auditLogs, completedItems, aiReviewJobs } = createService();
 
@@ -134,7 +142,31 @@ describe('SubmissionsService', () => {
     ]);
   });
 
+  it('AI 预审模型未配置时拒绝单题提交且不创建任何副作用', async () => {
+    clearAiReviewEnv();
+    const { service, submissions, assignments, auditLogs, completedItems, aiReviewJobs } = createService();
+
+    await expect(
+      service.submit({
+        assignmentId: 'assignment_1',
+        actorId: 'user_labeler_li_lei',
+        answers: { quality: 'pass', comment: '回答基本正确。' },
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'AI_REVIEW_MODEL_NOT_CONFIGURED',
+        message: '当前无法提交：AI 预审模型未配置，请检查 DEEPSEEK_API_KEY、OPENAI_API_KEY、LLM_API_KEY 或 LLM_PROVIDER。',
+      }),
+    });
+    expect(submissions).toHaveLength(0);
+    expect(assignments[0].status).toBe('IN_PROGRESS');
+    expect(completedItems).toHaveLength(0);
+    expect(auditLogs).toHaveLength(0);
+    expect(aiReviewJobs).toHaveLength(0);
+  });
+
   it('任务未启用 AI 预审时单题提交直接进入人工复审且不创建 AI 任务', async () => {
+    clearAiReviewEnv();
     const { service, submissions, assignments, auditLogs, completedItems, aiReviewJobs } = createService({
       aiPreReviewEnabled: false,
     });
@@ -265,7 +297,51 @@ describe('SubmissionsService', () => {
     expect(aiReviewJobs.map((job) => job.submissionId)).toEqual(['submission_1', 'submission_2']);
   });
 
+  it('AI 预审模型未配置时拒绝任务级提交且不创建任何副作用', async () => {
+    clearAiReviewEnv();
+    const now = new Date('2026-05-21T00:00:00.000Z');
+    const secondAssignment = createAssignment(now, {
+      id: 'assignment_2',
+      taskItemId: 'item_qa_2',
+      sortOrder: 2,
+      externalId: 'qa_2',
+      status: 'IN_PROGRESS',
+      drafts: [
+        createDraft(now, {
+          id: 'draft_2',
+          assignmentId: 'assignment_2',
+          answers: { quality: 'excellent', comment: '第二题已保存草稿。' },
+        }),
+      ],
+    });
+    const { service, submissions, assignments, auditLogs, completedItems, aiReviewJobs } = createService({
+      assignments: [secondAssignment],
+    });
+
+    await expect(
+      service.submitTask({
+        taskId: 'task_qa',
+        labelerId: 'user_labeler_li_lei',
+        actorId: 'user_labeler_li_lei',
+        currentAssignmentId: 'assignment_1',
+        currentAnswers: { quality: 'pass', comment: '当前题答案。' },
+        idempotencyKey: 'task-submit-idem',
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'AI_REVIEW_MODEL_NOT_CONFIGURED',
+        message: '当前无法提交：AI 预审模型未配置，请检查 DEEPSEEK_API_KEY、OPENAI_API_KEY、LLM_API_KEY 或 LLM_PROVIDER。',
+      }),
+    });
+    expect(submissions).toHaveLength(0);
+    expect(assignments.map((assignment) => assignment.status)).toEqual(['IN_PROGRESS', 'IN_PROGRESS']);
+    expect(completedItems).toHaveLength(0);
+    expect(auditLogs).toHaveLength(0);
+    expect(aiReviewJobs).toHaveLength(0);
+  });
+
   it('任务未启用 AI 预审时任务级提交批量进入人工复审且不创建 AI 任务', async () => {
+    clearAiReviewEnv();
     const now = new Date('2026-05-21T00:00:00.000Z');
     const secondAssignment = createAssignment(now, {
       id: 'assignment_2',
@@ -483,6 +559,45 @@ describe('SubmissionsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
+
+const AI_REVIEW_ENV_KEYS = [
+  'AI_REVIEW_PROVIDER',
+  'LLM_PROVIDER',
+  'DEEPSEEK_API_KEY',
+  'OPENAI_API_KEY',
+  'LLM_API_KEY',
+  'LLM_API_BASE_URL',
+  'AI_REVIEW_MODEL',
+  'LLM_MODEL',
+] as const;
+type AiReviewEnvKey = (typeof AI_REVIEW_ENV_KEYS)[number];
+const ORIGINAL_AI_REVIEW_ENV = AI_REVIEW_ENV_KEYS.reduce(
+  (env, key) => ({ ...env, [key]: process.env[key] }),
+  {} as Record<AiReviewEnvKey, string | undefined>,
+);
+
+function configureAiReviewEnv(): void {
+  clearAiReviewEnv();
+  process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
+  process.env.LLM_MODEL = 'deepseek-chat';
+}
+
+function clearAiReviewEnv(): void {
+  for (const key of AI_REVIEW_ENV_KEYS) {
+    delete process.env[key];
+  }
+}
+
+function restoreAiReviewEnv(): void {
+  for (const key of AI_REVIEW_ENV_KEYS) {
+    const value = ORIGINAL_AI_REVIEW_ENV[key];
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+}
 
 function createService(
   overrides: {

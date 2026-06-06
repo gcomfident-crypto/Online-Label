@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createLabelHubSchema, type LabelHubSchema } from '@labelhub/shared';
 
 import { AiReviewProcessorService } from './ai-review-processor.service.ts';
 import { AiReviewService } from './ai-review.service.ts';
@@ -63,7 +64,7 @@ describe('AiReviewProcessorService', () => {
 
   it('非 mock 规则调用 LLM 生成字段级预审评语并持久化真实模型输出', async () => {
     const llmService = {
-      reviewSubmission: vi.fn(async () => ({
+      reviewSubmission: vi.fn(async (_request: AiReviewRequestForTest) => ({
         comment: '审核意见没有解释关键事实依据，建议打回修改。',
         decision: 'reject' as const,
         rawOutput: JSON.stringify({
@@ -166,6 +167,160 @@ describe('AiReviewProcessorService', () => {
         }),
       }),
     );
+  });
+
+  it('AI 预审请求只携带 ShowItem 上下文，不携带上传文件里的演示标注答案', async () => {
+    const requests: AiReviewRequestForTest[] = [];
+    const llmService = {
+      reviewSubmission: vi.fn(async (request: AiReviewRequestForTest) => {
+        requests.push(request);
+
+        return {
+          comment: '所有字段均符合审核标准。',
+          decision: 'pass' as const,
+          rawOutput: JSON.stringify({
+            verdict: 'pass',
+            overallScore: 100,
+            overallComment: '所有字段均符合审核标准。',
+            fieldReviews: [
+              {
+                fieldKey: 'dimensions',
+                label: '评估维度',
+                score: 100,
+                decision: 'pass',
+                comment: '当前选择的评估维度可用于本题判断。',
+                suggestions: [],
+              },
+              {
+                fieldKey: 'annotator_note',
+                label: '标注备注',
+                score: 100,
+                decision: 'pass',
+                comment: '备注解释了本次标注判断。',
+                suggestions: [],
+              },
+            ],
+          }),
+          scores: {
+            overall: 100,
+            fieldCount: 2,
+            passedFieldCount: 2,
+            rejectedFieldCount: 0,
+          },
+          structuredOutput: {
+            verdict: 'pass',
+            overallScore: 100,
+            overallComment: '所有字段均符合审核标准。',
+            fieldReviews: [
+              {
+                fieldKey: 'dimensions',
+                label: '评估维度',
+                score: 100,
+                decision: 'pass',
+                comment: '当前选择的评估维度可用于本题判断。',
+                suggestions: [],
+              },
+              {
+                fieldKey: 'annotator_note',
+                label: '标注备注',
+                score: 100,
+                decision: 'pass',
+                comment: '备注解释了本次标注判断。',
+                suggestions: [],
+              },
+            ],
+          },
+          modelMetadata: {
+            provider: 'deepseek',
+            model: 'deepseek-chat',
+            temperature: 0,
+            latencyMs: 356,
+          },
+        };
+      }),
+    };
+    const { processor } = createProcessor({
+      answers: {
+        dimensions: ['准确性'],
+        annotator_note: '我认为回答 A 更准确。',
+      },
+      rawData: {
+        prompt: '请比较两个回答。',
+        response_a: '回答 A 内容。',
+        response_b: '回答 B 内容。',
+        dimensions: ['准确性', '完整性', '可读性'],
+        annotator_note: '演示备注：三个维度都需要关注。',
+      },
+      schema: createLabelHubSchema({
+        schemaVersion: 'r1',
+        datasetKind: 'generic_json',
+        fields: [
+          {
+            key: 'show_item',
+            type: 'show_item',
+            label: '题目展示',
+            displayConfig: {
+              layout: 'comparison',
+              fields: [
+                { sourceKey: 'prompt', label: '题目', format: 'long_text' },
+                { sourceKey: 'response_a', label: '回答 A', format: 'long_text' },
+                { sourceKey: 'response_b', label: '回答 B', format: 'long_text' },
+              ],
+            },
+          },
+          {
+            key: 'dimensions_field',
+            fieldKey: 'dimensions',
+            sourceKey: 'dimensions',
+            type: 'checkbox',
+            label: '评估维度',
+            options: [
+              { label: '准确性', value: '准确性' },
+              { label: '完整性', value: '完整性' },
+              { label: '可读性', value: '可读性' },
+            ],
+            aiReview: {
+              enabled: true,
+              requirement: '维度选择应符合本次标注判断。',
+            },
+          },
+          {
+            key: 'annotator_note_field',
+            fieldKey: 'annotator_note',
+            sourceKey: 'annotator_note',
+            type: 'textarea',
+            label: '标注备注',
+            aiReview: {
+              enabled: true,
+              requirement: '备注应解释本次判断依据。',
+            },
+          },
+        ],
+      }),
+      llmService,
+    });
+
+    await processor.processQueuedJobs({ limit: 5 });
+
+    expect(requests).toHaveLength(1);
+    expect(llmService.reviewSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        answers: {
+          dimensions: ['准确性'],
+          annotator_note: '我认为回答 A 更准确。',
+        },
+        rawData: {
+          prompt: '请比较两个回答。',
+          response_a: '回答 A 内容。',
+          response_b: '回答 B 内容。',
+        },
+        rawPrompt: expect.not.stringContaining('演示备注：三个维度都需要关注。'),
+      }),
+    );
+    const request = requests[0];
+    expect(request?.rawData).not.toHaveProperty('dimensions');
+    expect(request?.rawData).not.toHaveProperty('annotator_note');
+    expect(request?.rawPrompt).toContain('上传文件中与待标注字段同名或映射到待标注字段的值，仅用于 owner 配置模板参考，不是标准答案');
   });
 
   it('旧 mock 规则在运行环境配置真实模型时改用 LLM 预审', async () => {
@@ -298,6 +453,35 @@ describe('AiReviewProcessorService', () => {
     expect(reviewRecords).toHaveLength(0);
   });
 
+  it('另一个处理器已领取同一 AI 预审任务时跳过且不记失败', async () => {
+    const llmService = {
+      reviewSubmission: vi.fn(async () => {
+        throw new Error('不应该调用 LLM');
+      }),
+    };
+    const { processor, jobs, reviewRecords } = createProcessor({
+      answers: {
+        comment: '可以通过。',
+      },
+      rawData: {
+        prompt: '如何判断回答质量？',
+      },
+      claimQueuedJobCount: 0,
+      llmService,
+    });
+
+    const result = await processor.processQueuedJobs({ limit: 5 });
+
+    expect(result).toEqual({ processed: 0, passed: 0, rejected: 0, failed: 0 });
+    expect(llmService.reviewSubmission).not.toHaveBeenCalled();
+    expect(jobs[0]).toMatchObject({
+      status: 'QUEUED',
+      attempts: 0,
+      lastError: null,
+    });
+    expect(reviewRecords).toHaveLength(0);
+  });
+
   it('自动处理低分任务，附带打回理由并让标注员重新修改', async () => {
     const { processor, assignments, submissions, reviewRecords } = createProcessor({
       answers: {
@@ -375,11 +559,13 @@ describe('AiReviewProcessorService', () => {
 
 function createProcessor(input: {
   answers: Record<string, unknown>;
+  claimQueuedJobCount?: number;
   llmService?: {
     reviewSubmission: ReturnType<typeof vi.fn>;
   };
   rawData: Record<string, unknown>;
   reviewRule?: Partial<ReviewRuleFixture>;
+  schema?: LabelHubSchema;
 }) {
   const now = new Date('2026-05-21T08:00:00.000Z');
   const reviewRecords: ReviewRecord[] = [];
@@ -402,6 +588,7 @@ function createProcessor(input: {
         title: '商品清洗质检',
         template: {
           datasetKind: 'qa_quality',
+          schema: input.schema ?? null,
         },
       },
     },
@@ -483,6 +670,25 @@ function createProcessor(input: {
         jobs.filter((job) => !where?.status || job.status === where.status).slice(0, take ?? jobs.length),
       ),
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) => jobs.find((job) => job.id === where.id) ?? null),
+      updateMany: vi.fn(async ({ where, data }: { where: { id: string; status?: string }; data: Partial<AiReviewJobRecord> & { attempts?: { increment: number } } }) => {
+        if (input.claimQueuedJobCount === 0) {
+          return { count: 0 };
+        }
+        const job = jobs.find((candidate) =>
+          candidate.id === where.id && (!where.status || candidate.status === where.status)
+        );
+        if (!job) {
+          return { count: 0 };
+        }
+
+        Object.assign(job, {
+          ...data,
+          attempts: data.attempts?.increment ? job.attempts + data.attempts.increment : data.attempts ?? job.attempts,
+          updatedAt: new Date('2026-05-21T09:00:00.000Z'),
+        });
+        job.submission.status = submissions[0].status;
+        return { count: 1 };
+      }),
       update: vi.fn(async ({ where, data }: { where: { id: string }; data: Partial<AiReviewJobRecord> }) => {
         const index = jobs.findIndex((job) => job.id === where.id);
         jobs[index] = { ...jobs[index], ...data, updatedAt: new Date('2026-05-21T09:00:00.000Z') };
@@ -733,6 +939,7 @@ type SubmissionAssignmentRecord = SubmissionSummaryRecord['assignment'] & {
     title: string;
     template: {
       datasetKind: 'qa_quality';
+      schema?: LabelHubSchema | null;
     };
   };
 };
@@ -763,6 +970,12 @@ type ReviewRecord = {
   retryCount: number;
   idempotencyKey: string | null;
   createdAt: Date;
+};
+
+type AiReviewRequestForTest = {
+  answers: Record<string, unknown>;
+  rawData: Record<string, unknown>;
+  rawPrompt: string;
 };
 
 type AuditLogRecord = {

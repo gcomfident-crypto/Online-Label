@@ -17,6 +17,7 @@ import { createTaskDisplayIdMap } from '../owner/taskDisplayId';
 const LABELER_ID = 'user_labeler_li_lei';
 const MY_DATA_FALLBACK_PAGE_SIZE = 7;
 const MY_DATA_TABLE_ROW_HEIGHT = 66;
+const AI_REVIEW_PENDING_SUBMISSION_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING']);
 
 type LabelerStatusFilter = '' | 'IN_PROGRESS' | 'SUBMITTED' | 'NEEDS_REVISION';
 
@@ -319,28 +320,6 @@ const DATASET_KIND_LABELS: Record<DatasetKind, string> = {
   generic_json: '通用 JSON',
 };
 
-const ASSIGNMENT_STATUS_LABELS: Record<AssignmentStatus, string> = {
-  ASSIGNED: '待标注',
-  IN_PROGRESS: '待标注',
-  SUBMITTED: '已提交',
-  UNDER_RECHECK: '复审中',
-  FINAL_PENDING: '待完成',
-  FINAL_APPROVED: '已完成',
-  NEEDS_REVISION: '待修改',
-  CANCELLED: '已取消',
-};
-
-const TASK_STATUS_ORDER: AssignmentStatus[] = [
-  'NEEDS_REVISION',
-  'ASSIGNED',
-  'IN_PROGRESS',
-  'UNDER_RECHECK',
-  'FINAL_PENDING',
-  'FINAL_APPROVED',
-  'SUBMITTED',
-  'CANCELLED',
-];
-
 const formatDateTime = (value: string): string => value.slice(0, 16).replace('T', ' ');
 
 const groupAssignmentsByTask = (
@@ -381,22 +360,32 @@ const groupAssignmentsByTask = (
 };
 
 const TaskProgressSummary = ({ taskGroup }: { taskGroup: LabelerTaskGroup }) => {
-  const counts = countAssignmentsByStatus(taskGroup.assignments);
-  const statusEntries = TASK_STATUS_ORDER
-    .map((status) => ({ status, count: counts.get(status) ?? 0 }))
-    .filter((entry) => entry.count > 0);
+  const totalCount = taskGroup.assignments.length;
+  const completedCount = taskGroup.assignments.filter((assignment) =>
+    isCompletedAssignmentStatus(assignment.status)
+  ).length;
+  const isWaitingAiReview = taskGroup.assignments.every((assignment) =>
+    assignment.status === 'SUBMITTED' &&
+    AI_REVIEW_PENDING_SUBMISSION_STATUSES.has(assignment.latestSubmissionStatus ?? '')
+  );
 
   return (
     <div className="labeler-task-progress-summary">
-      {statusEntries.map((entry) => (
+      {completedCount === totalCount ? (
         <span
-          key={entry.status}
-          className={`labeler-assignment-status labeler-assignment-status--${entry.status.toLowerCase()}`}
+          className="labeler-assignment-status labeler-assignment-status--final_approved"
         >
-          {ASSIGNMENT_STATUS_LABELS[entry.status] ?? entry.status}
-          {entry.count > 1 ? ` ${entry.count}` : ''}
+          已完成
         </span>
-      ))}
+      ) : isWaitingAiReview ? (
+        <span className="labeler-assignment-status labeler-assignment-status--ai_review">
+          AI预审
+        </span>
+      ) : (
+        <span className="labeler-task-progress-count">
+          {completedCount}/{totalCount}
+        </span>
+      )}
     </div>
   );
 };
@@ -441,11 +430,8 @@ function latestSubmittedAt(assignments: LabelerAssignmentDto[]): string | null {
   }, null);
 }
 
-function countAssignmentsByStatus(assignments: LabelerAssignmentDto[]): Map<AssignmentStatus, number> {
-  return assignments.reduce<Map<AssignmentStatus, number>>((counts, assignment) => {
-    counts.set(assignment.status, (counts.get(assignment.status) ?? 0) + 1);
-    return counts;
-  }, new Map());
+function isCompletedAssignmentStatus(status: AssignmentStatus): boolean {
+  return status === 'FINAL_APPROVED';
 }
 
 function formatClaimedAtRange(assignments: LabelerAssignmentDto[]): string {

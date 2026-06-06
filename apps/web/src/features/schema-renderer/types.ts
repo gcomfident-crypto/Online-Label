@@ -12,6 +12,8 @@ export type SchemaRendererProps = {
   onChange: (next: Record<string, unknown>) => void;
   activeFieldKey?: string | null;
   onActiveFieldChange?: (fieldKey: string) => void;
+  validationFocusFieldKey?: string | null;
+  showValidationErrors?: boolean;
   getFieldNodeDecoration?: (field: SchemaField) => FieldNodeDecoration | null;
 };
 
@@ -30,10 +32,13 @@ export type FieldRendererProps = {
   disabledFieldKeys: ReadonlySet<string>;
   requiredFieldKeys: ReadonlySet<string>;
   allowedOptionsByFieldKey: ReadonlyMap<string, ReadonlySet<string>>;
+  overrideableOptionLimitFieldKeys: ReadonlySet<string>;
   validationMessagesByField: ReadonlyMap<string, readonly string[]>;
+  showValidationErrors: boolean;
   onFieldChange: (field: SchemaField, nextValue: FieldNextValue) => void;
   activeFieldKey?: string | null;
   onActiveFieldChange?: (fieldKey: string) => void;
+  validationFocusFieldKey?: string | null;
   disabled?: boolean;
   optionLimitActive?: boolean;
   getFieldNodeDecoration?: (field: SchemaField) => FieldNodeDecoration | null;

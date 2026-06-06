@@ -12,14 +12,12 @@ import { createPortal } from 'react-dom';
 
 import {
   validateTemplateSchema,
-  type AutoTemplateAnnotationField,
   type AutoTemplateFieldClassificationResult,
   type AutoTemplateFieldClassificationRequest,
   type AutoTemplateSourceField,
   type DatasetRecord,
   type LabelHubSchema,
   type SchemaField,
-  type ShowItemDisplayField,
 } from '@labelhub/shared';
 
 import { classifyTemplateFields } from '../../api/llm';
@@ -65,7 +63,7 @@ import {
   type TemplateOpenTarget,
   type TemplateDraftHandoff,
 } from './templateDraftHandoff';
-import { formatTemplateDisplayId } from './templateDisplayId';
+import { createTemplateDisplayIdMap, formatTemplateDisplayId } from './templateDisplayId';
 
 const DESIGNER_PREVIEW_RAW_DATA = {
   prompt: '用户询问如何判断一段回答是否准确、完整且没有安全风险。',
@@ -102,6 +100,50 @@ const TEMPLATE_FALLBACK_PAGE_SIZE = 8;
 const TEMPLATE_TABLE_ROW_HEIGHT = 58;
 const DESIGNER_DROP_TARGET_LOCK_MARGIN = 12;
 const AUTO_TEMPLATE_SOURCE_METADATA_KEY = 'autoTemplateSource';
+const TEMPLATE_DISPLAY_ID_SEQUENCE_PATTERN = /^M-?(\d+)$/i;
+
+const getTemplateDisplaySequence = (templateId: string): number | null => {
+  const normalizedTemplateId = templateId.trim();
+  const match = TEMPLATE_DISPLAY_ID_SEQUENCE_PATTERN.exec(normalizedTemplateId);
+
+  if (!match) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(match[1]!, 10);
+
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const sortTemplatesByDisplayIdDesc = (templates: TemplateDto[]) =>
+  [...templates].sort((left, right) => {
+    const leftSequence = getTemplateDisplaySequence(left.id);
+    const rightSequence = getTemplateDisplaySequence(right.id);
+
+    if (leftSequence !== null && rightSequence !== null) {
+      if (leftSequence !== rightSequence) {
+        return rightSequence - leftSequence;
+      }
+
+      if (left.createdAt !== right.createdAt) {
+        return right.createdAt.localeCompare(left.createdAt);
+      }
+
+      if (left.id !== right.id) {
+        return right.id.localeCompare(left.id);
+      }
+    } else if (leftSequence !== null) {
+      return -1;
+    } else if (rightSequence !== null) {
+      return 1;
+    }
+
+    if (left.createdAt !== right.createdAt) {
+      return right.createdAt.localeCompare(left.createdAt);
+    }
+
+    return right.id.localeCompare(left.id);
+  });
 
 const resolveInitialTemplateOpenTarget = (): TemplateOpenTarget | null => {
   const handoffTarget = consumeTemplateOpenTarget();
@@ -177,9 +219,13 @@ type TemplateSummary = {
   published: number;
   total: number;
 };
+
+type CloseConfirmMode = 'draft' | 'publish';
+
 type TemplateManagerRow = {
   activeUsageCount: number;
   createdAt: string;
+  updatedAt: string;
   datasetKind: string;
   fieldCount: number;
   id: string;
@@ -620,200 +666,10 @@ const createAutoClassificationSchemaRecords = (
   return [sourceKeyRecord, ...previewRecords].filter((record) => Object.keys(record).length > 0);
 };
 
-const createLocalAutoClassificationFallback = (
-  request: AutoTemplateFieldClassificationRequest,
-): AutoTemplateFieldClassificationResult => ({
-  layout: hasAutoClassificationSourceKeys(request.fields, ['response_a', 'response_b'])
-    ? 'comparison'
-    : 'field_list',
-  displayFields: request.fields
-    .filter((field) => !isLocalAutoClassificationAnnotationField(field.sourceKey))
-    .map(createLocalAutoClassificationDisplayField),
-  annotationFields: request.fields
-    .filter((field) => isLocalAutoClassificationAnnotationField(field.sourceKey))
-    .map(createLocalAutoClassificationAnnotationField),
-});
+const resolveAutoClassificationFailureMessage = (error: unknown): string => {
+  const message = error instanceof Error ? error.message.trim() : '';
 
-const createLocalAutoClassificationDisplayField = (
-  field: AutoTemplateSourceField,
-): ShowItemDisplayField => {
-  const normalizedKey = field.sourceKey.trim().toLowerCase();
-
-  if (
-    normalizedKey === 'id' ||
-    normalizedKey === 'task_id' ||
-    normalizedKey.includes('type') ||
-    normalizedKey === 'lang' ||
-    normalizedKey === 'language' ||
-    normalizedKey === 'category' ||
-    normalizedKey === 'difficulty'
-  ) {
-    return {
-      sourceKey: field.sourceKey,
-      label: field.sourceKey,
-      area: 'meta',
-      format: 'badge',
-    };
-  }
-
-  if (normalizedKey.includes('prompt') || normalizedKey.includes('question')) {
-    return {
-      sourceKey: field.sourceKey,
-      label: field.sourceKey,
-      area: 'primary',
-      format: 'long_text',
-      maxLines: 8,
-    };
-  }
-
-  if (
-    normalizedKey.includes('response') ||
-    normalizedKey.includes('answer') ||
-    normalizedKey.includes('reference')
-  ) {
-    return {
-      sourceKey: field.sourceKey,
-      label: field.sourceKey,
-      area: 'content',
-      format: 'long_text',
-      maxLines: 12,
-    };
-  }
-
-  const valueType = field.valueTypes[0];
-
-  return {
-    sourceKey: field.sourceKey,
-    label: field.sourceKey,
-    area: valueType === 'number' || valueType === 'boolean' ? 'meta' : 'content',
-    format: valueType === 'object' || valueType === 'array' ? 'json' : 'text',
-  };
-};
-
-const createLocalAutoClassificationAnnotationField = (
-  field: AutoTemplateSourceField,
-): AutoTemplateAnnotationField => {
-  const normalizedKey = field.sourceKey.trim().toLowerCase();
-
-  if (
-    normalizedKey === 'preferred' ||
-    normalizedKey.includes('preference') ||
-    normalizedKey.includes('decision') ||
-    normalizedKey.includes('judgment') ||
-    normalizedKey.includes('verdict')
-  ) {
-    return {
-      sourceKey: field.sourceKey,
-      label: field.sourceKey,
-      type: 'radio',
-      options: [
-        { label: 'A', value: 'A' },
-        { label: 'B', value: 'B' },
-      ],
-      required: true,
-    };
-  }
-
-  if (normalizedKey.includes('dimension')) {
-    return {
-      sourceKey: field.sourceKey,
-      label: field.sourceKey,
-      type: 'checkbox',
-      options: [],
-    };
-  }
-
-  if (
-    normalizedKey.includes('note') ||
-    normalizedKey.includes('comment') ||
-    normalizedKey.includes('rationale') ||
-    normalizedKey.includes('reason')
-  ) {
-    return {
-      sourceKey: field.sourceKey,
-      label: field.sourceKey,
-      type: 'textarea',
-    };
-  }
-
-  return {
-    sourceKey: field.sourceKey,
-    label: field.sourceKey,
-    type: 'text',
-  };
-};
-
-const isLocalAutoClassificationAnnotationField = (sourceKey: string): boolean => {
-  if (isProtectedLocalAutoClassificationDisplayField(sourceKey)) {
-    return false;
-  }
-
-  const normalizedKey = sourceKey.trim().toLowerCase();
-
-  return (
-    normalizedKey === 'preferred' ||
-    normalizedKey.includes('preference') ||
-    normalizedKey.includes('margin') ||
-    normalizedKey.includes('dimension') ||
-    normalizedKey.includes('safety_flag') ||
-    normalizedKey.includes('annotator') ||
-    normalizedKey.includes('reviewer') ||
-    normalizedKey.includes('decision') ||
-    normalizedKey.includes('rationale') ||
-    normalizedKey.includes('reason') ||
-    normalizedKey.includes('note') ||
-    normalizedKey.includes('comment') ||
-    normalizedKey.includes('score') ||
-    normalizedKey.includes('rating') ||
-    normalizedKey.includes('judgment') ||
-    normalizedKey.includes('verdict')
-  );
-};
-
-const isProtectedLocalAutoClassificationDisplayField = (sourceKey: string): boolean => {
-  const normalizedKey = sourceKey.trim().toLowerCase();
-  const exactDisplayKeys = new Set([
-    'id',
-    'task_id',
-    'task_type',
-    'category',
-    'difficulty',
-    'lang',
-    'language',
-    'media_type',
-    'media_url',
-    'content_markdown',
-    'prompt',
-    'question',
-    'model_answer',
-    'reference',
-    'reference_answer',
-    'tags',
-    'source',
-    'expected_dimensions',
-    'response_a',
-    'response_b',
-  ]);
-
-  return (
-    exactDisplayKeys.has(normalizedKey) ||
-    normalizedKey.startsWith('expected_') ||
-    normalizedKey.includes('prompt') ||
-    normalizedKey.includes('question') ||
-    normalizedKey.includes('reference') ||
-    normalizedKey.includes('model_answer') ||
-    normalizedKey.includes('content_markdown') ||
-    normalizedKey.includes('media_url')
-  );
-};
-
-const hasAutoClassificationSourceKeys = (
-  fields: readonly AutoTemplateSourceField[],
-  sourceKeys: readonly string[],
-): boolean => {
-  const sourceKeySet = new Set(fields.map((field) => field.sourceKey.trim().toLowerCase()));
-
-  return sourceKeys.every((sourceKey) => sourceKeySet.has(sourceKey));
+  return `字段分类失败，未创建模板。${message || '请配置真实模型后重试。'}`;
 };
 
 const resolveAutoClassificationSampleValue = (
@@ -913,6 +769,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const [isDesignerClosing, setIsDesignerClosing] = useState(false);
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
   const [isCloseConfirmClosing, setIsCloseConfirmClosing] = useState(false);
+  const [closeConfirmMode, setCloseConfirmMode] = useState<CloseConfirmMode>('draft');
   const [isPublishSaveAsOpen, setIsPublishSaveAsOpen] = useState(false);
   const [isPublishSaveAsClosing, setIsPublishSaveAsClosing] = useState(false);
   const [publishSaveAsTemplateName, setPublishSaveAsTemplateName] = useState('');
@@ -1038,40 +895,46 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const nextVersionName = `v${templateVersion + 1}`;
   const allTemplateRows = useMemo<TemplateManagerRow[]>(
     () =>
-      templates.map((template, index) => {
-        const displayId = formatTemplateDisplayId(index + 1);
-        const status = templateStatusLabel(template.status);
-        const owner = mockTemplateOwnerName(template.createdById);
-        const datasetKind = datasetKindLabel(template.datasetKind);
+      (() => {
+        const sortedTemplates = sortTemplatesByDisplayIdDesc(templates);
+        const templateDisplayIdMap = createTemplateDisplayIdMap(sortedTemplates);
 
-        return {
-          activeUsageCount: template.activeUsageCount ?? 0,
-          createdAt: template.createdAt,
-          datasetKind,
-          fieldCount: template.schema.fields.length,
-          id: displayId,
-          key: template.id,
-          name: template.name,
-          owner,
-          rawId: template.id,
-          searchValues: [
-            template.name,
-            template.id,
-            displayId,
-            owner,
-            template.createdById ?? '',
+        return sortedTemplates.map((template, index) => {
+          const displayId = templateDisplayIdMap.get(template.id) ?? formatTemplateDisplayId(index + 1);
+          const status = templateStatusLabel(template.status);
+          const owner = mockTemplateOwnerName(template.createdById);
+          const datasetKind = datasetKindLabel(template.datasetKind);
+
+          return {
+            activeUsageCount: template.activeUsageCount ?? 0,
+            createdAt: template.createdAt,
+            updatedAt: template.updatedAt,
             datasetKind,
-            template.datasetKind,
-            template.schemaVersion,
+            fieldCount: template.schema.fields.length,
+            id: displayId,
+            key: template.id,
+            name: template.name,
+            owner,
+            rawId: template.id,
+            searchValues: [
+              template.name,
+              template.id,
+              displayId,
+              owner,
+              template.createdById ?? '',
+              datasetKind,
+              template.datasetKind,
+              template.schemaVersion,
+              status,
+            ],
             status,
-          ],
-          status,
-          statusFilterKey: template.status,
-          template,
-          usageCount: template.usageCount ?? 0,
-          version: template.version > 0 ? `v${template.version}` : 'v0',
-        };
-      }),
+            statusFilterKey: template.status,
+            template,
+            usageCount: template.usageCount ?? 0,
+            version: template.version > 0 ? `v${template.version}` : 'v0',
+          };
+        });
+      })(),
     [templates],
   );
   const templateRows = useMemo(() => {
@@ -1715,7 +1578,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
         applyAutoClassificationDraft(classification);
         dismissToast(loadingToastId);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!isMountedRef.current) {
           return;
         }
@@ -1725,8 +1588,8 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
           return;
         }
 
-        applyAutoClassificationDraft(createLocalAutoClassificationFallback(draft.autoClassificationRequest));
         dismissToast(loadingToastId);
+        showToast(createErrorToast(resolveAutoClassificationFailureMessage(error)));
       });
   };
 
@@ -1855,6 +1718,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     }
 
     clearCloseConfirmTimer();
+    setCloseConfirmMode(templateStatus === 'PUBLISHED' ? 'publish' : 'draft');
     setIsCloseConfirmOpen(true);
     setIsCloseConfirmClosing(false);
   };
@@ -1879,6 +1743,21 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     }
   };
 
+  const handleConfirmPublishAndClose = async () => {
+    if (isPublishBlockedByUsage) {
+      closeConfirmWithAnimation(openPublishSaveAsModal);
+      return;
+    }
+
+    const didPublish = await handlePublish({
+      onPublished: () => closeConfirmWithAnimation(closeDesignerWithAnimation),
+    });
+
+    if (!didPublish) {
+      closeConfirmWithAnimation();
+    }
+  };
+
   const handleDiscardDraft = () => {
     closeConfirmWithAnimation(closeDesignerWithAnimation);
   };
@@ -1891,6 +1770,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setIsDesignerClosing(false);
     setIsCloseConfirmOpen(false);
     setIsCloseConfirmClosing(false);
+    setCloseConfirmMode('draft');
     setIsPublishSaveAsOpen(false);
     setIsPublishSaveAsClosing(false);
     setPublishSaveAsTemplateName('');
@@ -2137,24 +2017,32 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     showErrorToast('任务抽屉状态恢复失败，请回到任务管理页后重新选择模板。');
   };
 
-  const handlePublish = async () => {
-    if (!hasDesignerContentChanges()) {
+  const handlePublish = async (
+    options: {
+      onPublished?: () => void;
+    } = {},
+  ): Promise<boolean> => {
+    const hasContentChanges = hasDesignerContentChanges();
+
+    if (!hasContentChanges) {
       if (
         activeSavedTemplate &&
         templateDraftReturnRef.current.returnTo &&
         templateDraftReturnRef.current.source === 'task-template-preview'
       ) {
         handleSelectPreviewTemplate();
-        return;
+        return true;
       }
 
-      showInfoToast('没有任何变更，无法保存为新的版本');
-      return;
+      if (templateStatus === 'PUBLISHED') {
+        showInfoToast('没有任何变更，无法保存为新的版本');
+        return false;
+      }
     }
 
     if (isPublishBlockedByUsage) {
       openPublishSaveAsModal();
-      return;
+      return false;
     }
 
     setIsSaving(true);
@@ -2164,7 +2052,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       const draft = await saveDraft({ preservePreviewReturn: true, quiet: true });
 
       if (!draft) {
-        return;
+        return false;
       }
 
       const versionName = `v${draft.version + 1}`;
@@ -2197,11 +2085,11 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
 
         if (didUpdateReturnHandoff) {
           onReturnTo?.(publishReturnState.returnTo);
-          return;
+          return true;
         }
 
         showErrorToast('任务抽屉状态恢复失败，请回到任务管理页后重新选择模板。');
-        return;
+        return false;
       }
 
       const publishedVersionLabel =
@@ -2210,8 +2098,11 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       if (result.compatibilityReport.riskMessages.length > 0) {
         showInfoToast(result.compatibilityReport.riskMessages.join('；'));
       }
+      options.onPublished?.();
+      return true;
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : '模板发布失败，请稍后重试。');
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -2261,6 +2152,13 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       templateDraftReturnRef.current.source === 'task-template-preview' &&
       !hasDesignerContentChanges(),
   );
+  const closeConfirmTitle = closeConfirmMode === 'publish' ? '保存并发布新版本？' : '需要保存成草稿吗？';
+  const closeConfirmDescription =
+    closeConfirmMode === 'publish'
+      ? '当前改动会发布为新版本，原已发布版本不会被直接覆盖。'
+      : '当前修改尚未发布，关闭后将丢失未保存内容';
+  const closeConfirmCloseLabel =
+    closeConfirmMode === 'publish' ? '关闭保存并发布确认弹窗' : '关闭保存草稿确认弹窗';
 
   return (
     <section className="template-manager-page" aria-labelledby="owner-templates-title">
@@ -2316,8 +2214,8 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
               <col className="template-manager-table__col-id" />
               <col className="template-manager-table__col-name" />
               <col className="template-manager-table__col-status" />
-              <col className="template-manager-table__col-owner" />
               <col className="template-manager-table__col-created" />
+              <col className="template-manager-table__col-updated" />
               <col className="template-manager-table__col-version" />
               <col className="template-manager-table__col-fields" />
               <col className="template-manager-table__col-actions" />
@@ -2327,8 +2225,8 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                 <th>模板ID</th>
                 <th>模板名称</th>
                 <th>状态</th>
-                <th>负责人</th>
                 <th>创建时间</th>
+                <th>上次更改</th>
                 <th>版本</th>
                 <th>字段数</th>
                 <th>操作</th>
@@ -2356,8 +2254,8 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                   <td>
                     <TemplateStatusTag label={template.status} status={template.statusFilterKey} />
                   </td>
-                  <td>{template.owner}</td>
                   <td>{formatDateTimeMinute(template.createdAt)}</td>
+                  <td>{formatDateTimeMinute(template.updatedAt)}</td>
                   <td>{template.version}</td>
                   <td>{template.fieldCount ?? '—'}</td>
                   <td>
@@ -2510,11 +2408,11 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                   </button>
                 ) : null}
                 <button
-                  className="primary-action"
-                  type="button"
-                  disabled={isSaving}
-                  onClick={shouldSelectUnchangedPreviewTemplate ? handleSelectPreviewTemplate : handlePublish}
-                >
+	                  className="primary-action"
+	                  type="button"
+	                  disabled={isSaving}
+	                  onClick={shouldSelectUnchangedPreviewTemplate ? handleSelectPreviewTemplate : () => void handlePublish()}
+	                >
                   {shouldSelectUnchangedPreviewTemplate ? '选择该模板' : `保存并发布版本 ${nextVersionName}`}
                 </button>
               </div>
@@ -2602,9 +2500,9 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                   onMouseDown={(event) => event.stopPropagation()}
                 >
                   <div className="task-close-confirm__header">
-                    <h2 id="template-close-confirm-title">需要保存成草稿吗？</h2>
+                    <h2 id="template-close-confirm-title">{closeConfirmTitle}</h2>
                     <button
-                      aria-label="关闭保存草稿确认弹窗"
+                      aria-label={closeConfirmCloseLabel}
                       className="task-close-confirm__close"
                       disabled={isSaving}
                       type="button"
@@ -2613,24 +2511,55 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                       ×
                     </button>
                   </div>
-                  <p>当前修改尚未发布，关闭后将丢失未保存内容</p>
+                  <p>{closeConfirmDescription}</p>
                   <div className="task-close-confirm__actions">
-                    <button
-                      className="task-close-confirm__cancel"
-                      type="button"
-                      disabled={isSaving}
-                      onClick={handleDiscardDraft}
-                    >
-                      取消
-                    </button>
-                    <button
-                      className="task-close-confirm__save"
-                      type="button"
-                      disabled={isSaving}
-                      onClick={() => void handleConfirmSaveDraft()}
-                    >
-                      保存
-                    </button>
+                    {closeConfirmMode === 'publish' ? (
+                      <>
+                        <button
+                          className="task-close-confirm__cancel"
+                          type="button"
+                          disabled={isSaving}
+                          onClick={() => closeConfirmWithAnimation()}
+                        >
+                          取消
+                        </button>
+                        <button
+                          className="task-close-confirm__cancel"
+                          type="button"
+                          disabled={isSaving}
+                          onClick={handleDiscardDraft}
+                        >
+                          不保存
+                        </button>
+                        <button
+                          className="task-close-confirm__save"
+                          type="button"
+                          disabled={isSaving}
+                          onClick={() => void handleConfirmPublishAndClose()}
+                        >
+                          保存并发布
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="task-close-confirm__cancel"
+                          type="button"
+                          disabled={isSaving}
+                          onClick={handleDiscardDraft}
+                        >
+                          取消
+                        </button>
+                        <button
+                          className="task-close-confirm__save"
+                          type="button"
+                          disabled={isSaving}
+                          onClick={() => void handleConfirmSaveDraft()}
+                        >
+                          保存
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

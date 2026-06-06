@@ -25,7 +25,9 @@ type FieldMentionInputProps = {
   onChange: (value: string | null) => void;
 };
 
-const PANEL_MAX_VISIBLE_OPTIONS = 6;
+const PANEL_MAX_VISIBLE_OPTIONS = 3;
+const PANEL_OPTION_HEIGHT_PX = 36;
+const PANEL_VERTICAL_PADDING_PX = 12;
 const TOKEN_ANIMATION_MS = 160;
 const MENU_ANIMATION_MS = 160;
 
@@ -303,7 +305,7 @@ export function FieldMentionInput({
           isClosing={!isOpen}
           isOpen={isOpen}
           listboxId={isOpen ? listboxId : undefined}
-          maxHeightPx={PANEL_MAX_VISIBLE_OPTIONS * 38}
+          maxHeightPx={(PANEL_MAX_VISIBLE_OPTIONS * PANEL_OPTION_HEIGHT_PX) + PANEL_VERTICAL_PADDING_PX}
           options={isOpen ? filteredOptions : closingMenu?.options ?? []}
           onHover={setHighlightedIndex}
           onSelect={commitSelection}

@@ -928,7 +928,7 @@ const DecisionPill = ({ decision, label }: { decision: AiReviewBatchDecision; la
 
   return (
     <span className={`agent-review-decision-pill is-${tone}`}>
-      {tone === 'pass' ? <span className="status-tag__dot" aria-hidden="true" /> : null}
+      <span className="status-tag__dot" aria-hidden="true" />
       {label}
     </span>
   );

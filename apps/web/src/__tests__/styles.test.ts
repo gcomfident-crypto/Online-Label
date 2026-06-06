@@ -16,12 +16,19 @@ describe('global styles', () => {
       /\.designer-property-row input,\s*\.designer-property-row select,\s*\.designer-property-row textarea\s*\{[^}]+\}/,
     )?.[0] ?? '';
     const metadataControlRule = styles.match(/\.designer-property-row--metadata input\s*\{[^}]+\}/)?.[0] ?? '';
+    const descriptionRowRule =
+      styles.match(/\.designer-property-row--field-description\s*\{[^}]+\}/)?.[0] ?? '';
+    const descriptionInputRule =
+      styles.match(/\.designer-property-row--field-description input\s*\{[^}]+\}/)?.[0] ?? '';
 
     expect(propertyControlRule).toContain('direction: ltr;');
     expect(propertyControlRule).toContain('text-align: left;');
     expect(propertyControlRule).not.toContain('text-align: right;');
     expect(metadataControlRule).toContain('direction: ltr;');
     expect(metadataControlRule).toContain('text-align: right;');
+    expect(descriptionRowRule).toContain('grid-template-columns: 72px minmax(0, 1fr);');
+    expect(descriptionRowRule).toContain('gap: 8px;');
+    expect(descriptionInputRule).toContain('text-align: right;');
   });
 
   it('属性配置表单自适应文本域按内容高度展示', () => {
@@ -54,6 +61,8 @@ describe('global styles', () => {
         .find((rule) => rule.includes('position: absolute;')) ?? '';
     const inlineChoiceMenuRule =
       styles.match(/\.designer-linkage-rule-editor__inline-choice-menu\s*\{[^}]+\}/)?.[0] ?? '';
+    const inlineChoicePortalRule =
+      styles.match(/\.designer-linkage-rule-editor__inline-choice-menu--portal\s*\{[^}]+\}/)?.[0] ?? '';
 
     expect(rootRule).toContain('--overlay-dropdown-z-index: 1000;');
     expect(expandedCollapseRule).toContain('overflow: visible;');
@@ -65,7 +74,31 @@ describe('global styles', () => {
     expect(templatePickerMenuRule).toContain('z-index: var(--overlay-dropdown-z-index);');
     expect(deadlinePopoverRule).toContain('z-index: var(--overlay-dropdown-z-index);');
     expect(fieldMentionMenuRule).toContain('z-index: var(--overlay-dropdown-z-index);');
+    expect(inlineChoiceMenuRule).toContain('position: fixed;');
     expect(inlineChoiceMenuRule).toContain('z-index: var(--overlay-dropdown-z-index);');
+    expect(inlineChoicePortalRule).toContain('z-index: calc(var(--overlay-dropdown-z-index) + 100);');
+  });
+
+  it('字段联动下拉菜单最多展示三行并通过滚动查看更多', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const inlineChoiceMenuRule =
+      styles.match(/\.designer-linkage-rule-editor__inline-choice-menu\s*\{[^}]+\}/)?.[0] ?? '';
+    const inlineChoiceOptionRule =
+      styles.match(
+        /\.designer-linkage-rule-editor__inline-choice-menu button,\s*\.designer-linkage-rule-editor__inline-choice-empty\s*\{[^}]+\}/,
+      )?.[0] ?? '';
+    const fieldMentionMenuRule =
+      Array.from(styles.matchAll(/\.designer-field-mention__menu\s*\{[^}]+\}/g))
+        .map((match) => match[0])
+        .find((rule) => rule.includes('overflow-y: auto;')) ?? '';
+
+    expect(inlineChoiceMenuRule).toContain('--designer-linkage-choice-row-height: 30px;');
+    expect(inlineChoiceMenuRule).toContain('max-height: 108px;');
+    expect(inlineChoiceMenuRule).toContain('overflow-y: auto;');
+    expect(inlineChoiceMenuRule).toContain('scrollbar-width: thin;');
+    expect(inlineChoiceOptionRule).toContain('min-height: var(--designer-linkage-choice-row-height);');
+    expect(fieldMentionMenuRule).toContain('overflow-y: auto;');
+    expect(fieldMentionMenuRule).toContain('scrollbar-width: thin;');
   });
 
   it('全局页面允许双指放大后的纵向平移', () => {
@@ -166,6 +199,35 @@ describe('global styles', () => {
     expect(compactIconRule).toContain('height: 16px;');
   });
 
+  it('工作台 AI 预审进度胶囊使用指定浅橙色并保留圆点', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const baseStatusRule = styles.match(/\.labeler-assignment-status\s*\{[^}]+\}/)?.[0] ?? '';
+    const dotRule = styles.match(/\.labeler-assignment-status::before\s*\{[^}]+\}/)?.[0] ?? '';
+    const aiReviewRule = styles.match(/\.labeler-assignment-status--ai_review\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(baseStatusRule).toContain('border-radius: 999px;');
+    expect(dotRule).toContain('border-radius: 999px;');
+    expect(dotRule).toContain('background: currentColor;');
+    expect(aiReviewRule).toContain('background: #FFF7E6;');
+    expect(aiReviewRule).toContain('color: #D97707;');
+  });
+
+  it('机审队列 AI 建议胶囊所有状态都展示圆点', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const decisionDotRule = styles.match(/\.agent-review-decision-pill \.status-tag__dot\s*\{[^}]+\}/)?.[0] ?? '';
+    const rejectDotRule = styles.match(/\.agent-review-decision-pill\.is-reject \.status-tag__dot\s*\{[^}]+\}/)?.[0] ?? '';
+    const pendingDotRule = styles.match(/\.agent-review-decision-pill\.is-pending \.status-tag__dot\s*\{[^}]+\}/)?.[0] ?? '';
+    const failedDotRule = styles.match(/\.agent-review-decision-pill\.is-failed \.status-tag__dot\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(decisionDotRule).toContain('width: 8px;');
+    expect(decisionDotRule).toContain('height: 8px;');
+    expect(decisionDotRule).toContain('border-radius: 999px;');
+    expect(decisionDotRule).toContain('background: currentColor;');
+    expect(rejectDotRule).toContain('background: currentColor;');
+    expect(pendingDotRule).toContain('background: currentColor;');
+    expect(failedDotRule).toContain('background: currentColor;');
+  });
+
   it('系统通知从页面顶部向下弹出并提供退出动画', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const toastStackRule = styles.match(/\.toast-stack\s*\{[^}]+\}/)?.[0] ?? '';
@@ -180,6 +242,14 @@ describe('global styles', () => {
     expect(toastExitRule).toContain('animation: toastOut 220ms ease-in both;');
     expect(styles).toContain('@keyframes toastOut');
     expect(styles).toContain('transform: translateY(-14px) scale(0.98);');
+  });
+
+  it('系统通知的操作按钮保持蓝色，不跟随错误状态变红', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const toastActionRule = styles.match(/\.toast__action\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(toastActionRule).toContain('color: #306df8;');
+    expect(toastActionRule).not.toContain('color: var(--toast-accent);');
   });
 
   it('平台顶栏尺寸随屏幕断点自适应', () => {
@@ -603,6 +673,8 @@ describe('global styles', () => {
     const myDataCellTextRule =
       styles.match(/\.labeler-task-workspace\s+\.my-data-table__cell strong,[\s\S]*?\.labeler-task-workspace\s+\.my-data-table__cell code\s*\{[^}]+\}/)?.[0] ?? '';
     const myDataProgressRule = styles.match(/\.labeler-task-progress-summary\s*\{[^}]+\}/)?.[0] ?? '';
+    const myDataCompletedStatusRule =
+      styles.match(/\.labeler-assignment-status--final_approved\s*\{[^}]+\}/)?.[0] ?? '';
     const myDataFillerRule = styles.match(
       /\.task-table-scroll::after,\s*\.task-market-table-frame::after,\s*\.template-manager-table-scroll::after,\s*\.my-data-table-frame::after\s*\{[^}]+\}/,
     )?.[0] ?? '';
@@ -620,6 +692,8 @@ describe('global styles', () => {
     expect(myDataCellTextRule).toContain('text-overflow: ellipsis;');
     expect(myDataProgressRule).toContain('flex-wrap: nowrap;');
     expect(myDataProgressRule).toContain('justify-content: center;');
+    expect(myDataCompletedStatusRule).toContain('background: #e8f7ef;');
+    expect(myDataCompletedStatusRule).toContain('color: #079455;');
     expect(myDataFillerRule).toContain('flex: 1 1 auto;');
   });
 
@@ -1730,8 +1804,14 @@ describe('global styles', () => {
     const editorRule = styles.match(/\.designer-length-limit-editor\s*\{[^}]+\}/)?.[0] ?? '';
     const modeRule = styles.match(/\.designer-length-limit-mode\s*\{[^}]+\}/)?.[0] ?? '';
     const buttonRule = styles.match(/\.designer-length-limit-mode button\s*\{[^}]+\}/)?.[0] ?? '';
+    const noneButtonRule =
+      styles.match(/\.designer-length-limit-mode__button--none\s*\{[^}]+\}/)?.[0] ?? '';
+    const buttonHoverRule =
+      styles.match(/\.designer-length-limit-mode button:hover:not\(:disabled\)\s*\{[^}]+\}/)?.[0] ?? '';
     const activeButtonRule =
       styles.match(/\.designer-length-limit-mode button\[aria-pressed='true'\]\s*\{[^}]+\}/)?.[0] ?? '';
+    const activeButtonHoverRule =
+      styles.match(/\.designer-length-limit-mode button\[aria-pressed='true'\]:hover:not\(:disabled\)\s*\{[^}]+\}/)?.[0] ?? '';
     const valueRule = styles.match(/\.designer-length-limit-value\s*\{[^}]+\}/)?.[0] ?? '';
     const inputRule = styles.match(/\.designer-property-row \.designer-length-limit-value input\s*\{[^}]+\}/)?.[0] ?? '';
     const unitRule =
@@ -1741,11 +1821,19 @@ describe('global styles', () => {
     expect(editorRule).toContain('display: grid;');
     expect(editorRule).toContain('justify-items: end;');
     expect(modeRule).toContain('display: grid;');
-    expect(modeRule).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');
+    expect(modeRule).toContain('grid-template-columns: minmax(66px, 1.45fr) repeat(3, minmax(0, 1fr));');
     expect(buttonRule).toContain('border-radius: 6px;');
     expect(buttonRule).toContain('font-size: 12px;');
+    expect(buttonRule).toContain('white-space: nowrap;');
+    expect(buttonHoverRule).toContain('background: transparent;');
+    expect(buttonHoverRule).toContain('box-shadow: none;');
+    expect(buttonHoverRule).toContain('transform: none;');
+    expect(noneButtonRule).toContain('font-size: 11px;');
+    expect(noneButtonRule).toContain('min-width: 62px;');
     expect(activeButtonRule).toContain('background: #306df8;');
     expect(activeButtonRule).toContain('color: #ffffff;');
+    expect(activeButtonHoverRule).toContain('background: #306df8;');
+    expect(activeButtonHoverRule).toContain('box-shadow: 0 4px 10px rgba(48, 109, 248, 0.18);');
     expect(valueRule).toContain('display: inline-grid;');
     expect(valueRule).toContain('grid-auto-flow: column;');
     expect(inputRule).toContain('width: 52px;');
@@ -2061,7 +2149,7 @@ describe('global styles', () => {
     expect(inlineChoiceMenuRule).not.toContain('min-width: 168px;');
     expect(inlineChoiceMenuButtonRule).toContain('width: 100%;');
     expect(inlineChoiceMenuButtonRule).toContain('max-width: 100%;');
-    expect(inlineChoiceMenuButtonRule).toContain('min-height: 30px;');
+    expect(inlineChoiceMenuButtonRule).toContain('min-height: var(--designer-linkage-choice-row-height);');
     expect(inlineChoiceMenuButtonRule).toContain('font-size: 12px;');
     expect(valueTriggerRule).toContain('max-width: 100%;');
     expect(valueTriggerRule).toContain('font-size: 10px;');

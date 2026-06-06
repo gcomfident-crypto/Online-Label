@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { DatasetKind, LabelHubSchema } from '@labelhub/shared';
 
-import { resolveAiReviewRuntimeConfig } from '../common/ai-review-runtime.ts';
+import { resolveConfiguredAiReviewRuntimeConfig } from '../common/ai-review-runtime.ts';
 import { aiReviewIdempotencyKey, normalizeIdempotencyKey } from '../common/idempotency/idempotency-key.ts';
 import { runInTransaction } from '../common/transactions/run-in-transaction.ts';
 import { PrismaService } from '../prisma/prisma.service.ts';
@@ -211,6 +211,8 @@ const TASK_SUBMITTABLE_ASSIGNMENT_STATUSES = new Set<AssignmentStatus>([
   'IN_PROGRESS',
   'NEEDS_REVISION',
 ]);
+const AI_REVIEW_MODEL_NOT_CONFIGURED_MESSAGE =
+  '当前无法提交：AI 预审模型未配置，请检查 DEEPSEEK_API_KEY、OPENAI_API_KEY、LLM_API_KEY 或 LLM_PROVIDER。';
 
 @Injectable()
 export class SubmissionsService {
@@ -432,6 +434,18 @@ export class SubmissionsService {
     },
   ): Promise<SubmissionRecord> {
     const submissionStatus = input.assignment.task.aiPreReviewEnabled ? 'AI_QUEUED' : 'HUMAN_PENDING';
+    const aiReviewRuntimeConfig =
+      submissionStatus === 'AI_QUEUED'
+        ? resolveConfiguredAiReviewRuntimeConfig(process.env)
+        : null;
+
+    if (submissionStatus === 'AI_QUEUED' && !aiReviewRuntimeConfig) {
+      throw new BadRequestException({
+        code: 'AI_REVIEW_MODEL_NOT_CONFIGURED',
+        message: AI_REVIEW_MODEL_NOT_CONFIGURED_MESSAGE,
+      });
+    }
+
     const submission = await client.submission.create({
       data: {
         assignmentId: input.assignment.id,
@@ -465,9 +479,7 @@ export class SubmissionsService {
       },
     });
 
-    if (submissionStatus === 'AI_QUEUED') {
-      const aiReviewRuntimeConfig = resolveAiReviewRuntimeConfig(process.env);
-
+    if (aiReviewRuntimeConfig) {
       await client.aiReviewJob.create({
         data: {
           submissionId: submission.id,
