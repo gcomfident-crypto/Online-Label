@@ -899,6 +899,7 @@ const ShowItemDisplayConfigEditor = ({
   const visibleFieldCount = displayConfig.fields.filter(isShowItemDisplayFieldVisible).length;
   const annotationFieldCount = countAnnotationFields(schemaFields);
   const totalFieldCount = countUniqueSourceFields(displayConfig.fields, schemaFields);
+  const duplicateAnnotationFields = findDuplicateShowItemAnnotationFields(displayConfig.fields, schemaFields);
 
   const removeField = (index: number) => {
     commitFields(displayConfig.fields.filter((_, currentIndex) => currentIndex !== index));
@@ -934,6 +935,15 @@ const ShowItemDisplayConfigEditor = ({
             <strong>{annotationFieldCount}</strong>
           </span>
         </div>
+        {duplicateAnnotationFields.length > 0 ? (
+          <div className="designer-show-item-duplicate-warning" role="alert">
+            <strong>字段重复使用</strong>
+            <span>
+              {formatDuplicateShowItemAnnotationFields(duplicateAnnotationFields)}
+              同时作为题目展示字段和待标注字段使用，模型不会读取上传文件里的演示值。
+            </span>
+          </div>
+        ) : null}
       </div>
       <section className="designer-show-item-fields" aria-label="展示字段清单">
         {displayConfig.fields.map((item, index) => (
@@ -1040,6 +1050,56 @@ const countUniqueSourceFields = (
 
   return sourceKeys.size;
 };
+
+type DuplicateShowItemAnnotationField = {
+  label: string;
+  sourceKey: string;
+};
+
+const findDuplicateShowItemAnnotationFields = (
+  displayFields: readonly ShowItemDisplayField[],
+  schemaFields: readonly SchemaField[],
+): DuplicateShowItemAnnotationField[] => {
+  const annotationFieldBySourceKey = new Map<string, SchemaField>();
+
+  collectAnnotationFields(schemaFields).forEach((field) => {
+    const sourceKey = normalizeSourceKey(field.sourceKey ?? field.fieldKey ?? field.key);
+
+    if (sourceKey && !annotationFieldBySourceKey.has(sourceKey)) {
+      annotationFieldBySourceKey.set(sourceKey, field);
+    }
+  });
+
+  const duplicates: DuplicateShowItemAnnotationField[] = [];
+  const seen = new Set<string>();
+
+  displayFields
+    .filter(isShowItemDisplayFieldVisible)
+    .forEach((displayField) => {
+      const sourceKey = normalizeSourceKey(displayField.sourceKey);
+      const annotationField = sourceKey ? annotationFieldBySourceKey.get(sourceKey) : undefined;
+
+      if (!sourceKey || !annotationField || seen.has(sourceKey)) {
+        return;
+      }
+
+      seen.add(sourceKey);
+      duplicates.push({
+        label: annotationField.label || displayField.label || sourceKey,
+        sourceKey,
+      });
+    });
+
+  return duplicates;
+};
+
+const formatDuplicateShowItemAnnotationFields = (
+  fields: readonly DuplicateShowItemAnnotationField[],
+): string =>
+  fields.map((field) => `${field.label}（${field.sourceKey}）`).join('、');
+
+const normalizeSourceKey = (value: unknown): string =>
+  typeof value === 'string' ? value.trim() : '';
 
 const collectAnnotationFields = (fields: readonly SchemaField[]): SchemaField[] =>
   fields.flatMap((field) => {

@@ -97,6 +97,64 @@ describe('LlmService template field classifier', () => {
     expect(assistUserMessage).not.toContain('"structured_note"');
   });
 
+  it('LLM 辅助生成在后端兜底过滤上传文件里的待标注演示值', async () => {
+    process.env.LLM_PROVIDER = 'deepseek';
+    process.env.NODE_ENV = 'development';
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
+    process.env.LLM_MODEL = 'deepseek-chat';
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  targetFieldKey: 'annotator_note',
+                  summary: '已生成备注',
+                  suggestion: '回答 A 在准确性上更完整。',
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await new LlmService().createAssist({
+      datasetKind: 'generic_json',
+      rawData: {
+        prompt: '请比较两个回答。',
+        response_a: '回答 A 内容。',
+        dimensions: ['准确性', '完整性', '可读性'],
+        annotator_note: '演示备注：三个维度都需要关注。',
+      },
+      answers: {
+        dimensions: ['准确性'],
+        annotator_note: '上一版备注。',
+      },
+      targetFieldKey: 'annotator_note',
+      promptTemplate: '请根据 #prompt 和当前评估维度生成备注。',
+      visibleRawDataKeys: ['prompt', 'response_a', 'dimensions'],
+      annotationRawDataKeys: ['dimensions', 'annotator_note'],
+    } as Parameters<LlmService['createAssist']>[0]);
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
+      messages: Array<{ content: string }>;
+    };
+    const assistUserMessage = requestBody.messages.find((message) =>
+      message.content.includes('原始数据：'),
+    )?.content ?? '';
+
+    expect(assistUserMessage).toContain('原始数据：{"prompt":"请比较两个回答。","response_a":"回答 A 内容。"}');
+    expect(assistUserMessage).toContain('当前答案：{"dimensions":["准确性"]}');
+    expect(assistUserMessage).not.toContain('完整性');
+    expect(assistUserMessage).not.toContain('可读性');
+    expect(assistUserMessage).not.toContain('演示备注：三个维度都需要关注。');
+  });
+
   it('AI 预审使用真实模型生成字段级评语和修改建议', async () => {
     process.env.LLM_PROVIDER = 'deepseek';
     process.env.NODE_ENV = 'development';

@@ -15,6 +15,13 @@ type AssignmentStatus =
   | 'CANCELLED';
 type SubmissionStatus = 'AI_QUEUED' | 'AI_PASSED' | 'HUMAN_PENDING' | 'NEEDS_REVISION';
 
+type ReviewRecordSummary = {
+  stage?: string | null;
+  reviewerType?: string | null;
+  decision: string | null;
+  createdAt: Date;
+};
+
 type SubmissionRecord = {
   id: string;
   assignmentId: string;
@@ -26,6 +33,7 @@ type SubmissionRecord = {
   submittedAt: Date;
   createdAt: Date;
   updatedAt: Date;
+  reviewRecords?: ReviewRecordSummary[];
 };
 
 type DraftRecord = {
@@ -514,6 +522,14 @@ describe('SubmissionsService', () => {
           status: 'AI_QUEUED',
           round: 1,
           submittedAt,
+          reviewRecords: [
+            {
+              stage: 'AI_PRECHECK',
+              reviewerType: 'AI',
+              decision: 'reject',
+              createdAt: new Date('2026-05-21T08:06:00.000Z'),
+            },
+          ],
         }),
       ],
     });
@@ -529,6 +545,9 @@ describe('SubmissionsService', () => {
         status: 'IN_PROGRESS',
         latestSubmissionStatus: 'AI_QUEUED',
         latestSubmittedAt: submittedAt.toISOString(),
+        latestReviewStage: 'AI_PRECHECK',
+        latestReviewerType: 'AI',
+        latestReviewDecision: 'reject',
         round: 1,
       }),
       expect.objectContaining({
@@ -755,6 +774,7 @@ function createSubmission(
     submittedAt: input.submittedAt ?? now,
     createdAt: input.createdAt ?? now,
     updatedAt: input.updatedAt ?? now,
+    reviewRecords: input.reviewRecords ?? [],
   };
 }
 

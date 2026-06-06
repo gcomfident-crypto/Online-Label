@@ -1337,6 +1337,8 @@ describe('SchemaRenderer', () => {
         body: JSON.stringify({
           datasetKind: 'qa_quality',
           rawData: { prompt: '请说明光合作用的主要过程。' },
+          visibleRawDataKeys: ['prompt'],
+          annotationRawDataKeys: ['structured_note_field', 'structured_note'],
           answers: {},
           targetFieldKey: 'structured_note',
           promptTemplate: '请给出结构化建议。',
@@ -1372,6 +1374,8 @@ describe('SchemaRenderer', () => {
         body: JSON.stringify({
           datasetKind: 'qa_quality',
           rawData: { prompt: '请说明光合作用的主要过程。' },
+          visibleRawDataKeys: ['prompt'],
+          annotationRawDataKeys: ['structured_note_field', 'structured_note'],
           answers: {},
           targetFieldKey: 'structured_note',
           promptTemplate: '请给出结构化建议。',
@@ -1391,6 +1395,96 @@ describe('SchemaRenderer', () => {
       expect(screen.getAllByText('模型生成完毕')).toHaveLength(2);
     });
     expect(screen.queryByText(/已重新生成结构化记录.*已写入/u)).not.toBeInTheDocument();
+  });
+
+  it('LLM 辅助请求只携带 ShowItem 可见原始字段，不把待标注演示值喂给模型', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          datasetKind: 'generic_json',
+          targetFieldKey: 'annotator_note',
+          summary: '已生成备注。',
+          suggestion: '回答 A 在准确性上更完整。',
+        },
+      }),
+    });
+    const schema: LabelHubSchema = baseSchema([
+      {
+        key: 'material',
+        type: 'show_item',
+        label: '题目材料',
+        displayConfig: {
+          layout: 'table',
+          fields: [
+            { sourceKey: 'prompt', label: '题目', format: 'long_text' },
+            { sourceKey: 'response_a', label: '回答 A', format: 'long_text' },
+            { sourceKey: 'dimensions', label: '演示维度', format: 'text' },
+          ],
+        },
+      },
+      {
+        key: 'dimensions_field',
+        fieldKey: 'dimensions',
+        sourceKey: 'dimensions',
+        type: 'checkbox',
+        label: '评估维度',
+        options: [
+          { label: '准确性', value: '准确性' },
+          { label: '完整性', value: '完整性' },
+          { label: '可读性', value: '可读性' },
+        ],
+      },
+      {
+        key: 'annotator_note_field',
+        fieldKey: 'annotator_note',
+        sourceKey: 'annotator_note',
+        type: 'textarea',
+        label: '标注备注',
+        promptTemplate: '请根据 #prompt 和当前评估维度生成备注。',
+      },
+    ]);
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{
+          prompt: '请比较两个回答。',
+          response_a: '回答 A 内容。',
+          dimensions: ['准确性', '完整性', '可读性'],
+          annotator_note: '演示备注：三个维度都需要关注。',
+        }}
+        value={{
+          dimensions: ['准确性'],
+          annotator_note: '上一版备注。',
+        }}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const noteLlm = screen.getByLabelText('标注备注 LLM 建议');
+    await user.click(within(noteLlm).getByRole('button', { name: '生成建议' }));
+
+    const payload = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
+      annotationRawDataKeys: string[];
+      answers: Record<string, unknown>;
+      rawData: Record<string, unknown>;
+      visibleRawDataKeys: string[];
+    };
+
+    expect(payload.rawData).toEqual({
+      prompt: '请比较两个回答。',
+      response_a: '回答 A 内容。',
+    });
+    expect(payload.visibleRawDataKeys).toEqual(['prompt', 'response_a']);
+    expect(payload.annotationRawDataKeys).toEqual(
+      expect.arrayContaining(['dimensions', 'annotator_note']),
+    );
+    expect(payload.answers).toEqual({ dimensions: ['准确性'] });
   });
 
   it('配置了 LLM 提示的单行输入和标签选择可生成后直接写入', async () => {
@@ -1479,6 +1573,8 @@ describe('SchemaRenderer', () => {
         body: JSON.stringify({
           datasetKind: 'generic_json',
           rawData: { prompt: '请清洗蓝牙耳机商品标题。' },
+          visibleRawDataKeys: ['prompt'],
+          annotationRawDataKeys: ['title', 'cleaned_title', 'tags', 'quality_tags'],
           answers: {},
           targetFieldKey: 'cleaned_title',
           promptTemplate: '请根据 #prompt 输出清洗标题。',
@@ -1502,6 +1598,8 @@ describe('SchemaRenderer', () => {
         body: JSON.stringify({
           datasetKind: 'generic_json',
           rawData: { prompt: '请清洗蓝牙耳机商品标题。' },
+          visibleRawDataKeys: ['prompt'],
+          annotationRawDataKeys: ['title', 'cleaned_title', 'tags', 'quality_tags'],
           answers: {},
           targetFieldKey: 'cleaned_title',
           promptTemplate: '请根据 #prompt 输出清洗标题。',
@@ -1527,6 +1625,8 @@ describe('SchemaRenderer', () => {
         body: JSON.stringify({
           datasetKind: 'generic_json',
           rawData: { prompt: '请清洗蓝牙耳机商品标题。' },
+          visibleRawDataKeys: ['prompt'],
+          annotationRawDataKeys: ['title', 'cleaned_title', 'tags', 'quality_tags'],
           answers: { cleaned_title: '轻量降噪蓝牙耳机第二版' },
           targetFieldKey: 'quality_tags',
           promptTemplate: '请根据 #prompt 输出建议标签。',

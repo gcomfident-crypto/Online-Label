@@ -967,11 +967,6 @@ const TraceSidebar = ({
 
   return (
     <aside className="agent-review-trace-sidebar" aria-label="当前题追溯">
-      <div className="agent-review-trace-tabs" role="tablist" aria-label="追溯视图">
-        <button className="is-active" type="button" role="tab" aria-selected="true">
-          当前题
-        </button>
-      </div>
       <section className="agent-review-trace-card agent-review-trace-current" aria-label={`当前题追溯（Q${item.index}）`}>
         <header className="agent-review-trace-current__header">
           <div>

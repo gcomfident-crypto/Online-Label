@@ -15,6 +15,7 @@ import {
 } from 'react';
 
 import {
+  buildModelRawDataContext,
   compileAiReviewPrompt,
   type AiReviewPromptConfig,
   type AiReviewPromptSectionKey,
@@ -1081,6 +1082,18 @@ const DesignerFieldCard = ({
   const hasLlmPrompt = field.promptTemplate !== undefined;
   const [isTestingLlmPrompt, setIsTestingLlmPrompt] = useState(false);
   const groupLayout = field.layout === 'two_columns' ? 'two_columns' : 'single_column';
+  const modelRawDataContext = useMemo(
+    () =>
+      buildModelRawDataContext(
+        {
+          schemaVersion: 'designer-card-preview',
+          datasetKind,
+          fields: [field],
+        },
+        previewRawData,
+      ),
+    [datasetKind, field, previewRawData],
+  );
   const childFieldKeys = useMemo(
     () => (field.fields ?? []).map((child) => child.key),
     [field.fields],
@@ -1290,6 +1303,7 @@ const DesignerFieldCard = ({
               datasetKind={datasetKind}
               rendererScope="designer-canvas"
               fieldPath={field.key}
+              modelRawDataContext={modelRawDataContext}
               rawData={previewRawData}
               value={{}}
               mode="answer"

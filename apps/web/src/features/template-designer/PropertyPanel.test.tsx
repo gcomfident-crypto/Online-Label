@@ -1539,6 +1539,45 @@ describe('PropertyPanel', () => {
     });
   });
 
+  it('ShowItem 字段同时绑定待标注字段时提示模型不会读取上传演示值', () => {
+    const field: SchemaField = {
+      key: 'show_item_1',
+      type: 'show_item',
+      label: '评测样本',
+      displayConfig: {
+        layout: 'table',
+        fields: [
+          { sourceKey: 'prompt', label: '问题' },
+          { sourceKey: 'dimensions', label: '演示维度' },
+        ],
+      },
+    };
+
+    render(
+      <PropertyPanel
+        field={field}
+        schemaFields={[
+          field,
+          {
+            key: 'dimensions_field',
+            fieldKey: 'dimensions',
+            sourceKey: 'dimensions',
+            type: 'checkbox',
+            label: '评价维度',
+          },
+        ]}
+        onAddLinkageRule={vi.fn()}
+        onUpdateField={vi.fn()}
+        onUpdateValidation={vi.fn()}
+      />,
+    );
+
+    const warning = screen.getByRole('alert');
+
+    expect(warning).toHaveTextContent('评价维度（dimensions）同时作为题目展示字段和待标注字段使用');
+    expect(warning).toHaveTextContent('模型不会读取上传文件里的演示值');
+  });
+
   it('ShowItem 以字段配置加摘要信息的方式配置偏好对比题目展示', () => {
     const onUpdateField = vi.fn();
     const field: SchemaField = {

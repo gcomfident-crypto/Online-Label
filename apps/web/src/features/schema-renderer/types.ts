@@ -1,4 +1,4 @@
-import type { LabelHubSchema, SchemaField } from '@labelhub/shared';
+import type { LabelHubSchema, ModelRawDataContext, SchemaField } from '@labelhub/shared';
 
 export { getSchemaFieldKey } from '@labelhub/shared';
 
@@ -10,6 +10,7 @@ export type SchemaRendererProps = {
   value: Record<string, unknown>;
   mode: SchemaRendererMode;
   onChange: (next: Record<string, unknown>) => void;
+  onFieldEdited?: (fieldKey: string) => void;
   activeFieldKey?: string | null;
   onActiveFieldChange?: (fieldKey: string) => void;
   validationFocusFieldKey?: string | null;
@@ -25,6 +26,7 @@ export type FieldRendererProps = {
   datasetKind: LabelHubSchema['datasetKind'];
   rendererScope: string;
   fieldPath: string;
+  modelRawDataContext: ModelRawDataContext;
   rawData: Record<string, unknown>;
   value: Record<string, unknown>;
   mode: SchemaRendererMode;
@@ -45,6 +47,6 @@ export type FieldRendererProps = {
 };
 
 export type FieldNodeDecoration = {
-  state: 'added' | 'removed' | 'changed';
+  state: 'added' | 'removed' | 'changed' | 'rejected';
   label: string;
 };

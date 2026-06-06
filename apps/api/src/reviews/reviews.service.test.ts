@@ -10,6 +10,7 @@ type AssignmentStatus =
   | 'NEEDS_REVISION';
 
 type SubmissionStatus =
+  | 'AI_PASSED'
   | 'HUMAN_PENDING'
   | 'RECHECK_REVIEWING'
   | 'FINAL_APPROVED'
@@ -145,6 +146,25 @@ describe('ReviewsService', () => {
         expect.objectContaining({ key: 'reason', label: '判断理由' }),
       ],
     });
+  });
+
+  it('同一任务当前仍有 AI 打回题时，已通过题不能提前进入人工复审队列', async () => {
+    const { service, db } = createService();
+    db.submissions[1].status = 'NEEDS_REVISION';
+    db.assignments[1].status = 'NEEDS_REVISION';
+    db.reviewRecords = db.reviewRecords.map((record) =>
+      record.submissionId === 'submission_2' && record.stage === 'AI_PRECHECK'
+        ? {
+            ...record,
+            decision: 'reject',
+            comment: '第 2 题当前 AI 预审打回。',
+          }
+        : record,
+    );
+
+    const pending = await service.listPending();
+
+    expect(pending).toEqual([]);
   });
 
   it('开始复审后 submission 进入 RECHECK_REVIEWING 且 assignment 进入 UNDER_RECHECK', async () => {

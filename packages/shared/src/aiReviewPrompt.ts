@@ -5,8 +5,13 @@ import type {
   FieldValidation,
   LabelHubSchema,
   SchemaField,
-  ShowItemDisplayField,
 } from './schema.ts';
+import {
+  collectAnnotationRawDataKeys,
+  flattenSchemaFields,
+  isAnswerField,
+  normalizeShowItemDisplayFields,
+} from './modelContext.ts';
 
 export type AiReviewPromptSection = {
   key: AiReviewPromptSectionKey;
@@ -70,7 +75,7 @@ export const compileAiReviewPrompt = ({
 }: CompileAiReviewPromptInput): CompiledAiReviewPrompt => {
   const flattenedFields = flattenSchemaFields(schema.fields);
   const reviewFieldKeySet = reviewFieldKeys ? new Set(reviewFieldKeys) : undefined;
-  const answerRawDataKeys = collectAnswerRawDataKeys(flattenedFields);
+  const answerRawDataKeys = new Set(collectAnnotationRawDataKeys(flattenedFields));
   const showItemData = buildShowItemData(flattenedFields, rawData, answerRawDataKeys);
   const reviewableRawData = buildReviewableRawData(showItemData);
   const answerData = buildAnswerData(flattenedFields, answers, reviewFieldKeySet);
@@ -155,26 +160,6 @@ const buildPromptFromSections = (sections: readonly AiReviewPromptSection[]): st
     .map((section, index) => `# ${index + 1}. ${section.title}\n${section.content}`)
     .join('\n\n');
 
-const flattenSchemaFields = (fields: readonly SchemaField[]): SchemaField[] => {
-  const flattened: SchemaField[] = [];
-
-  for (const field of fields) {
-    flattened.push(field);
-
-    if (field.fields) {
-      flattened.push(...flattenSchemaFields(field.fields));
-    }
-
-    if (field.tabs) {
-      for (const tab of field.tabs) {
-        flattened.push(...flattenSchemaFields(tab.fields));
-      }
-    }
-  }
-
-  return flattened;
-};
-
 const buildShowItemData = (
   fields: readonly SchemaField[],
   rawData: Record<string, unknown>,
@@ -219,49 +204,6 @@ const buildReviewableRawData = (
   return reviewableRawData;
 };
 
-const collectAnswerRawDataKeys = (fields: readonly SchemaField[]): ReadonlySet<string> => {
-  const keys = new Set<string>();
-
-  for (const field of fields) {
-    if (!isAnswerField(field)) {
-      continue;
-    }
-
-    for (const key of [
-      field.key,
-      field.fieldKey,
-      field.sourceKey,
-      ...(field.sourceKeys ?? []),
-    ]) {
-      if (typeof key === 'string' && key.trim()) {
-        keys.add(key);
-      }
-    }
-  }
-
-  return keys;
-};
-
-const normalizeShowItemDisplayFields = (field: SchemaField): ShowItemDisplayField[] => {
-  if (field.displayConfig?.fields) {
-    return field.displayConfig.fields
-      .filter((displayField) => displayField.visible !== false)
-      .map((displayField) => ({
-        ...displayField,
-        label: displayField.label || displayField.sourceKey,
-      }));
-  }
-
-  const sourceKeys = field.sourceKeys ?? (field.sourceKey ? [field.sourceKey] : []);
-
-  return sourceKeys.map((sourceKey) => ({
-    sourceKey,
-    label: sourceKey,
-    area: 'content',
-    format: 'text',
-  }));
-};
-
 const buildAnswerData = (
   fields: readonly SchemaField[],
   answers: Record<string, unknown>,
@@ -303,9 +245,6 @@ const buildFieldRequirements = (
       ...(field.validation ? { validation: field.validation } : {}),
       requirement: field.aiReview?.requirement?.trim() || '请判断该字段标注结果是否符合题目事实和任务要求。',
     }));
-
-const isAnswerField = (field: SchemaField): boolean =>
-  !['show_item', 'group', 'tabs', 'llm_assist'].includes(field.type);
 
 const isAiReviewAnswerField = (
   field: SchemaField,

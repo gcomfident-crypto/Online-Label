@@ -58,6 +58,26 @@ export const QuestionNavigator = ({
 };
 
 function getStatusClassName(statusLabel: string): string {
+  if (statusLabel === '已标注') {
+    return 'question-navigator__status--annotated';
+  }
+
+  if (statusLabel === 'AI预审中') {
+    return 'question-navigator__status--ai-review';
+  }
+
+  if (statusLabel === 'AI打回') {
+    return 'question-navigator__status--ai-rejected';
+  }
+
+  if (statusLabel === 'reviewer审核中') {
+    return 'question-navigator__status--reviewer-reviewing';
+  }
+
+  if (statusLabel === 'reviewer打回') {
+    return 'question-navigator__status--reviewer-rejected';
+  }
+
   if (statusLabel === '已完成') {
     return 'question-navigator__status--complete';
   }
@@ -82,9 +102,15 @@ function getStatusClassName(statusLabel: string): string {
     return 'question-navigator__status--draft';
   }
 
+  if (statusLabel === '被打回') {
+    return 'question-navigator__status--ai-rejected';
+  }
+
   return '';
 }
 
 function isCompletedStatusLabel(statusLabel: string): boolean {
-  return ['已完成', '已提交', '复审中', '待完成'].includes(statusLabel);
+  return ['已标注', 'AI预审中', 'reviewer审核中', '已完成', '已提交', '复审中', '待完成'].includes(
+    statusLabel,
+  );
 }

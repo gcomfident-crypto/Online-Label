@@ -490,7 +490,7 @@ describe('WorkbenchPage', () => {
     expect(navigationPanel).not.toHaveTextContent('1 / 2');
     expect(navigationPanel).not.toHaveTextContent('当前题 qa_1');
     expect(navigationPanel).toHaveTextContent('qa_1');
-    expect(within(navigationPanel).getByRole('button', { name: /qa_1/ })).toHaveTextContent('已完成');
+    expect(within(navigationPanel).getByRole('button', { name: /qa_1/ })).toHaveTextContent('已标注');
     expect(within(navigationPanel).queryByRole('button', { name: /上一题/ })).not.toBeInTheDocument();
     expect(within(navigationPanel).queryByRole('button', { name: /下一题/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('complementary', { name: '物料' })).not.toBeInTheDocument();
@@ -711,13 +711,13 @@ describe('WorkbenchPage', () => {
     const navigationPanel = await screen.findByRole('complementary', { name: '题目导航' });
     await user.type(screen.getByLabelText('审核意见'), '先补充备注');
     const firstQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_1/ });
-    expect(firstQuestionButton).toHaveTextContent('进行中');
-    expect(within(firstQuestionButton).getByText('进行中').closest('.question-navigator__status')).toHaveClass(
-      'question-navigator__status--in-progress',
+    expect(firstQuestionButton).toHaveTextContent('待标注');
+    expect(within(firstQuestionButton).getByText('待标注').closest('.question-navigator__status')).toHaveClass(
+      'question-navigator__status--pending',
     );
 
     await user.click(screen.getByLabelText('优秀'));
-    expect(within(navigationPanel).getByRole('button', { name: /qa_1/ })).toHaveTextContent('已完成');
+    expect(within(navigationPanel).getByRole('button', { name: /qa_1/ })).toHaveTextContent('已标注');
 
     await user.click(screen.getByRole('button', { name: '下一题 →' }));
     expect(await screen.findByRole('heading', { name: '问答质量标注' })).toBeInTheDocument();
@@ -725,9 +725,9 @@ describe('WorkbenchPage', () => {
     const refreshedNavigationPanel = screen.getByRole('complementary', { name: '题目导航' });
     const completedQuestionButton = within(refreshedNavigationPanel).getByRole('button', { name: /qa_1/ });
     const pendingQuestionButton = within(refreshedNavigationPanel).getByRole('button', { name: /qa_2/ });
-    expect(completedQuestionButton).toHaveTextContent('已完成');
-    expect(within(completedQuestionButton).getByText('已完成').closest('.question-navigator__status')).toHaveClass(
-      'question-navigator__status--complete',
+    expect(completedQuestionButton).toHaveTextContent('已标注');
+    expect(within(completedQuestionButton).getByText('已标注').closest('.question-navigator__status')).toHaveClass(
+      'question-navigator__status--annotated',
     );
     expect(pendingQuestionButton).toHaveTextContent('待标注');
     expect(within(pendingQuestionButton).getByText('待标注').closest('.question-navigator__status')).toHaveClass(
@@ -774,11 +774,225 @@ describe('WorkbenchPage', () => {
     const completedDraftQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_2/ });
 
     expect(navigationPanel).toHaveTextContent('已完成 50% · 当前第 1 题');
-    expect(currentQuestionButton).toHaveTextContent('进行中');
-    expect(completedDraftQuestionButton).toHaveTextContent('已完成');
+    expect(currentQuestionButton).toHaveTextContent('待标注');
+    expect(completedDraftQuestionButton).toHaveTextContent('已标注');
     expect(
-      within(completedDraftQuestionButton).getByText('已完成').closest('.question-navigator__status'),
-    ).toHaveClass('question-navigator__status--complete');
+      within(completedDraftQuestionButton).getByText('已标注').closest('.question-navigator__status'),
+    ).toHaveClass('question-navigator__status--annotated');
+  });
+
+  it('题目导航使用待标注、已标注、AI 和 reviewer 的题目级状态', async () => {
+    const navigationAssignments = [
+      {
+        ...taskAssignments[0],
+        assignmentId: 'assignment_pending',
+        taskItemId: 'item_pending',
+        taskItemSortOrder: 1,
+        externalId: 'P0001',
+        status: 'ASSIGNED',
+        latestSubmissionStatus: null,
+        latestSubmittedAt: null,
+        draftAnswers: null,
+      },
+      {
+        ...taskAssignments[0],
+        assignmentId: 'assignment_annotated',
+        taskItemId: 'item_annotated',
+        taskItemSortOrder: 2,
+        externalId: 'P0002',
+        status: 'IN_PROGRESS',
+        latestSubmissionStatus: null,
+        latestSubmittedAt: null,
+        draftAnswers: { quality: 'excellent' },
+      },
+      {
+        ...taskAssignments[0],
+        assignmentId: 'assignment_ai_reviewing',
+        taskItemId: 'item_ai_reviewing',
+        taskItemSortOrder: 3,
+        externalId: 'P0003',
+        status: 'SUBMITTED',
+        latestSubmissionStatus: 'AI_REVIEWING',
+        latestSubmittedAt: '2026-05-21T08:10:00.000Z',
+      },
+      {
+        ...taskAssignments[0],
+        assignmentId: 'assignment_ai_rejected',
+        taskItemId: 'item_ai_rejected',
+        taskItemSortOrder: 4,
+        externalId: 'P0004',
+        status: 'NEEDS_REVISION',
+        latestSubmissionStatus: 'NEEDS_REVISION',
+        latestReviewStage: 'AI_PRECHECK',
+        latestReviewerType: 'AI',
+        latestReviewDecision: 'reject',
+      },
+      {
+        ...taskAssignments[0],
+        assignmentId: 'assignment_reviewer_reviewing',
+        taskItemId: 'item_reviewer_reviewing',
+        taskItemSortOrder: 5,
+        externalId: 'P0005',
+        status: 'UNDER_RECHECK',
+        latestSubmissionStatus: 'RECHECK_REVIEWING',
+      },
+      {
+        ...taskAssignments[0],
+        assignmentId: 'assignment_reviewer_rejected',
+        taskItemId: 'item_reviewer_rejected',
+        taskItemSortOrder: 6,
+        externalId: 'P0006',
+        status: 'NEEDS_REVISION',
+        latestSubmissionStatus: 'NEEDS_REVISION',
+        latestReviewStage: 'RECHECK',
+        latestReviewerType: 'HUMAN',
+        latestReviewDecision: 'reject',
+      },
+      {
+        ...taskAssignments[0],
+        assignmentId: 'assignment_completed',
+        taskItemId: 'item_completed',
+        taskItemSortOrder: 7,
+        externalId: 'P0007',
+        status: 'FINAL_APPROVED',
+        latestSubmissionStatus: 'FINAL_APPROVED',
+        latestSubmittedAt: '2026-05-21T08:20:00.000Z',
+      },
+    ];
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/assignments/assignment_pending/workbench') {
+        return jsonResponse({
+          data: {
+            ...qaWorkbench,
+            assignment: {
+              ...qaWorkbench.assignment,
+              id: 'assignment_pending',
+              taskItemId: 'item_pending',
+              status: 'ASSIGNED',
+            },
+            taskItem: {
+              ...qaWorkbench.taskItem,
+              id: 'item_pending',
+              externalId: 'P0001',
+              sortOrder: 1,
+            },
+            draft: null,
+            rejectionNotice: null,
+            submissionHistory: [],
+          },
+        });
+      }
+
+      if (url.startsWith('/labeler/stats')) {
+        return jsonResponse({ data: { ...stats, totalAssignments: navigationAssignments.length } });
+      }
+
+      if (url.startsWith('/labeler/assignments')) {
+        return jsonResponse({ data: navigationAssignments });
+      }
+
+      if (url === '/tasks') {
+        return jsonResponse({ data: taskList });
+      }
+
+      return jsonResponse({ data: null });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage({ assignmentId: 'assignment_pending', itemId: 'item_pending' });
+
+    const navigationPanel = await screen.findByRole('complementary', { name: '题目导航' });
+
+    expect(within(navigationPanel).getByRole('button', { name: /P0001/ })).toHaveTextContent('待标注');
+    expect(within(navigationPanel).getByRole('button', { name: /P0002/ })).toHaveTextContent('已标注');
+    expect(within(navigationPanel).getByRole('button', { name: /P0003/ })).toHaveTextContent('AI预审中');
+    expect(within(navigationPanel).getByRole('button', { name: /P0004/ })).toHaveTextContent('AI打回');
+    expect(within(navigationPanel).getByRole('button', { name: /P0005/ })).toHaveTextContent('reviewer审核中');
+    expect(within(navigationPanel).getByRole('button', { name: /P0006/ })).toHaveTextContent('reviewer打回');
+    expect(within(navigationPanel).getByRole('button', { name: /P0007/ })).toHaveTextContent('已完成');
+    expect(
+      within(within(navigationPanel).getByRole('button', { name: /P0002/ }))
+        .getByText('已标注')
+        .closest('.question-navigator__status'),
+    ).toHaveClass('question-navigator__status--annotated');
+    expect(
+      within(within(navigationPanel).getByRole('button', { name: /P0003/ }))
+        .getByText('AI预审中')
+        .closest('.question-navigator__status'),
+    ).toHaveClass('question-navigator__status--ai-review');
+    expect(
+      within(within(navigationPanel).getByRole('button', { name: /P0004/ }))
+        .getByText('AI打回')
+        .closest('.question-navigator__status'),
+    ).toHaveClass('question-navigator__status--ai-rejected');
+    expect(
+      within(within(navigationPanel).getByRole('button', { name: /P0005/ }))
+        .getByText('reviewer审核中')
+        .closest('.question-navigator__status'),
+    ).toHaveClass('question-navigator__status--reviewer-reviewing');
+    expect(
+      within(within(navigationPanel).getByRole('button', { name: /P0006/ }))
+        .getByText('reviewer打回')
+        .closest('.question-navigator__status'),
+    ).toHaveClass('question-navigator__status--reviewer-rejected');
+  });
+
+  it('题目导航对当前 AI 打回题优先显示 AI 打回状态', async () => {
+    const rejectedTaskAssignments = taskAssignments.map((assignment) => ({
+      ...assignment,
+      status: 'NEEDS_REVISION',
+      latestSubmissionStatus: 'NEEDS_REVISION',
+      latestSubmittedAt: '2026-05-21T08:10:00.000Z',
+      draftAnswers: { quality: 'excellent' },
+      draftUpdatedAt: '2026-05-21T08:12:00.000Z',
+    }));
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/assignments/assignment_1/workbench') {
+        return jsonResponse({
+          data: {
+            ...aiRejectedWorkbench,
+            draft: {
+              id: 'draft_ai_rejected',
+              assignmentId: 'assignment_1',
+              answers: { quality: 'excellent' },
+              schemaVersion: 'r1',
+              createdAt: '2026-05-21T08:11:00.000Z',
+              updatedAt: '2026-05-21T08:12:00.000Z',
+            },
+          },
+        });
+      }
+
+      if (url.startsWith('/labeler/stats')) {
+        return jsonResponse({ data: { ...stats, totalAssignments: 2, needsRevisionCount: 2 } });
+      }
+
+      if (url.startsWith('/labeler/assignments')) {
+        return jsonResponse({ data: rejectedTaskAssignments });
+      }
+
+      if (url === '/tasks') {
+        return jsonResponse({ data: taskList });
+      }
+
+      return jsonResponse({ data: null });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage();
+
+    const navigationPanel = await screen.findByRole('complementary', { name: '题目导航' });
+    const currentQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_1/ });
+    const secondQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_2/ });
+
+    expect(currentQuestionButton).toHaveTextContent('AI打回');
+    expect(secondQuestionButton).toHaveTextContent('AI打回');
+    expect(within(currentQuestionButton).getByText('AI打回').closest('.question-navigator__status')).toHaveClass(
+      'question-navigator__status--ai-rejected',
+    );
+    expect(within(secondQuestionButton).getByText('AI打回').closest('.question-navigator__status')).toHaveClass(
+      'question-navigator__status--ai-rejected',
+    );
   });
 
   it('点击题目导航切题时保留当前标注台，避免整页加载闪烁', async () => {
@@ -1414,6 +1628,55 @@ describe('WorkbenchPage', () => {
     expect(context).not.toHaveTextContent('准确性');
     expect(context).not.toHaveTextContent('格式合规');
     expect(context).not.toHaveTextContent('安全性');
+  });
+
+  it('AI 预审打回题在标注内容中高亮未通过字段，编辑后清除高亮', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse({
+          data: {
+            ...aiRejectedWorkbench,
+            draft: {
+              id: 'draft_ai_reject',
+              assignmentId: 'assignment_1',
+              answers: {
+                quality: 'pass',
+                comment: '可以通过。',
+              },
+              schemaVersion: 'r1',
+              createdAt: '2026-05-21T08:09:30.000Z',
+              updatedAt: '2026-05-21T08:09:30.000Z',
+            },
+          },
+        }))
+        .mockResolvedValueOnce(jsonResponse({ data: { ...stats, needsRevisionCount: 1 } }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskList })),
+    );
+
+    renderWorkbenchPage();
+
+    await screen.findByRole('heading', { name: /问答质量标注/ });
+    const passedFieldNode = document.querySelector('[data-field-key="quality"]');
+    const rejectedFieldNode = document.querySelector('[data-field-key="comment"]');
+
+    expect(passedFieldNode).not.toHaveClass('schema-renderer__field-node--diff-rejected');
+    expect(passedFieldNode).not.toHaveAttribute('data-diff-state', 'rejected');
+    expect(rejectedFieldNode).toHaveClass('schema-renderer__field-node--diff-rejected');
+    expect(rejectedFieldNode).toHaveAttribute('data-diff-state', 'rejected');
+    expect(rejectedFieldNode).toHaveTextContent('待修改');
+
+    await user.clear(screen.getByLabelText('审核意见'));
+    await user.type(screen.getByLabelText('审核意见'), '补充事实性、完整性和表达清晰度的判断依据。');
+
+    expect(document.querySelector('[data-field-key="comment"]')).not.toHaveClass(
+      'schema-renderer__field-node--diff-rejected',
+    );
+    expect(document.querySelector('[data-field-key="comment"]')).not.toHaveAttribute('data-diff-state', 'rejected');
+    expect(document.querySelector('[data-field-key="comment"]')).not.toHaveTextContent('待修改');
   });
 
   it('AI 预审字段全部通过时不展示重新标注按钮', async () => {

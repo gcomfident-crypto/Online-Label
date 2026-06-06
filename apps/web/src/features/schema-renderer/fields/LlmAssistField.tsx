@@ -19,6 +19,7 @@ const DEFAULT_ERROR_MESSAGE = 'LLM 辅助暂时不可用，请稍后重试。';
 export const LlmAssistField = ({
   datasetKind,
   field,
+  modelRawDataContext,
   rawData,
   value,
   mode,
@@ -46,6 +47,7 @@ export const LlmAssistField = ({
           method: 'POST',
           body: JSON.stringify(createLlmAssistPayload({
             datasetKind,
+            modelRawDataContext,
             rawData,
             answers: value,
             targetFieldKey,

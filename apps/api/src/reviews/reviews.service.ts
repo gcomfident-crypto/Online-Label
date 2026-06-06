@@ -259,6 +259,8 @@ const REVIEW_SUBMISSION_INCLUDE = {
 } as const;
 
 const PENDING_STATUSES = ['HUMAN_PENDING', 'RECHECK_REVIEWING'];
+const REVIEW_QUEUE_SCOPE_STATUSES = [...PENDING_STATUSES, 'AI_PASSED', 'AI_REJECTED', 'NEEDS_REVISION'];
+const TASK_BLOCKING_STATUSES = new Set(['AI_REJECTED', 'NEEDS_REVISION']);
 const RESULT_DECISIONS = new Set(['recheck_pass', 'reject', 'revise_pass']);
 
 @Injectable()
@@ -271,11 +273,12 @@ export class ReviewsService {
   async listPending(query: { reviewerId?: string; aiDecision?: string } = {}): Promise<ReviewQueueItemDto[]> {
     const submissions = await this.prisma.submission.findMany({
       where: {
-        status: { in: PENDING_STATUSES },
+        status: { in: REVIEW_QUEUE_SCOPE_STATUSES },
       },
       include: REVIEW_SUBMISSION_INCLUDE,
       orderBy: [{ updatedAt: 'desc' }, { submittedAt: 'desc' }],
     });
+    const blockedTaskIds = currentAiBlockedTaskIds(submissions);
 
     return submissions
       .filter((submission) => {
@@ -283,6 +286,8 @@ export class ReviewsService {
         const aiDecision = latestRecord(submission.reviewRecords, 'AI_PRECHECK', 'AI')?.decision ?? null;
 
         return (
+          PENDING_STATUSES.includes(submission.status) &&
+          !blockedTaskIds.has(submission.assignment.taskId) &&
           (!query.reviewerId || assignedReviewerId === query.reviewerId) &&
           (!query.aiDecision || aiDecision === query.aiDecision)
         );
@@ -831,6 +836,44 @@ function latestRecord(
 
 function latestAssignedReviewerId(records: ReviewRecordRecord[]): string | null {
   return records.find((record) => record.stage === 'RECHECK' && record.assignedReviewerId)?.assignedReviewerId ?? null;
+}
+
+function currentAiBlockedTaskIds(submissions: ReviewSubmissionRecord[]): Set<string> {
+  const latestByAssignment = new Map<string, ReviewSubmissionRecord>();
+  for (const submission of submissions) {
+    const assignmentId = submission.assignmentId;
+    const current = latestByAssignment.get(assignmentId);
+    if (!current || compareSubmissionRecency(submission, current) > 0) {
+      latestByAssignment.set(assignmentId, submission);
+    }
+  }
+
+  const blockedTaskIds = new Set<string>();
+  for (const submission of latestByAssignment.values()) {
+    if (TASK_BLOCKING_STATUSES.has(submission.status)) {
+      blockedTaskIds.add(submission.assignment.taskId);
+    }
+  }
+
+  return blockedTaskIds;
+}
+
+function compareSubmissionRecency(first: ReviewSubmissionRecord, second: ReviewSubmissionRecord): number {
+  if (first.round !== second.round) {
+    return first.round - second.round;
+  }
+
+  const submittedDiff = first.submittedAt.getTime() - second.submittedAt.getTime();
+  if (submittedDiff !== 0) {
+    return submittedDiff;
+  }
+
+  const updatedDiff = first.updatedAt.getTime() - second.updatedAt.getTime();
+  if (updatedDiff !== 0) {
+    return updatedDiff;
+  }
+
+  return first.createdAt.getTime() - second.createdAt.getTime();
 }
 
 function normalizeSubmissionIds(submissionIds: string[]): string[] {

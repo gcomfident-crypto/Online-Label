@@ -78,7 +78,10 @@ describe('MyDataPage', () => {
     expect(pageDescription).toHaveClass('task-management-table-description');
     expect(pageDescription.closest('.my-data-header')).not.toBeNull();
     expect(screen.queryByLabelText('工作台统计')).not.toBeInTheDocument();
-    expect(screen.queryByText('已完成')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /进行中\s+1/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /已完成\s+0/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /待标注/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /已提交/ })).not.toBeInTheDocument();
     expect(screen.queryByText('全部类型')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('数据集筛选')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('任务状态筛选')).not.toBeInTheDocument();
@@ -107,10 +110,9 @@ describe('MyDataPage', () => {
     expect(within(table).queryByRole('button', { name: '按进度排序' })).not.toBeInTheDocument();
     expect(within(table).getByText('T-001')).toBeInTheDocument();
     expect(within(table).getByText('2 条')).toBeInTheDocument();
-    expect(within(table).getByText('0/2')).toBeInTheDocument();
+    expect(within(table).getByText('进行中')).toHaveClass('labeler-assignment-status--in_progress');
     expect(within(table).queryByText('问答质量官方模板 · r1')).not.toBeInTheDocument();
     expect(within(table).queryByText(/下一条/)).not.toBeInTheDocument();
-    expect(within(table).queryByText('待标注')).not.toBeInTheDocument();
     expect(within(table).queryByText('操作')).not.toBeInTheDocument();
     expect(table.querySelectorAll('tbody tr:first-child .my-data-table__cell')).toHaveLength(7);
     expect(screen.queryByRole('link', { name: '继续标注 问答质量标注' })).not.toBeInTheDocument();
@@ -147,26 +149,107 @@ describe('MyDataPage', () => {
       'task-summary-card--total',
       'is-active',
     );
-    expect(screen.getByRole('button', { name: /待标注\s+1/ })).toHaveClass('task-summary-card--running');
-    expect(screen.getByRole('button', { name: /已提交\s+1/ })).toHaveClass('task-summary-card--done');
+    expect(screen.getByRole('button', { name: /进行中\s+1/ })).toHaveClass('task-summary-card--running');
+    expect(screen.getByRole('button', { name: /已完成\s+0/ })).toHaveClass('task-summary-card--done');
     expect(screen.getByRole('button', { name: /待修改\s+0/ })).toHaveClass('task-summary-card--paused');
     expect(screen.queryByRole('button', { name: /待完成/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /待标注/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /已提交/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '筛选' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('搜索任务').closest('.task-management-table-card')).toBe(tableCard);
 
-    await user.click(screen.getByRole('button', { name: /已提交\s+1/ }));
+    await user.click(screen.getByRole('button', { name: /进行中\s+1/ }));
 
     const table = screen.getByRole('table', { name: '工作台任务列表' });
-    expect(within(table).getByText('1 条')).toBeInTheDocument();
+    expect(within(table).getByText('2 条')).toBeInTheDocument();
     expect(within(table).queryByText(/下一条/)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /已提交\s+1/ })).toHaveClass('is-active');
+    expect(screen.getByRole('button', { name: /进行中\s+1/ })).toHaveClass('is-active');
 
     await user.type(screen.getByLabelText('搜索任务'), '不存在');
 
     expect(within(table).getByText('暂无领取任务')).toBeInTheDocument();
   });
 
-  it('进度列未完成任务显示完成数，全完成任务只显示绿色已完成气泡', async () => {
+  it('按任务整体筛选混合 AI 通过和待修改题目，不把同一任务拆成多行', async () => {
+    const user = userEvent.setup();
+    const mixedAssignments = Array.from({ length: 12 }, (_, index) => {
+      const itemNumber = index + 1;
+      const needsRevision = itemNumber > 8;
+
+      return createAssignment({
+        assignmentId: `assignment_t003_${itemNumber}`,
+        taskId: 'T-003',
+        taskTitle: '模型对比 json',
+        taskItemId: `item_t003_${itemNumber}`,
+        taskItemSortOrder: itemNumber,
+        externalId: `P${String(itemNumber).padStart(4, '0')}`,
+        status: needsRevision ? 'NEEDS_REVISION' : 'SUBMITTED',
+        latestSubmissionStatus: needsRevision ? 'NEEDS_REVISION' : 'AI_PASSED',
+        latestSubmittedAt: `2026-06-06T10:${String(itemNumber).padStart(2, '0')}:00.000Z`,
+        claimedAt: '2026-06-06T09:00:00.000Z',
+        datasetKind: 'generic_json',
+      });
+    });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce(jsonResponse({ data: mixedAssignments }))
+        .mockResolvedValueOnce(jsonResponse({
+          data: [
+            createTaskDto({
+              id: 'T-003',
+              title: '模型对比 json',
+              createdAt: '2026-06-06T09:00:00.000Z',
+              itemCount: 12,
+              assignedItemCount: 12,
+            }),
+          ],
+        })),
+    );
+
+    render(
+      <MemoryRouter>
+        <MyDataPage />
+      </MemoryRouter>,
+    );
+
+    const table = await screen.findByRole('table', { name: '工作台任务列表' });
+
+    expect(screen.queryByRole('button', { name: /已提交/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /待标注/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /全部状态\s+1/ })).toHaveClass('is-active');
+    expect(screen.getByRole('button', { name: /进行中\s+0/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /已完成\s+0/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /待修改\s+1/ })).toBeInTheDocument();
+
+    let row = within(table).getByText('模型对比 json').closest('tr') as HTMLElement;
+    expect(within(table).getAllByText('模型对比 json')).toHaveLength(1);
+    expect(within(row).getByText('T-003')).toBeInTheDocument();
+    expect(within(row).getByText('12 条')).toBeInTheDocument();
+    expect(within(row).getByText('待修改')).toHaveClass(
+      'labeler-assignment-status',
+      'labeler-assignment-status--needs_revision',
+    );
+    expect(within(row).queryByText('8 条')).not.toBeInTheDocument();
+    expect(within(row).queryByText('4 条')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /已完成\s+0/ }));
+    expect(within(table).queryByText('模型对比 json')).not.toBeInTheDocument();
+    expect(within(table).getByText('暂无领取任务')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /进行中\s+0/ }));
+    expect(within(table).queryByText('模型对比 json')).not.toBeInTheDocument();
+    expect(within(table).getByText('暂无领取任务')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /待修改\s+1/ }));
+    row = within(table).getByText('模型对比 json').closest('tr') as HTMLElement;
+    expect(within(table).getAllByText('模型对比 json')).toHaveLength(1);
+    expect(within(row).getByText('12 条')).toBeInTheDocument();
+    expect(within(row).getByText('待修改')).toHaveClass('labeler-assignment-status--needs_revision');
+  });
+
+  it('进度列未完成任务显示进行中，全完成任务只显示绿色已完成气泡', async () => {
     const progressAssignments = [
       createAssignment({
         assignmentId: 'partial_1',
@@ -237,7 +320,10 @@ describe('MyDataPage', () => {
     const partialRow = within(table).getByText('部分完成任务').closest('tr') as HTMLElement;
     const completedRow = within(table).getByText('全部完成任务').closest('tr') as HTMLElement;
 
-    expect(within(partialRow).getByText('1/2')).toBeInTheDocument();
+    expect(within(partialRow).getByText('进行中')).toHaveClass(
+      'labeler-assignment-status',
+      'labeler-assignment-status--in_progress',
+    );
     expect(within(partialRow).queryByText('已完成')).not.toBeInTheDocument();
     expect(within(completedRow).queryByText('2/2')).not.toBeInTheDocument();
     expect(within(completedRow).getByText('已完成')).toHaveClass(

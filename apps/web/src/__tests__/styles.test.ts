@@ -212,6 +212,22 @@ describe('global styles', () => {
     expect(aiReviewRule).toContain('color: #D97707;');
   });
 
+  it('标注台打回字段使用红色背景和待修改标签', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const rejectedNodeRule = styles.match(
+      /\.annotation-canvas-scroll \.schema-renderer__field-node--diff-rejected\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const rejectedBadgeRule = styles.match(
+      /\.schema-renderer__field-node--diff-rejected > \.schema-renderer__field-diff-badge\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+
+    expect(rejectedNodeRule).toContain('border-color: #fda29b;');
+    expect(rejectedNodeRule).toContain('background: #fff5f5;');
+    expect(rejectedNodeRule).toContain('box-shadow: inset 3px 0 0 #f97066;');
+    expect(rejectedBadgeRule).toContain('color: #b42318;');
+    expect(rejectedBadgeRule).toContain('background: #fee4e2;');
+  });
+
   it('机审队列 AI 建议胶囊所有状态都展示圆点', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const decisionDotRule = styles.match(/\.agent-review-decision-pill \.status-tag__dot\s*\{[^}]+\}/)?.[0] ?? '';
@@ -722,15 +738,18 @@ describe('global styles', () => {
     const statusTextRule = styles.match(/\.question-navigator__status-text\s*\{[^}]+\}/)?.[0] ?? '';
 
     expect(statusRule).toContain('font-weight: 800;');
-    expect(styles).toContain('.question-navigator__status--in-progress');
-    expect(styles).toContain('.question-navigator__status--submitted');
-    expect(styles).toContain('.question-navigator__status--draft');
+    expect(styles).toContain('.question-navigator__status--annotated');
+    expect(styles).toContain('.question-navigator__status--ai-review');
+    expect(styles).toContain('.question-navigator__status--ai-rejected');
+    expect(styles).toContain('.question-navigator__status--reviewer-reviewing');
+    expect(styles).toContain('.question-navigator__status--reviewer-rejected');
     expect(styles).toContain('.question-navigator__status--complete');
     expect(styles).toContain('.question-navigator__status--pending');
-    expect(styles).toContain('.question-navigator__list .question-navigator__status--draft');
+    expect(styles).toContain('.question-navigator__list .question-navigator__status--ai-review');
     expect(styles).toContain('.question-navigator__list .question-navigator__status--complete');
     expect(styles).toContain('color: #306df7;');
     expect(styles).toContain('color: #d97706;');
+    expect(styles).toContain('color: #dc2626;');
     expect(styles).toContain('color: #079455;');
     expect(styles).toContain('color: #64748b;');
     expect(statusTextRule).toContain('animation: question-status-change');

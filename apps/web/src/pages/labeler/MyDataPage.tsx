@@ -18,8 +18,10 @@ const LABELER_ID = 'user_labeler_li_lei';
 const MY_DATA_FALLBACK_PAGE_SIZE = 7;
 const MY_DATA_TABLE_ROW_HEIGHT = 66;
 const AI_REVIEW_PENDING_SUBMISSION_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING']);
+const NEEDS_REVISION_SUBMISSION_STATUSES = new Set(['NEEDS_REVISION', 'AI_REJECTED']);
 
-type LabelerStatusFilter = '' | 'IN_PROGRESS' | 'SUBMITTED' | 'NEEDS_REVISION';
+type LabelerStatusFilter = '' | 'IN_PROGRESS' | 'COMPLETED' | 'NEEDS_REVISION';
+type LabelerTaskStatus = Exclude<LabelerStatusFilter, ''>;
 type MyDataSortField = 'taskId' | 'latestSubmittedAt' | 'claimedAt';
 type MyDataSortDirection = 'asc' | 'desc';
 
@@ -29,8 +31,8 @@ const STATUS_OPTIONS: readonly {
   summaryClassName: string;
 }[] = [
   { label: '全部状态', value: '', summaryClassName: 'task-summary-card--total' },
-  { label: '待标注', value: 'IN_PROGRESS', summaryClassName: 'task-summary-card--running' },
-  { label: '已提交', value: 'SUBMITTED', summaryClassName: 'task-summary-card--done' },
+  { label: '进行中', value: 'IN_PROGRESS', summaryClassName: 'task-summary-card--running' },
+  { label: '已完成', value: 'COMPLETED', summaryClassName: 'task-summary-card--done' },
   { label: '待修改', value: 'NEEDS_REVISION', summaryClassName: 'task-summary-card--paused' },
 ];
 
@@ -60,59 +62,53 @@ export const MyDataPage = () => {
     void loadMyData();
   }, []);
 
-  const filteredAssignments = useMemo(() => {
+  const allTaskGroups = useMemo(
+    () => groupAssignmentsByTask(assignments, taskDisplayIdByTaskId),
+    [assignments, taskDisplayIdByTaskId],
+  );
+  const filteredTaskGroups = useMemo(() => {
     const keyword = searchKeyword.trim();
 
-    return assignments.filter((assignment) => {
-      const taskDisplayId = taskDisplayIdByTaskId.get(assignment.taskId) ?? assignment.taskId;
-
-      if (statusFilter && !matchesStatusFilter(assignment, statusFilter)) {
+    return allTaskGroups.filter((taskGroup) => {
+      if (statusFilter && !matchesTaskGroupStatusFilter(taskGroup, statusFilter)) {
         return false;
       }
 
-      if (
-        keyword &&
-        !assignment.externalId.includes(keyword) &&
-        !assignment.taskItemId.includes(keyword) &&
-        !taskDisplayId.includes(keyword) &&
-        !assignment.taskTitle.includes(keyword)
-      ) {
+      if (keyword && !matchesTaskGroupKeyword(taskGroup, keyword)) {
         return false;
       }
 
       return true;
     });
-  }, [assignments, searchKeyword, statusFilter, taskDisplayIdByTaskId]);
+  }, [allTaskGroups, searchKeyword, statusFilter]);
   const taskGroups = useMemo(() => {
-    const defaultTaskGroups = groupAssignmentsByTask(filteredAssignments, taskDisplayIdByTaskId);
-
     if (!sortField) {
-      return defaultTaskGroups;
+      return filteredTaskGroups;
     }
 
-    return [...defaultTaskGroups].sort((firstGroup, secondGroup) =>
+    return [...filteredTaskGroups].sort((firstGroup, secondGroup) =>
       compareMyDataTaskGroupsBySortField(firstGroup, secondGroup, sortField, sortDirection),
     );
-  }, [filteredAssignments, sortDirection, sortField, taskDisplayIdByTaskId]);
+  }, [filteredTaskGroups, sortDirection, sortField]);
   const statusSummary = useMemo(
     () =>
       STATUS_OPTIONS.reduce<Record<LabelerStatusFilter, number>>(
         (summary, option) => {
-          const matchingAssignments = option.value
-            ? assignments.filter((assignment) => matchesStatusFilter(assignment, option.value))
-            : assignments;
+          const matchingTaskGroups = option.value
+            ? allTaskGroups.filter((taskGroup) => matchesTaskGroupStatusFilter(taskGroup, option.value))
+            : allTaskGroups;
 
-          summary[option.value] = groupAssignmentsByTask(matchingAssignments, taskDisplayIdByTaskId).length;
+          summary[option.value] = matchingTaskGroups.length;
           return summary;
         },
         {
           '': 0,
           IN_PROGRESS: 0,
-          SUBMITTED: 0,
+          COMPLETED: 0,
           NEEDS_REVISION: 0,
         },
       ),
-    [assignments, taskDisplayIdByTaskId],
+    [allTaskGroups],
   );
   const totalPages = Math.max(1, Math.ceil(taskGroups.length / myDataPageSize));
   const paginatedTaskGroups = useMemo(() => {
@@ -437,10 +433,7 @@ const groupAssignmentsByTask = (
 };
 
 const TaskProgressSummary = ({ taskGroup }: { taskGroup: LabelerTaskGroup }) => {
-  const totalCount = taskGroup.assignments.length;
-  const completedCount = taskGroup.assignments.filter((assignment) =>
-    isCompletedAssignmentStatus(assignment.status)
-  ).length;
+  const taskStatus = deriveTaskGroupStatus(taskGroup);
   const isWaitingAiReview = taskGroup.assignments.every((assignment) =>
     assignment.status === 'SUBMITTED' &&
     AI_REVIEW_PENDING_SUBMISSION_STATUSES.has(assignment.latestSubmissionStatus ?? '')
@@ -448,31 +441,42 @@ const TaskProgressSummary = ({ taskGroup }: { taskGroup: LabelerTaskGroup }) => 
 
   return (
     <div className="labeler-task-progress-summary">
-      {completedCount === totalCount ? (
+      {taskStatus === 'COMPLETED' ? (
         <span
           className="labeler-assignment-status labeler-assignment-status--final_approved"
         >
           已完成
+        </span>
+      ) : taskStatus === 'NEEDS_REVISION' ? (
+        <span className="labeler-assignment-status labeler-assignment-status--needs_revision">
+          待修改
         </span>
       ) : isWaitingAiReview ? (
         <span className="labeler-assignment-status labeler-assignment-status--ai_review">
           AI预审
         </span>
       ) : (
-        <span className="labeler-task-progress-count">
-          {completedCount}/{totalCount}
+        <span className="labeler-assignment-status labeler-assignment-status--in_progress">
+          进行中
         </span>
       )}
     </div>
   );
 };
 
-function matchesStatusFilter(assignment: LabelerAssignmentDto, statusFilter: LabelerStatusFilter): boolean {
-  if (statusFilter === 'IN_PROGRESS') {
-    return assignment.status === 'IN_PROGRESS' || assignment.status === 'ASSIGNED';
-  }
+function matchesTaskGroupStatusFilter(taskGroup: LabelerTaskGroup, statusFilter: LabelerStatusFilter): boolean {
+  return deriveTaskGroupStatus(taskGroup) === statusFilter;
+}
 
-  return assignment.status === statusFilter;
+function matchesTaskGroupKeyword(taskGroup: LabelerTaskGroup, keyword: string): boolean {
+  return (
+    taskGroup.taskDisplayId.includes(keyword) ||
+    taskGroup.taskId.includes(keyword) ||
+    taskGroup.taskTitle.includes(keyword) ||
+    taskGroup.assignments.some(
+      (assignment) => assignment.externalId.includes(keyword) || assignment.taskItemId.includes(keyword),
+    )
+  );
 }
 
 function compareAssignmentsForDisplay(first: LabelerAssignmentDto, second: LabelerAssignmentDto): number {
@@ -551,6 +555,33 @@ function latestSubmittedAt(assignments: LabelerAssignmentDto[]): string | null {
 
 function isCompletedAssignmentStatus(status: AssignmentStatus): boolean {
   return status === 'FINAL_APPROVED';
+}
+
+function isCompletedTaskGroup(taskGroup: LabelerTaskGroup): boolean {
+  return (
+    taskGroup.assignments.length > 0 &&
+    taskGroup.assignments.every((assignment) => isCompletedAssignmentStatus(assignment.status))
+  );
+}
+
+function deriveTaskGroupStatus(taskGroup: LabelerTaskGroup): LabelerTaskStatus {
+  if (hasTaskGroupNeedsRevision(taskGroup)) {
+    return 'NEEDS_REVISION';
+  }
+
+  if (isCompletedTaskGroup(taskGroup)) {
+    return 'COMPLETED';
+  }
+
+  return 'IN_PROGRESS';
+}
+
+function hasTaskGroupNeedsRevision(taskGroup: LabelerTaskGroup): boolean {
+  return taskGroup.assignments.some(
+    (assignment) =>
+      assignment.status === 'NEEDS_REVISION' ||
+      NEEDS_REVISION_SUBMISSION_STATUSES.has(assignment.latestSubmissionStatus ?? ''),
+  );
 }
 
 function earliestClaimedAt(assignments: LabelerAssignmentDto[]): string | null {

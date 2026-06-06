@@ -5753,6 +5753,27 @@ video.schema-field__show-resource-media {
   color: #FFC000;
 }
 
+.designer-show-item-duplicate-warning {
+  display: grid;
+  gap: 4px;
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: #9a3412;
+  background: #fff7ed;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.designer-show-item-duplicate-warning strong {
+  color: #7c2d12;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.designer-show-item-duplicate-warning span {
+  font-weight: 650;
+}
+
 .designer-show-item-fields {
   min-height: 0;
   flex: 1 1 auto;
@@ -12227,6 +12248,11 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   background: #ffedd5;
 }
 
+.schema-renderer__field-node--diff-rejected > .schema-renderer__field-diff-badge {
+  color: #b42318;
+  background: #fee4e2;
+}
+
 .template-version-side-by-side-diff__owner-preview-shell .template-version-side-by-side-diff__canvas .schema-renderer__field-node--diff-added {
   border-color: #86efac;
   background: #f0fdf4;
@@ -15194,13 +15220,28 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .question-navigator__list .question-navigator__status--in-progress,
 .question-navigator__list button.is-active .question-navigator__status--in-progress,
 .question-navigator__list .question-navigator__status--submitted,
-.question-navigator__list button.is-active .question-navigator__status--submitted {
+.question-navigator__list button.is-active .question-navigator__status--submitted,
+.question-navigator__list .question-navigator__status--annotated,
+.question-navigator__list button.is-active .question-navigator__status--annotated,
+.question-navigator__list .question-navigator__status--reviewer-reviewing,
+.question-navigator__list button.is-active .question-navigator__status--reviewer-reviewing {
   color: #306df7;
 }
 
 .question-navigator__list .question-navigator__status--draft,
-.question-navigator__list button.is-active .question-navigator__status--draft {
+.question-navigator__list button.is-active .question-navigator__status--draft,
+.question-navigator__list .question-navigator__status--ai-review,
+.question-navigator__list button.is-active .question-navigator__status--ai-review {
   color: #d97706;
+}
+
+.question-navigator__list .question-navigator__status--rejected,
+.question-navigator__list button.is-active .question-navigator__status--rejected,
+.question-navigator__list .question-navigator__status--ai-rejected,
+.question-navigator__list button.is-active .question-navigator__status--ai-rejected,
+.question-navigator__list .question-navigator__status--reviewer-rejected,
+.question-navigator__list button.is-active .question-navigator__status--reviewer-rejected {
+  color: #dc2626;
 }
 
 .question-navigator__list .question-navigator__status--complete,
@@ -16264,6 +16305,19 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .annotation-canvas-scroll .schema-renderer__field-node.is-active {
   border-color: #306df7;
   box-shadow: inset 0 0 0 1px #306df7;
+}
+
+.annotation-canvas-scroll .schema-renderer__field-node--diff-rejected {
+  border-color: #fda29b;
+  background: #fff5f5;
+  box-shadow: inset 3px 0 0 #f97066;
+}
+
+.annotation-canvas-scroll .schema-renderer__field-node--diff-rejected.is-active {
+  border-color: #f97066;
+  box-shadow:
+    inset 3px 0 0 #f97066,
+    inset 0 0 0 1px rgba(240, 68, 56, 0.18);
 }
 
 .annotation-canvas-scroll .schema-renderer__field-node.is-validation-focus-pulse {
@@ -18349,25 +18403,6 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   border-radius: 8px;
   padding: 12px;
   background: #f8fbff;
-}
-
-.agent-review-trace-tabs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-bottom: 1px solid #dbe7ff;
-  padding-bottom: 10px;
-}
-
-.agent-review-trace-tabs button {
-  border: 1px solid #306df8;
-  border-radius: 8px;
-  padding: 7px 12px;
-  color: #ffffff;
-  background: #306df8;
-  font-size: 12px;
-  font-weight: 900;
-  box-shadow: 0 8px 18px rgba(48, 109, 248, 0.18);
 }
 
 .agent-review-trace-card {

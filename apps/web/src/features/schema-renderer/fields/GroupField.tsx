@@ -19,6 +19,7 @@ export const GroupField = ({
   field,
   rendererScope,
   fieldPath,
+  modelRawDataContext,
   rawData,
   value,
   mode,
@@ -87,6 +88,7 @@ export const GroupField = ({
               datasetKind={datasetKind}
               rendererScope={rendererScope}
               fieldPath={`${fieldPath}.${child.key}`}
+              modelRawDataContext={modelRawDataContext}
               rawData={rawData}
               value={value}
               mode={mode}

@@ -21,12 +21,14 @@ const REAL_FIELD_CLASSIFIER_REQUIRED_MESSAGE =
   '字段分类必须使用真实模型，请配置 DEEPSEEK_API_KEY、OPENAI_API_KEY 或 LLM_PROVIDER=deepseek/openai/custom。';
 
 type LlmAssistBody = {
+  annotationRawDataKeys?: unknown;
   answers?: unknown;
   datasetKind?: unknown;
   promptTemplate?: unknown;
   previousTargetValue?: unknown;
   rawData?: unknown;
   targetFieldKey?: unknown;
+  visibleRawDataKeys?: unknown;
 };
 
 type LlmAssistRequest = {
@@ -221,14 +223,63 @@ function resolveLlmAssistRequest(body: LlmAssistBody): LlmAssistRequest {
     ? body.previousTargetValue
     : targetAnswerValue;
 
+  const rawData = filterAssistRawData(
+    normalizeRecord(body.rawData),
+    body.visibleRawDataKeys,
+    body.annotationRawDataKeys,
+  );
+
   return {
     answers: answersWithoutTarget,
     datasetKind,
     promptTemplate: typeof body.promptTemplate === 'string' ? body.promptTemplate.trim() : '',
     ...(previousTargetValue !== undefined ? { previousTargetValue } : {}),
-    rawData: normalizeRecord(body.rawData),
+    rawData,
     targetFieldKey,
   };
+}
+
+function filterAssistRawData(
+  rawData: Record<string, unknown>,
+  visibleRawDataKeysValue: unknown,
+  annotationRawDataKeysValue: unknown,
+): Record<string, unknown> {
+  const hasVisibleRawDataKeys = Array.isArray(visibleRawDataKeysValue);
+  const visibleRawDataKeys = normalizeStringList(visibleRawDataKeysValue);
+  const annotationRawDataKeys = new Set(normalizeStringList(annotationRawDataKeysValue));
+  const candidateKeys = hasVisibleRawDataKeys ? visibleRawDataKeys : Object.keys(rawData);
+
+  return Object.fromEntries(
+    candidateKeys
+      .filter((sourceKey) => !annotationRawDataKeys.has(sourceKey))
+      .map((sourceKey) => [sourceKey, rawData[sourceKey] ?? null]),
+  );
+}
+
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const strings: string[] = [];
+
+  for (const item of value) {
+    if (typeof item !== 'string' || !item.trim()) {
+      continue;
+    }
+
+    const key = item.trim();
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    strings.push(key);
+  }
+
+  return strings;
 }
 
 function normalizeRecord(value: unknown): Record<string, unknown> {

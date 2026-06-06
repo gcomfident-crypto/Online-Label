@@ -18,6 +18,13 @@ type AssignmentStatus =
   | 'CANCELLED';
 type SubmissionStatus = string;
 
+type ReviewRecordSummary = {
+  stage?: string | null;
+  reviewerType?: string | null;
+  decision: string | null;
+  createdAt: Date;
+};
+
 type SubmissionRecord = {
   id: string;
   assignmentId: string;
@@ -29,6 +36,7 @@ type SubmissionRecord = {
   submittedAt: Date;
   createdAt: Date;
   updatedAt: Date;
+  reviewRecords?: ReviewRecordSummary[];
 };
 
 type DraftRecord = {
@@ -141,6 +149,9 @@ export type LabelerAssignmentDto = {
   schemaVersion: string;
   latestSubmissionStatus: SubmissionStatus | null;
   latestSubmittedAt: string | null;
+  latestReviewStage: string | null;
+  latestReviewerType: string | null;
+  latestReviewDecision: string | null;
   draftAnswers: Record<string, unknown> | null;
   draftUpdatedAt: string | null;
   round: number;
@@ -197,6 +208,12 @@ const ASSIGNMENT_INCLUDE = {
   taskItem: true,
   submissions: {
     orderBy: { round: 'desc' },
+    include: {
+      reviewRecords: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+    },
   },
   drafts: {
     orderBy: { updatedAt: 'desc' },
@@ -539,6 +556,7 @@ function toLabelerSubmissionDtos(assignment: AssignmentRecord): LabelerSubmissio
 
 function toLabelerAssignmentDto(assignment: AssignmentRecord): LabelerAssignmentDto {
   const latestSubmission = latestSubmissionByRound(assignment.submissions);
+  const latestReviewRecord = latestSubmission?.reviewRecords?.[0] ?? null;
   const latestDraft = assignment.drafts[0] ?? null;
 
   return {
@@ -555,6 +573,9 @@ function toLabelerAssignmentDto(assignment: AssignmentRecord): LabelerAssignment
     schemaVersion: assignment.task.template.schemaVersion,
     latestSubmissionStatus: latestSubmission?.status ?? null,
     latestSubmittedAt: latestSubmission?.submittedAt.toISOString() ?? null,
+    latestReviewStage: latestReviewRecord?.stage ?? null,
+    latestReviewerType: latestReviewRecord?.reviewerType ?? null,
+    latestReviewDecision: latestReviewRecord?.decision ?? null,
     draftAnswers: latestDraft?.answers ?? null,
     draftUpdatedAt: latestDraft?.updatedAt.toISOString() ?? null,
     round: latestSubmission?.round ?? 0,

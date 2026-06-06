@@ -22,6 +22,7 @@ export const InlineLlmSuggestionControl = ({
   datasetKind,
   disabled,
   field,
+  modelRawDataContext,
   mode,
   rawData,
   value,
@@ -49,6 +50,7 @@ export const InlineLlmSuggestionControl = ({
           method: 'POST',
           body: JSON.stringify(createLlmAssistPayload({
             datasetKind,
+            modelRawDataContext,
             rawData,
             answers: value,
             targetFieldKey,

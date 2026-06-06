@@ -116,6 +116,16 @@ export {
 } from './aiReviewPrompt.ts';
 
 export {
+  buildModelRawDataContext,
+  collectAnnotationRawDataKeys,
+  collectShowItemRawDataKeys,
+  flattenSchemaFields,
+  isAnswerField,
+  normalizeShowItemDisplayFields,
+  type ModelRawDataContext,
+} from './modelContext.ts';
+
+export {
   AI_REVIEW_STATUS,
   AI_REVIEW_STATUS_LABELS,
   EXPORT_STATUS,

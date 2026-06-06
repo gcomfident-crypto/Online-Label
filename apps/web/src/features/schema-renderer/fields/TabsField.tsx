@@ -45,6 +45,7 @@ export const TabsField = ({
   field,
   rendererScope,
   fieldPath,
+  modelRawDataContext,
   rawData,
   value,
   mode,
@@ -93,6 +94,7 @@ export const TabsField = ({
       datasetKind={datasetKind}
       rendererScope={rendererScope}
       fieldPath={`${fieldPath}.${activeTab?.key ?? 'tab'}.${child.key}`}
+      modelRawDataContext={modelRawDataContext}
       rawData={rawData}
       value={value}
       mode={mode}

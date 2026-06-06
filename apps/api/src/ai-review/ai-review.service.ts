@@ -365,7 +365,9 @@ export class AiReviewService {
       include: JOB_INCLUDE,
       orderBy: [{ updatedAt: 'desc' }, { queuedAt: 'desc' }],
     });
-    const batches = latestBatchDtosByTask(toBatchDtos(jobs));
+    const batches = currentTaskBatchGroups(jobs)
+      .map((group) => toBatchDto(group.jobs, group.batchId))
+      .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
 
     return query.status ? batches.filter((batch) => batch.status === query.status) : batches;
   }
@@ -384,7 +386,11 @@ export class AiReviewService {
       });
     }
 
-    return toBatchDetailDto(batchJobs);
+    const currentTaskBatch = currentTaskBatchGroup(batchJobs[0].taskId, jobs);
+
+    return currentTaskBatch.batchId === batchId
+      ? toBatchDetailDto(currentTaskBatch.jobs, currentTaskBatch.batchId)
+      : toBatchDetailDto(batchJobs);
   }
 
   async listJobs(query: { status?: AiReviewStatus } = {}): Promise<AiReviewJobDto[]> {
@@ -535,18 +541,6 @@ export class AiReviewService {
         metadata: { action: aiAuditActionForDecision(decision), jobId: job.id },
       });
 
-      const finalStatus = decision === 'reject' ? 'NEEDS_REVISION' : 'HUMAN_PENDING';
-      assertSubmissionTransition(aiStatus, finalStatus);
-      await client.submission.update({
-        where: { id: submission.id },
-        data: { status: finalStatus },
-      });
-      if (finalStatus === 'NEEDS_REVISION') {
-        await client.assignment.update({
-          where: { id: submission.assignmentId },
-          data: { status: 'NEEDS_REVISION' },
-        });
-      }
       await client.aiReviewJob.update({
         where: { id: job.id },
         data: {
@@ -564,16 +558,21 @@ export class AiReviewService {
           ],
         },
       });
-      await writeAiReviewAudit(client, submission, {
-        actorId: input.actorId,
-        fromStatus: aiStatus,
-        toStatus: finalStatus,
-        reason: comment || undefined,
-        metadata: {
-          action: finalStatus === 'NEEDS_REVISION' ? 'AI_REVIEW_TO_REVISION' : 'AI_REVIEW_TO_HUMAN_PENDING',
+
+      if (decision === 'reject') {
+        await moveSubmissionToRevision(client, submission, {
+          actorId: input.actorId,
+          fromStatus: aiStatus,
           jobId: job.id,
-        },
-      });
+          reason: comment || undefined,
+        });
+      } else {
+        await promoteTaskIfAllCurrentAiReviewsPassed(client, job.taskId, {
+          actorId: input.actorId,
+          jobId: job.id,
+          reason: comment || undefined,
+        });
+      }
 
       return this.getSubmissionReviewFromClient(client, submission.id);
     });
@@ -689,6 +688,126 @@ async function writeAiReviewAudit(
   });
 }
 
+async function moveSubmissionToRevision(
+  client: AiReviewPrismaClient,
+  submission: SubmissionReviewRecord,
+  input: {
+    actorId?: string;
+    fromStatus: SubmissionStatus;
+    jobId: string;
+    reason?: string;
+  },
+): Promise<void> {
+  assertSubmissionTransition(input.fromStatus, 'NEEDS_REVISION');
+  await client.submission.update({
+    where: { id: submission.id },
+    data: { status: 'NEEDS_REVISION' },
+  });
+  await client.assignment.update({
+    where: { id: submission.assignmentId },
+    data: { status: 'NEEDS_REVISION' },
+  });
+  await writeAiReviewAudit(client, submission, {
+    actorId: input.actorId,
+    fromStatus: input.fromStatus,
+    toStatus: 'NEEDS_REVISION',
+    reason: input.reason,
+    metadata: {
+      action: 'AI_REVIEW_TO_REVISION',
+      jobId: input.jobId,
+    },
+  });
+}
+
+async function promoteTaskIfAllCurrentAiReviewsPassed(
+  client: AiReviewPrismaClient,
+  taskId: string,
+  input: {
+    actorId?: string;
+    jobId: string;
+    reason?: string;
+  },
+): Promise<void> {
+  const currentJobs = await currentTaskAiReviewJobs(client, taskId);
+  if (currentJobs.length === 0 || currentJobs.some((job) => decisionForJob(job) !== 'pass')) {
+    return;
+  }
+
+  for (const job of currentJobs) {
+    await promoteSubmissionToHumanReview(client, job.submission?.id ?? job.submissionId, {
+      actorId: input.actorId,
+      jobId: job.id,
+      reason: job.id === input.jobId ? input.reason : undefined,
+    });
+  }
+}
+
+async function currentTaskAiReviewJobs(
+  client: AiReviewPrismaClient,
+  taskId: string,
+): Promise<AiReviewJobRecord[]> {
+  const jobs = await client.aiReviewJob.findMany({
+    where: { taskId },
+    include: JOB_INCLUDE,
+    orderBy: [{ updatedAt: 'desc' }, { queuedAt: 'desc' }],
+  });
+
+  return currentTaskBatchGroup(taskId, jobs).jobs;
+}
+
+async function promoteSubmissionToHumanReview(
+  client: AiReviewPrismaClient,
+  submissionId: string,
+  input: {
+    actorId?: string;
+    jobId: string;
+    reason?: string;
+  },
+): Promise<void> {
+  const submission = await findSubmissionRecordOrThrow(client, submissionId);
+  if (submission.status === 'HUMAN_PENDING') {
+    return;
+  }
+  if (submission.status !== 'AI_PASSED') {
+    return;
+  }
+
+  assertSubmissionTransition('AI_PASSED', 'HUMAN_PENDING');
+  await client.submission.update({
+    where: { id: submission.id },
+    data: { status: 'HUMAN_PENDING' },
+  });
+  await writeAiReviewAudit(client, submission, {
+    actorId: input.actorId,
+    fromStatus: 'AI_PASSED',
+    toStatus: 'HUMAN_PENDING',
+    reason: input.reason,
+    metadata: {
+      action: 'AI_REVIEW_TO_HUMAN_PENDING',
+      jobId: input.jobId,
+    },
+  });
+}
+
+async function findSubmissionRecordOrThrow(
+  client: AiReviewPrismaClient,
+  submissionId: string,
+): Promise<SubmissionReviewRecord> {
+  const submission = await client.submission.findUnique({
+    where: { id: submissionId },
+    include: SUBMISSION_REVIEW_INCLUDE,
+  });
+
+  if (!submission) {
+    throw new NotFoundException({
+      code: 'SUBMISSION_NOT_FOUND',
+      message: '提交记录不存在或已被删除。',
+    });
+  }
+
+  return submission;
+}
+
 function normalizeAiDecision(value: unknown): CompleteAiReviewJobInput['decision'] | null {
   return value === 'pass' || value === 'reject' ? value : null;
 }
@@ -760,53 +879,85 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function toBatchDtos(jobs: AiReviewJobRecord[]): AiReviewBatchDto[] {
+type AiReviewTaskBatchGroup = {
+  batchId: string;
+  jobs: AiReviewJobRecord[];
+};
+
+function currentTaskBatchGroups(jobs: AiReviewJobRecord[]): AiReviewTaskBatchGroup[] {
   const groupedJobs = new Map<string, AiReviewJobRecord[]>();
   for (const job of jobs) {
-    const batchId = batchIdForJob(job);
-    groupedJobs.set(batchId, [...(groupedJobs.get(batchId) ?? []), job]);
+    const taskKey = job.taskId || batchIdForJob(job);
+    groupedJobs.set(taskKey, [...(groupedJobs.get(taskKey) ?? []), job]);
   }
 
-  return [...groupedJobs.values()]
-    .map(toBatchDto)
-    .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
+  return [...groupedJobs.entries()].map(([taskId, taskJobs]) => currentTaskBatchGroup(taskId, taskJobs));
 }
 
-function latestBatchDtosByTask(batches: AiReviewBatchDto[]): AiReviewBatchDto[] {
-  const latestByTaskId = new Map<string, AiReviewBatchDto>();
+function currentTaskBatchGroup(taskId: string, jobs: AiReviewJobRecord[]): AiReviewTaskBatchGroup {
+  const taskJobs = jobs.filter((job) => job.taskId === taskId);
+  const latestByAssignment = new Map<string, AiReviewJobRecord>();
 
-  for (const batch of batches) {
-    const taskKey = batch.taskId || batch.batchId;
-    const current = latestByTaskId.get(taskKey);
+  for (const job of taskJobs) {
+    const assignmentKey = assignmentKeyForJob(job);
+    const current = latestByAssignment.get(assignmentKey);
 
-    if (!current || compareBatchRecency(batch, current) > 0) {
-      latestByTaskId.set(taskKey, batch);
+    if (!current || compareJobRecency(job, current) > 0) {
+      latestByAssignment.set(assignmentKey, job);
     }
   }
 
-  return [...latestByTaskId.values()]
-    .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
+  const latestJobs = [...latestByAssignment.values()];
+
+  return {
+    batchId: latestBatchIdForJobs(latestJobs),
+    jobs: latestJobs,
+  };
 }
 
-function compareBatchRecency(first: AiReviewBatchDto, second: AiReviewBatchDto): number {
-  const submittedDiff = Date.parse(first.submittedAt) - Date.parse(second.submittedAt);
+function assignmentKeyForJob(job: AiReviewJobRecord): string {
+  return job.submission?.assignmentId ?? job.submission?.assignment.id ?? job.submissionId;
+}
+
+function latestBatchIdForJobs(jobs: AiReviewJobRecord[]): string {
+  const latestJob = jobs.reduce<AiReviewJobRecord | null>(
+    (latest, job) => (!latest || compareJobRecency(job, latest) > 0 ? job : latest),
+    null,
+  );
+
+  return latestJob ? batchIdForJob(latestJob) : 'unknown-batch';
+}
+
+function compareJobRecency(first: AiReviewJobRecord, second: AiReviewJobRecord): number {
+  if (first.round !== second.round) {
+    return first.round - second.round;
+  }
+
+  const submittedDiff =
+    (first.submission?.submittedAt ?? first.queuedAt).getTime() -
+    (second.submission?.submittedAt ?? second.queuedAt).getTime();
   if (submittedDiff !== 0) {
     return submittedDiff;
   }
 
-  return Date.parse(first.updatedAt) - Date.parse(second.updatedAt);
+  const updatedDiff = first.updatedAt.getTime() - second.updatedAt.getTime();
+  if (updatedDiff !== 0) {
+    return updatedDiff;
+  }
+
+  return first.createdAt.getTime() - second.createdAt.getTime();
 }
 
-function toBatchDetailDto(jobs: AiReviewJobRecord[]): AiReviewBatchDetailDto {
+function toBatchDetailDto(jobs: AiReviewJobRecord[], batchIdOverride?: string): AiReviewBatchDetailDto {
   const sortedJobs = sortBatchJobs(jobs);
 
   return {
-    ...toBatchDto(sortedJobs),
+    ...toBatchDto(sortedJobs, batchIdOverride),
     items: sortedJobs.map(toBatchItemDto),
   };
 }
 
-function toBatchDto(jobs: AiReviewJobRecord[]): AiReviewBatchDto {
+function toBatchDto(jobs: AiReviewJobRecord[], batchIdOverride?: string): AiReviewBatchDto {
   const sortedJobs = sortBatchJobs(jobs);
   const firstJob = sortedJobs[0];
   const firstSubmission = firstJob?.submission;
@@ -814,10 +965,11 @@ function toBatchDto(jobs: AiReviewJobRecord[]): AiReviewBatchDto {
   const aggregateDecision = aggregateBatchDecision(sortedJobs);
   const aggregateScore = aggregateBatchScore(sortedJobs);
   const updatedAt = maxDate(sortedJobs.map((job) => job.updatedAt));
+  const submittedAtJobs = jobsForSubmittedAt(sortedJobs, batchIdOverride);
   const submittedAt = minDate(
-    sortedJobs.map((job) => job.submission?.submittedAt ?? job.queuedAt),
+    submittedAtJobs.map((job) => job.submission?.submittedAt ?? job.queuedAt),
   );
-  const batchId = firstJob ? batchIdForJob(firstJob) : 'unknown-batch';
+  const batchId = batchIdOverride ?? (firstJob ? batchIdForJob(firstJob) : 'unknown-batch');
 
   return {
     batchId,
@@ -843,6 +995,19 @@ function toBatchDto(jobs: AiReviewJobRecord[]): AiReviewBatchDto {
     model: firstJob?.model ?? null,
     updatedAt: updatedAt.toISOString(),
   };
+}
+
+function jobsForSubmittedAt(
+  jobs: AiReviewJobRecord[],
+  batchIdOverride: string | undefined,
+): AiReviewJobRecord[] {
+  if (!batchIdOverride) {
+    return jobs;
+  }
+
+  const batchJobs = jobs.filter((job) => batchIdForJob(job) === batchIdOverride);
+
+  return batchJobs.length > 0 ? batchJobs : jobs;
 }
 
 function toBatchItemDto(job: AiReviewJobRecord, index: number): AiReviewBatchItemDto {

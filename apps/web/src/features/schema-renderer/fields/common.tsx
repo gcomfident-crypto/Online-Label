@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import type { FieldOption, SchemaField } from '@labelhub/shared';
+import type { FieldOption, ModelRawDataContext, SchemaField } from '@labelhub/shared';
 
 import type { FieldRendererProps } from '../types';
 import { getSchemaFieldKey } from '../types';
@@ -67,21 +67,30 @@ export const getUploadedFileValue = (value: unknown): UploadedFileValue | null =
 export const createLlmAssistPayload = ({
   answers,
   datasetKind,
+  modelRawDataContext,
   promptTemplate,
   rawData,
   targetFieldKey,
 }: {
   answers: Record<string, unknown>;
   datasetKind: FieldRendererProps['datasetKind'];
+  modelRawDataContext?: ModelRawDataContext;
   promptTemplate?: string;
   rawData: Record<string, unknown>;
   targetFieldKey: string;
 }) => {
   const { [targetFieldKey]: previousTargetValue, ...answersWithoutTarget } = answers;
+  const assistRawData = modelRawDataContext?.rawData ?? rawData;
 
   return {
     datasetKind,
-    rawData,
+    rawData: assistRawData,
+    ...(modelRawDataContext
+      ? {
+          visibleRawDataKeys: modelRawDataContext.visibleRawDataKeys,
+          annotationRawDataKeys: modelRawDataContext.annotationRawDataKeys,
+        }
+      : {}),
     answers: answersWithoutTarget,
     targetFieldKey,
     promptTemplate,

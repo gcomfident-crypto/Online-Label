@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef } from 'react';
-import type { SchemaField } from '@labelhub/shared';
+import { buildModelRawDataContext, type SchemaField } from '@labelhub/shared';
 
 import { FieldRenderer } from './FieldRenderer';
 import { applySchemaLinkage } from './linkage';
@@ -50,6 +50,7 @@ export const SchemaRenderer = ({
   value,
   mode,
   onChange,
+  onFieldEdited,
   activeFieldKey,
   onActiveFieldChange,
   validationFocusFieldKey,
@@ -60,6 +61,10 @@ export const SchemaRenderer = ({
   const latestValueRef = useRef(value);
   const lastAutoEmittedAnswersRef = useRef<Record<string, unknown> | null>(null);
   const linkageResult = useMemo(() => applySchemaLinkage(schema, value), [schema, value]);
+  const modelRawDataContext = useMemo(
+    () => buildModelRawDataContext(schema, rawData),
+    [schema, rawData],
+  );
   const validationErrors = useMemo(
     () => validateSchemaAnswers(schema, linkageResult.answers, linkageResult),
     [schema, linkageResult],
@@ -117,6 +122,7 @@ export const SchemaRenderer = ({
     const nextLinkageResult = applySchemaLinkage(schema, nextAnswers, { changedFieldKey: fieldKey });
 
     latestValueRef.current = nextLinkageResult.answers;
+    onFieldEdited?.(fieldKey);
     onChange(nextLinkageResult.answers);
   };
 
@@ -129,6 +135,7 @@ export const SchemaRenderer = ({
           datasetKind={schema.datasetKind}
           rendererScope={rendererScope}
           fieldPath={field.key}
+          modelRawDataContext={modelRawDataContext}
           rawData={rawData}
           value={linkageResult.answers}
           mode={mode}

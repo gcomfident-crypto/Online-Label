@@ -7,6 +7,7 @@ import { PageLoading } from '../../components/PageLoading';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { applySchemaLinkage, validateSchemaAnswers } from '../../features/schema-renderer';
 import { SchemaRenderer } from '../../features/schema-renderer';
+import type { FieldNodeDecoration } from '../../features/schema-renderer/types';
 import { QuestionNavigator } from '../../features/labeler/QuestionNavigator';
 import { RejectNotice } from '../../features/labeler/RejectNotice';
 import { listLabelerAssignments, type AssignmentStatus, type LabelerAssignmentDto } from '../../api/assignments';
@@ -43,6 +44,7 @@ export const WorkbenchPage = () => {
   const [taskAssignments, setTaskAssignments] = useState<LabelerAssignmentDto[]>([]);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [activeFieldKey, setActiveFieldKey] = useState<string | null>(null);
+  const [editedRejectedFieldKeys, setEditedRejectedFieldKeys] = useState<ReadonlySet<string>>(() => new Set());
   const [validationFocusFieldKey, setValidationFocusFieldKey] = useState<string | null>(null);
   const [pendingValidationFocus, setPendingValidationFocus] = useState<ValidationFocusTarget | null>(null);
   const [showSubmissionValidationErrors, setShowSubmissionValidationErrors] = useState(false);
@@ -132,6 +134,7 @@ export const WorkbenchPage = () => {
         workbenchNavigationState,
       ));
       setAnswers(initialAnswers);
+      setEditedRejectedFieldKeys(new Set());
       setActiveFieldKey((current) =>
         current && answerFields.some((field) => getSchemaFieldKey(field) === current)
           ? current
@@ -171,6 +174,7 @@ export const WorkbenchPage = () => {
       setWorkbench(nextWorkbench);
       setStats(nextStats);
       setTaskAssignments(nextTaskAssignments.sort(compareLabelerAssignments));
+      setEditedRejectedFieldKeys(new Set());
       setActiveFieldKey((current) =>
         current && answerFields.some((field) => getSchemaFieldKey(field) === current)
           ? current
@@ -401,8 +405,8 @@ export const WorkbenchPage = () => {
       orderedTaskAssignments.map((assignment, index) => ({
         label: assignment.externalId,
         statusLabel:
-          index === currentQuestionIndex && isWorkbenchForCurrentRoute
-            ? resolveCurrentQuestionStatusLabel(assignment.status, currentQuestionProgress)
+          index === currentQuestionIndex && isWorkbenchForCurrentRoute && workbench
+            ? resolveCurrentQuestionStatusLabel(workbench, currentQuestionProgress)
             : resolveNavigationQuestionStatusLabel(
                 assignment,
                 localQuestionProgress[assignment.assignmentId],
@@ -415,6 +419,7 @@ export const WorkbenchPage = () => {
       isWorkbenchForCurrentRoute,
       localQuestionProgress,
       orderedTaskAssignments,
+      workbench,
       workbench?.task.schema,
     ],
   );
@@ -713,6 +718,32 @@ export const WorkbenchPage = () => {
     () => (workbench ? resolveLatestAiReviewReport(workbench.submissionHistory) : null),
     [workbench],
   );
+  const rejectedAnnotationFieldKeys = useMemo(
+    () =>
+      workbench
+        ? resolveRejectedAnnotationFieldKeys(workbench, answers, editedRejectedFieldKeys)
+        : new Set<string>(),
+    [answers, editedRejectedFieldKeys, workbench],
+  );
+  const getAnnotationFieldDecoration = useCallback(
+    (field: SchemaField): FieldNodeDecoration | null => {
+      const fieldKey = getSchemaFieldKey(field);
+
+      return rejectedAnnotationFieldKeys.has(fieldKey)
+        ? { state: 'rejected', label: '待修改' }
+        : null;
+    },
+    [rejectedAnnotationFieldKeys],
+  );
+  const handleRejectedFieldEdited = useCallback((fieldKey: string) => {
+    setEditedRejectedFieldKeys((current) => {
+      if (current.has(fieldKey)) {
+        return current;
+      }
+
+      return new Set(current).add(fieldKey);
+    });
+  }, []);
   const hasAiReviewReport = Boolean(aiReviewReport);
   const focusAnnotationForm = useCallback(() => {
     const form = document.querySelector<HTMLElement>('.schema-renderer');
@@ -872,10 +903,12 @@ export const WorkbenchPage = () => {
                   value={answers}
                   mode={isCurrentQuestionEditable ? 'answer' : 'review'}
                   onChange={setAnswers}
+                  onFieldEdited={handleRejectedFieldEdited}
                   activeFieldKey={activeField ? getSchemaFieldKey(activeField) : activeFieldKey}
                   onActiveFieldChange={setActiveFieldKey}
                   validationFocusFieldKey={validationFocusFieldKey}
                   showValidationErrors={showSubmissionValidationErrors}
+                  getFieldNodeDecoration={getAnnotationFieldDecoration}
                 />
               </>
             )}
@@ -1314,6 +1347,78 @@ function resolveLatestAiReviewReport(history: WorkbenchDto['submissionHistory'])
   return null;
 }
 
+function resolveRejectedAnnotationFieldKeys(
+  workbench: WorkbenchDto,
+  answers: Record<string, unknown>,
+  editedRejectedFieldKeys: ReadonlySet<string>,
+): ReadonlySet<string> {
+  if (workbench.assignment.status !== 'NEEDS_REVISION' || !workbench.rejectionNotice) {
+    return new Set();
+  }
+
+  const rejectedSubmission = workbench.submissionHistory.find(
+    (submission) => submission.id === workbench.rejectionNotice?.submissionId,
+  );
+
+  if (!rejectedSubmission) {
+    return new Set();
+  }
+
+  const rejectedFieldKeys = new Set<string>();
+
+  for (const reviewRecord of rejectedSubmission.reviewRecords) {
+    for (const fieldReview of normalizeAiReviewFieldReviews(reviewRecord.structuredOutput)) {
+      if (fieldReview.decision !== 'reject' || editedRejectedFieldKeys.has(fieldReview.fieldKey)) {
+        continue;
+      }
+
+      if (isFieldAnswerChangedSinceRejected(answers, rejectedSubmission.answers, fieldReview.fieldKey)) {
+        continue;
+      }
+
+      rejectedFieldKeys.add(fieldReview.fieldKey);
+    }
+  }
+
+  return rejectedFieldKeys;
+}
+
+function isFieldAnswerChangedSinceRejected(
+  currentAnswers: Record<string, unknown>,
+  rejectedAnswers: Record<string, unknown>,
+  fieldKey: string,
+): boolean {
+  if (!Object.prototype.hasOwnProperty.call(currentAnswers, fieldKey)) {
+    return false;
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(rejectedAnswers, fieldKey)) {
+    return false;
+  }
+
+  return !areWorkbenchAnswerValuesEqual(currentAnswers[fieldKey], rejectedAnswers[fieldKey]);
+}
+
+function areWorkbenchAnswerValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) {
+    return true;
+  }
+
+  if (typeof left !== typeof right || left === null || right === null) {
+    return false;
+  }
+
+  if (typeof left !== 'object') {
+    return false;
+  }
+
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return false;
+  }
+}
+
 function buildAiReviewShowItemSchema(schema: WorkbenchDto['task']['schema']): WorkbenchDto['task']['schema'] {
   return {
     ...schema,
@@ -1587,6 +1692,30 @@ function getAnswerFields(fields: readonly SchemaField[]): SchemaField[] {
 }
 
 type QuestionProgressState = 'empty' | 'draft' | 'complete';
+type QuestionNavigatorStatusLabel =
+  | '待标注'
+  | '已标注'
+  | 'AI预审中'
+  | 'AI打回'
+  | 'reviewer审核中'
+  | 'reviewer打回'
+  | '已完成';
+
+const AI_REVIEWING_SUBMISSION_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING', 'SUBMITTED']);
+const REVIEWER_REVIEWING_SUBMISSION_STATUSES = new Set([
+  'AI_PASSED',
+  'AI_MANUAL',
+  'HUMAN_PENDING',
+  'RECHECK_REVIEWING',
+  'RECHECK_APPROVED',
+  'RECHECK_REVISED_APPROVED',
+  'FINAL_PENDING',
+  'FINAL_REVIEWING',
+  'UNDER_RECHECK',
+]);
+const COMPLETED_SUBMISSION_STATUSES = new Set(['FINAL_APPROVED']);
+const REVIEWER_REJECTED_SUBMISSION_STATUSES = new Set(['RECHECK_REJECTED', 'FINAL_REJECTED']);
+const REVIEWER_REVIEW_STAGES = new Set(['RECHECK', 'FINAL']);
 
 type TaskSubmissionValidationIssue = {
   assignmentId: string;
@@ -1772,47 +1901,141 @@ function resolveSchemaAnswerProgressState(
   return hasAnyVisibleAnswer ? 'draft' : 'empty';
 }
 
-function resolveCurrentQuestionStatusLabel(status: AssignmentStatus, progress: QuestionProgressState): string {
-  if (isSubmittableAssignmentStatus(status)) {
-    if (progress === 'empty') {
-      return ASSIGNMENT_STATUS_LABELS[status] ?? status;
-    }
+function resolveCurrentQuestionStatusLabel(
+  workbench: WorkbenchDto,
+  progress: QuestionProgressState,
+): QuestionNavigatorStatusLabel {
+  const status = workbench.assignment.status;
+  const latestSubmission = latestSubmissionByRound(workbench.submissionHistory);
 
+  if (status === 'FINAL_APPROVED' || COMPLETED_SUBMISSION_STATUSES.has(latestSubmission?.status ?? '')) {
+    return '已完成';
+  }
+
+  if (status === 'NEEDS_REVISION') {
+    return resolveWorkbenchRevisionStatusLabel(workbench);
+  }
+
+  if (status === 'SUBMITTED') {
+    return resolveSubmittedQuestionStatusLabel(latestSubmission?.status ?? null);
+  }
+
+  if (status === 'UNDER_RECHECK' || status === 'FINAL_PENDING') {
+    return 'reviewer审核中';
+  }
+
+  if (isSubmittableAssignmentStatus(status)) {
     return formatQuestionProgressLabel(progress);
   }
 
-  return ASSIGNMENT_STATUS_LABELS[status] ?? status;
+  return '待标注';
 }
 
 function resolveNavigationQuestionStatusLabel(
   assignment: LabelerAssignmentDto,
   locallyProgress?: QuestionProgressState,
   schema?: WorkbenchDto['task']['schema'],
-): string {
-  if (locallyProgress && locallyProgress !== 'empty' && isSubmittableAssignmentStatus(assignment.status)) {
+): QuestionNavigatorStatusLabel {
+  if (
+    assignment.status === 'FINAL_APPROVED' ||
+    COMPLETED_SUBMISSION_STATUSES.has(assignment.latestSubmissionStatus ?? '')
+  ) {
+    return '已完成';
+  }
+
+  if (assignment.status === 'NEEDS_REVISION') {
+    return resolveAssignmentRevisionStatusLabel(assignment);
+  }
+
+  if (assignment.status === 'SUBMITTED') {
+    return resolveSubmittedQuestionStatusLabel(assignment.latestSubmissionStatus);
+  }
+
+  if (assignment.status === 'UNDER_RECHECK' || assignment.status === 'FINAL_PENDING') {
+    return 'reviewer审核中';
+  }
+
+  if (locallyProgress && isSubmittableAssignmentStatus(assignment.status)) {
     return formatQuestionProgressLabel(locallyProgress);
   }
 
   if (assignment.draftAnswers && schema && isSubmittableAssignmentStatus(assignment.status)) {
     const draftProgress = resolveSchemaAnswerProgressState(schema, assignment.draftAnswers);
-    if (draftProgress !== 'empty') {
-      return formatQuestionProgressLabel(draftProgress);
-    }
+    return formatQuestionProgressLabel(draftProgress);
   }
 
-  return ASSIGNMENT_STATUS_LABELS[assignment.status] ?? assignment.status;
+  return '待标注';
 }
 
-function formatQuestionProgressLabel(progress: QuestionProgressState): string {
+function formatQuestionProgressLabel(progress: QuestionProgressState): QuestionNavigatorStatusLabel {
   if (progress === 'complete') {
+    return '已标注';
+  }
+
+  return '待标注';
+}
+
+function resolveSubmittedQuestionStatusLabel(status: string | null): QuestionNavigatorStatusLabel {
+  if (COMPLETED_SUBMISSION_STATUSES.has(status ?? '')) {
     return '已完成';
   }
 
-  if (progress === 'draft') {
-    return '进行中';
+  if (REVIEWER_REVIEWING_SUBMISSION_STATUSES.has(status ?? '')) {
+    return 'reviewer审核中';
   }
 
-  return '进行中';
+  return 'AI预审中';
+}
+
+function latestSubmissionByRound(
+  submissions: WorkbenchDto['submissionHistory'],
+): WorkbenchDto['submissionHistory'][number] | null {
+  return submissions.reduce<WorkbenchDto['submissionHistory'][number] | null>(
+    (latest, submission) => (!latest || submission.round > latest.round ? submission : latest),
+    null,
+  );
+}
+
+function resolveWorkbenchRevisionStatusLabel(workbench: WorkbenchDto): QuestionNavigatorStatusLabel {
+  const latestSubmission = latestSubmissionByRound(workbench.submissionHistory);
+  const rejectionSubmission = workbench.rejectionNotice
+    ? workbench.submissionHistory.find((submission) => submission.id === workbench.rejectionNotice?.submissionId)
+    : null;
+  const latestReviewRecord = (rejectionSubmission ?? latestSubmission)?.reviewRecords[0] ?? null;
+
+  return isReviewerRejectionSource({
+    stage: latestReviewRecord?.stage,
+    reviewerType: latestReviewRecord?.reviewerType,
+    submissionStatus: latestSubmission?.status ?? null,
+  })
+    ? 'reviewer打回'
+    : 'AI打回';
+}
+
+function resolveAssignmentRevisionStatusLabel(assignment: LabelerAssignmentDto): QuestionNavigatorStatusLabel {
+  return isReviewerRejectionSource({
+    stage: assignment.latestReviewStage,
+    reviewerType: assignment.latestReviewerType,
+    submissionStatus: assignment.latestSubmissionStatus,
+  })
+    ? 'reviewer打回'
+    : 'AI打回';
+}
+
+function isReviewerRejectionSource(input: {
+  stage?: string | null;
+  reviewerType?: string | null;
+  submissionStatus?: string | null;
+}): boolean {
+  if (input.reviewerType === 'HUMAN') {
+    return true;
+  }
+
+  if (input.stage && REVIEWER_REVIEW_STAGES.has(input.stage)) {
+    return true;
+  }
+
+  return REVIEWER_REJECTED_SUBMISSION_STATUSES.has(input.submissionStatus ?? '');
 }
 
 function isEmptyAnswerValue(value: unknown): boolean {

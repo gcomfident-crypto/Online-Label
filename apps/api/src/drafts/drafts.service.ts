@@ -358,15 +358,12 @@ function toWorkbenchDto(assignment: AssignmentWorkbenchRecord): WorkbenchDto {
 }
 
 function resolveRejectionNotice(submissions: SubmissionSummary[]): RejectionNoticeDto {
-  const rejectedSubmission = submissions.find((submission) =>
-    ['NEEDS_REVISION', 'RECHECK_REJECTED', 'FINAL_REJECTED'].includes(submission.status),
-  );
-
-  if (!rejectedSubmission) {
+  const latestSubmission = latestSubmissionSummary(submissions);
+  if (!latestSubmission || !['NEEDS_REVISION', 'RECHECK_REJECTED', 'FINAL_REJECTED'].includes(latestSubmission.status)) {
     return null;
   }
 
-  const reviewRecord = rejectedSubmission.reviewRecords[0];
+  const reviewRecord = latestSubmission.reviewRecords[0];
   const reason =
     (typeof reviewRecord?.scores.reason === 'string' ? reviewRecord.scores.reason : undefined) ??
     reviewRecord?.comment ??
@@ -374,11 +371,25 @@ function resolveRejectionNotice(submissions: SubmissionSummary[]): RejectionNoti
     '上一轮提交需要修改。';
 
   return {
-    submissionId: rejectedSubmission.id,
-    round: rejectedSubmission.round,
+    submissionId: latestSubmission.id,
+    round: latestSubmission.round,
     reason,
-    createdAt: (reviewRecord?.createdAt ?? rejectedSubmission.submittedAt).toISOString(),
+    createdAt: (reviewRecord?.createdAt ?? latestSubmission.submittedAt).toISOString(),
   };
+}
+
+function latestSubmissionSummary(submissions: SubmissionSummary[]): SubmissionSummary | null {
+  return submissions.reduce<SubmissionSummary | null>((latest, submission) => {
+    if (!latest) {
+      return submission;
+    }
+
+    if (submission.round !== latest.round) {
+      return submission.round > latest.round ? submission : latest;
+    }
+
+    return submission.submittedAt > latest.submittedAt ? submission : latest;
+  }, null);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

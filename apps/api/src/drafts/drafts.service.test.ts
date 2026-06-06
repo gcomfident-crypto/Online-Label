@@ -57,7 +57,7 @@ type AssignmentRecord = {
   drafts: DraftRecord[];
   submissions: Array<{
     id: string;
-    status: 'SUBMITTED' | 'AI_QUEUED' | 'NEEDS_REVISION';
+    status: 'SUBMITTED' | 'AI_QUEUED' | 'AI_PASSED' | 'HUMAN_PENDING' | 'NEEDS_REVISION';
     round: number;
     answers: Record<string, unknown>;
     schemaVersion: string;
@@ -208,6 +208,51 @@ describe('DraftsService', () => {
         rejectionNotice: expect.objectContaining({
           reason: '人工复审认为依据不足，请补充说明。',
         }),
+      }),
+    );
+  });
+
+  it('最新提交已经通过时不再展示历史打回原因', async () => {
+    const { service } = createService({
+      submissions: [
+        {
+          id: 'submission_latest_pass',
+          status: 'HUMAN_PENDING',
+          round: 2,
+          answers: { quality: 'excellent' },
+          schemaVersion: 'r1',
+          submittedAt: new Date('2026-05-22T02:00:00.000Z'),
+          reviewRecords: [
+            {
+              decision: 'pass',
+              comment: 'AI 预审通过。',
+              scores: { overall: 92 },
+              createdAt: new Date('2026-05-22T03:00:00.000Z'),
+            },
+          ],
+        },
+        {
+          id: 'submission_old_reject',
+          status: 'NEEDS_REVISION',
+          round: 1,
+          answers: { quality: 'pass' },
+          schemaVersion: 'r1',
+          submittedAt: new Date('2026-05-21T02:00:00.000Z'),
+          reviewRecords: [
+            {
+              decision: 'reject',
+              comment: '很早之前的 AI 预审打回。',
+              scores: {},
+              createdAt: new Date('2026-05-21T03:00:00.000Z'),
+            },
+          ],
+        },
+      ],
+    });
+
+    await expect(service.getWorkbench('assignment_1')).resolves.toEqual(
+      expect.objectContaining({
+        rejectionNotice: null,
       }),
     );
   });
