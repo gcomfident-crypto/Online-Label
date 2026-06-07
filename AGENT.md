@@ -11,6 +11,14 @@
 5. 输出只说重点，删掉一切不会影响决策的信息。
 ```
 
+## 本项目技能约束（执行前必读）
+
+  执行前请先阅读并遵循：
+
+- `docs/skills/design-system-style.md`：页面设计风格与组件样式规范
+- `docs/skills/task-state-flow.md`：任务与状态流转规范
+- 本项目新增了 `pre-commit` 自动同步机制：每次 `git commit` 时会触发一次技能候选更新扫描；首次启用请执行 `./scripts/setup-skill-sync-hook.sh`。
+- 跳过本次自动同步请设置 `SKILL_SYNC_DISABLED=1`（例如：`SKILL_SYNC_DISABLED=1 git commit ...`）。
 
 ## 沟通方式
 

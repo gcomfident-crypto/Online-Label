@@ -36,9 +36,19 @@ import {
   type DesignerDropTarget,
 } from './templateStore';
 
-type MaterialDropPreview = {
+type DesignerDropPreviewAction = 'add' | 'move';
+
+type DesignerDropPreview = {
+  action?: DesignerDropPreviewAction;
   target: DesignerDropTarget | null;
   type: SchemaField['type'];
+};
+
+type MaterialDropPreview = DesignerDropPreview;
+
+type FieldDropPreview = DesignerDropPreview & {
+  action?: 'move';
+  sourceFieldKey: string;
 };
 
 type DesignerContainerTarget =
@@ -55,6 +65,7 @@ type DesignerCanvasProps = {
   isMaterialDropSettling?: boolean;
   isDropHighlighted?: boolean;
   materialDropPreview?: MaterialDropPreview | null;
+  fieldDropPreview?: FieldDropPreview | null;
   activeTabByFieldKey?: Readonly<Record<string, string>>;
   onActiveTabChange?: (tabsKey: string, tabKey: string) => void;
   onTemplateNameChange?: (name: string) => void;
@@ -287,6 +298,7 @@ export const DesignerCanvas = ({
   isMaterialDropSettling = false,
   isDropHighlighted = false,
   materialDropPreview = null,
+  fieldDropPreview = null,
   activeTabByFieldKey = {},
   onActiveTabChange = () => undefined,
   onTemplateNameChange = () => undefined,
@@ -328,11 +340,14 @@ export const DesignerCanvas = ({
       }),
     [canvasPreviewRawData, labelerPreviewAnswers, schema],
   );
-  const activeDropPreview = materialDropPreview ?? exitingDropPreview;
-  const isDropPreviewExiting = !materialDropPreview && Boolean(exitingDropPreview);
-  const isResolvingMaterialDropPreview = !materialDropPreview && previousDropPreviewRef.current !== null;
+  const activeFieldDropPreview = fieldDropPreview ? { ...fieldDropPreview, action: 'move' as const } : null;
+  const activeDropPreview = materialDropPreview ?? activeFieldDropPreview ?? exitingDropPreview;
+  const isDropPreviewExiting = !materialDropPreview && !fieldDropPreview && Boolean(exitingDropPreview);
+  const isResolvingMaterialDropPreview =
+    !materialDropPreview && !fieldDropPreview && previousDropPreviewRef.current !== null;
   const shouldSuspendFieldLayoutMotion =
     isDropHighlighted ||
+    Boolean(fieldDropPreview) ||
     Boolean(activeDropPreview) ||
     Boolean(committingFieldKey) ||
     isMaterialDropSettling ||
@@ -794,6 +809,7 @@ export const DesignerCanvas = ({
                     rootContainerTarget,
                     field.key,
                   )}
+                  dropMarkerAction={activeDropPreview?.action}
                   isDropCommitting={committingFieldKey === field.key}
                   isDropMarkerExiting={isDropPreviewExiting}
                   materialDropPreview={activeDropPreview}
@@ -810,6 +826,7 @@ export const DesignerCanvas = ({
               ))}
               {shouldAppendPreview && activeDropPreview ? (
                 <DesignerDropInsertionMarker
+                  action={activeDropPreview.action}
                   type={activeDropPreview.type}
                   isExiting={isDropPreviewExiting}
                   placement="append"
@@ -824,32 +841,41 @@ export const DesignerCanvas = ({
 };
 
 const DesignerDropInsertionMarker = ({
+  action = 'add',
   isExiting,
   placement,
   type,
 }: {
+  action?: DesignerDropPreviewAction;
   isExiting?: boolean;
   placement: 'append' | 'before';
   type: SchemaField['type'];
-}) => (
-  <div
-    className={
-      isExiting
-        ? `designer-drop-insertion-marker designer-drop-insertion-marker--${placement} is-exiting`
-        : `designer-drop-insertion-marker designer-drop-insertion-marker--${placement}`
-    }
-    aria-hidden="true"
-  >
-    <span className="designer-drop-insertion-marker__line" />
-    <span className="designer-drop-insertion-marker__label">松手添加 {FIELD_TYPE_LABELS[type]}</span>
-  </div>
-);
+}) => {
+  const actionText = action === 'move' ? '移动' : '添加';
+
+  return (
+    <div
+      className={
+        isExiting
+          ? `designer-drop-insertion-marker designer-drop-insertion-marker--${placement} is-exiting`
+          : `designer-drop-insertion-marker designer-drop-insertion-marker--${placement}`
+      }
+      aria-hidden="true"
+    >
+      <span className="designer-drop-insertion-marker__line" />
+      <span className="designer-drop-insertion-marker__label">
+        松手{actionText} {FIELD_TYPE_LABELS[type]}
+      </span>
+    </div>
+  );
+};
 
 const SortableDesignerFieldCard = ({
   datasetKind,
   field,
   activeTabByFieldKey,
   dropMarkerType,
+  dropMarkerAction,
   isDropCommitting,
   isDropMarkerExiting,
   materialDropPreview,
@@ -867,6 +893,7 @@ const SortableDesignerFieldCard = ({
   field: SchemaField;
   activeTabByFieldKey: Readonly<Record<string, string>>;
   dropMarkerType?: SchemaField['type'] | null;
+  dropMarkerAction?: DesignerDropPreviewAction;
   isDropCommitting?: boolean;
   isDropMarkerExiting?: boolean;
   materialDropPreview: MaterialDropPreview | null;
@@ -913,6 +940,7 @@ const SortableDesignerFieldCard = ({
       field={field}
       activeTabByFieldKey={activeTabByFieldKey}
       dropMarkerType={dropMarkerType}
+      dropMarkerAction={dropMarkerAction}
       isDragging={isDragging}
       isDropCommitting={isDropCommitting}
       isDropMarkerExiting={isDropMarkerExiting}
@@ -1034,6 +1062,7 @@ const DesignerFieldCard = ({
   field,
   activeTabByFieldKey,
   dropMarkerType,
+  dropMarkerAction,
   isDragging = false,
   isDropCommitting = false,
   isDropMarkerExiting = false,
@@ -1056,6 +1085,7 @@ const DesignerFieldCard = ({
   field: SchemaField;
   activeTabByFieldKey: Readonly<Record<string, string>>;
   dropMarkerType?: SchemaField['type'] | null;
+  dropMarkerAction?: DesignerDropPreviewAction;
   isDragging?: boolean;
   isDropCommitting?: boolean;
   isDropMarkerExiting?: boolean;
@@ -1199,6 +1229,7 @@ const DesignerFieldCard = ({
         { kind: 'tab', tabsKey: field.key, tabKey: activeTab?.key ?? '' },
         child.key,
       )}
+      dropMarkerAction={materialDropPreview?.action}
       isDropMarkerExiting={isDropMarkerExiting}
       materialDropPreview={materialDropPreview}
       suspendLayoutAnimation={suspendLayoutAnimation}
@@ -1227,6 +1258,7 @@ const DesignerFieldCard = ({
     >
       {dropMarkerType ? (
         <DesignerDropInsertionMarker
+          action={dropMarkerAction}
           type={dropMarkerType}
           isExiting={isDropMarkerExiting}
           placement="before"
@@ -1354,6 +1386,7 @@ const DesignerFieldCard = ({
                   { kind: 'group', groupKey: field.key },
                   child.key,
                 )}
+                dropMarkerAction={materialDropPreview?.action}
                 isDropMarkerExiting={isDropMarkerExiting}
                 materialDropPreview={materialDropPreview}
                 suspendLayoutAnimation={suspendLayoutAnimation}
@@ -1369,6 +1402,7 @@ const DesignerFieldCard = ({
             ))}
             {shouldRenderAppendPreview(materialDropPreview, { kind: 'group', groupKey: field.key }) ? (
               <DesignerDropInsertionMarker
+                action={materialDropPreview!.action}
                 type={materialDropPreview!.type}
                 isExiting={isDropMarkerExiting}
                 placement="append"
@@ -1448,6 +1482,7 @@ const DesignerFieldCard = ({
                   tabKey: activeTab.key,
                 }) ? (
                   <DesignerDropInsertionMarker
+                    action={materialDropPreview!.action}
                     type={materialDropPreview!.type}
                     isExiting={isDropMarkerExiting}
                     placement="append"

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { SchemaField } from '@labelhub/shared';
 
 import { requestApi } from '../../../api/request';
+import doubaoIcon from '../../../assets/doubao.svg';
 import starIcon from '../../../assets/star.svg';
 import { ToastViewport, useToastController } from '../../../components/ToastViewport';
 import type { BaseFieldProps } from './common';
@@ -35,6 +36,7 @@ export const InlineLlmSuggestionControl = ({
   const [isLoading, setIsLoading] = useState(false);
   const { dismissToast, messages, showErrorToast, showStatusToast } = useToastController();
   const isReadonly = mode === 'review' || disabled;
+  const shouldShowProviderBadge = targetFieldKey === 'annotator_note' || field.label === '标注备注';
 
   if (!isPromptEnabled) {
     return null;
@@ -77,16 +79,25 @@ export const InlineLlmSuggestionControl = ({
   return (
     <section className="schema-field__inline-llm" aria-label={`${field.label} LLM 建议`}>
       <ToastViewport messages={messages} onDismiss={dismissToast} />
-      <div className="schema-field__actions">
+      <div className={`schema-field__actions${shouldShowProviderBadge ? ' schema-field__llm-action-row' : ''}`}>
         <button
-          className="schema-field__llm-trigger-button"
+          aria-busy={isLoading ? 'true' : undefined}
+          className={`schema-field__llm-trigger-button${isLoading ? ' is-loading' : ''}`}
           disabled={isReadonly || isLoading || !promptTemplate}
           type="button"
           onClick={generateSuggestion}
         >
-          <img src={starIcon} alt="" aria-hidden="true" draggable={false} />
-          {assistResult ? '重新生成' : '生成建议'}
+          <span className="schema-field__llm-trigger-icon" aria-hidden="true">
+            <img src={starIcon} alt="" draggable={false} />
+          </span>
+          {isLoading ? '生成中...' : assistResult ? '重新生成' : '生成建议'}
         </button>
+        {shouldShowProviderBadge ? (
+          <span className="schema-field__llm-provider-badge" aria-label="模型来源">
+            <img src={doubaoIcon} alt="" aria-hidden="true" draggable={false} />
+            <span>Doubao-2.0-lite</span>
+          </span>
+        ) : null}
       </div>
     </section>
   );

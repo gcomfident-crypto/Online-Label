@@ -999,7 +999,7 @@ describe('PropertyPanel', () => {
     );
   });
 
-  it('单行输入、多行文本和标签选择支持配置 LLM 提示并引用 ShowItem 字段', () => {
+  it('单行输入、多行文本和标签选择支持配置 LLM 提示且不展示 ShowItem 引用胶囊', () => {
     const onUpdateField = vi.fn();
     const schemaFields: SchemaField[] = [
       {
@@ -1046,11 +1046,9 @@ describe('PropertyPanel', () => {
     expect(llmPromptTextarea.closest('.designer-property-row')).not.toHaveClass(
       'designer-property-row--metadata',
     );
-    expect(screen.getByRole('button', { name: '#Prompt' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '#回答 A' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '#回答 A' }));
-    expect(onUpdateField).toHaveBeenLastCalledWith({ promptTemplate: '请根据 #prompt 输出清洗标题。 #response_a' });
+    expect(screen.queryByLabelText('可引用展示字段')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '#Prompt' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '#回答 A' })).not.toBeInTheDocument();
 
     Object.defineProperty(llmPromptTextarea, 'scrollHeight', {
       configurable: true,
@@ -1111,6 +1109,9 @@ describe('PropertyPanel', () => {
     expect(screen.queryByLabelText('必填')).not.toBeInTheDocument();
     expect(screen.queryByText('AI 预审')).not.toBeInTheDocument();
     expect(screen.getByLabelText('标题')).toHaveValue('基础信息');
+    expect(screen.getByLabelText('标题').closest('.designer-property-row')).toHaveClass(
+      'designer-property-row--metadata',
+    );
     expect(screen.getByLabelText('字段说明')).toHaveValue('先填写上下文');
     expect(screen.getByLabelText('默认展开')).toBeChecked();
 
@@ -1148,6 +1149,10 @@ describe('PropertyPanel', () => {
 
     expect(screen.queryByLabelText('字段名')).not.toBeInTheDocument();
     expect(screen.queryByText('AI 预审')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('标题')).toHaveValue('分步标注');
+    expect(screen.getByLabelText('标题').closest('.designer-property-row')).toHaveClass(
+      'designer-property-row--metadata',
+    );
     expect(screen.getByLabelText('Tab 管理列表')).toBeInTheDocument();
     expect(screen.getByLabelText('Tab 2 名称')).toHaveValue('标注结果');
     expect(screen.getByLabelText('Tab 2 名称').closest('.designer-tab-manager__item')).toHaveClass('is-active');
