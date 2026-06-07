@@ -86,8 +86,8 @@ describe('Web 壳 smoke test', () => {
 
     await user.click(roleCombobox);
     expect(roleCombobox).toHaveAttribute('aria-expanded', 'true');
-    await user.click(screen.getByRole('option', { name: 'AI Agent 预审' }));
-    expect(roleCombobox).toHaveTextContent('AI Agent 预审');
+    await user.click(screen.getByRole('option', { name: 'AI Agent 质检' }));
+    expect(roleCombobox).toHaveTextContent('AI Agent 质检');
     expect(roleCombobox).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText('AI Agent 端')).not.toBeInTheDocument();
 
@@ -103,7 +103,7 @@ describe('Web 壳 smoke test', () => {
     await user.type(screen.getByLabelText('账号'), 'demo-user');
     await user.type(screen.getByLabelText('密码'), 'password');
     await user.click(screen.getByRole('combobox', { name: '登录身份' }));
-    await user.click(screen.getByRole('option', { name: 'AI Agent 预审' }));
+    await user.click(screen.getByRole('option', { name: 'AI Agent 质检' }));
     await user.click(screen.getByRole('button', { name: '登录平台' }));
 
     expect(await screen.findByRole('navigation', { name: 'AI Agent 端导航' })).toBeInTheDocument();
@@ -143,7 +143,7 @@ describe('Web 壳 smoke test', () => {
       sessionStore.loginAs(USER_ROLE.AI_AGENT);
     });
     renderRoute('/agent/dashboard');
-    await waitFor(() => expect(document.title).toBe('AI 预审后台 / 数据看板 - LabelHub'));
+    await waitFor(() => expect(document.title).toBe('AI Agent 后台 / 数据看板 - LabelHub'));
   });
 
   it('四端 Portal Layout 各自渲染对应导航', async () => {
@@ -234,19 +234,19 @@ describe('Web 壳 smoke test', () => {
       sessionStore.loginAs(USER_ROLE.AI_AGENT);
     });
     const agentView = renderRoute('/agent/dashboard');
-    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('AI 预审后台 / 数据看板');
+    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('AI Agent 后台 / 数据看板');
     const agentNav = screen.getByRole('navigation', { name: 'AI Agent 端导航' });
     expect(agentNav).toHaveTextContent('数据看板');
-    expect(agentNav).toHaveTextContent('机审队列');
+    expect(agentNav).toHaveTextContent('质检流转');
     expect(
       within(agentNav).getAllByRole('link').map((link) => link.getAttribute('aria-label')),
-    ).toEqual(['数据看板', '机审队列']);
+    ).toEqual(['数据看板', '质检流转']);
     expect(screen.queryByRole('heading', { name: '数据看板' })).not.toBeInTheDocument();
     const agentDashboardIcon = screen.getByRole('link', { name: '数据看板' }).querySelector('.portal-nav__icon--dashboard');
     expect(agentDashboardIcon).toHaveClass('portal-nav__icon--asset');
     expect(agentDashboardIcon?.getAttribute('style')).toContain('url("');
     expect(agentDashboardIcon?.getAttribute('style')).toContain(databoardIconAsset);
-    const agentReviewIcon = screen.getByRole('link', { name: '机审队列' }).querySelector('.portal-nav__icon--ai-review');
+    const agentReviewIcon = screen.getByRole('link', { name: '质检流转' }).querySelector('.portal-nav__icon--ai-review');
     expect(agentReviewIcon).toHaveClass('portal-nav__icon--asset');
     expect(agentReviewIcon?.getAttribute('style')).toContain('url("');
     expect(agentReviewIcon?.getAttribute('style')).toContain(llmIconAsset);

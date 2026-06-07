@@ -6,6 +6,7 @@ export type ReviewActionDto = {
 export type RejectReviewDto = {
   actorId?: unknown;
   reason?: unknown;
+  fieldReviews?: unknown;
 };
 
 export type ReviseAndPassDto = {

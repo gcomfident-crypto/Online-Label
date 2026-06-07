@@ -335,6 +335,80 @@ const historyWorkbench = {
   ],
 };
 
+const reviewerReviewingHistoryWorkbench = {
+  ...qaWorkbench,
+  assignment: { ...qaWorkbench.assignment, status: 'SUBMITTED' },
+  rejectionNotice: null,
+  submissionHistory: [
+    {
+      id: 'submission_round_1',
+      status: 'NEEDS_REVISION',
+      round: 1,
+      answers: { quality: 'pass' },
+      schemaVersion: 'r1',
+      submittedAt: '2026-06-06T09:57:00.000Z',
+      reviewRecords: [
+        {
+          stage: 'AI_PRECHECK',
+          reviewerType: 'AI',
+          assignedReviewerId: null,
+          decision: 'reject',
+          comment: 'AI 预审打回。',
+          scores: { overall: 62 },
+          createdAt: '2026-06-06T12:30:00.000Z',
+        },
+      ],
+    },
+    {
+      id: 'submission_round_2',
+      status: 'NEEDS_REVISION',
+      round: 2,
+      answers: { quality: 'pass' },
+      schemaVersion: 'r1',
+      submittedAt: '2026-06-06T12:33:00.000Z',
+      reviewRecords: [
+        {
+          stage: 'AI_PRECHECK',
+          reviewerType: 'AI',
+          assignedReviewerId: null,
+          decision: 'reject',
+          comment: 'AI 预审打回。',
+          scores: { overall: 64 },
+          createdAt: '2026-06-06T12:48:00.000Z',
+        },
+      ],
+    },
+    {
+      id: 'submission_round_3',
+      status: 'HUMAN_PENDING',
+      round: 3,
+      answers: { quality: 'excellent', comment: '已补充完整说明。' },
+      schemaVersion: 'r1',
+      submittedAt: '2026-06-06T13:16:00.000Z',
+      reviewRecords: [
+        {
+          stage: 'AI_PRECHECK',
+          reviewerType: 'AI',
+          assignedReviewerId: null,
+          decision: 'pass',
+          comment: 'AI 预审通过。',
+          scores: { overall: 90 },
+          createdAt: '2026-06-06T13:23:00.000Z',
+        },
+        {
+          stage: 'AI_PRECHECK',
+          reviewerType: 'AI',
+          assignedReviewerId: null,
+          decision: 'pass',
+          comment: 'AI 预审通过。',
+          scores: { overall: 92 },
+          createdAt: '2026-06-06T13:39:00.000Z',
+        },
+      ],
+    },
+  ],
+};
+
 const finalApprovedWorkbench = {
   ...qaWorkbench,
   assignment: { ...qaWorkbench.assignment, status: 'FINAL_APPROVED' },
@@ -371,6 +445,12 @@ const finalApprovedWorkbench = {
     },
   ],
 };
+
+const mixedStatusTaskAssignments = taskAssignments.map((assignment) =>
+  assignment.assignmentId === 'assignment_1'
+    ? { ...assignment, status: 'NEEDS_REVISION' as const }
+    : { ...assignment, status: 'FINAL_APPROVED' as const, latestSubmissionStatus: 'FINAL_APPROVED', latestSubmittedAt: '2026-05-21T13:00:00.000Z' },
+);
 
 describe('WorkbenchPage', () => {
   afterEach(() => {
@@ -905,10 +985,10 @@ describe('WorkbenchPage', () => {
 
     expect(within(navigationPanel).getByRole('button', { name: /P0001/ })).toHaveTextContent('待标注');
     expect(within(navigationPanel).getByRole('button', { name: /P0002/ })).toHaveTextContent('已标注');
-    expect(within(navigationPanel).getByRole('button', { name: /P0003/ })).toHaveTextContent('AI预审中');
+    expect(within(navigationPanel).getByRole('button', { name: /P0003/ })).toHaveTextContent('AI预审');
     expect(within(navigationPanel).getByRole('button', { name: /P0004/ })).toHaveTextContent('AI打回');
-    expect(within(navigationPanel).getByRole('button', { name: /P0005/ })).toHaveTextContent('reviewer审核中');
-    expect(within(navigationPanel).getByRole('button', { name: /P0006/ })).toHaveTextContent('reviewer打回');
+    expect(within(navigationPanel).getByRole('button', { name: /P0005/ })).toHaveTextContent('审核员审核');
+    expect(within(navigationPanel).getByRole('button', { name: /P0006/ })).toHaveTextContent('审核员打回');
     expect(within(navigationPanel).getByRole('button', { name: /P0007/ })).toHaveTextContent('已完成');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0002/ }))
@@ -917,7 +997,7 @@ describe('WorkbenchPage', () => {
     ).toHaveClass('question-navigator__status--annotated');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0003/ }))
-        .getByText('AI预审中')
+        .getByText('AI预审')
         .closest('.question-navigator__status'),
     ).toHaveClass('question-navigator__status--ai-review');
     expect(
@@ -927,14 +1007,85 @@ describe('WorkbenchPage', () => {
     ).toHaveClass('question-navigator__status--ai-rejected');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0005/ }))
-        .getByText('reviewer审核中')
+        .getByText('审核员审核')
         .closest('.question-navigator__status'),
     ).toHaveClass('question-navigator__status--reviewer-reviewing');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0006/ }))
-        .getByText('reviewer打回')
+        .getByText('审核员打回')
         .closest('.question-navigator__status'),
     ).toHaveClass('question-navigator__status--reviewer-rejected');
+  });
+
+  it('混合复审结果下仅允许编辑打回题，其他题保持只读', async () => {
+    const user = userEvent.setup();
+    const passedQuestionWorkbench = {
+      ...finalApprovedWorkbench,
+      assignment: {
+        ...finalApprovedWorkbench.assignment,
+        id: 'assignment_2',
+        taskItemId: 'item_qa_2',
+      },
+      taskItem: {
+        ...qaWorkbench.taskItem,
+        id: 'item_qa_2',
+        externalId: 'qa_2',
+        rawData: {
+          ...qaWorkbench.taskItem.rawData,
+          prompt: '第二道题如何判断回答质量？',
+        },
+        sortOrder: 9,
+      },
+    };
+
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/assignments/assignment_1/workbench') {
+        return jsonResponse({
+          data: {
+            ...aiRejectedWorkbench,
+            assignment: { ...aiRejectedWorkbench.assignment, id: 'assignment_1', taskItemId: 'item_qa_1' },
+            taskItem: {
+              ...aiRejectedWorkbench.taskItem,
+              id: 'item_qa_1',
+              externalId: 'qa_1',
+              sortOrder: 8,
+            },
+          },
+        });
+      }
+
+      if (url === '/assignments/assignment_2/workbench') {
+        return jsonResponse({ data: passedQuestionWorkbench });
+      }
+
+      if (url.startsWith('/labeler/stats')) {
+        return jsonResponse({ data: { ...stats, totalAssignments: 2 } });
+      }
+
+      if (url.startsWith('/labeler/assignments')) {
+        return jsonResponse({ data: mixedStatusTaskAssignments });
+      }
+
+      if (url === '/tasks') {
+        return jsonResponse({ data: taskList });
+      }
+
+      return jsonResponse({ data: null });
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+    renderWorkbenchPage({ assignmentId: 'assignment_1', itemId: 'item_qa_1' });
+
+    await screen.findByRole('heading', { name: '问答质量标注' });
+    expect(screen.getByRole('button', { name: '保存草稿' })).toBeEnabled();
+    expect(screen.getByRole('radio', { name: '优秀' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '提交任务' })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: '下一题 →' }));
+    expect(await screen.findByRole('heading', { name: '问答质量标注' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '保存草稿' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: '优秀' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '提交任务' })).toBeDisabled();
   });
 
   it('题目导航对当前 AI 打回题优先显示 AI 打回状态', async () => {
@@ -1106,13 +1257,15 @@ describe('WorkbenchPage', () => {
     expect(within(contribution).getByText('5')).toHaveClass('labeler-info-stat__value--rejected');
 
     const history = within(infoPanel).getByLabelText('本题历史列表');
+    expect(history).toHaveTextContent('第 1 轮');
     expect(history).toHaveTextContent('标注员 李雷 · 提交');
     expect(history).toHaveTextContent('AI 预审 · 打回');
     expect(history).toHaveTextContent('复审员 王芳 · 复审打回');
-    expect(history).toHaveTextContent('标注员 李雷 · 修改中');
     expect(history).toHaveTextContent('05-16 14:22');
     expect(history).toHaveTextContent('05-16 15:08');
-    expect(history).toHaveTextContent('当前');
+    const currentStatus = within(infoPanel).getByLabelText('当前状态');
+    expect(currentStatus).toHaveTextContent('当前');
+    expect(currentStatus).toHaveTextContent('审核员打回');
 
     expect(within(infoPanel).queryByText('⌘+Enter 提交本题')).not.toBeInTheDocument();
     expect(within(infoPanel).getByText('⌘+S 保存草稿')).toBeInTheDocument();
@@ -1121,6 +1274,46 @@ describe('WorkbenchPage', () => {
     expect(screen.queryByText(/属性配置/)).not.toBeInTheDocument();
     expect(screen.queryByText('任务信息')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '基础信息' })).not.toBeInTheDocument();
+  });
+
+  it('本题历史按轮次分组，合并重复 AI 结论，并单独展示当前 reviewer 审核状态', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse({ data: reviewerReviewingHistoryWorkbench }))
+        .mockResolvedValueOnce(jsonResponse({ data: stats }))
+        .mockResolvedValueOnce(
+          jsonResponse({
+            data: taskAssignments.map((assignment) =>
+              assignment.assignmentId === 'assignment_1'
+                ? { ...assignment, status: 'SUBMITTED', latestSubmissionStatus: 'HUMAN_PENDING' }
+                : assignment,
+            ),
+          }),
+        )
+        .mockResolvedValueOnce(jsonResponse({ data: taskList })),
+    );
+
+    renderWorkbenchPage();
+
+    const infoPanel = await screen.findByRole('complementary', { name: '标注信息' });
+    const history = within(infoPanel).getByLabelText('本题历史列表');
+
+    expect(history).toHaveTextContent('第 1 轮');
+    expect(history).toHaveTextContent('第 2 轮');
+    expect(history).toHaveTextContent('第 3 轮');
+    expect(history.textContent?.match(/标注员 李雷 · 提交/g)).toHaveLength(3);
+    expect(history.textContent?.match(/AI 预审 · 打回/g)).toHaveLength(2);
+    expect(history.textContent?.match(/AI 预审 · 通过/g)).toHaveLength(1);
+    expect(history).not.toHaveTextContent('06-06 13:23');
+    expect(history).toHaveTextContent('06-06 13:39');
+    expect(history).not.toHaveTextContent('标注员 李雷 · 已提交');
+
+    const currentStatus = within(infoPanel).getByLabelText('当前状态');
+    expect(currentStatus).toHaveTextContent('当前');
+    expect(currentStatus).toHaveTextContent('审核员审核');
+    expect(currentStatus).toHaveClass('labeler-item-history-current--reviewer');
   });
 
   it('完成后的题目历史不追加当前行，并将倒计时和报告入口置为完成态', async () => {
@@ -1668,6 +1861,7 @@ describe('WorkbenchPage', () => {
     expect(rejectedFieldNode).toHaveClass('schema-renderer__field-node--diff-rejected');
     expect(rejectedFieldNode).toHaveAttribute('data-diff-state', 'rejected');
     expect(rejectedFieldNode).toHaveTextContent('待修改');
+    expect(rejectedFieldNode).toHaveTextContent('修改建议：补充事实性、完整性和表达清晰度的判断依据。');
 
     await user.clear(screen.getByLabelText('审核意见'));
     await user.type(screen.getByLabelText('审核意见'), '补充事实性、完整性和表达清晰度的判断依据。');
@@ -1677,6 +1871,26 @@ describe('WorkbenchPage', () => {
     );
     expect(document.querySelector('[data-field-key="comment"]')).not.toHaveAttribute('data-diff-state', 'rejected');
     expect(document.querySelector('[data-field-key="comment"]')).not.toHaveTextContent('待修改');
+    expect(document.querySelector('[data-field-key="comment"]')).not.toHaveTextContent('修改建议：');
+  });
+
+  it('reviewer 打回时在顶部展示整体修改建议', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse({ data: historyWorkbench }))
+        .mockResolvedValueOnce(jsonResponse({ data: { ...stats, needsRevisionCount: 1 } }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskList })),
+    );
+
+    renderWorkbenchPage();
+
+    const rejectNotice = await screen.findByRole('region', { name: '上一轮打回原因' });
+    expect(rejectNotice).toHaveTextContent('上一轮被打回');
+    expect(rejectNotice).toHaveTextContent('修改建议');
+    expect(rejectNotice).toHaveTextContent('复审打回。');
   });
 
   it('AI 预审字段全部通过时不展示重新标注按钮', async () => {

@@ -453,6 +453,108 @@ describe('AiReviewProcessorService', () => {
     expect(reviewRecords).toHaveLength(0);
   });
 
+  it('自动重试 FAILED_RETRYING 的 AI 预审任务', async () => {
+    const { processor, jobs, submissions, reviewRecords } = createProcessor({
+      answers: {
+        comment: '可以通过。',
+      },
+      rawData: {
+        prompt: '如何判断回答质量？',
+      },
+    });
+    Object.assign(jobs[0], {
+      status: 'FAILED_RETRYING' as const,
+      attempts: 1,
+      lastError: '上一次模型调用失败。',
+    });
+
+    const result = await processor.processQueuedJobs({ limit: 5 });
+
+    expect(result).toEqual({ processed: 1, passed: 1, rejected: 0, failed: 0 });
+    expect(jobs[0]).toMatchObject({ status: 'SUCCEEDED', attempts: 2, lastError: null });
+    expect(submissions[0].status).toBe('HUMAN_PENDING');
+    expect(reviewRecords.at(-1)).toEqual(
+      expect.objectContaining({
+        decision: 'pass',
+        retryCount: 2,
+      }),
+    );
+  });
+
+  it('AI 预审达到最大失败次数后退回标注员并留下可见失败原因', async () => {
+    const errorMessage = 'AI 预审模型未配置，请检查 DEEPSEEK_API_KEY、OPENAI_API_KEY、LLM_API_KEY 或 LLM_PROVIDER。';
+    const llmService = {
+      reviewSubmission: vi.fn(async () => {
+        throw new Error(errorMessage);
+      }),
+    };
+    const { processor, assignments, auditLogs, jobs, submissions, reviewRecords } = createProcessor({
+      answers: {
+        comment: '可以通过。',
+      },
+      rawData: {
+        prompt: '如何判断回答质量？',
+      },
+      llmService,
+    });
+    Object.assign(jobs[0], {
+      status: 'FAILED_RETRYING' as const,
+      attempts: 2,
+      lastError: '第二次模型调用失败。',
+    });
+
+    const result = await processor.processQueuedJobs({ limit: 5 });
+
+    expect(result).toEqual({ processed: 0, passed: 0, rejected: 0, failed: 1 });
+    expect(jobs[0]).toMatchObject({
+      status: 'FAILED_FINAL',
+      attempts: 3,
+      lastError: errorMessage,
+    });
+    expect(submissions[0].status).toBe('NEEDS_REVISION');
+    expect(assignments[0].status).toBe('NEEDS_REVISION');
+    expect(reviewRecords.at(-1)).toEqual(
+      expect.objectContaining({
+        stage: 'AI_PRECHECK',
+        reviewerType: 'AI',
+        decision: 'reject',
+        comment: expect.stringContaining(errorMessage),
+        structuredOutput: expect.objectContaining({
+          verdict: 'reject',
+          overallComment: expect.stringContaining(errorMessage),
+        }),
+      }),
+    );
+    expect(auditLogs.slice(-3)).toEqual([
+      expect.objectContaining({
+        fromStatus: 'AI_QUEUED',
+        toStatus: 'AI_REVIEWING',
+        metadata: expect.objectContaining({
+          action: 'AI_REVIEW_STARTED',
+          jobId: 'job_1',
+        }),
+      }),
+      expect.objectContaining({
+        fromStatus: 'AI_REVIEWING',
+        toStatus: 'AI_REJECTED',
+        reason: expect.stringContaining(errorMessage),
+        metadata: expect.objectContaining({
+          action: 'AI_REVIEW_FAILED',
+          jobId: 'job_1',
+        }),
+      }),
+      expect.objectContaining({
+        fromStatus: 'AI_REJECTED',
+        toStatus: 'NEEDS_REVISION',
+        reason: expect.stringContaining(errorMessage),
+        metadata: expect.objectContaining({
+          action: 'AI_REVIEW_FAILED_TO_REVISION',
+          jobId: 'job_1',
+        }),
+      }),
+    ]);
+  });
+
   it('另一个处理器已领取同一 AI 预审任务时跳过且不记失败', async () => {
     const llmService = {
       reviewSubmission: vi.fn(async () => {
@@ -666,8 +768,8 @@ function createProcessor(input: {
   ];
   const prisma = {
     aiReviewJob: {
-      findMany: vi.fn(async ({ where, take }: { where?: { status?: string }; take?: number } = {}) =>
-        jobs.filter((job) => !where?.status || job.status === where.status).slice(0, take ?? jobs.length),
+      findMany: vi.fn(async ({ where, take }: { where?: { status?: string | { in?: string[] } }; take?: number } = {}) =>
+        jobs.filter((job) => matchesStatusFilter(job.status, where?.status)).slice(0, take ?? jobs.length),
       ),
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) => jobs.find((job) => job.id === where.id) ?? null),
       updateMany: vi.fn(async ({ where, data }: { where: { id: string; status?: string }; data: Partial<AiReviewJobRecord> & { attempts?: { increment: number } } }) => {
@@ -865,6 +967,18 @@ function countNonEmptyLeaves(value: unknown): number {
   }
 
   return String(value).trim() ? 1 : 0;
+}
+
+function matchesStatusFilter(status: string, filter?: string | { in?: string[] }): boolean {
+  if (!filter) {
+    return true;
+  }
+
+  if (typeof filter === 'string') {
+    return status === filter;
+  }
+
+  return Array.isArray(filter.in) ? filter.in.includes(status) : true;
 }
 
 type ReviewRuleFixture = {

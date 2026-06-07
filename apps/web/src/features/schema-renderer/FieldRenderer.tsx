@@ -126,7 +126,14 @@ export const FieldRenderer = (props: FieldRendererProps) => {
       onFocusCapture={() => props.onActiveFieldChange?.(fieldKey)}
     >
       {decoration ? (
-        <span className="schema-renderer__field-diff-badge">{decoration.label}</span>
+        decoration.message ? (
+          <div className="schema-renderer__field-diff-header">
+            <span className="schema-renderer__field-diff-badge">{decoration.label}</span>
+            <span className="schema-renderer__field-diff-message">{decoration.message}</span>
+          </div>
+        ) : (
+          <span className="schema-renderer__field-diff-badge">{decoration.label}</span>
+        )
       ) : null}
       {fieldElement}
       {validationMessages.length > 0 ? (

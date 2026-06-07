@@ -38,7 +38,23 @@ describe('ReviewsController', () => {
       controller.pass('submission_1', { actorId: ' reviewer_1 ', comment: ' 同意通过。 ' }),
     ).resolves.toEqual({ submission: { id: 'submission_1' } });
     await expect(
-      controller.reject('submission_1', { actorId: ' reviewer_1 ', reason: ' 证据不足。 ' }),
+      controller.reject('submission_1', {
+        actorId: ' reviewer_1 ',
+        reason: ' 证据不足。 ',
+        fieldReviews: [
+          {
+            fieldKey: ' reason ',
+            label: ' 判断理由 ',
+            comment: ' 请补充判断依据。 ',
+            value: '覆盖关键点。',
+          },
+          {
+            fieldKey: '',
+            label: '无效字段',
+            comment: '不会进入服务层',
+          },
+        ],
+      }),
     ).resolves.toEqual({ submission: { id: 'submission_1' } });
     await expect(
       controller.reviseAndPass('submission_1', {
@@ -83,6 +99,14 @@ describe('ReviewsController', () => {
     expect(service.rejectReview).toHaveBeenCalledWith('submission_1', {
       actorId: 'reviewer_1',
       reason: '证据不足。',
+      fieldReviews: [
+        {
+          fieldKey: 'reason',
+          label: '判断理由',
+          comment: '请补充判断依据。',
+          value: '覆盖关键点。',
+        },
+      ],
     });
     expect(service.reviseAndPass).toHaveBeenCalledWith('submission_1', {
       actorId: 'reviewer_1',

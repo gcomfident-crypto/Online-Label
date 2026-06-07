@@ -240,6 +240,87 @@ describe('AiReviewService', () => {
     expect(detail.items.find((item) => item.taskItem.externalId === 'P0009')?.decision).toBe('reject');
   });
 
+  it('批次详情为每道题返回所有历史版本，支持按轮次查看提交快照', async () => {
+    const previousBatchId = 'task-submit:task_qa:user_labeler_li_lei:assignment_1:1:previous';
+    const latestBatchId = 'task-submit:task_qa:user_labeler_li_lei:assignment_1:2:latest';
+    const { service } = createService({
+      jobs: [
+        createJobRecord({
+          id: 'job_assignment_1_round_1',
+          submissionId: 'submission_assignment_1_round_1',
+          round: 1,
+          status: 'SUCCEEDED',
+          updatedAt: new Date('2026-05-21T10:00:00.000Z'),
+          submission: createSubmissionSummaryRecord({
+            id: 'submission_assignment_1_round_1',
+            assignmentId: 'assignment_1',
+            answers: { quality: 'pass', note: '第一轮说明。' },
+            externalId: 'P0001',
+            round: 1,
+            submittedAt: new Date('2026-05-21T10:00:00.000Z'),
+            idempotencyKey: `${previousBatchId}:assignment_1:1`,
+            reviewRecords: [
+              createReviewRecord({
+                id: 'record_assignment_1_round_1',
+                submissionId: 'submission_assignment_1_round_1',
+                decision: 'reject',
+              }),
+            ],
+          }),
+        }),
+        createJobRecord({
+          id: 'job_assignment_1_round_2',
+          submissionId: 'submission_assignment_1_round_2',
+          round: 2,
+          status: 'SUCCEEDED',
+          updatedAt: new Date('2026-05-21T11:00:00.000Z'),
+          submission: createSubmissionSummaryRecord({
+            id: 'submission_assignment_1_round_2',
+            assignmentId: 'assignment_1',
+            answers: { quality: 'pass', note: '第二轮修复说明。' },
+            externalId: 'P0001',
+            round: 2,
+            submittedAt: new Date('2026-05-21T11:00:00.000Z'),
+            idempotencyKey: `${latestBatchId}:assignment_1:2`,
+            reviewRecords: [
+              createReviewRecord({
+                id: 'record_assignment_1_round_2',
+                submissionId: 'submission_assignment_1_round_2',
+                decision: 'pass',
+              }),
+            ],
+          }),
+        }),
+      ],
+    });
+
+    const detail = await service.getBatchReview(latestBatchId);
+
+    expect(detail.items).toHaveLength(1);
+    expect(detail.items[0].versions.map((version) => ({
+      batchId: version.batchId,
+      decision: version.decision,
+      isCurrent: version.isCurrent,
+      note: version.submission.answers.note,
+      round: version.round,
+    }))).toEqual([
+      {
+        batchId: latestBatchId,
+        decision: 'pass',
+        isCurrent: true,
+        note: '第二轮修复说明。',
+        round: 2,
+      },
+      {
+        batchId: previousBatchId,
+        decision: 'reject',
+        isCurrent: false,
+        note: '第一轮说明。',
+        round: 1,
+      },
+    ]);
+  });
+
   it('任务级聚合结果按失败、打回、通过的优先级输出，历史 manual 记录按打回处理', async () => {
     const createBatchJob = (input: {
       assignmentId: string;

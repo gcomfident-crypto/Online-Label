@@ -49,4 +49,5 @@ export type FieldRendererProps = {
 export type FieldNodeDecoration = {
   state: 'added' | 'removed' | 'changed' | 'rejected';
   label: string;
+  message?: string;
 };

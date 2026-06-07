@@ -80,7 +80,8 @@ export const AppRouter = () => {
         >
           <Route index element={<Navigate to="/agent/dashboard" replace />} />
           <Route path="dashboard" element={<AgentDashboardPage />} />
-          <Route path="ai-review" element={<AiReviewQueuePage />} />
+          <Route path="task-flows" element={<AiReviewQueuePage />} />
+          <Route path="ai-review" element={<Navigate to="/agent/task-flows" replace />} />
         </Route>
         <Route
           path="/reviewer"

@@ -20,6 +20,10 @@ describe('ReviewListPage', () => {
         return jsonResponse({ data: reviewQueueItems });
       }
 
+      if (path === '/tasks' && method === 'GET') {
+        return jsonResponse({ data: taskItems });
+      }
+
       if (path === '/reviews/submission_1' && method === 'GET') {
         return jsonResponse({ data: reviewDetail });
       }
@@ -38,40 +42,38 @@ describe('ReviewListPage', () => {
 
     expect(await screen.findByRole('heading', { name: '人工审核' })).toBeInTheDocument();
     const pageDescription = screen.getByText(
-      '汇总进入人工复审的任务、审核阶段、待审数量、审核员和最近提交时间，支持复审任务分派与进入处理',
+      '汇总进入人工复审的任务、待审数量、状态、最近提交时间和截止时间，支持快速进入处理',
     );
     expect(pageDescription).toHaveClass('task-management-table-description');
     expect(pageDescription.closest('.manual-review-list-header')).not.toBeNull();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/reviews/pending', expect.anything()));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/tasks', expect.anything()));
     const table = screen.getByRole('table', { name: '人工审核任务列表' });
     [
       '任务ID',
       '名称',
-      '审核阶段',
       '待审核',
-      'AI 通过',
-      'AI 打回',
-      '转人工',
-      '处理人',
       '状态',
-      '创建 / 更新',
+      '截止时间',
     ].forEach((header) => expect(within(table).getByText(header)).toBeInTheDocument());
+    ['审核阶段', 'AI 通过', 'AI 打回', '转人工', '处理人', '创建 / 更新'].forEach((header) =>
+      expect(within(table).queryByText(header)).not.toBeInTheDocument(),
+    );
     expect(within(table).queryByText('任务名称 / 批次')).not.toBeInTheDocument();
     expect(within(table).queryByText('操作')).not.toBeInTheDocument();
     expect(within(table).queryByRole('button', { name: '进入审核' })).not.toBeInTheDocument();
     const taskRow = within(table).getByRole('row', { name: '人工审核任务 真实人工审核任务' });
     const taskRowCells = within(taskRow).getAllByRole('cell');
-    expect(taskRowCells).toHaveLength(10);
-    expect(taskRowCells[0]).toHaveTextContent('TASK-01D7PEMK');
+    expect(taskRowCells).toHaveLength(5);
+    expect(taskRowCells[0]).toHaveTextContent('T-001');
     expect(taskRowCells[1]).toHaveTextContent('真实人工审核任务');
-    expect(taskRowCells[1]).not.toHaveTextContent('TASK-01D7PEMK');
+    expect(taskRowCells[1]).not.toHaveTextContent('T-001');
+    expect(within(taskRowCells[3]).getByText('复审中')).toHaveClass('manual-review-task-status', 'is-reviewing');
+    expect(taskRowCells[4]).toHaveTextContent('2026-06-01 15:59');
     expect(within(table).getByText('真实人工审核任务')).toBeInTheDocument();
-    expect(within(table).getByText('TASK-01D7PEMK')).toBeInTheDocument();
+    expect(within(table).getByText('T-001')).toBeInTheDocument();
     expect(table).not.toHaveTextContent(rawReviewTaskId);
     expect(within(table).getByText('2')).toBeInTheDocument();
-    expect(within(table).getAllByText('1')).toHaveLength(2);
-    expect(within(table).getByText('0')).toBeInTheDocument();
-    expect(within(table).getByText('待处理')).toBeInTheDocument();
 
     await user.click(taskRow);
 
@@ -113,6 +115,39 @@ describe('ReviewListPage', () => {
 
 const rawReviewTaskId = 'cmpsfkanp0001d7pemk';
 
+const taskItems = [
+  {
+    id: rawReviewTaskId,
+    title: '真实人工审核任务',
+    description: null,
+    richTextInstruction: null,
+    tags: [],
+    rewardRule: null,
+    rewardPerItem: null,
+    perUserLimit: null,
+    quota: null,
+    deadline: '2026-06-01T15:59:00.000Z',
+    distributionStrategy: 'FIRST_COME_FIRST_SERVE',
+    aiPreReviewEnabled: true,
+    aiRuleName: null,
+    status: 'PUBLISHED',
+    templateId: 'template_1',
+    template: {
+      id: 'template_1',
+      name: '问答质量模板',
+      datasetKind: 'qa_quality',
+      schemaVersion: 'r1',
+      status: 'PUBLISHED',
+    },
+    createdById: 'owner_1',
+    itemCount: 2,
+    completedItemCount: 0,
+    exportableItemCount: 0,
+    createdAt: '2026-05-20T00:00:00.000Z',
+    updatedAt: '2026-05-30T10:02:02.000Z',
+  },
+];
+
 const reviewQueueItems = [
   {
     submissionId: 'submission_1',
@@ -128,6 +163,7 @@ const reviewQueueItems = [
     aiComment: '需要补充判断依据。',
     aiScores: { overall: 62, relevance: 78, accuracy: 55, format: 70, safety: 99 },
     assignedReviewerId: null,
+    deadline: '2026-06-01T15:59:00.000Z',
     submittedAt: '2026-05-30T10:01:02.000Z',
     updatedAt: '2026-05-30T10:01:02.000Z',
   },
@@ -145,6 +181,7 @@ const reviewQueueItems = [
     aiComment: '建议通过。',
     aiScores: { overall: 91, relevance: 92, accuracy: 90, format: 88, safety: 99 },
     assignedReviewerId: null,
+    deadline: '2026-06-01T15:59:00.000Z',
     submittedAt: '2026-05-30T10:02:02.000Z',
     updatedAt: '2026-05-30T10:02:02.000Z',
   },

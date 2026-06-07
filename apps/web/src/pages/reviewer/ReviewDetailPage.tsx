@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getSchemaFieldKey, type LabelHubSchema, type SchemaField } from '@labelhub/shared';
 
@@ -10,8 +10,8 @@ import {
   getReview,
   passReview,
   rejectReview,
-  reviseAndPassReview,
   type ReviewDetailDto,
+  type ReviewFieldCommentInput,
   type ReviewQueueItemDto,
   type ReviewTimelineItemDto,
   listPendingReviews,
@@ -19,10 +19,25 @@ import {
 
 const REVIEWER_ID = 'user_reviewer_wang_fang';
 
-type ManualReviewTab = 'manual' | 'pass' | 'reject';
-type ManualReviewSuggestion = ManualReviewTab;
+type ManualReviewSideTab = 'timeline' | 'comments';
+type ManualReviewSuggestion = 'manual' | 'pass' | 'reject';
+type ManualReviewResult = 'pass' | 'reject';
 
 type ReviewSubmitSnapshot = Record<string, unknown>;
+
+type ReviewSubmitField = {
+  fieldKey: string;
+  label: string;
+  value: unknown;
+};
+
+type FieldReviewComment = ReviewFieldCommentInput;
+
+type ScoreMetricItem = {
+  key: string;
+  label: string;
+  value: number | null;
+};
 
 type ReviewTimelineItem = {
   action: string;
@@ -38,19 +53,15 @@ type ManualReviewItem = {
   aiSuggestion: ManualReviewSuggestion;
   assignmentId: string;
   currentRoundSubmit: ReviewSubmitSnapshot;
-  dimensionScores: {
-    accuracy: number | null;
-    format: number | null;
-    overall: number | null;
-    relevance: number | null;
-    safety: number | null;
-  };
+  deadline: string | null;
   issueTags: string[];
   labelerName: string;
+  overallScore: number | null;
   questionInfo: ReviewSubmitSnapshot;
   questionId: string;
   reviewComment: string;
   round: number;
+  scoreMetrics: ScoreMetricItem[];
   status: string;
   subId: string;
   submissionId: string;
@@ -62,18 +73,39 @@ type ManualReviewItem = {
 type ManualReviewTask = {
   aiPassCount: number;
   aiRejectCount: number;
+  deadline: string | null;
   manualCount: number;
   pendingCount: number;
-  status: string;
+  status: ManualReviewTaskStatus;
   taskId: string;
   taskName: string;
 };
 
-const MANUAL_REVIEW_TABS: Array<{ label: string; value: ManualReviewTab }> = [
-  { label: 'AI 已建议通过', value: 'pass' },
-  { label: 'AI 已建议打回', value: 'reject' },
-  { label: '转人工', value: 'manual' },
-];
+type ManualReviewTaskStatus = '复审中' | '待复审' | '已完成';
+
+type ManualReviewRoundProgress = {
+  totalInRound: number;
+  decidedCount: number;
+  needsRevisionCount: number;
+  pendingCount: number;
+};
+
+type DeadlineCountdownStatus = 'normal' | 'warning' | 'danger' | 'expired' | 'unset';
+
+type DeadlineCountdownUnit = {
+  key: 'days' | 'hours' | 'minutes' | 'seconds';
+  label: '天' | '时' | '分' | '秒';
+  value: string;
+};
+
+type DeadlineCountdownState = {
+  label: string;
+  status: DeadlineCountdownStatus;
+  units: DeadlineCountdownUnit[];
+};
+
+const REVIEW_DECISIONS = new Set(['recheck_pass', 'reject', 'revise_pass']);
+const REVIEW_ITEM_REVIEWABLE_STATUSES = new Set<ReviewQueueItemDto['status']>(['HUMAN_PENDING', 'RECHECK_REVIEWING']);
 
 export const ReviewDetailPage = () => {
   const { taskId } = useParams<{ taskId: string }>();
@@ -88,15 +120,43 @@ export const ReviewTaskDetailContent = ({
   onClose?: () => void;
   taskId: string | undefined;
 }) => {
-  const [activeTab, setActiveTab] = useState<ManualReviewTab>('reject');
   const [queueItems, setQueueItems] = useState<ReviewQueueItemDto[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [reviewComment, setReviewComment] = useState('');
+  const [sidePanelTab, setSidePanelTab] = useState<ManualReviewSideTab>('timeline');
+  const [selectedCommentFieldKey, setSelectedCommentFieldKey] = useState<string | null>(null);
+  const [fieldCommentsBySubmissionId, setFieldCommentsBySubmissionId] = useState<
+    Record<string, Record<string, FieldReviewComment>>
+  >({});
   const [reviewDetail, setReviewDetail] = useState<ReviewDetailDto | null>(null);
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { dismissToast, messages, showErrorToast, showStatusToast } = useToastController();
+
+  const applyCurrentTaskQueueItems = (items: ReviewQueueItemDto[], preserveSubmissionId?: string | null) => {
+    if (!taskId) {
+      setQueueItems([]);
+      setSelectedSubmissionId(null);
+      return;
+    }
+
+    const scopedItems = items.filter((item) => item.taskId === taskId);
+    const orderedItems = sortReviewQueueItems(scopedItems);
+    const nextSelectedSubmissionId = preserveSubmissionId && orderedItems.some((item) => item.submissionId === preserveSubmissionId)
+      ? preserveSubmissionId
+      : orderedItems[0]?.submissionId ?? null;
+
+    setQueueItems(scopedItems);
+    setSelectedSubmissionId(nextSelectedSubmissionId);
+  };
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => setCurrentTimeMs(Date.now()), 1000);
+
+    return () => window.clearInterval(timerId);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -108,11 +168,7 @@ export const ReviewTaskDetailContent = ({
           return;
         }
 
-        const nextItems = items.filter((item) => item.taskId === taskId);
-        const nextTab = getInitialTab(nextItems);
-        setQueueItems(nextItems);
-        setActiveTab(nextTab);
-        setSelectedSubmissionId(getTabItems(nextItems, nextTab)[0]?.submissionId ?? nextItems[0]?.submissionId ?? null);
+        applyCurrentTaskQueueItems(items);
         setErrorMessage(null);
       })
       .catch((error) => {
@@ -162,20 +218,23 @@ export const ReviewTaskDetailContent = ({
     };
   }, [selectedSubmissionId]);
 
-  const task = useMemo(() => buildManualReviewTask(queueItems, reviewDetail, taskId), [queueItems, reviewDetail, taskId]);
-  const tabItems = useMemo(() => getTabItems(queueItems, activeTab), [activeTab, queueItems]);
+  const roundProgressByScope = useMemo(() => buildManualReviewRoundProgress(queueItems), [queueItems]);
+  const task = useMemo(
+    () => buildManualReviewTask(queueItems, reviewDetail, taskId, roundProgressByScope),
+    [queueItems, reviewDetail, taskId, roundProgressByScope],
+  );
+  const visibleItems = useMemo(() => sortReviewQueueItems(queueItems), [queueItems]);
   const schemaFieldLabels = useMemo(
     () => buildSchemaFieldLabelMap(reviewDetail?.task.schema ?? null),
     [reviewDetail?.task.schema],
   );
   const selectedQueueItem = useMemo(
     () =>
-      tabItems.find((item) => item.submissionId === selectedSubmissionId) ??
       queueItems.find((item) => item.submissionId === selectedSubmissionId) ??
-      tabItems[0] ??
+      visibleItems[0] ??
       queueItems[0] ??
       null,
-    [queueItems, selectedSubmissionId, tabItems],
+    [queueItems, selectedSubmissionId, visibleItems],
   );
   const selectedItem = useMemo(
     () =>
@@ -189,6 +248,10 @@ export const ReviewTaskDetailContent = ({
   );
   const selectedItemDetail =
     selectedItem && reviewDetail?.submission.id === selectedItem.submissionId ? reviewDetail : null;
+  const selectedFieldComments = selectedItem ? fieldCommentsBySubmissionId[selectedItem.submissionId] ?? {} : {};
+  const selectedFieldComment = selectedCommentFieldKey ? selectedFieldComments[selectedCommentFieldKey] ?? null : null;
+  const deadlineCountdown = buildDeadlineCountdown(selectedItem?.deadline ?? task?.deadline ?? null, currentTimeMs);
+  const isCurrentItemReviewable = selectedQueueItem ? isReviewableQueueItem(selectedQueueItem) : false;
 
   useEffect(() => {
     if (!selectedItem) {
@@ -196,6 +259,8 @@ export const ReviewTaskDetailContent = ({
     }
 
     setReviewComment('');
+    setSelectedCommentFieldKey(null);
+    setSidePanelTab('timeline');
   }, [selectedItem?.submissionId]);
 
   if (!isLoading && !task) {
@@ -211,12 +276,6 @@ export const ReviewTaskDetailContent = ({
       </section>
     );
   }
-
-  const handleTabClick = (nextTab: ManualReviewTab) => {
-    const nextItems = getTabItems(queueItems, nextTab);
-    setActiveTab(nextTab);
-    setSelectedSubmissionId(nextItems[0]?.submissionId ?? null);
-  };
 
   const toggleSelection = (subId: string) => {
     setSelectedIds((current) => {
@@ -244,8 +303,60 @@ export const ReviewTaskDetailContent = ({
     });
   };
 
-  const handleReviewAction = async (action: 'pass' | 'reject' | 'revise') => {
+  const handleSelectSubmitField = (field: ReviewSubmitField) => {
     if (!selectedItem) {
+      return;
+    }
+
+    setFieldCommentsBySubmissionId((current) => {
+      const submissionComments = current[selectedItem.submissionId] ?? {};
+      const existingComment = submissionComments[field.fieldKey];
+
+      return {
+        ...current,
+        [selectedItem.submissionId]: {
+          ...submissionComments,
+          [field.fieldKey]: existingComment ?? {
+            fieldKey: field.fieldKey,
+            label: field.label,
+            comment: '',
+            value: field.value,
+          },
+        },
+      };
+    });
+    setSelectedCommentFieldKey(field.fieldKey);
+    setSidePanelTab('comments');
+  };
+
+  const handleFieldCommentChange = (fieldKey: string, comment: string) => {
+    if (!selectedItem) {
+      return;
+    }
+
+    setFieldCommentsBySubmissionId((current) => {
+      const submissionComments = current[selectedItem.submissionId] ?? {};
+      const existingComment = submissionComments[fieldKey];
+      if (!existingComment) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [selectedItem.submissionId]: {
+          ...submissionComments,
+          [fieldKey]: {
+            ...existingComment,
+            comment,
+          },
+        },
+      };
+    });
+  };
+
+  const handleReviewAction = async (action: ManualReviewResult) => {
+    if (!selectedItem || !selectedQueueItem || !isReviewableQueueItem(selectedQueueItem)) {
+      showErrorToast('当前题目不在复核可操作状态。');
       return;
     }
 
@@ -254,28 +365,22 @@ export const ReviewTaskDetailContent = ({
         await passReview(selectedItem.submissionId, { actorId: REVIEWER_ID, comment: reviewComment });
         showStatusToast(`${selectedItem.subId} 已通过入库`);
       } else if (action === 'reject') {
+        const fieldReviews = fieldReviewsFromComments(selectedFieldComments);
+        const rejectReason = reviewComment.trim() || fieldReviews[0]?.comment || '请根据审核意见修改';
         await rejectReview(selectedItem.submissionId, {
           actorId: REVIEWER_ID,
-          reason: reviewComment || '请根据审核意见修改',
+          reason: rejectReason,
+          ...(fieldReviews.length > 0 ? { fieldReviews } : {}),
         });
         showStatusToast(`${selectedItem.subId} 已打回`);
-      } else {
-        await reviseAndPassReview(selectedItem.submissionId, {
-          actorId: REVIEWER_ID,
-          comment: reviewComment,
-          revisedAnswers: selectedItem.currentRoundSubmit,
-        });
-        showStatusToast(`${selectedItem.subId} 已直接修订`);
       }
 
-      setQueueItems((current) => current.filter((item) => item.submissionId !== selectedItem.submissionId));
-      setSelectedSubmissionId((current) => {
-        if (current !== selectedItem.submissionId) {
-          return current;
-        }
-
-        const remainingItems = queueItems.filter((item) => item.submissionId !== selectedItem.submissionId);
-        return getTabItems(remainingItems, activeTab)[0]?.submissionId ?? remainingItems[0]?.submissionId ?? null;
+      const latestItems = await listPendingReviews();
+      applyCurrentTaskQueueItems(latestItems, selectedItem.submissionId);
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        next.delete(selectedItem.submissionId);
+        return next;
       });
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : '审核操作失败');
@@ -283,16 +388,14 @@ export const ReviewTaskDetailContent = ({
   };
 
   const handleBatchAction = async (action: 'pass' | 'reject') => {
-    const selectedItems = tabItems.filter((item) => selectedIds.has(item.externalId));
+    const selectedItems = visibleItems.filter((item) => selectedIds.has(item.submissionId) && isReviewableQueueItem(item));
 
     if (selectedItems.length === 0) {
-      showErrorToast('请先选择题目');
+      showErrorToast('请先选择可复核题目');
       return;
     }
 
     const selectedSubmissionIds = selectedItems.map((item) => item.submissionId);
-    const selectedExternalIds = new Set(selectedItems.map((item) => item.externalId));
-    const selectedSubmissionIdSet = new Set(selectedSubmissionIds);
 
     try {
       const result =
@@ -308,20 +411,14 @@ export const ReviewTaskDetailContent = ({
               submissionIds: selectedSubmissionIds,
             });
       const processedCount = result.processedCount || selectedItems.length;
-      const nextQueueItems = queueItems.filter((item) => !selectedSubmissionIdSet.has(item.submissionId));
-
-      setQueueItems(nextQueueItems);
+      const latestItems = await listPendingReviews();
+      applyCurrentTaskQueueItems(latestItems, selectedItem?.submissionId ?? null);
       setSelectedIds((current) => {
         const next = new Set(current);
-        selectedExternalIds.forEach((externalId) => next.delete(externalId));
-        return next;
-      });
-      setSelectedSubmissionId((current) => {
-        if (current && !selectedSubmissionIdSet.has(current)) {
-          return current;
+        for (const submissionId of selectedSubmissionIds) {
+          next.delete(submissionId);
         }
-
-        return getTabItems(nextQueueItems, activeTab)[0]?.submissionId ?? nextQueueItems[0]?.submissionId ?? null;
+        return next;
       });
       showStatusToast(action === 'pass' ? `已批量通过 ${processedCount} 条` : `已批量打回 ${processedCount} 条`);
     } catch (error) {
@@ -336,9 +433,6 @@ export const ReviewTaskDetailContent = ({
         <div>
           <span>审核与质检 / 人工审核 / {task?.taskName ?? '加载中'}</span>
           <h1 id="manual-review-detail-title">{task?.taskName ?? '人工审核'}</h1>
-          <p className="task-management-table-description">
-            展示当前人工复审任务的题目内容、标注答案、AI 预审结果和审核决策，支持逐题通过、修订或打回
-          </p>
         </div>
         <div className="manual-review-detail-toolbar__actions" aria-label="人工审核视角操作">
           {onClose ? (
@@ -353,15 +447,14 @@ export const ReviewTaskDetailContent = ({
 
       <div className="manual-review-detail-shell">
         <QuestionQueue
-          activeTab={activeTab}
-          items={tabItems}
-          queueItems={queueItems}
+          items={visibleItems}
+          roundProgressByScope={roundProgressByScope}
+          isItemReviewable={isReviewableQueueItem}
           selectedIds={selectedIds}
-          selectedSubId={selectedItem?.subId ?? null}
+          selectedSubId={selectedItem?.submissionId ?? null}
           task={task}
           onBatchAction={handleBatchAction}
           onSelectItem={setSelectedSubmissionId}
-          onTabClick={handleTabClick}
           onToggleAllSelection={toggleVisibleSelection}
           onToggleSelection={toggleSelection}
         />
@@ -379,7 +472,9 @@ export const ReviewTaskDetailContent = ({
                   />
                   <SubmitSnapshotCard
                     highlight
+                    fieldComments={selectedFieldComments}
                     fieldLabels={schemaFieldLabels}
+                    onSelectField={handleSelectSubmitField}
                     snapshot={selectedItem.currentRoundSubmit}
                     title="本轮提交"
                   />
@@ -395,15 +490,21 @@ export const ReviewTaskDetailContent = ({
                 </label>
               </div>
               <section className="manual-review-actions" aria-label="审核操作">
-                <button className="is-reject" type="button" onClick={() => void handleReviewAction('reject')}>
+                <button
+                  className="is-reject"
+                  type="button"
+                  disabled={!isCurrentItemReviewable}
+                  onClick={() => void handleReviewAction('reject')}
+                >
                   <strong>打回</strong>
                   <span>退回标注员修改 · 第 {selectedItem.round + 1} 轮</span>
                 </button>
-                <button className="is-revise" type="button" onClick={() => void handleReviewAction('revise')}>
-                  <strong>直接修订</strong>
-                  <span>审核员就地改写并入库</span>
-                </button>
-                <button className="is-pass" type="button" onClick={() => void handleReviewAction('pass')}>
+                <button
+                  className="is-pass"
+                  type="button"
+                  disabled={!isCurrentItemReviewable}
+                  onClick={() => void handleReviewAction('pass')}
+                >
                   <strong>通过 · 入库</strong>
                   <span>本条进入终审 / 可导出</span>
                 </button>
@@ -412,78 +513,70 @@ export const ReviewTaskDetailContent = ({
           ) : (
             <div className="manual-review-detail-content">
               <div className="manual-review-empty-card">
-                <h2>{isLoading ? '正在加载题目' : '当前分组暂无题目'}</h2>
-                <p>请切换左侧 AI 结论分组。</p>
+                <h2>{isLoading ? '正在加载题目' : '当前暂无题目'}</h2>
+                <p>请从左侧选择题目继续操作。</p>
               </div>
             </div>
           )}
         </main>
 
-        <ReviewSidePanel item={selectedItem} task={task} />
+        <ReviewSidePanel
+          activeTab={sidePanelTab}
+          deadlineCountdown={deadlineCountdown}
+          item={selectedItem}
+          selectedField={selectedFieldComment}
+          task={task}
+          onFieldCommentChange={handleFieldCommentChange}
+          onTabChange={setSidePanelTab}
+        />
       </div>
     </section>
   );
 };
 
 const QuestionQueue = ({
-  activeTab,
   items,
+  roundProgressByScope,
+  isItemReviewable,
   onBatchAction,
   onSelectItem,
-  onTabClick,
   onToggleAllSelection,
   onToggleSelection,
-  queueItems,
   selectedIds,
   selectedSubId,
   task,
 }: {
-  activeTab: ManualReviewTab;
   items: ReviewQueueItemDto[];
   onBatchAction: (action: 'pass' | 'reject') => void;
+  isItemReviewable: (item: ReviewQueueItemDto) => boolean;
   onSelectItem: (submissionId: string) => void;
-  onTabClick: (tab: ManualReviewTab) => void;
   onToggleAllSelection: (subIds: string[], shouldSelect: boolean) => void;
   onToggleSelection: (subId: string) => void;
-  queueItems: ReviewQueueItemDto[];
   selectedIds: Set<string>;
   selectedSubId: string | null;
+  roundProgressByScope: ReadonlyMap<string, ManualReviewRoundProgress>;
   task: ManualReviewTask | null;
 }) => {
-  const visibleSubIds = items.map((item) => item.externalId);
-  const visibleSelectedCount = visibleSubIds.filter((subId) => selectedIds.has(subId)).length;
-  const isAllVisibleSelected = visibleSubIds.length > 0 && visibleSelectedCount === visibleSubIds.length;
-  const isPartiallyVisibleSelected = visibleSelectedCount > 0 && visibleSelectedCount < visibleSubIds.length;
+  const reviewableSubIds = items.filter((item) => isItemReviewable(item)).map((item) => item.submissionId);
+  const reviewableSelectedCount = reviewableSubIds.filter((subId) => selectedIds.has(subId)).length;
+  const isAllVisibleSelected = reviewableSubIds.length > 0 && reviewableSelectedCount === reviewableSubIds.length;
+  const isPartiallyVisibleSelected =
+    reviewableSelectedCount > 0 && reviewableSelectedCount < reviewableSubIds.length;
 
   return (
     <aside className="manual-review-queue-panel" aria-label="当前任务题目列表">
-      <div className="manual-review-tabs" role="tablist" aria-label="AI 结论分组">
-        {MANUAL_REVIEW_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.value}
-            onClick={() => onTabClick(tab.value)}
-          >
-            <span>{tab.label}</span>
-            <strong>{countByTab(queueItems, tab.value).toLocaleString()}</strong>
-          </button>
-        ))}
-      </div>
-
       <div className="manual-review-batch-toolbar" aria-label="批量操作区">
         <BatchSelectionControl
           isAllSelected={isAllVisibleSelected}
           isPartiallySelected={isPartiallyVisibleSelected}
-          selectedCount={visibleSelectedCount}
-          totalCount={visibleSubIds.length}
-          onToggle={(shouldSelect) => onToggleAllSelection(visibleSubIds, shouldSelect)}
+          selectedCount={reviewableSelectedCount}
+          totalCount={reviewableSubIds.length}
+          onToggle={(shouldSelect) => onToggleAllSelection(reviewableSubIds, shouldSelect)}
         />
-        <button type="button" disabled={visibleSelectedCount === 0} onClick={() => onBatchAction('pass')}>
+        <button type="button" disabled={reviewableSelectedCount === 0} onClick={() => onBatchAction('pass')}>
           批量通过
         </button>
-        <button type="button" disabled={visibleSelectedCount === 0} onClick={() => onBatchAction('reject')}>
+        <button type="button" disabled={reviewableSelectedCount === 0} onClick={() => onBatchAction('reject')}>
           批量打回
         </button>
       </div>
@@ -492,27 +585,27 @@ const QuestionQueue = ({
         {items.length > 0 ? (
           items.map((item) => {
             const viewItem = buildManualReviewItem(item, null);
+            const decisionDisplay = resolveManualReviewDecisionLabelByRound(item, roundProgressByScope);
 
             return (
-              <article key={item.submissionId} className={selectedSubId === viewItem.subId ? 'is-active' : undefined}>
+              <article key={item.submissionId} className={selectedSubId === item.submissionId ? 'is-active' : undefined}>
                 <input
                   type="checkbox"
                   aria-label={`选择 ${viewItem.subId}`}
-                  checked={selectedIds.has(viewItem.subId)}
-                  onChange={() => onToggleSelection(viewItem.subId)}
+                  checked={isItemReviewable(item) && selectedIds.has(item.submissionId)}
+                  disabled={!isItemReviewable(item)}
+                  onChange={() => onToggleSelection(item.submissionId)}
                 />
                 <button
                   type="button"
-                  aria-label={`${viewItem.subId} ${viewItem.submittedAt} ${suggestionLabel(viewItem.aiSuggestion)} 第 ${viewItem.round} 轮`}
+                  aria-label={viewItem.subId}
                   onClick={() => onSelectItem(item.submissionId)}
                 >
                   <span className="manual-review-question-list__summary">
                     <strong>{viewItem.subId}</strong>
-                    <time>{viewItem.submittedAt}</time>
-                  </span>
-                  <span className="manual-review-question-list__badges">
-                    <SuggestionBadge suggestion={viewItem.aiSuggestion} />
-                    <em>第 {viewItem.round} 轮</em>
+                    {decisionDisplay ? (
+                      <span className={`manual-review-question-status is-${decisionDisplay.type}`}>{decisionDisplay.text}</span>
+                    ) : null}
                   </span>
                 </button>
               </article>
@@ -520,7 +613,7 @@ const QuestionQueue = ({
           })
         ) : (
           <div className="manual-review-empty-card">
-            <p>{task ? '当前分组暂无题目。' : '正在加载题目。'}</p>
+            <p>{task ? '当前暂无题目。' : '正在加载题目。'}</p>
           </div>
         )}
       </div>
@@ -554,7 +647,7 @@ const BatchSelectionControl = ({
       <input
         ref={checkboxRef}
         type="checkbox"
-        aria-label="全选当前分组题目"
+        aria-label="全选题目"
         checked={isAllSelected}
         disabled={totalCount === 0}
         onChange={(event) => onToggle(event.currentTarget.checked)}
@@ -612,13 +705,17 @@ const QuestionInfoCard = ({
 };
 
 const SubmitSnapshotCard = ({
+  fieldComments,
   fieldLabels,
   highlight = false,
+  onSelectField,
   snapshot,
   title,
 }: {
+  fieldComments?: Record<string, FieldReviewComment>;
   fieldLabels?: ReadonlyMap<string, string>;
   highlight?: boolean;
+  onSelectField?: (field: ReviewSubmitField) => void;
   snapshot: ReviewSubmitSnapshot;
   title: string;
 }) => (
@@ -627,9 +724,27 @@ const SubmitSnapshotCard = ({
     <dl>
       {Object.entries(snapshot).map(([key, value]) => {
         const label = fieldLabels?.get(key) ?? key;
+        const hasComment = Boolean(fieldComments?.[key]?.comment.trim());
+        const handleFieldSelect = () => onSelectField?.({ fieldKey: key, label, value });
+        const handleFieldKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+          if (!onSelectField || (event.key !== 'Enter' && event.key !== ' ')) {
+            return;
+          }
+
+          event.preventDefault();
+          handleFieldSelect();
+        };
 
         return (
-          <div key={key}>
+          <div
+            key={key}
+            aria-label={onSelectField ? `评论字段 ${label}` : undefined}
+            className={hasComment ? 'has-review-comment' : undefined}
+            role={onSelectField ? 'button' : undefined}
+            tabIndex={onSelectField ? 0 : undefined}
+            onClick={onSelectField ? handleFieldSelect : undefined}
+            onKeyDown={onSelectField ? handleFieldKeyDown : undefined}
+          >
             <dt>
               <span>{label}</span>
               {label !== key ? <small>{key}</small> : null}
@@ -649,15 +764,15 @@ const AiReviewResult = ({ item }: { item: ManualReviewItem }) => (
         <span>AI 预审 · 本轮重跑结果</span>
         <h3>labeler 达标结果</h3>
       </div>
-      <strong>{formatScore(item.dimensionScores.overall)}</strong>
+      <strong>{formatScore(item.overallScore)}</strong>
     </header>
-    <div className="manual-review-score-grid">
-      <ScoreMetric label="综合分" value={item.dimensionScores.overall} />
-      <ScoreMetric label="相关性" value={item.dimensionScores.relevance} />
-      <ScoreMetric label="准确性" value={item.dimensionScores.accuracy} />
-      <ScoreMetric label="格式合规" value={item.dimensionScores.format} />
-      <ScoreMetric label="安全" value={item.dimensionScores.safety} />
-    </div>
+    {item.scoreMetrics.length > 0 ? (
+      <div className="manual-review-score-grid">
+        {item.scoreMetrics.map((metric) => (
+          <ScoreMetric key={metric.key} label={metric.label} value={metric.value} />
+        ))}
+      </div>
+    ) : null}
     <p>{item.aiReviewConclusion}</p>
   </section>
 );
@@ -669,8 +784,24 @@ const ScoreMetric = ({ label, value }: { label: string; value: number | null }) 
   </div>
 );
 
-const ReviewSidePanel = ({ item, task }: { item: ManualReviewItem | null; task: ManualReviewTask | null }) => (
-  <aside className="manual-review-side-panel">
+const ReviewSidePanel = ({
+  activeTab,
+  deadlineCountdown,
+  item,
+  onFieldCommentChange,
+  onTabChange,
+  selectedField,
+  task,
+}: {
+  activeTab: ManualReviewSideTab;
+  deadlineCountdown: DeadlineCountdownState;
+  item: ManualReviewItem | null;
+  selectedField: FieldReviewComment | null;
+  task: ManualReviewTask | null;
+  onFieldCommentChange: (fieldKey: string, comment: string) => void;
+  onTabChange: (tab: ManualReviewSideTab) => void;
+}) => (
+  <aside className="manual-review-side-panel" aria-label="人工审核侧栏">
     <section className="manual-review-stats" aria-label="审核统计">
       <div>
         <span>今日已审</span>
@@ -684,14 +815,85 @@ const ReviewSidePanel = ({ item, task }: { item: ManualReviewItem | null; task: 
         <span>待我审核</span>
         <strong className="is-orange">{(task?.pendingCount ?? 0).toLocaleString()}</strong>
       </div>
-      <div>
-        <span>剩余处理时限</span>
-        <strong>--</strong>
-      </div>
+      <DeadlineCountdownCard countdown={deadlineCountdown} />
     </section>
 
-    {item ? <TimelinePanel item={item} /> : null}
+    <div className="manual-review-side-tabs" role="tablist" aria-label="人工审核侧栏视图">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'timeline'}
+        onClick={() => onTabChange('timeline')}
+      >
+        时间线
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'comments'}
+        onClick={() => onTabChange('comments')}
+      >
+        评论
+      </button>
+    </div>
+
+    {activeTab === 'comments' ? (
+      <FieldCommentPanel field={selectedField} onCommentChange={onFieldCommentChange} />
+    ) : item ? (
+      <TimelinePanel item={item} />
+    ) : null}
   </aside>
+);
+
+const DeadlineCountdownCard = ({ countdown }: { countdown: DeadlineCountdownState }) => (
+  <div className={`manual-review-deadline-card is-${countdown.status}`} aria-label="剩余处理时限">
+    <span>剩余处理时限</span>
+    {countdown.status === 'expired' || countdown.status === 'unset' ? (
+      <strong className="manual-review-deadline-card__message">{countdown.label}</strong>
+    ) : (
+      <div className="manual-review-countdown" aria-label={countdown.label}>
+        {countdown.units.map((unit) => (
+          <span className="manual-review-countdown__unit" key={unit.key}>
+            <strong className="manual-review-countdown__number" key={`${unit.key}-${unit.value}`}>
+              {unit.value}
+            </strong>
+            <small>{unit.label}</small>
+          </span>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
+const FieldCommentPanel = ({
+  field,
+  onCommentChange,
+}: {
+  field: FieldReviewComment | null;
+  onCommentChange: (fieldKey: string, comment: string) => void;
+}) => (
+  <section className="manual-review-field-comment-panel" aria-label="字段评论">
+    {field ? (
+      <>
+        <div className="manual-review-field-comment-panel__quote">
+          <span>引用字段</span>
+          <strong>{field.label}</strong>
+          <p>{formatSnapshotValue(field.value)}</p>
+        </div>
+        <label>
+          <span>评论</span>
+          <textarea
+            aria-label={`字段评论：${field.label}`}
+            placeholder="写下这一个字段需要修改的原因"
+            value={field.comment}
+            onChange={(event) => onCommentChange(field.fieldKey, event.target.value)}
+          />
+        </label>
+      </>
+    ) : (
+      <p className="manual-review-field-comment-panel__empty">点击本轮提交里的字段，给具体字段写打回意见。</p>
+    )}
+  </section>
 );
 
 const TimelinePanel = ({ item }: { item: ManualReviewItem }) => (
@@ -718,15 +920,13 @@ const TimelineEntry = ({ entry }: { entry: ReviewTimelineItem }) => (
   </li>
 );
 
-const SuggestionBadge = ({ suggestion }: { suggestion: ManualReviewSuggestion }) => (
-  <span className={`manual-review-suggestion is-${suggestion}`}>{suggestionLabel(suggestion)}</span>
-);
-
 function buildManualReviewTask(
   queueItems: ReviewQueueItemDto[],
   detail: ReviewDetailDto | null,
   taskId: string | undefined,
+  roundProgressByScope: ReadonlyMap<string, ManualReviewRoundProgress>,
 ): ManualReviewTask | null {
+  const taskRoundProgress = getCurrentRoundProgress(queueItems, taskId, roundProgressByScope);
   const firstItem = queueItems[0];
 
   if (!firstItem && !detail && !taskId) {
@@ -736,11 +936,12 @@ function buildManualReviewTask(
   return {
     taskId: firstItem?.taskId ?? detail?.task.id ?? taskId ?? '',
     taskName: detail?.task.title ?? firstItem?.taskTitle ?? '人工审核任务',
-    pendingCount: queueItems.length,
+    deadline: firstItem?.deadline ?? null,
+    pendingCount: taskRoundProgress.pendingCount,
     aiPassCount: countByTab(queueItems, 'pass'),
     aiRejectCount: countByTab(queueItems, 'reject'),
     manualCount: countByTab(queueItems, 'manual'),
-    status: '复审中',
+    status: resolveManualReviewTaskStatus(taskRoundProgress),
   };
 }
 
@@ -750,26 +951,23 @@ function buildManualReviewItem(queueItem: ReviewQueueItemDto, detail: ReviewDeta
   const rawData = detail?.taskItem.rawData ?? {};
   const aiSuggestion = normalizeSuggestion(queueItem.aiDecision ?? detail?.aiReview?.decision ?? null);
   const subId = detail?.taskItem.externalId ?? queueItem.externalId;
+  const overallScore = scoreValue(scores.overall ?? scores.ai_overall ?? scores.score);
 
   return {
     aiReviewConclusion: detail?.aiReview?.comment ?? queueItem.aiComment ?? '暂无 AI 预审结论。',
-    aiScore: scoreValue(scores.overall ?? scores.ai_overall ?? scores.score),
+    aiScore: overallScore,
     aiSuggestion,
     assignmentId: queueItem.assignmentId,
     currentRoundSubmit: Object.keys(answers).length > 0 ? answers : { externalId: subId },
-    dimensionScores: {
-      accuracy: scoreValue(scores.accuracy),
-      format: scoreValue(scores.format ?? scores.formatCompliance),
-      overall: scoreValue(scores.overall ?? scores.ai_overall ?? scores.score),
-      relevance: scoreValue(scores.relevance),
-      safety: scoreValue(scores.safety),
-    },
+    deadline: queueItem.deadline,
     issueTags: issueTagsFromScores(scores, aiSuggestion),
     labelerName: formatUserName(detail?.assignment.assigneeId),
+    overallScore,
     questionInfo: questionInfoFromData(rawData, answers, queueItem),
     questionId: subId,
     reviewComment: detail?.humanReview?.comment ?? detail?.aiReview?.comment ?? queueItem.aiComment ?? '',
     round: detail?.submission.round ?? queueItem.round,
+    scoreMetrics: buildScoreMetrics(scores),
     status: detail?.submission.status ?? queueItem.status,
     subId,
     submissionId: queueItem.submissionId,
@@ -841,23 +1039,8 @@ function timelineItemFromDto(entry: ReviewTimelineItemDto): ReviewTimelineItem {
   };
 }
 
-function getInitialTab(queueItems: ReviewQueueItemDto[]): ManualReviewTab {
-  if (countByTab(queueItems, 'reject') > 0) {
-    return 'reject';
-  }
-  if (countByTab(queueItems, 'pass') > 0) {
-    return 'pass';
-  }
-
-  return 'manual';
-}
-
-function getTabItems(queueItems: ReviewQueueItemDto[], tab: ManualReviewTab): ReviewQueueItemDto[] {
-  return sortReviewQueueItems(queueItems.filter((item) => normalizeSuggestion(item.aiDecision) === tab));
-}
-
-function countByTab(queueItems: ReviewQueueItemDto[], tab: ManualReviewTab): number {
-  return getTabItems(queueItems, tab).length;
+function countByTab(queueItems: ReviewQueueItemDto[], tab: ManualReviewSuggestion): number {
+  return queueItems.filter((item) => normalizeSuggestion(item.aiDecision) === tab).length;
 }
 
 function normalizeSuggestion(decision: string | null | undefined): ManualReviewSuggestion {
@@ -871,21 +1054,149 @@ function normalizeSuggestion(decision: string | null | undefined): ManualReviewS
   return 'manual';
 }
 
-function suggestionLabel(suggestion: ManualReviewSuggestion): string {
-  if (suggestion === 'pass') {
-    return '建议通过';
-  }
-  if (suggestion === 'reject') {
-    return '建议打回';
+function isReviewableQueueItem(item: ReviewQueueItemDto): boolean {
+  return REVIEW_ITEM_REVIEWABLE_STATUSES.has(item.status) && !item.humanDecision;
+}
+
+function resolveManualReviewDecisionLabel(
+  humanDecision: string | null,
+): { text: string; type: 'pass' | 'reject' } | null {
+  if (humanDecision === 'recheck_pass' || humanDecision === 'revise_pass') {
+    return { text: '通过', type: 'pass' };
   }
 
-  return '需人工';
+  if (humanDecision === 'reject') {
+    return { text: '打回', type: 'reject' };
+  }
+
+  return null;
 }
 
 const reviewQueueItemSorter = new Intl.Collator('zh-Hans-CN', {
   numeric: true,
   sensitivity: 'base',
 });
+
+function buildManualReviewRoundProgress(queueItems: ReviewQueueItemDto[]): ReadonlyMap<string, ManualReviewRoundProgress> {
+  const byScope = new Map<string, ManualReviewRoundProgress>();
+
+  for (const item of queueItems) {
+    const scope = reviewQueueItemScope(item.taskId, item.round);
+    if (item.totalInRound > 0) {
+      byScope.set(scope, {
+        totalInRound: item.totalInRound,
+        decidedCount: item.decidedCount,
+        needsRevisionCount: item.needsRevisionCount,
+        pendingCount: item.pendingCount,
+      });
+      continue;
+    }
+
+    const current = byScope.get(scope) ?? {
+      totalInRound: 0,
+      decidedCount: 0,
+      needsRevisionCount: 0,
+      pendingCount: 0,
+    };
+    const isDecisionMade = isReviewDecisionMade(item);
+
+    byScope.set(scope, {
+      totalInRound: current.totalInRound + 1,
+      decidedCount: current.decidedCount + (isDecisionMade ? 1 : 0),
+      needsRevisionCount: current.needsRevisionCount + (isReviewRejectedItem(item) ? 1 : 0),
+      pendingCount: current.pendingCount + (isDecisionMade ? 0 : 1),
+    });
+  }
+
+  return byScope;
+}
+
+function getCurrentRoundProgress(
+  queueItems: ReviewQueueItemDto[],
+  taskId: string | undefined,
+  roundProgressByScope: ReadonlyMap<string, ManualReviewRoundProgress>,
+): ManualReviewRoundProgress {
+  let latestRound = -1;
+  let result: ManualReviewRoundProgress = {
+    totalInRound: 0,
+    decidedCount: 0,
+    needsRevisionCount: 0,
+    pendingCount: 0,
+  };
+
+  for (const item of queueItems) {
+    if (!taskId || item.taskId !== taskId) {
+      continue;
+    }
+
+    if (item.round < latestRound) {
+      continue;
+    }
+
+    if (item.round > latestRound) {
+      latestRound = item.round;
+      result = roundProgressByScope.get(reviewQueueItemScope(item.taskId, item.round)) ?? result;
+    }
+  }
+
+  return result;
+}
+
+function resolveManualReviewTaskStatus(progress: ManualReviewRoundProgress): ManualReviewTaskStatus {
+  if (progress.pendingCount > 0) {
+    return '复审中';
+  }
+
+  if (progress.needsRevisionCount > 0) {
+    return '待复审';
+  }
+
+  return '已完成';
+}
+
+function resolveManualReviewDecisionLabelByRound(
+  queueItem: ReviewQueueItemDto,
+  roundProgressByScope: ReadonlyMap<string, ManualReviewRoundProgress>,
+): { text: string; type: 'pass' | 'reject' } | null {
+  const scopeProgress = roundProgressByScope.get(reviewQueueItemScope(queueItem.taskId, queueItem.round));
+  if (!scopeProgress) {
+    return null;
+  }
+
+  if (scopeProgress.pendingCount > 0) {
+    if (queueItem.humanDecision === 'reject') {
+      return { text: '已标记待改', type: 'reject' };
+    }
+
+    if (queueItem.humanDecision && REVIEW_DECISIONS.has(queueItem.humanDecision)) {
+      return null;
+    }
+
+    return { text: queueItem.round > 1 ? '待复审' : '待决策', type: 'reject' };
+  }
+
+  if (queueItem.humanDecision === 'reject' || queueItem.status === 'NEEDS_REVISION') {
+    return { text: '待复审', type: 'reject' };
+  }
+
+  if (queueItem.humanDecision || queueItem.status === 'FINAL_APPROVED') {
+    return { text: '已通过', type: 'pass' };
+  }
+
+  return null;
+}
+
+function isReviewDecisionMade(item: ReviewQueueItemDto): boolean {
+  return REVIEW_DECISIONS.has(item.humanDecision ?? '') || item.status === 'FINAL_APPROVED' || item.status === 'NEEDS_REVISION';
+}
+
+function isReviewRejectedItem(item: ReviewQueueItemDto): boolean {
+  return item.humanDecision === 'reject' || item.status === 'NEEDS_REVISION';
+}
+
+function reviewQueueItemScope(taskId: string, round: number): string {
+  return `${taskId}::${round}`;
+}
 
 function sortReviewQueueItems(items: ReviewQueueItemDto[]): ReviewQueueItemDto[] {
   return [...items].sort((first, second) => {
@@ -1019,6 +1330,47 @@ function issueTagsFromScores(scores: Record<string, unknown>, suggestion: Manual
   return suggestion === 'reject' ? ['需要修改'] : ['人工复核'];
 }
 
+const SCORE_STAT_KEYS = new Set(['fieldCount', 'passedFieldCount', 'rejectedFieldCount']);
+const OVERALL_SCORE_KEYS = new Set(['overall', 'ai_overall', 'score']);
+
+function buildScoreMetrics(scores: Record<string, unknown>): ScoreMetricItem[] {
+  const metrics: ScoreMetricItem[] = [];
+  const overallScore = scoreValue(scores.overall ?? scores.ai_overall ?? scores.score);
+  if (overallScore !== null) {
+    metrics.push({ key: 'overall', label: '综合分', value: overallScore });
+  }
+
+  for (const [key, rawValue] of Object.entries(scores)) {
+    if (OVERALL_SCORE_KEYS.has(key) || SCORE_STAT_KEYS.has(key)) {
+      continue;
+    }
+
+    const value = scoreValue(rawValue);
+    if (value === null) {
+      continue;
+    }
+
+    metrics.push({
+      key,
+      label: scoreLabel(key),
+      value,
+    });
+  }
+
+  return metrics;
+}
+
+function fieldReviewsFromComments(fieldComments: Record<string, FieldReviewComment>): ReviewFieldCommentInput[] {
+  return Object.values(fieldComments)
+    .map((fieldComment) => ({
+      fieldKey: fieldComment.fieldKey,
+      label: fieldComment.label,
+      comment: fieldComment.comment.trim(),
+      value: fieldComment.value,
+    }))
+    .filter((fieldComment) => fieldComment.comment.length > 0);
+}
+
 function scoreLabel(key: string): string {
   const labels: Record<string, string> = {
     accuracy: '准确性',
@@ -1059,6 +1411,51 @@ function formatSnapshotValue(value: unknown): string {
   }
 
   return String(value);
+}
+
+function buildDeadlineCountdown(value: string | null, nowMs: number): DeadlineCountdownState {
+  if (!value) {
+    return { label: '未设置', status: 'unset', units: [] };
+  }
+
+  const deadlineMs = new Date(value).getTime();
+  if (!Number.isFinite(deadlineMs)) {
+    return { label: '未设置', status: 'unset', units: [] };
+  }
+
+  const remainingMs = deadlineMs - nowMs;
+  if (remainingMs <= 0) {
+    return { label: '已超时', status: 'expired', units: [] };
+  }
+
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const days = Math.floor(totalSeconds / 86_400);
+  const hours = Math.floor((totalSeconds % 86_400) / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  const status =
+    remainingMs < 2 * 60 * 60 * 1000
+      ? 'danger'
+      : remainingMs < 24 * 60 * 60 * 1000
+        ? 'warning'
+        : 'normal';
+
+  const units: DeadlineCountdownUnit[] = [
+    { key: 'days', label: '天', value: formatCountdownUnit(days) },
+    { key: 'hours', label: '时', value: formatCountdownUnit(hours) },
+    { key: 'minutes', label: '分', value: formatCountdownUnit(minutes) },
+    { key: 'seconds', label: '秒', value: formatCountdownUnit(seconds) },
+  ];
+
+  return {
+    label: `剩余 ${units.map((unit) => `${unit.value}${unit.label}`).join(' ')}`,
+    status,
+    units,
+  };
+}
+
+function formatCountdownUnit(value: number): string {
+  return String(Math.max(0, value)).padStart(2, '0');
 }
 
 function isEmptySnapshotValue(value: unknown): boolean {

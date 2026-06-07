@@ -117,6 +117,7 @@ export class ReviewsController {
     return this.reviewsService.rejectReview(submissionId, {
       actorId: stringValue(body.actorId),
       reason: stringValue(body.reason) ?? '',
+      fieldReviews: fieldReviewValues(body.fieldReviews),
     });
   }
 
@@ -194,4 +195,36 @@ function recordValue(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function fieldReviewValues(value: unknown): Array<{ fieldKey: string; label?: string; comment: string; value?: unknown }> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.reduce<Array<{ fieldKey: string; label?: string; comment: string; value?: unknown }>>((items, item) => {
+    if (!isRecord(item)) {
+      return items;
+    }
+
+    const fieldKey = stringValue(item.fieldKey);
+    const comment = stringValue(item.comment);
+    if (!fieldKey || !comment) {
+      return items;
+    }
+
+    const label = stringValue(item.label);
+    items.push({
+      fieldKey,
+      ...(label ? { label } : {}),
+      comment,
+      ...(Object.prototype.hasOwnProperty.call(item, 'value') ? { value: item.value } : {}),
+    });
+
+    return items;
+  }, []);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

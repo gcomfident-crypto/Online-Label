@@ -12,7 +12,7 @@ import { sessionStore } from '../stores/sessionStore';
 const LOGIN_ROLE_OPTIONS: Array<{ label: string; role: UserRole }> = [
   { label: 'Owner 任务负责人', role: USER_ROLE.OWNER },
   { label: 'Labeler 标注员', role: USER_ROLE.LABELER },
-  { label: 'AI Agent 预审', role: USER_ROLE.AI_AGENT },
+  { label: 'AI Agent 质检', role: USER_ROLE.AI_AGENT },
   { label: 'Reviewer 审核员', role: USER_ROLE.REVIEWER },
 ];
 

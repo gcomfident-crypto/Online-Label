@@ -48,11 +48,11 @@ export const resolvePagePathTitle = (pathname: string): string => {
   }
 
   if (pathname === '/agent' || pathname === '/agent/dashboard') {
-    return 'AI 预审后台 / 数据看板';
+    return 'AI Agent 后台 / 数据看板';
   }
 
-  if (pathname === '/agent/ai-review') {
-    return 'AI 预审后台 / 机审队列';
+  if (pathname === '/agent/task-flows' || pathname === '/agent/ai-review') {
+    return 'AI Agent 后台 / 质检流转';
   }
 
   if (/^\/reviewer\/reviews\/[^/]+$/.test(pathname)) {

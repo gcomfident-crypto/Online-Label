@@ -84,18 +84,35 @@ export type AiReviewFieldDto = {
   requirement: string;
 };
 
+export type AiReviewBatchItemSubmissionDto = {
+  id: string;
+  assignmentId: string;
+  status: string;
+  round: number;
+  answers: Record<string, unknown>;
+  schemaVersion: string;
+  submittedAt: string;
+};
+
+export type AiReviewBatchItemVersionDto = {
+  versionId: string;
+  batchId: string;
+  round: number;
+  submittedAt: string;
+  isCurrent: boolean;
+  job: AiReviewJobDto;
+  submission: AiReviewBatchItemSubmissionDto;
+  reviewRecord: AiReviewRecordDto | null;
+  reviewFields: AiReviewFieldDto[];
+  decision: AiReviewBatchDecision;
+  overallScore: number | null;
+  logs: AiReviewLogDto[];
+};
+
 export type AiReviewBatchItemDto = {
   index: number;
   job: AiReviewJobDto;
-  submission: {
-    id: string;
-    assignmentId: string;
-    status: string;
-    round: number;
-    answers: Record<string, unknown>;
-    schemaVersion: string;
-    submittedAt: string;
-  };
+  submission: AiReviewBatchItemSubmissionDto;
   taskItem: {
     id: string;
     externalId: string;
@@ -107,6 +124,7 @@ export type AiReviewBatchItemDto = {
   decision: AiReviewBatchDecision;
   overallScore: number | null;
   logs: AiReviewLogDto[];
+  versions?: AiReviewBatchItemVersionDto[];
 };
 
 export type AiReviewBatchDetailDto = AiReviewBatchDto & {

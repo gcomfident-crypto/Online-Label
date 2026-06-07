@@ -56,7 +56,6 @@ export const WorkbenchPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeCanvasTab, setActiveCanvasTab] = useState<WorkbenchCanvasTab>('annotation');
-  const [submittedTaskIds, setSubmittedTaskIds] = useState<ReadonlySet<string>>(() => new Set());
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const [taskIdentity, setTaskIdentity] = useState<WorkbenchTaskIdentity | null>(null);
   const { dismissToast, messages, showErrorToast, showInfoToast, showStatusToast } = useToastController();
@@ -294,20 +293,19 @@ export const WorkbenchPage = () => {
     return () => window.clearTimeout(timer);
   }, [answers, saveDraftNow, workbench]);
 
-  const hasSubmittedCurrentTask = workbench ? submittedTaskIds.has(workbench.task.id) : false;
   const hasSubmittableCurrentTask = useMemo(
     () => (workbench ? hasSubmittableTaskAssignments(workbench, taskAssignments) : false),
     [taskAssignments, workbench],
   );
   const isCurrentQuestionEditable = workbench
-    ? !hasSubmittedCurrentTask && isEditableAssignmentStatus(workbench.assignment.status)
+    ? isEditableAssignmentStatus(workbench.assignment.status)
     : false;
   const isCurrentQuestionCompleted = workbench
     ? isCompletedAssignmentStatus(workbench.assignment.status)
     : false;
   const canReportCurrentIssue = workbench ? !isCurrentQuestionCompleted : false;
   const isTaskSubmitDisabled =
-    isSubmitting || hasSubmittedCurrentTask || !hasSubmittableCurrentTask;
+    isSubmitting || !hasSubmittableCurrentTask || !isCurrentQuestionEditable;
 
   const orderedTaskAssignments = useMemo(
     () => [...taskAssignments].sort(compareLabelerAssignments),
@@ -512,7 +510,7 @@ export const WorkbenchPage = () => {
       return;
     }
 
-    if (taskSubmitInFlightRef.current || hasSubmittedCurrentTask || !hasSubmittableCurrentTask) {
+    if (taskSubmitInFlightRef.current || !hasSubmittableCurrentTask) {
       showStatusToast('当前任务已提交，请等待审核结果。');
       return;
     }
@@ -587,7 +585,6 @@ export const WorkbenchPage = () => {
           : current,
       );
       showStatusToast(formatTaskSubmissionStatusMessage(taskSubmission));
-      setSubmittedTaskIds((current) => new Set(current).add(workbench.task.id));
       setDraftStatus(
         currentSubmission
           ? `提交前草稿已同步 ${formatTime(currentSubmission.submittedAt)}`
@@ -621,7 +618,6 @@ export const WorkbenchPage = () => {
   }, [
     answers,
     focusValidationIssue,
-    hasSubmittedCurrentTask,
     hasSubmittableCurrentTask,
     navigationAssignmentId,
     orderedTaskAssignments,
@@ -718,22 +714,31 @@ export const WorkbenchPage = () => {
     () => (workbench ? resolveLatestAiReviewReport(workbench.submissionHistory) : null),
     [workbench],
   );
-  const rejectedAnnotationFieldKeys = useMemo(
+  const reviewerRejectionSuggestion = useMemo(
+    () => (workbench ? resolveReviewerRejectionSuggestion(workbench) : null),
+    [workbench],
+  );
+  const rejectedAnnotationFieldDecorations = useMemo(
     () =>
       workbench
-        ? resolveRejectedAnnotationFieldKeys(workbench, answers, editedRejectedFieldKeys)
-        : new Set<string>(),
+        ? resolveRejectedAnnotationFieldDecorations(workbench, answers, editedRejectedFieldKeys)
+        : new Map<string, string | null>(),
     [answers, editedRejectedFieldKeys, workbench],
   );
   const getAnnotationFieldDecoration = useCallback(
     (field: SchemaField): FieldNodeDecoration | null => {
       const fieldKey = getSchemaFieldKey(field);
+      const suggestion = rejectedAnnotationFieldDecorations.get(fieldKey);
 
-      return rejectedAnnotationFieldKeys.has(fieldKey)
-        ? { state: 'rejected', label: '待修改' }
+      return rejectedAnnotationFieldDecorations.has(fieldKey)
+        ? {
+            state: 'rejected',
+            label: '待修改',
+            message: suggestion ? `修改建议：${suggestion}` : undefined,
+          }
         : null;
     },
-    [rejectedAnnotationFieldKeys],
+    [rejectedAnnotationFieldDecorations],
   );
   const handleRejectedFieldEdited = useCallback((fieldKey: string) => {
     setEditedRejectedFieldKeys((current) => {
@@ -895,7 +900,7 @@ export const WorkbenchPage = () => {
               <AiReviewWorkbenchTab report={aiReviewReport} workbench={workbench} onRelabel={openAnnotationForm} />
             ) : (
               <>
-                <RejectNotice notice={workbench.rejectionNotice} />
+                <RejectNotice notice={workbench.rejectionNotice} suggestion={reviewerRejectionSuggestion} />
                 <RawDataPanel workbench={workbench} />
                 <SchemaRenderer
                   schema={workbench.task.schema}
@@ -1106,7 +1111,7 @@ const LabelerWorkbenchInfoPanel = ({
   stats: LabelerStatsDto | null;
   workbench: WorkbenchDto;
 }) => {
-  const historyEntries = buildQuestionHistory(workbench);
+  const historyTimeline = buildQuestionHistoryTimeline(workbench);
   const rejectedCount = Math.max(stats?.rejectedCount ?? 0, stats?.needsRevisionCount ?? 0);
 
   return (
@@ -1135,18 +1140,30 @@ const LabelerWorkbenchInfoPanel = ({
 
       <section className="labeler-info-section">
         <h2>本题历史</h2>
+        {historyTimeline.currentStatus ? (
+          <div
+            className={`labeler-item-history-current ${historyTimeline.currentStatus.className}`}
+            aria-label="当前状态"
+          >
+            <span>当前</span>
+            <strong>{historyTimeline.currentStatus.label}</strong>
+          </div>
+        ) : null}
         <ol className="labeler-item-history" aria-label="本题历史列表">
-          {historyEntries.map((entry) => (
-            <li
-              className={entry.isCurrent ? 'labeler-item-history__row is-current' : 'labeler-item-history__row'}
-              key={entry.id}
-            >
-              <span>{entry.label}</span>
-              {entry.dateTime ? (
-                <time dateTime={entry.dateTime}>{entry.timeText}</time>
-              ) : (
-                <time>{entry.timeText}</time>
-              )}
+          {historyTimeline.rounds.map((round) => (
+            <li className="labeler-item-history__round" key={round.id}>
+              <div className="labeler-item-history__round-header">
+                <span>第 {round.round} 轮</span>
+                <small>{round.summary}</small>
+              </div>
+              <ol className="labeler-item-history__events" aria-label={`第 ${round.round} 轮历史`}>
+                {round.entries.map((entry) => (
+                  <li className={`labeler-item-history__row ${entry.className}`} key={entry.id}>
+                    <span>{entry.label}</span>
+                    <time dateTime={entry.dateTime}>{entry.timeText}</time>
+                  </li>
+                ))}
+              </ol>
             </li>
           ))}
         </ol>
@@ -1250,8 +1267,25 @@ type QuestionHistoryEntry = {
   id: string;
   label: string;
   timeText: string;
-  dateTime?: string;
-  isCurrent?: boolean;
+  dateTime: string;
+  className: string;
+};
+
+type QuestionHistoryRound = {
+  id: string;
+  round: number;
+  summary: string;
+  entries: QuestionHistoryEntry[];
+};
+
+type QuestionHistoryCurrentStatus = {
+  label: string;
+  className: string;
+};
+
+type QuestionHistoryTimeline = {
+  rounds: QuestionHistoryRound[];
+  currentStatus: QuestionHistoryCurrentStatus | null;
 };
 
 const AI_REVIEW_DECISION_LABELS: Record<string, string> = {
@@ -1276,52 +1310,145 @@ function formatTaskSubmissionStatusMessage(taskSubmission: TaskSubmissionDto): s
     : `提交任务成功，${submittedCount} 条标注已提交至人工复审。`;
 }
 
-function buildQuestionHistory(workbench: WorkbenchDto): QuestionHistoryEntry[] {
+function buildQuestionHistoryTimeline(workbench: WorkbenchDto): QuestionHistoryTimeline {
   const labelerActorName = formatLabelerActorName(workbench.assignment.assigneeId);
-  const entries = workbench.submissionHistory.flatMap((submission) => {
-    const submissionEntries: QuestionHistoryEntry[] = [
-      {
-        id: `${submission.id}:submit`,
-        label: `${labelerActorName} · 提交`,
-        timeText: formatHistoryTime(submission.submittedAt),
-        dateTime: submission.submittedAt,
-      },
-    ];
+  const rounds = [...workbench.submissionHistory]
+    .sort(compareSubmissionHistoryByRound)
+    .map<QuestionHistoryRound>((submission) => {
+      const reviewEntries = latestQuestionHistoryReviewRecords(submission.reviewRecords)
+        .sort((first, second) => first.createdAt.localeCompare(second.createdAt))
+        .map((record, index) => {
+          const isRecheck = isHumanRecheckRecord(record);
+          const actorName = isRecheck
+            ? formatRecheckActorName(record.assignedReviewerId)
+            : 'AI 预审';
 
-    const reviewEntries = [...submission.reviewRecords]
-      .sort((first, second) => first.createdAt.localeCompare(second.createdAt))
-      .map((record, index) => {
-        const isRecheck = isHumanRecheckRecord(record);
-        const actorName = isRecheck
-          ? formatRecheckActorName(record.assignedReviewerId)
-          : 'AI 预审';
+          return {
+            id: `${submission.id}:review:${index}`,
+            label: `${actorName} · ${formatReviewAction(record, isRecheck)}`,
+            timeText: formatHistoryTime(record.createdAt),
+            dateTime: record.createdAt,
+            className: isRecheck ? 'labeler-item-history__row--reviewer' : 'labeler-item-history__row--ai',
+          };
+        });
+      const entries = [
+        {
+          id: `${submission.id}:submit`,
+          label: `${labelerActorName} · 提交`,
+          timeText: formatHistoryTime(submission.submittedAt),
+          dateTime: submission.submittedAt,
+          className: 'labeler-item-history__row--submit',
+        },
+        ...reviewEntries,
+      ].sort((first, second) => first.dateTime.localeCompare(second.dateTime));
 
-        return {
-          id: `${submission.id}:review:${index}`,
-          label: `${actorName} · ${formatReviewAction(record, isRecheck)}`,
-          timeText: formatHistoryTime(record.createdAt),
-          dateTime: record.createdAt,
-        };
-      });
+      return {
+        id: `${submission.id}:round:${submission.round}`,
+        round: submission.round,
+        summary: formatQuestionHistoryRoundSummary(entries),
+        entries,
+      };
+    });
 
-    return [...submissionEntries, ...reviewEntries];
-  });
+  return {
+    rounds,
+    currentStatus: resolveQuestionHistoryCurrentStatus(workbench),
+  };
+}
 
-  entries.sort((first, second) => (first.dateTime ?? '').localeCompare(second.dateTime ?? ''));
-
-  if (isCompletedAssignmentStatus(workbench.assignment.status)) {
-    return entries;
+function compareSubmissionHistoryByRound(
+  first: WorkbenchDto['submissionHistory'][number],
+  second: WorkbenchDto['submissionHistory'][number],
+): number {
+  if (first.round !== second.round) {
+    return first.round - second.round;
   }
 
-  return [
-    ...entries,
-    {
-      id: 'current',
-      label: `${labelerActorName} · ${formatCurrentHistoryAction(workbench)}`,
-      timeText: '当前',
-      isCurrent: true,
-    },
-  ];
+  return first.submittedAt.localeCompare(second.submittedAt);
+}
+
+function latestQuestionHistoryReviewRecords(
+  reviewRecords: WorkbenchDto['submissionHistory'][number]['reviewRecords'],
+): WorkbenchDto['submissionHistory'][number]['reviewRecords'] {
+  const latestByDecision = new Map<
+    string,
+    WorkbenchDto['submissionHistory'][number]['reviewRecords'][number]
+  >();
+
+  for (const record of reviewRecords) {
+    const key = [
+      record.stage ?? 'UNKNOWN_STAGE',
+      record.reviewerType ?? 'UNKNOWN_REVIEWER',
+      record.decision ?? 'UNKNOWN_DECISION',
+    ].join(':');
+    const current = latestByDecision.get(key);
+
+    if (!current || current.createdAt.localeCompare(record.createdAt) < 0) {
+      latestByDecision.set(key, record);
+    }
+  }
+
+  return [...latestByDecision.values()];
+}
+
+function formatQuestionHistoryRoundSummary(entries: readonly QuestionHistoryEntry[]): string {
+  const latestEntry = entries.at(-1);
+  return latestEntry ? latestEntry.timeText : '';
+}
+
+function resolveQuestionHistoryCurrentStatus(workbench: WorkbenchDto): QuestionHistoryCurrentStatus | null {
+  if (isCompletedAssignmentStatus(workbench.assignment.status)) {
+    return null;
+  }
+
+  const label = resolveHistoryCurrentStatusLabel(workbench);
+
+  return {
+    label,
+    className: questionHistoryCurrentStatusClassName(label),
+  };
+}
+
+function resolveHistoryCurrentStatusLabel(workbench: WorkbenchDto): QuestionNavigatorStatusLabel {
+  const latestSubmission = latestSubmissionByRound(workbench.submissionHistory);
+
+  if (workbench.assignment.status === 'NEEDS_REVISION' || workbench.rejectionNotice) {
+    return resolveWorkbenchRevisionStatusLabel(workbench);
+  }
+
+  if (workbench.assignment.status === 'SUBMITTED') {
+    return resolveSubmittedQuestionStatusLabel(latestSubmission?.status ?? null);
+  }
+
+  if (workbench.assignment.status === 'UNDER_RECHECK' || workbench.assignment.status === 'FINAL_PENDING') {
+    return '审核员审核';
+  }
+
+  if (latestSubmission) {
+    return resolveSubmittedQuestionStatusLabel(latestSubmission.status);
+  }
+
+  return '待标注';
+}
+
+function questionHistoryCurrentStatusClassName(label: QuestionNavigatorStatusLabel): string {
+  if (label === '审核员审核') {
+    return 'labeler-item-history-current--reviewer';
+  }
+
+  if (label === 'AI预审') {
+    return 'labeler-item-history-current--ai';
+  }
+
+  if (label === 'AI打回' || label === '审核员打回') {
+    return 'labeler-item-history-current--rejected';
+  }
+
+  if (label === '已完成') {
+    return 'labeler-item-history-current--complete';
+  }
+
+  return 'labeler-item-history-current--draft';
 }
 
 function resolveLatestAiReviewReport(history: WorkbenchDto['submissionHistory']): AiReviewReportData | null {
@@ -1347,13 +1474,39 @@ function resolveLatestAiReviewReport(history: WorkbenchDto['submissionHistory'])
   return null;
 }
 
-function resolveRejectedAnnotationFieldKeys(
+function resolveReviewerRejectionSuggestion(workbench: WorkbenchDto): string | null {
+  if (workbench.assignment.status !== 'NEEDS_REVISION' || !workbench.rejectionNotice) {
+    return null;
+  }
+
+  const rejectedSubmission = workbench.submissionHistory.find(
+    (submission) => submission.id === workbench.rejectionNotice?.submissionId,
+  );
+  const latestReviewRecord = latestReviewRecordByCreatedAt(rejectedSubmission?.reviewRecords ?? []);
+
+  if (!latestReviewRecord || !isHumanRecheckRecord(latestReviewRecord)) {
+    return null;
+  }
+
+  return (
+    latestReviewRecord.comment ??
+    stringScoreReason(latestReviewRecord.scores) ??
+    workbench.rejectionNotice.reason ??
+    null
+  );
+}
+
+function stringScoreReason(scores: Record<string, unknown> | null | undefined): string | null {
+  return typeof scores?.reason === 'string' && scores.reason.trim() ? scores.reason.trim() : null;
+}
+
+function resolveRejectedAnnotationFieldDecorations(
   workbench: WorkbenchDto,
   answers: Record<string, unknown>,
   editedRejectedFieldKeys: ReadonlySet<string>,
-): ReadonlySet<string> {
+): ReadonlyMap<string, string | null> {
   if (workbench.assignment.status !== 'NEEDS_REVISION' || !workbench.rejectionNotice) {
-    return new Set();
+    return new Map();
   }
 
   const rejectedSubmission = workbench.submissionHistory.find(
@@ -1361,10 +1514,10 @@ function resolveRejectedAnnotationFieldKeys(
   );
 
   if (!rejectedSubmission) {
-    return new Set();
+    return new Map();
   }
 
-  const rejectedFieldKeys = new Set<string>();
+  const rejectedFieldDecorations = new Map<string, string | null>();
 
   for (const reviewRecord of rejectedSubmission.reviewRecords) {
     for (const fieldReview of normalizeAiReviewFieldReviews(reviewRecord.structuredOutput)) {
@@ -1376,11 +1529,29 @@ function resolveRejectedAnnotationFieldKeys(
         continue;
       }
 
-      rejectedFieldKeys.add(fieldReview.fieldKey);
+      rejectedFieldDecorations.set(
+        fieldReview.fieldKey,
+        formatRejectedFieldSuggestion(fieldReview, reviewRecord),
+      );
     }
   }
 
-  return rejectedFieldKeys;
+  return rejectedFieldDecorations;
+}
+
+function formatRejectedFieldSuggestion(
+  fieldReview: AiReviewFieldReview,
+  reviewRecord: WorkbenchDto['submissionHistory'][number]['reviewRecords'][number],
+): string | null {
+  if (fieldReview.suggestions.length > 0) {
+    return fieldReview.suggestions.join('；');
+  }
+
+  if (fieldReview.comment) {
+    return fieldReview.comment;
+  }
+
+  return normalizeAiReviewOverallComment(reviewRecord.structuredOutput) ?? reviewRecord.comment ?? null;
 }
 
 function isFieldAnswerChangedSinceRejected(
@@ -1564,34 +1735,6 @@ function formatReviewAction(
   return '预审';
 }
 
-function formatCurrentHistoryAction(workbench: WorkbenchDto): string {
-  if (workbench.assignment.status === 'NEEDS_REVISION' || workbench.rejectionNotice) {
-    return '修改中';
-  }
-
-  if (workbench.assignment.status === 'SUBMITTED') {
-    return '已提交';
-  }
-
-  if (workbench.assignment.status === 'UNDER_RECHECK') {
-    return '复审中';
-  }
-
-  if (workbench.assignment.status === 'FINAL_APPROVED') {
-    return '已完成';
-  }
-
-  if (workbench.assignment.status === 'FINAL_PENDING') {
-    return '待终审';
-  }
-
-  if (workbench.assignment.status === 'CANCELLED') {
-    return '已取消';
-  }
-
-  return '标注中';
-}
-
 function getAiReviewStatusMessage(submission: WorkbenchDto['submissionHistory'][number]): string | null {
   const aiDecision = submission.reviewRecords.find((record) => record.decision)?.decision;
 
@@ -1695,10 +1838,10 @@ type QuestionProgressState = 'empty' | 'draft' | 'complete';
 type QuestionNavigatorStatusLabel =
   | '待标注'
   | '已标注'
-  | 'AI预审中'
+  | 'AI预审'
   | 'AI打回'
-  | 'reviewer审核中'
-  | 'reviewer打回'
+  | '审核员审核'
+  | '审核员打回'
   | '已完成';
 
 const AI_REVIEWING_SUBMISSION_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING', 'SUBMITTED']);
@@ -1921,7 +2064,7 @@ function resolveCurrentQuestionStatusLabel(
   }
 
   if (status === 'UNDER_RECHECK' || status === 'FINAL_PENDING') {
-    return 'reviewer审核中';
+    return '审核员审核';
   }
 
   if (isSubmittableAssignmentStatus(status)) {
@@ -1952,7 +2095,7 @@ function resolveNavigationQuestionStatusLabel(
   }
 
   if (assignment.status === 'UNDER_RECHECK' || assignment.status === 'FINAL_PENDING') {
-    return 'reviewer审核中';
+    return '审核员审核';
   }
 
   if (locallyProgress && isSubmittableAssignmentStatus(assignment.status)) {
@@ -1981,10 +2124,10 @@ function resolveSubmittedQuestionStatusLabel(status: string | null): QuestionNav
   }
 
   if (REVIEWER_REVIEWING_SUBMISSION_STATUSES.has(status ?? '')) {
-    return 'reviewer审核中';
+    return '审核员审核';
   }
 
-  return 'AI预审中';
+  return 'AI预审';
 }
 
 function latestSubmissionByRound(
@@ -2001,15 +2144,26 @@ function resolveWorkbenchRevisionStatusLabel(workbench: WorkbenchDto): QuestionN
   const rejectionSubmission = workbench.rejectionNotice
     ? workbench.submissionHistory.find((submission) => submission.id === workbench.rejectionNotice?.submissionId)
     : null;
-  const latestReviewRecord = (rejectionSubmission ?? latestSubmission)?.reviewRecords[0] ?? null;
+  const latestReviewRecord = latestReviewRecordByCreatedAt(
+    (rejectionSubmission ?? latestSubmission)?.reviewRecords ?? [],
+  );
 
   return isReviewerRejectionSource({
     stage: latestReviewRecord?.stage,
     reviewerType: latestReviewRecord?.reviewerType,
     submissionStatus: latestSubmission?.status ?? null,
   })
-    ? 'reviewer打回'
+    ? '审核员打回'
     : 'AI打回';
+}
+
+function latestReviewRecordByCreatedAt(
+  reviewRecords: WorkbenchDto['submissionHistory'][number]['reviewRecords'],
+): WorkbenchDto['submissionHistory'][number]['reviewRecords'][number] | null {
+  return reviewRecords.reduce<WorkbenchDto['submissionHistory'][number]['reviewRecords'][number] | null>(
+    (latest, record) => (!latest || latest.createdAt.localeCompare(record.createdAt) < 0 ? record : latest),
+    null,
+  );
 }
 
 function resolveAssignmentRevisionStatusLabel(assignment: LabelerAssignmentDto): QuestionNavigatorStatusLabel {
@@ -2018,7 +2172,7 @@ function resolveAssignmentRevisionStatusLabel(assignment: LabelerAssignmentDto):
     reviewerType: assignment.latestReviewerType,
     submissionStatus: assignment.latestSubmissionStatus,
   })
-    ? 'reviewer打回'
+    ? '审核员打回'
     : 'AI打回';
 }
 

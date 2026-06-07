@@ -62,7 +62,7 @@ function getStatusClassName(statusLabel: string): string {
     return 'question-navigator__status--annotated';
   }
 
-  if (statusLabel === 'AI预审中') {
+  if (statusLabel === 'AI预审') {
     return 'question-navigator__status--ai-review';
   }
 
@@ -70,11 +70,11 @@ function getStatusClassName(statusLabel: string): string {
     return 'question-navigator__status--ai-rejected';
   }
 
-  if (statusLabel === 'reviewer审核中') {
+  if (statusLabel === '审核员审核') {
     return 'question-navigator__status--reviewer-reviewing';
   }
 
-  if (statusLabel === 'reviewer打回') {
+  if (statusLabel === '审核员打回') {
     return 'question-navigator__status--reviewer-rejected';
   }
 
@@ -110,7 +110,5 @@ function getStatusClassName(statusLabel: string): string {
 }
 
 function isCompletedStatusLabel(statusLabel: string): boolean {
-  return ['已标注', 'AI预审中', 'reviewer审核中', '已完成', '已提交', '复审中', '待完成'].includes(
-    statusLabel,
-  );
+  return ['已标注', '已完成'].includes(statusLabel);
 }

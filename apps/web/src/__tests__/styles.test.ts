@@ -218,14 +218,19 @@ describe('global styles', () => {
       /\.annotation-canvas-scroll \.schema-renderer__field-node--diff-rejected\s*\{[^}]+\}/,
     )?.[0] ?? '';
     const rejectedBadgeRule = styles.match(
-      /\.schema-renderer__field-node--diff-rejected > \.schema-renderer__field-diff-badge\s*\{[^}]+\}/,
+      /\.schema-renderer__field-node--diff-rejected \.schema-renderer__field-diff-badge\s*\{[^}]+\}/,
     )?.[0] ?? '';
+    const diffHeaderRule = styles.match(/\.schema-renderer__field-diff-header\s*\{[^}]+\}/)?.[0] ?? '';
+    const diffMessageRule = styles.match(/\.schema-renderer__field-diff-message\s*\{[^}]+\}/)?.[0] ?? '';
 
     expect(rejectedNodeRule).toContain('border-color: #fda29b;');
     expect(rejectedNodeRule).toContain('background: #fff5f5;');
     expect(rejectedNodeRule).toContain('box-shadow: inset 3px 0 0 #f97066;');
     expect(rejectedBadgeRule).toContain('color: #b42318;');
     expect(rejectedBadgeRule).toContain('background: #fee4e2;');
+    expect(diffHeaderRule).toContain('display: flex;');
+    expect(diffMessageRule).toContain('color: #b42318;');
+    expect(diffMessageRule).toContain('font-weight: 800;');
   });
 
   it('机审队列 AI 建议胶囊所有状态都展示圆点', () => {
@@ -242,6 +247,64 @@ describe('global styles', () => {
     expect(rejectDotRule).toContain('background: currentColor;');
     expect(pendingDotRule).toContain('background: currentColor;');
     expect(failedDotRule).toContain('background: currentColor;');
+  });
+
+  it('人工审核状态胶囊展示同款圆点', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const statusRule = styles.match(/\.manual-review-task-status\s*\{[^}]+\}/)?.[0] ?? '';
+    const dotRule = styles.match(/\.manual-review-task-status::before\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(statusRule).toContain('display: inline-flex;');
+    expect(statusRule).toContain('align-items: center;');
+    expect(statusRule).toContain('gap: 6px;');
+    expect(dotRule).toContain("content: '';");
+    expect(dotRule).toContain('width: 7px;');
+    expect(dotRule).toContain('height: 7px;');
+    expect(dotRule).toContain('border-radius: 999px;');
+    expect(dotRule).toContain('background: currentColor;');
+  });
+
+  it('人工审核详情页左侧队列不显示深色悬浮块，AI 分数按真实维度自适应展示', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const queuePanelRule = styles.match(/\.manual-review-queue-panel\s*\{[^}]+\}/)?.[0] ?? '';
+    const scoreGridRule = styles.match(/\.manual-review-score-grid\s*\{[^}]+\}/)?.[0] ?? '';
+    const fieldButtonRule = styles.match(/\.manual-review-submit-card div\[role='button'\]\s*\{[^}]+\}/)?.[0] ?? '';
+    const questionRowHoverRule = styles.match(
+      /\.manual-review-question-list article:hover,\s*\.manual-review-question-list article:focus-within\s*\{[^}]+\}/,
+    )?.[0] ?? '';
+    const questionStatusRule = styles.match(/\.manual-review-question-status\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(queuePanelRule).toContain('grid-template-rows: auto minmax(0, 1fr);');
+    expect(scoreGridRule).toContain('grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));');
+    expect(scoreGridRule).not.toContain('repeat(5');
+    expect(fieldButtonRule).toContain('cursor: pointer;');
+    expect(questionRowHoverRule).toContain('background: transparent;');
+    expect(questionStatusRule).toContain('border-radius: 999px;');
+  });
+
+  it('人工审核详情页剩余处理时限使用四栏轻量翻页倒计时', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const deadlineCardRule = styles.match(/\.manual-review-deadline-card\s*\{[^}]+\}/)?.[0] ?? '';
+    const countdownRule = styles.match(/\.manual-review-countdown\s*\{[^}]+\}/)?.[0] ?? '';
+    const unitRule = styles.match(/\.manual-review-countdown__unit\s*\{[^}]+\}/)?.[0] ?? '';
+    const numberRule = styles.match(/\.manual-review-countdown__number\s*\{[^}]+\}/)?.[0] ?? '';
+    const normalRule =
+      styles.match(/\.manual-review-deadline-card\.is-normal \.manual-review-countdown__number\s*\{[^}]+\}/)?.[0] ?? '';
+    const warningRule =
+      styles.match(/\.manual-review-deadline-card\.is-warning \.manual-review-countdown__number\s*\{[^}]+\}/)?.[0] ?? '';
+    const dangerRule =
+      styles.match(/\.manual-review-deadline-card\.is-danger \.manual-review-countdown__number\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(deadlineCardRule).toContain('border-radius: 8px;');
+    expect(deadlineCardRule).toContain('background: #f6f8fb;');
+    expect(countdownRule).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');
+    expect(unitRule).toContain('border: 1px solid #dbe5f3;');
+    expect(unitRule).toContain('box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);');
+    expect(numberRule).toContain('animation: manual-review-countdown-flip');
+    expect(styles).toContain('transform: rotateX');
+    expect(normalRule).toContain('color: #306DF8;');
+    expect(warningRule).toContain('color: #D79602;');
+    expect(dangerRule).toContain('color: #E92B2B;');
   });
 
   it('系统通知从页面顶部向下弹出并提供退出动画', () => {
@@ -447,7 +510,7 @@ describe('global styles', () => {
       /\.template-version-diff__summary \[data-diff-kind='changed'\]\s*\{[^}]+\}/,
     )?.[0] ?? '';
     const changedBadgeRule = styles.match(
-      /\.schema-renderer__field-node--diff-changed > \.schema-renderer__field-diff-badge\s*\{[^}]+\}/,
+      /\.schema-renderer__field-node--diff-changed \.schema-renderer__field-diff-badge\s*\{[^}]+\}/,
     )?.[0] ?? '';
     const addedRule = styles.match(
       /\.template-version-side-by-side-diff__owner-preview-shell \.template-version-side-by-side-diff__canvas \.schema-renderer__field-node--diff-added\s*\{[^}]+\}/,
@@ -732,12 +795,48 @@ describe('global styles', () => {
     expect(canvasScrollRule).toContain('padding: 16px 16px 0;');
   });
 
+  it('本题历史使用当前状态条和按轮次分组的时间线样式', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const currentRule = styles.match(/\.labeler-item-history-current\s*\{[^}]+\}/)?.[0] ?? '';
+    const roundHeaderRule = styles.match(/\.labeler-item-history__round-header\s*\{[^}]+\}/)?.[0] ?? '';
+    const roundLabelRule = styles.match(/\.labeler-item-history__round-header span\s*\{[^}]+\}/)?.[0] ?? '';
+    const roundTimeRule = styles.match(/\.labeler-item-history__round-header small\s*\{[^}]+\}/)?.[0] ?? '';
+    const rowRule = styles.match(/\.labeler-item-history__row\s*\{[^}]+\}/)?.[0] ?? '';
+    const rowTimeRule = styles.match(/\.labeler-item-history__row time\s*\{[^}]+\}/)?.[0] ?? '';
+    const eventRule = styles.match(/\.labeler-item-history__row::before\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(currentRule).toContain('border-radius: 8px;');
+    expect(currentRule).toContain('justify-content: space-between;');
+    expect(styles).toContain('.labeler-item-history-current--reviewer');
+    expect(styles).toContain('.labeler-item-history-current--ai');
+    expect(styles).toContain('.labeler-item-history-current--rejected');
+    expect(styles).toContain('.labeler-item-history__round');
+    expect(roundHeaderRule).toContain('justify-content: space-between;');
+    expect(roundLabelRule).toContain('font-size: 16px;');
+    expect(roundTimeRule).toContain('font-size: 14px;');
+    expect(roundTimeRule).toContain('color: #64748b;');
+    expect(rowRule).toContain('font-size: 13px;');
+    expect(rowTimeRule).toContain('font-size: 12px;');
+    expect(rowTimeRule).toContain('color: #94a3b8;');
+    expect(eventRule).toContain('border-radius: 999px;');
+    expect(styles).toContain('.labeler-item-history__row--ai::before');
+    expect(styles).toContain('.labeler-item-history__row--reviewer::before');
+    expect(styles).toContain('.labeler-item-history__row--submit::before');
+  });
+
   it('题目导航状态使用固定强调色、加粗和切换动画', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const statusRule = styles.match(/\.question-navigator__list small\s*\{[^}]+\}/)?.[0] ?? '';
+    const statusPillRule = styles.match(/\.question-navigator__status\s*\{[^}]+\}/)?.[0] ?? '';
+    const statusDotRule = styles.match(/\.question-navigator__status::before\s*\{[^}]+\}/)?.[0] ?? '';
     const statusTextRule = styles.match(/\.question-navigator__status-text\s*\{[^}]+\}/)?.[0] ?? '';
 
-    expect(statusRule).toContain('font-weight: 800;');
+    expect(statusRule).toContain('font-weight: 700;');
+    expect(statusPillRule).toContain('display: inline-flex;');
+    expect(statusPillRule).toContain('border-radius: 999px;');
+    expect(statusPillRule).toContain('max-width: 132px;');
+    expect(statusDotRule).toContain('width: 6px;');
+    expect(statusDotRule).toContain('border-radius: 999px;');
     expect(styles).toContain('.question-navigator__status--annotated');
     expect(styles).toContain('.question-navigator__status--ai-review');
     expect(styles).toContain('.question-navigator__status--ai-rejected');
@@ -752,6 +851,9 @@ describe('global styles', () => {
     expect(styles).toContain('color: #dc2626;');
     expect(styles).toContain('color: #079455;');
     expect(styles).toContain('color: #64748b;');
+    expect(styles).toContain('background: #eff6ff;');
+    expect(styles).toContain('background: #fff7e6;');
+    expect(styles).toContain('background: #fef2f2;');
     expect(statusTextRule).toContain('animation: question-status-change');
     expect(styles).toContain('@keyframes question-status-change');
   });
@@ -1444,6 +1546,7 @@ describe('global styles', () => {
     expect(contentRule).toContain('padding: 14px;');
     expect(actionBarRule).not.toContain('position: sticky;');
     expect(actionBarRule).not.toContain('bottom: -14px;');
+    expect(actionBarRule).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));');
     expect(actionBarRule).toContain('z-index: 5;');
     expect(actionBarRule).toContain('margin: 0;');
     expect(actionBarRule).toContain('border-top: 1px solid #e5e9f0;');

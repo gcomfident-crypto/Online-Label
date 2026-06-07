@@ -19,6 +19,7 @@ import {
   AiReviewService,
   type AiReviewDetailDto,
   type CompleteAiReviewJobInput,
+  type FailAiReviewJobInput,
 } from './ai-review.service.ts';
 
 type AiReviewProcessorPrismaClient = {
@@ -33,6 +34,7 @@ type AiReviewProcessorPrismaClient = {
       taskId: string;
       attempts: number;
       maxAttempts: number;
+      status: string;
       logs: unknown;
     }>>;
     updateMany: (args: {
@@ -97,7 +99,7 @@ export class AiReviewProcessorService implements OnApplicationBootstrap, OnModul
     @Inject(PrismaService)
     private readonly prisma: AiReviewProcessorPrismaClient,
     @Inject(AiReviewService)
-    private readonly aiReviewService: Pick<AiReviewService, 'completeJob' | 'getSubmissionReview'>,
+    private readonly aiReviewService: Pick<AiReviewService, 'completeJob' | 'failJob' | 'getSubmissionReview'>,
     @Inject(LlmService)
     private readonly llmService: Pick<LlmService, 'reviewSubmission'>,
   ) {}
@@ -141,7 +143,7 @@ export class AiReviewProcessorService implements OnApplicationBootstrap, OnModul
     this.isProcessing = true;
     try {
       const jobs = await this.prisma.aiReviewJob.findMany({
-        where: { status: 'QUEUED' },
+        where: { status: { in: ['QUEUED', 'FAILED_RETRYING'] } },
         orderBy: [{ queuedAt: 'asc' }, { createdAt: 'asc' }],
         take: input.limit ?? DEFAULT_PROCESSOR_LIMIT,
       });
@@ -186,12 +188,12 @@ export class AiReviewProcessorService implements OnApplicationBootstrap, OnModul
     }
   }
 
-  private async claimQueuedJob(job: { id: string; attempts: number; logs: unknown }): Promise<boolean> {
+  private async claimQueuedJob(job: { id: string; status: string; attempts: number; logs: unknown }): Promise<boolean> {
     const startedAt = new Date();
     const claimed = await this.prisma.aiReviewJob.updateMany({
       where: {
         id: job.id,
-        status: 'QUEUED',
+        status: job.status,
       },
       data: {
         status: 'RUNNING',
@@ -230,26 +232,14 @@ export class AiReviewProcessorService implements OnApplicationBootstrap, OnModul
     job: { id: string; attempts: number; maxAttempts: number; status?: string; logs: unknown },
     error: unknown,
   ): Promise<void> {
-    const nextAttempts = job.status === 'RUNNING' ? Math.max(1, job.attempts) : job.attempts + 1;
-    const message = error instanceof Error ? error.message : 'AI 预审处理失败。';
-    await this.prisma.aiReviewJob.update({
-      where: { id: job.id },
-      data: {
-        status: nextAttempts >= job.maxAttempts ? 'FAILED_FINAL' : 'FAILED_RETRYING',
-        attempts: nextAttempts,
-        lastError: message,
-        finishedAt: new Date(),
-        logs: [
-          ...toLogArray(job.logs),
-          {
-            level: 'error',
-            message,
-            at: new Date().toISOString(),
-          },
-        ],
-      },
-    });
+    await this.aiReviewService.failJob(job.id, failureInputFromError(error));
   }
+}
+
+function failureInputFromError(error: unknown): FailAiReviewJobInput {
+  return {
+    message: error instanceof Error ? error.message : 'AI 预审处理失败。',
+  };
 }
 
 function buildReviewContext(rule: ReviewRuleRecord, detail: AiReviewDetailDto): AiReviewContext {

@@ -14,9 +14,16 @@ export type ReviewQueueItemDto = {
   aiDecision: string | null;
   aiComment: string | null;
   aiScores: Record<string, unknown>;
+  humanDecision: string | null;
   assignedReviewerId: string | null;
+  deadline: string | null;
   submittedAt: string;
   updatedAt: string;
+  roundStatus: string;
+  totalInRound: number;
+  decidedCount: number;
+  needsRevisionCount: number;
+  pendingCount: number;
 };
 
 export type ReviewRecordDto = {
@@ -122,6 +129,13 @@ export type BatchReviewResultDto = {
   submissions: ReviewDetailDto[];
 };
 
+export type ReviewFieldCommentInput = {
+  fieldKey: string;
+  label: string;
+  comment: string;
+  value?: unknown;
+};
+
 export async function listPendingReviews(input: { reviewerId?: string; aiDecision?: string } = {}): Promise<ReviewQueueItemDto[]> {
   const searchParams = new URLSearchParams();
   if (input.reviewerId) {
@@ -185,7 +199,10 @@ export async function passReview(submissionId: string, input: { actorId?: string
   });
 }
 
-export async function rejectReview(submissionId: string, input: { actorId?: string; reason: string }): Promise<ReviewDetailDto> {
+export async function rejectReview(
+  submissionId: string,
+  input: { actorId?: string; reason: string; fieldReviews?: ReviewFieldCommentInput[] },
+): Promise<ReviewDetailDto> {
   return requestReviewApi<ReviewDetailDto>(`/reviews/${submissionId}/reject`, {
     method: 'POST',
     body: JSON.stringify(input),

@@ -42,6 +42,7 @@ export class HttpErrorEnvelopeFilter implements ExceptionFilter {
       return;
     }
 
+    console.error('Unhandled HTTP exception', exception);
     response.status(500).json({
       error: {
         code: 'INTERNAL_ERROR',

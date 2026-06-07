@@ -16,9 +16,9 @@ const AGENT_NAV_ITEMS = [
     iconAsset: databoardIcon,
   },
   {
-    to: '/agent/ai-review',
-    label: '机审队列',
-    parts: ['机', '审', '队', '列'],
+    to: '/agent/task-flows',
+    label: '质检流转',
+    parts: ['质', '检', '流', '转'],
     icon: 'ai-review',
     iconAsset: llmIcon,
   },

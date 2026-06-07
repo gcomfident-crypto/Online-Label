@@ -7,10 +7,13 @@ import { ReviewDetailPage } from './ReviewDetailPage';
 
 describe('ReviewDetailPage', () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it('按 taskId 从真实人工复审接口渲染三栏详情，并支持题目、Tab、多选和操作 toast', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-05-30T00:00:00.000Z').getTime());
     const user = userEvent.setup();
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = input.toString();
@@ -65,28 +68,30 @@ describe('ReviewDetailPage', () => {
     );
 
     expect(await screen.findByRole('heading', { name: '真实人工审核任务' })).toBeInTheDocument();
-    const pageDescription = screen.getByText(
-      '展示当前人工复审任务的题目内容、标注答案、AI 预审结果和审核决策，支持逐题通过、修订或打回',
-    );
-    expect(pageDescription).toHaveClass('task-management-table-description');
-    expect(pageDescription.closest('.manual-review-detail-toolbar')).not.toBeNull();
+    expect(
+      screen.queryByText('展示当前人工复审任务的题目内容、标注答案、AI 预审结果和审核决策，支持逐题通过、修订或打回'),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '复审视角' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '切换：终审' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '导出审计日志' })).not.toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/reviews/pending', expect.anything()));
 
     const queue = screen.getByLabelText('当前任务题目列表');
-    expect(within(queue).getByRole('tab', { name: /AI 已建议通过\s*2/ })).toBeInTheDocument();
-    expect(within(queue).getByRole('tab', { name: /AI 已建议打回\s*1/ })).toHaveAttribute('aria-selected', 'true');
-    expect(within(queue).getByRole('tab', { name: /转人工\s*0/ })).toBeInTheDocument();
+    expect(within(queue).queryByRole('tab')).not.toBeInTheDocument();
+    expect(within(queue).queryByText('AI 已建议通过')).not.toBeInTheDocument();
+    expect(within(queue).queryByText('AI 已建议打回')).not.toBeInTheDocument();
+    expect(within(queue).queryByText('转人工')).not.toBeInTheDocument();
     expect(within(queue).getByText('已选 0 条')).toBeInTheDocument();
-    const selectVisibleQuestions = within(queue).getByRole('checkbox', { name: '全选当前分组题目' });
+    const selectVisibleQuestions = within(queue).getByRole('checkbox', { name: '全选题目' });
     expect(selectVisibleQuestions).not.toBeChecked();
     expect(within(queue).queryByRole('button', { name: '指派给...' })).not.toBeInTheDocument();
     expect(within(queue).queryByText(/AI\s*62/)).not.toBeInTheDocument();
     expect(within(queue).queryByText(/标注/)).not.toBeInTheDocument();
     const rejectQuestionButton = within(queue).getByRole('button', { name: /P0001/ });
-    expect(rejectQuestionButton).toHaveTextContent('10:01:02');
+    expect(rejectQuestionButton).toHaveTextContent('P0001');
+    expect(rejectQuestionButton).not.toHaveTextContent('10:01:02');
+    expect(rejectQuestionButton).not.toHaveTextContent('第 1 轮');
+    expect(rejectQuestionButton).not.toHaveTextContent('建议打回');
     expect(await screen.findByText('P0001 · 如何判断回答质量？')).toBeInTheDocument();
 
     expect(screen.queryByText('上一轮提交')).not.toBeInTheDocument();
@@ -103,8 +108,21 @@ describe('ReviewDetailPage', () => {
     expect(screen.getByLabelText('本轮提交内容')).toHaveTextContent('质量判断');
     expect(screen.getByLabelText('本轮提交内容')).toHaveTextContent('判断理由');
     expect(screen.getByLabelText('AI 预审 · 本轮重跑结果')).toHaveTextContent('综合分');
-    expect(screen.getByLabelText('AI 预审 · 本轮重跑结果')).toHaveTextContent('62');
+    expect(screen.getByLabelText('AI 预审 · 本轮重跑结果')).toHaveTextContent('95');
+    expect(screen.getByLabelText('AI 预审 · 本轮重跑结果')).not.toHaveTextContent('相关性');
+    expect(screen.getByLabelText('AI 预审 · 本轮重跑结果')).not.toHaveTextContent('准确性');
+    expect(screen.getByLabelText('AI 预审 · 本轮重跑结果')).not.toHaveTextContent('格式合规');
+    expect(screen.getByLabelText('AI 预审 · 本轮重跑结果')).not.toHaveTextContent('安全');
     expect(screen.getByLabelText('审核统计')).toHaveTextContent('待我审核');
+    const deadlineCard = screen.getByLabelText('剩余处理时限');
+    expect(deadlineCard).toHaveClass('is-normal');
+    expect(deadlineCard).not.toHaveTextContent(/剩余\s+\d+\s+天/);
+    expect(deadlineCard).not.toHaveTextContent('剩余处理时限--');
+    expect(within(deadlineCard).getByText('07')).toBeInTheDocument();
+    expect(within(deadlineCard).getByText('11')).toBeInTheDocument();
+    expect(within(deadlineCard).getByText('53')).toBeInTheDocument();
+    expect(within(deadlineCard).getByText('46')).toBeInTheDocument();
+    ['天', '时', '分', '秒'].forEach((unit) => expect(within(deadlineCard).getByText(unit)).toBeInTheDocument());
     expect(screen.getByLabelText('审计时间线（P0001）')).toHaveTextContent('第 1 轮提交');
     expect(screen.queryByLabelText('问题标签')).not.toBeInTheDocument();
     ['# fieldCount', '# passedFieldCount', '# rejectedFieldCount']
@@ -113,17 +131,23 @@ describe('ReviewDetailPage', () => {
     await user.click(selectVisibleQuestions);
     expect(selectVisibleQuestions).toBeChecked();
     expect(within(queue).getByLabelText('选择 P0001')).toBeChecked();
-    expect(within(queue).getByText('已选 1 条')).toBeInTheDocument();
+    expect(within(queue).getByLabelText('选择 P0002')).toBeChecked();
+    expect(within(queue).getByLabelText('选择 P0003')).toBeChecked();
+    expect(within(queue).getByText('已选 3 条')).toBeInTheDocument();
 
     await user.click(selectVisibleQuestions);
     expect(selectVisibleQuestions).not.toBeChecked();
     expect(within(queue).getByLabelText('选择 P0001')).not.toBeChecked();
+    expect(within(queue).getByLabelText('选择 P0002')).not.toBeChecked();
+    expect(within(queue).getByLabelText('选择 P0003')).not.toBeChecked();
     expect(within(queue).getByText('已选 0 条')).toBeInTheDocument();
 
     await user.click(within(queue).getByLabelText('选择 P0001'));
     expect(within(queue).getByText('已选 1 条')).toBeInTheDocument();
 
-    await user.click(within(queue).getByRole('tab', { name: /AI 已建议通过\s*2/ }));
+    expect(screen.queryByRole('button', { name: /直接修订/ })).not.toBeInTheDocument();
+
+    await user.click(within(queue).getByRole('button', { name: 'P0002' }));
     expect(screen.getAllByText(/P0002/).length).toBeGreaterThan(0);
     expect(await screen.findByText('P0002 · 第二题')).toBeInTheDocument();
 
@@ -133,9 +157,160 @@ describe('ReviewDetailPage', () => {
       '/reviews/submission_2/pass',
       expect.objectContaining({ method: 'POST' }),
     );
+    expect(within(queue).getByRole('button', { name: /P0002/ })).not.toHaveTextContent('通过');
   });
 
-  it('左侧题目列表按题号自然升序展示，且题目条只保留题号和提交时间', async () => {
+  it('剩余处理时限小于 24 小时和 2 小时时切换颜色，超时后只显示已超时', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-05-30T00:00:00.000Z').getTime());
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/reviews/pending' && method === 'GET') {
+        return jsonResponse({ data: withDeadline('2026-05-30T01:59:59.000Z') });
+      }
+
+      if (path === '/reviews/submission_1' && method === 'GET') {
+        return jsonResponse({ data: reviewDetail });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const firstRender = render(
+      <MemoryRouter initialEntries={['/reviewer/reviews/task_real']}>
+        <Routes>
+          <Route path="/reviewer/reviews/:taskId" element={<ReviewDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByLabelText('剩余处理时限')).toHaveClass('is-danger');
+    firstRender.unmount();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = input.toString();
+        const method = init?.method ?? 'GET';
+
+        if (path === '/reviews/pending' && method === 'GET') {
+          return jsonResponse({ data: withDeadline('2026-05-30T12:00:00.000Z') });
+        }
+
+        if (path === '/reviews/submission_1' && method === 'GET') {
+          return jsonResponse({ data: reviewDetail });
+        }
+
+        return jsonResponse({ data: [] });
+      }),
+    );
+
+    const secondRender = render(
+      <MemoryRouter initialEntries={['/reviewer/reviews/task_real']}>
+        <Routes>
+          <Route path="/reviewer/reviews/:taskId" element={<ReviewDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByLabelText('剩余处理时限')).toHaveClass('is-warning');
+    secondRender.unmount();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = input.toString();
+        const method = init?.method ?? 'GET';
+
+        if (path === '/reviews/pending' && method === 'GET') {
+          return jsonResponse({ data: withDeadline('2026-05-29T23:59:59.000Z') });
+        }
+
+        if (path === '/reviews/submission_1' && method === 'GET') {
+          return jsonResponse({ data: reviewDetail });
+        }
+
+        return jsonResponse({ data: [] });
+      }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/reviewer/reviews/task_real']}>
+        <Routes>
+          <Route path="/reviewer/reviews/:taskId" element={<ReviewDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const expiredDeadlineCard = await screen.findByLabelText('剩余处理时限');
+    expect(expiredDeadlineCard).toHaveClass('is-expired');
+    expect(expiredDeadlineCard).toHaveTextContent('已超时');
+    expect(expiredDeadlineCard).not.toHaveTextContent('-');
+  });
+
+  it('点击本轮提交字段后在右侧评论 Tab 写字段级打回意见', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/reviews/pending' && method === 'GET') {
+        return jsonResponse({ data: [reviewQueueItems[0]] });
+      }
+
+      if (path === '/reviews/submission_1' && method === 'GET') {
+        return jsonResponse({ data: reviewDetail });
+      }
+
+      if (path === '/reviews/submission_1/reject' && method === 'POST') {
+        return jsonResponse({ data: reviewDetail });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MemoryRouter initialEntries={['/reviewer/reviews/task_real']}>
+        <Routes>
+          <Route path="/reviewer/reviews/:taskId" element={<ReviewDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const commentFieldButton = await screen.findByRole('button', { name: '评论字段 判断理由' });
+    await user.click(commentFieldButton);
+
+    const sidePanel = screen.getByRole('complementary', { name: '人工审核侧栏' });
+    expect(within(sidePanel).getByRole('tab', { name: '评论' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(sidePanel).getByText('引用字段')).toBeInTheDocument();
+    expect(within(sidePanel).getByText('判断理由')).toBeInTheDocument();
+    expect(within(sidePanel).getByText('覆盖核心点。')).toBeInTheDocument();
+
+    await user.type(within(sidePanel).getByRole('textbox', { name: '字段评论：判断理由' }), '请补充完整判断依据。');
+    expect(screen.getByRole('button', { name: '评论字段 判断理由' })).toHaveClass('has-review-comment');
+    await user.click(within(screen.getByLabelText('审核操作')).getByRole('button', { name: /打回/ }));
+
+    const rejectCall = fetchMock.mock.calls.find(([path]) => path === '/reviews/submission_1/reject');
+    expect(rejectCall).toBeDefined();
+    expect(JSON.parse((rejectCall?.[1] as RequestInit).body as string)).toEqual({
+      actorId: 'user_reviewer_wang_fang',
+      reason: '请补充完整判断依据。',
+      fieldReviews: [
+        {
+          fieldKey: 'comment',
+          label: '判断理由',
+          comment: '请补充完整判断依据。',
+          value: '覆盖核心点。',
+        },
+      ],
+    });
+    expect(within(screen.getByLabelText('当前任务题目列表')).getByRole('button', { name: /P0001/ })).not.toHaveTextContent('打回');
+  });
+
+  it('左侧题目列表按题号自然升序展示，且题目条只保留题号和操作状态', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -173,9 +348,13 @@ describe('ReviewDetailPage', () => {
 
     expect(questionButtons).toHaveLength(2);
     expect(questionButtons.map((button) => button.getAttribute('aria-label'))).toEqual([
-      'P0002 10:02:02 建议通过 第 1 轮',
-      'P0003 10:03:02 建议通过 第 1 轮',
+      'P0002',
+      'P0003',
     ]);
+    expect(within(queue).queryByText('10:02:02')).not.toBeInTheDocument();
+    expect(within(queue).queryByText('10:03:02')).not.toBeInTheDocument();
+    expect(within(queue).queryByText(/第 1 轮/)).not.toBeInTheDocument();
+    expect(within(queue).queryByText(/建议通过/)).not.toBeInTheDocument();
     expect(within(queue).queryByText(/AI\s*91/)).not.toBeInTheDocument();
     expect(within(queue).queryByText(/系统标注|Labeler标注|李雷标注/)).not.toBeInTheDocument();
   });
@@ -209,7 +388,7 @@ describe('ReviewDetailPage', () => {
       }
 
       if (path === '/reviews/batch-pass' && method === 'POST') {
-        return jsonResponse({ data: { processedCount: 2, submissions: [] } });
+        return jsonResponse({ data: { processedCount: 3, submissions: [] } });
       }
 
       return jsonResponse({ data: [] });
@@ -238,23 +417,85 @@ describe('ReviewDetailPage', () => {
       reason: '请根据审核意见修改',
       submissionIds: ['submission_1'],
     });
-    expect(within(queue).getByRole('tab', { name: /AI 已建议打回\s*0/ })).toBeInTheDocument();
-    expect(within(queue).queryByLabelText('选择 P0001')).not.toBeInTheDocument();
+    expect(within(queue).getByRole('button', { name: /P0001/ })).not.toHaveTextContent('打回');
 
-    await user.click(within(queue).getByRole('tab', { name: /AI 已建议通过\s*2/ }));
-    await user.click(within(queue).getByRole('checkbox', { name: '全选当前分组题目' }));
+    await user.click(within(queue).getByRole('checkbox', { name: '全选题目' }));
     await user.click(within(queue).getByRole('button', { name: '批量通过' }));
 
-    expect(await screen.findByText('已批量通过 2 条')).toBeInTheDocument();
+    expect(await screen.findByText('已批量通过 3 条')).toBeInTheDocument();
     const passCall = fetchMock.mock.calls.find(([path]) => path === '/reviews/batch-pass');
     expect(passCall).toBeDefined();
     expect(JSON.parse((passCall?.[1] as RequestInit).body as string)).toEqual({
       actorId: 'user_reviewer_wang_fang',
       comment: '',
-      submissionIds: ['submission_2', 'submission_3'],
+      submissionIds: ['submission_1', 'submission_2', 'submission_3'],
     });
-    expect(within(queue).getByRole('tab', { name: /AI 已建议通过\s*0/ })).toBeInTheDocument();
-    expect(within(queue).getByText('当前分组暂无题目。')).toBeInTheDocument();
+    expect(within(queue).getByRole('button', { name: /P0001/ })).toHaveTextContent('待决策');
+    expect(within(queue).getByRole('button', { name: /P0002/ })).toHaveTextContent('待决策');
+    expect(within(queue).getByRole('button', { name: /P0003/ })).toHaveTextContent('待决策');
+  });
+
+  it('单题通过后列表保留任务内全部题目，未收口前不提前透出题级结论', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/reviews/pending' && method === 'GET') {
+        return jsonResponse({ data: reviewQueueItems });
+      }
+
+      if (path === '/reviews/submission_1' && method === 'GET') {
+        return jsonResponse({ data: reviewDetail });
+      }
+
+      if (path === '/reviews/submission_2' && method === 'GET') {
+        return jsonResponse({
+          data: {
+            ...reviewDetail,
+            submission: { ...reviewDetail.submission, id: 'submission_2' },
+            taskItem: { ...reviewDetail.taskItem, externalId: 'P0002', rawData: { prompt: '第二题' } },
+          },
+        });
+      }
+
+      if (path === '/reviews/submission_2/pass' && method === 'POST') {
+        return jsonResponse({
+          data: { ...reviewDetail, submission: { ...reviewDetail.submission, id: 'submission_2', status: 'RECHECK_REVIEWING' } },
+        });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MemoryRouter initialEntries={['/reviewer/reviews/task_real']}>
+        <Routes>
+          <Route path="/reviewer/reviews/:taskId" element={<ReviewDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const queue = await screen.findByLabelText('当前任务题目列表');
+    const questionButtons = queue.querySelectorAll('article button');
+    expect(questionButtons).toHaveLength(3);
+
+    await user.click(within(queue).getByRole('button', { name: /P0002/ }));
+    await user.click(screen.getByRole('button', { name: /通过 · 入库/ }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('P0002 已通过入库');
+    expect((await screen.findAllByText('待决策')).length).toBeGreaterThan(0);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/reviews/submission_2/pass',
+      expect.objectContaining({ method: 'POST' }),
+    );
+
+    const refreshedQueue = await screen.findByLabelText('当前任务题目列表');
+    expect(refreshedQueue.querySelectorAll('article button')).toHaveLength(3);
+    expect(within(refreshedQueue).getByRole('button', { name: /P0001/ })).toHaveTextContent('待决策');
+    expect(within(refreshedQueue).getByRole('button', { name: /P0002/ })).toHaveTextContent('待决策');
+    expect(within(refreshedQueue).getByRole('button', { name: /P0003/ })).toHaveTextContent('待决策');
   });
 
   it('模板没有 show_item 时题目信息仍使用 ShowItem 表格样式', async () => {
@@ -325,8 +566,9 @@ const reviewQueueItems = [
     round: 1,
     aiDecision: 'reject',
     aiComment: '需要补充判断依据。',
-    aiScores: { overall: 62, relevance: 78, accuracy: 55, format: 70, safety: 99 },
+    aiScores: { overall: 95, fieldCount: 2, passedFieldCount: 2 },
     assignedReviewerId: null,
+    deadline: '2026-06-06T11:53:46.000Z',
     submittedAt: '2026-05-30T10:01:02.000Z',
     updatedAt: '2026-05-30T10:01:02.000Z',
   },
@@ -342,8 +584,9 @@ const reviewQueueItems = [
     round: 1,
     aiDecision: 'pass',
     aiComment: '建议通过。',
-    aiScores: { overall: 91, relevance: 92, accuracy: 90, format: 88, safety: 99 },
+    aiScores: { overall: 91, fieldCount: 2, passedFieldCount: 2 },
     assignedReviewerId: null,
+    deadline: '2026-06-06T11:53:46.000Z',
     submittedAt: '2026-05-30T10:02:02.000Z',
     updatedAt: '2026-05-30T10:02:02.000Z',
   },
@@ -359,12 +602,15 @@ const reviewQueueItems = [
     round: 1,
     aiDecision: 'pass',
     aiComment: '建议通过。',
-    aiScores: { overall: 93, relevance: 94, accuracy: 90, format: 88, safety: 99 },
+    aiScores: { overall: 93, fieldCount: 2, passedFieldCount: 2 },
     assignedReviewerId: null,
+    deadline: '2026-06-06T11:53:46.000Z',
     submittedAt: '2026-05-30T10:03:02.000Z',
     updatedAt: '2026-05-30T10:03:02.000Z',
   },
 ];
+
+const withDeadline = (deadline: string) => reviewQueueItems.map((item) => ({ ...item, deadline }));
 
 const reviewDetail = {
   submission: {
@@ -419,7 +665,7 @@ const reviewDetail = {
     reviewerId: null,
     assignedReviewerId: null,
     reviewerType: 'AI',
-    scores: { overall: 62, relevance: 78, accuracy: 55, format: 70, safety: 99 },
+    scores: { overall: 95, fieldCount: 2, passedFieldCount: 2 },
     decision: 'reject',
     comment: '需要补充判断依据。',
     revisedAnswers: null,

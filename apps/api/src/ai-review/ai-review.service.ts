@@ -137,6 +137,11 @@ export type CompleteAiReviewJobInput = {
   modelMetadata?: Record<string, unknown>;
 };
 
+export type FailAiReviewJobInput = {
+  actorId?: string;
+  message: string;
+};
+
 export type AiReviewJobDto = {
   id: string;
   submissionId: string;
@@ -203,18 +208,35 @@ export type AiReviewBatchDto = {
   updatedAt: string;
 };
 
+export type AiReviewBatchItemSubmissionDto = {
+  id: string;
+  assignmentId: string;
+  status: string;
+  round: number;
+  answers: Record<string, unknown>;
+  schemaVersion: string;
+  submittedAt: string;
+};
+
+export type AiReviewBatchItemVersionDto = {
+  versionId: string;
+  batchId: string;
+  round: number;
+  submittedAt: string;
+  isCurrent: boolean;
+  job: AiReviewJobDto;
+  submission: AiReviewBatchItemSubmissionDto;
+  reviewRecord: (Omit<ReviewRecord, 'createdAt'> & { createdAt: string }) | null;
+  reviewFields: AiReviewFieldDto[];
+  decision: AiReviewBatchDecision;
+  overallScore: number | null;
+  logs: AiReviewLogDto[];
+};
+
 export type AiReviewBatchItemDto = {
   index: number;
   job: AiReviewJobDto;
-  submission: {
-    id: string;
-    assignmentId: string;
-    status: string;
-    round: number;
-    answers: Record<string, unknown>;
-    schemaVersion: string;
-    submittedAt: string;
-  };
+  submission: AiReviewBatchItemSubmissionDto;
   taskItem: {
     id: string;
     externalId: string;
@@ -226,6 +248,7 @@ export type AiReviewBatchItemDto = {
   decision: AiReviewBatchDecision;
   overallScore: number | null;
   logs: AiReviewLogDto[];
+  versions: AiReviewBatchItemVersionDto[];
 };
 
 export type AiReviewBatchDetailDto = AiReviewBatchDto & {
@@ -352,6 +375,7 @@ const RETRYABLE_STATUSES = new Set<AiReviewStatus>([
   'MANUAL_FALLBACK',
 ]);
 const COMPLETABLE_JOB_STATUSES = new Set<AiReviewStatus>(['QUEUED', 'RUNNING']);
+const FAILABLE_JOB_STATUSES = new Set<AiReviewStatus>(['QUEUED', 'RUNNING', 'FAILED_RETRYING']);
 
 @Injectable()
 export class AiReviewService {
@@ -386,11 +410,12 @@ export class AiReviewService {
       });
     }
 
+    const taskJobs = jobs.filter((job) => job.taskId === batchJobs[0].taskId);
     const currentTaskBatch = currentTaskBatchGroup(batchJobs[0].taskId, jobs);
 
     return currentTaskBatch.batchId === batchId
-      ? toBatchDetailDto(currentTaskBatch.jobs, currentTaskBatch.batchId)
-      : toBatchDetailDto(batchJobs);
+      ? toBatchDetailDto(currentTaskBatch.jobs, currentTaskBatch.batchId, taskJobs)
+      : toBatchDetailDto(batchJobs, batchId, taskJobs);
   }
 
   async listJobs(query: { status?: AiReviewStatus } = {}): Promise<AiReviewJobDto[]> {
@@ -578,6 +603,65 @@ export class AiReviewService {
     });
   }
 
+  async failJob(jobId: string, input: FailAiReviewJobInput): Promise<AiReviewDetailDto> {
+    const message = input.message.trim() || 'AI 预审处理失败。';
+
+    return runInTransaction(this.prisma, async (client) => {
+      const job = await client.aiReviewJob.findUnique({
+        where: { id: jobId },
+        include: JOB_INCLUDE,
+      });
+
+      if (!job) {
+        throw new NotFoundException({
+          code: 'AI_REVIEW_JOB_NOT_FOUND',
+          message: 'AI 预审任务不存在或已被删除。',
+        });
+      }
+
+      if (!FAILABLE_JOB_STATUSES.has(job.status)) {
+        throw new BadRequestException({
+          code: 'AI_REVIEW_JOB_NOT_FAILABLE',
+          message: '只有排队中、运行中或等待重试的 AI 预审任务可以记录失败。',
+        });
+      }
+
+      const submission = await this.findSubmissionOrThrow(client, job.submissionId);
+      const currentAttempt = job.status === 'RUNNING' ? Math.max(1, job.attempts) : job.attempts + 1;
+      const nextStatus: AiReviewStatus = currentAttempt >= job.maxAttempts ? 'FAILED_FINAL' : 'FAILED_RETRYING';
+      const failedAt = new Date();
+
+      await client.aiReviewJob.update({
+        where: { id: job.id },
+        data: {
+          status: nextStatus,
+          attempts: currentAttempt,
+          lastError: message,
+          finishedAt: failedAt,
+          logs: [
+            ...toLogArray(job.logs),
+            {
+              level: 'error',
+              message,
+              at: failedAt.toISOString(),
+            },
+          ],
+        },
+      });
+
+      if (nextStatus === 'FAILED_FINAL') {
+        await moveFailedAiJobToRevision(client, submission, {
+          actorId: input.actorId,
+          currentAttempt,
+          job,
+          reason: aiFailureRevisionReason(message),
+        });
+      }
+
+      return this.getSubmissionReviewFromClient(client, submission.id);
+    });
+  }
+
   async getSubmissionReview(submissionId: string): Promise<AiReviewDetailDto> {
     return this.getSubmissionReviewFromClient(this.prisma, submissionId);
   }
@@ -692,6 +776,7 @@ async function moveSubmissionToRevision(
   client: AiReviewPrismaClient,
   submission: SubmissionReviewRecord,
   input: {
+    action?: string;
     actorId?: string;
     fromStatus: SubmissionStatus;
     jobId: string;
@@ -713,9 +798,80 @@ async function moveSubmissionToRevision(
     toStatus: 'NEEDS_REVISION',
     reason: input.reason,
     metadata: {
-      action: 'AI_REVIEW_TO_REVISION',
+      action: input.action ?? 'AI_REVIEW_TO_REVISION',
       jobId: input.jobId,
     },
+  });
+}
+
+async function moveFailedAiJobToRevision(
+  client: AiReviewPrismaClient,
+  submission: SubmissionReviewRecord,
+  input: {
+    actorId?: string;
+    currentAttempt: number;
+    job: AiReviewJobRecord;
+    reason: string;
+  },
+): Promise<void> {
+  let currentStatus = submission.status as SubmissionStatus;
+  if (!['AI_QUEUED', 'AI_REVIEWING'].includes(currentStatus)) {
+    return;
+  }
+
+  if (currentStatus === 'AI_QUEUED') {
+    assertSubmissionTransition('AI_QUEUED', 'AI_REVIEWING');
+    await client.submission.update({
+      where: { id: submission.id },
+      data: { status: 'AI_REVIEWING' },
+    });
+    await writeAiReviewAudit(client, submission, {
+      actorId: input.actorId,
+      fromStatus: 'AI_QUEUED',
+      toStatus: 'AI_REVIEWING',
+      metadata: { action: 'AI_REVIEW_STARTED', jobId: input.job.id },
+    });
+    currentStatus = 'AI_REVIEWING';
+  }
+
+  assertSubmissionTransition(currentStatus, 'AI_REJECTED');
+  await client.reviewRecord.create({
+    data: {
+      submissionId: submission.id,
+      stage: 'AI_PRECHECK',
+      reviewerType: 'AI',
+      scores: scoresWithReason({ overall: 0 }, 'reject', input.reason),
+      decision: 'reject',
+      comment: input.reason,
+      rawPrompt: null,
+      rawOutput: null,
+      structuredOutput: aiFailureStructuredOutput(input.reason),
+      modelMetadata: {
+        provider: input.job.provider,
+        model: input.job.model,
+        error: true,
+      },
+      retryCount: input.currentAttempt,
+      idempotencyKey: null,
+    },
+  });
+  await client.submission.update({
+    where: { id: submission.id },
+    data: { status: 'AI_REJECTED' },
+  });
+  await writeAiReviewAudit(client, submission, {
+    actorId: input.actorId,
+    fromStatus: currentStatus,
+    toStatus: 'AI_REJECTED',
+    reason: input.reason,
+    metadata: { action: 'AI_REVIEW_FAILED', jobId: input.job.id },
+  });
+  await moveSubmissionToRevision(client, submission, {
+    action: 'AI_REVIEW_FAILED_TO_REVISION',
+    actorId: input.actorId,
+    fromStatus: 'AI_REJECTED',
+    jobId: input.job.id,
+    reason: input.reason,
   });
 }
 
@@ -836,6 +992,19 @@ function defaultAiComment(decision: CompleteAiReviewJobInput['decision']): strin
   return 'AI 预审打回，标注员需要修改。';
 }
 
+function aiFailureRevisionReason(message: string): string {
+  return `AI 预审未能完成，已退回标注员重新提交。原因：${message}`;
+}
+
+function aiFailureStructuredOutput(comment: string): Record<string, unknown> {
+  return {
+    verdict: 'reject',
+    overallScore: 0,
+    overallComment: comment,
+    fieldReviews: [],
+  };
+}
+
 function scoresWithReason(
   scores: Record<string, unknown> | undefined,
   decision: CompleteAiReviewJobInput['decision'],
@@ -948,12 +1117,16 @@ function compareJobRecency(first: AiReviewJobRecord, second: AiReviewJobRecord):
   return first.createdAt.getTime() - second.createdAt.getTime();
 }
 
-function toBatchDetailDto(jobs: AiReviewJobRecord[], batchIdOverride?: string): AiReviewBatchDetailDto {
+function toBatchDetailDto(
+  jobs: AiReviewJobRecord[],
+  batchIdOverride?: string,
+  allJobs: AiReviewJobRecord[] = jobs,
+): AiReviewBatchDetailDto {
   const sortedJobs = sortBatchJobs(jobs);
 
   return {
     ...toBatchDto(sortedJobs, batchIdOverride),
-    items: sortedJobs.map(toBatchItemDto),
+    items: sortedJobs.map((job, index) => toBatchItemDto(job, index, versionJobsForAssignment(job, allJobs))),
   };
 }
 
@@ -1010,24 +1183,44 @@ function jobsForSubmittedAt(
   return batchJobs.length > 0 ? batchJobs : jobs;
 }
 
-function toBatchItemDto(job: AiReviewJobRecord, index: number): AiReviewBatchItemDto {
+function versionJobsForAssignment(job: AiReviewJobRecord, allJobs: AiReviewJobRecord[]): AiReviewJobRecord[] {
+  const assignmentKey = assignmentKeyForJob(job);
+  const latestByVersion = new Map<string, AiReviewJobRecord>();
+
+  for (const candidate of allJobs) {
+    if (candidate.taskId !== job.taskId || assignmentKeyForJob(candidate) !== assignmentKey) {
+      continue;
+    }
+
+    const versionKey = versionKeyForJob(candidate);
+    const current = latestByVersion.get(versionKey);
+    if (!current || compareJobRecency(candidate, current) > 0) {
+      latestByVersion.set(versionKey, candidate);
+    }
+  }
+
+  return [...latestByVersion.values()].sort((first, second) => compareJobRecency(second, first));
+}
+
+function versionKeyForJob(job: AiReviewJobRecord): string {
+  return job.submission?.id ?? `${assignmentKeyForJob(job)}:${job.submission?.round ?? job.round}`;
+}
+
+function toBatchItemDto(
+  job: AiReviewJobRecord,
+  index: number,
+  versionJobs: AiReviewJobRecord[] = [job],
+): AiReviewBatchItemDto {
   const submission = job.submission;
   const assignment = submission?.assignment;
   const taskItem = assignment?.taskItem;
   const reviewRecord = latestAiReviewRecord(job);
+  const submissionDto = toBatchItemSubmissionDto(job);
 
   return {
     index: index + 1,
     job: toJobDto(job),
-    submission: {
-      id: submission?.id ?? job.submissionId,
-      assignmentId: submission?.assignmentId ?? assignment?.id ?? '',
-      status: submission?.status ?? 'AI_QUEUED',
-      round: submission?.round ?? job.round,
-      answers: submission?.answers ?? {},
-      schemaVersion: submission?.schemaVersion ?? job.task?.template?.schemaVersion ?? '',
-      submittedAt: (submission?.submittedAt ?? job.queuedAt).toISOString(),
-    },
+    submission: submissionDto,
     taskItem: {
       id: taskItem?.id ?? '',
       externalId: taskItem?.externalId ?? job.submissionId,
@@ -1037,11 +1230,53 @@ function toBatchItemDto(job: AiReviewJobRecord, index: number): AiReviewBatchIte
     reviewRecord: reviewRecord ? toReviewRecordDto(reviewRecord) : null,
     reviewFields: reviewFieldsFromTemplateSchema(
       job.task?.template?.schema ?? null,
-      submission?.answers ?? {},
+      submissionDto.answers,
     ),
     decision: decisionForJob(job),
     overallScore: scoreFromRecord(reviewRecord),
     logs: toBatchItemLogs(job, reviewRecord),
+    versions: versionJobs.map((versionJob) => toBatchItemVersionDto(versionJob, job)),
+  };
+}
+
+function toBatchItemVersionDto(
+  job: AiReviewJobRecord,
+  currentJob: AiReviewJobRecord,
+): AiReviewBatchItemVersionDto {
+  const submission = toBatchItemSubmissionDto(job);
+  const reviewRecord = latestAiReviewRecord(job);
+
+  return {
+    versionId: versionKeyForJob(job),
+    batchId: batchIdForJob(job),
+    round: submission.round,
+    submittedAt: submission.submittedAt,
+    isCurrent: versionKeyForJob(job) === versionKeyForJob(currentJob),
+    job: toJobDto(job),
+    submission,
+    reviewRecord: reviewRecord ? toReviewRecordDto(reviewRecord) : null,
+    reviewFields: reviewFieldsFromTemplateSchema(
+      job.task?.template?.schema ?? null,
+      submission.answers,
+    ),
+    decision: decisionForJob(job),
+    overallScore: scoreFromRecord(reviewRecord),
+    logs: toBatchItemLogs(job, reviewRecord),
+  };
+}
+
+function toBatchItemSubmissionDto(job: AiReviewJobRecord): AiReviewBatchItemSubmissionDto {
+  const submission = job.submission;
+  const assignment = submission?.assignment;
+
+  return {
+    id: submission?.id ?? job.submissionId,
+    assignmentId: submission?.assignmentId ?? assignment?.id ?? '',
+    status: submission?.status ?? 'AI_QUEUED',
+    round: submission?.round ?? job.round,
+    answers: submission?.answers ?? {},
+    schemaVersion: submission?.schemaVersion ?? job.task?.template?.schemaVersion ?? '',
+    submittedAt: (submission?.submittedAt ?? job.queuedAt).toISOString(),
   };
 }
 
