@@ -402,10 +402,14 @@ export const WorkbenchPage = () => {
     () =>
       orderedTaskAssignments.map((assignment, index) => ({
         label: assignment.externalId,
-        statusLabel:
+        flowStatusLabel:
           index === currentQuestionIndex && isWorkbenchForCurrentRoute && workbench
-            ? resolveCurrentQuestionStatusLabel(workbench, currentQuestionProgress)
-            : resolveNavigationQuestionStatusLabel(
+            ? resolveCurrentQuestionFlowStatusLabel(workbench)
+            : resolveNavigationQuestionFlowStatusLabel(assignment),
+        annotationStatusLabel:
+          index === currentQuestionIndex && isWorkbenchForCurrentRoute && workbench
+            ? resolveCurrentQuestionAnnotationStatusLabel(workbench, currentQuestionProgress)
+            : resolveNavigationQuestionAnnotationStatusLabel(
                 assignment,
                 localQuestionProgress[assignment.assignmentId],
                 workbench?.task.schema,
@@ -950,7 +954,7 @@ export const WorkbenchPage = () => {
           </div>
         </main>
 
-        <LabelerWorkbenchInfoPanel stats={stats} workbench={workbench} />
+        <LabelerWorkbenchInfoPanel workbench={workbench} />
       </div>
     </section>
   );
@@ -1105,50 +1109,16 @@ const AiReviewWorkbenchTab = ({
 };
 
 const LabelerWorkbenchInfoPanel = ({
-  stats,
   workbench,
 }: {
-  stats: LabelerStatsDto | null;
   workbench: WorkbenchDto;
 }) => {
   const historyTimeline = buildQuestionHistoryTimeline(workbench);
-  const rejectedCount = Math.max(stats?.rejectedCount ?? 0, stats?.needsRevisionCount ?? 0);
 
   return (
     <aside className="labeler-workbench-info-panel" aria-label="标注信息">
       <section className="labeler-info-section">
-        <h2>我的贡献（本任务）</h2>
-        <div className="labeler-info-stats" aria-label="我的贡献统计">
-          <div>
-            <span>已提交</span>
-            <strong className="labeler-info-stat__value--submitted">
-              {stats?.submittedCount ?? 0}
-            </strong>
-          </div>
-          <div>
-            <span>通过</span>
-            <strong className="labeler-info-stat__value--approved">
-              {stats?.approvedCount ?? 0}
-            </strong>
-          </div>
-          <div>
-            <span>打回</span>
-            <strong className="labeler-info-stat__value--rejected">{rejectedCount}</strong>
-          </div>
-        </div>
-      </section>
-
-      <section className="labeler-info-section">
         <h2>本题历史</h2>
-        {historyTimeline.currentStatus ? (
-          <div
-            className={`labeler-item-history-current ${historyTimeline.currentStatus.className}`}
-            aria-label="当前状态"
-          >
-            <span>当前</span>
-            <strong>{historyTimeline.currentStatus.label}</strong>
-          </div>
-        ) : null}
         <ol className="labeler-item-history" aria-label="本题历史列表">
           {historyTimeline.rounds.map((round) => (
             <li className="labeler-item-history__round" key={round.id}>
@@ -1278,14 +1248,8 @@ type QuestionHistoryRound = {
   entries: QuestionHistoryEntry[];
 };
 
-type QuestionHistoryCurrentStatus = {
-  label: string;
-  className: string;
-};
-
 type QuestionHistoryTimeline = {
   rounds: QuestionHistoryRound[];
-  currentStatus: QuestionHistoryCurrentStatus | null;
 };
 
 const AI_REVIEW_DECISION_LABELS: Record<string, string> = {
@@ -1350,10 +1314,7 @@ function buildQuestionHistoryTimeline(workbench: WorkbenchDto): QuestionHistoryT
       };
     });
 
-  return {
-    rounds,
-    currentStatus: resolveQuestionHistoryCurrentStatus(workbench),
-  };
+  return { rounds };
 }
 
 function compareSubmissionHistoryByRound(
@@ -1394,61 +1355,6 @@ function latestQuestionHistoryReviewRecords(
 function formatQuestionHistoryRoundSummary(entries: readonly QuestionHistoryEntry[]): string {
   const latestEntry = entries.at(-1);
   return latestEntry ? latestEntry.timeText : '';
-}
-
-function resolveQuestionHistoryCurrentStatus(workbench: WorkbenchDto): QuestionHistoryCurrentStatus | null {
-  if (isCompletedAssignmentStatus(workbench.assignment.status)) {
-    return null;
-  }
-
-  const label = resolveHistoryCurrentStatusLabel(workbench);
-
-  return {
-    label,
-    className: questionHistoryCurrentStatusClassName(label),
-  };
-}
-
-function resolveHistoryCurrentStatusLabel(workbench: WorkbenchDto): QuestionNavigatorStatusLabel {
-  const latestSubmission = latestSubmissionByRound(workbench.submissionHistory);
-
-  if (workbench.assignment.status === 'NEEDS_REVISION' || workbench.rejectionNotice) {
-    return resolveWorkbenchRevisionStatusLabel(workbench);
-  }
-
-  if (workbench.assignment.status === 'SUBMITTED') {
-    return resolveSubmittedQuestionStatusLabel(latestSubmission?.status ?? null);
-  }
-
-  if (workbench.assignment.status === 'UNDER_RECHECK' || workbench.assignment.status === 'FINAL_PENDING') {
-    return '审核员审核';
-  }
-
-  if (latestSubmission) {
-    return resolveSubmittedQuestionStatusLabel(latestSubmission.status);
-  }
-
-  return '待标注';
-}
-
-function questionHistoryCurrentStatusClassName(label: QuestionNavigatorStatusLabel): string {
-  if (label === '审核员审核') {
-    return 'labeler-item-history-current--reviewer';
-  }
-
-  if (label === 'AI预审') {
-    return 'labeler-item-history-current--ai';
-  }
-
-  if (label === 'AI打回' || label === '审核员打回') {
-    return 'labeler-item-history-current--rejected';
-  }
-
-  if (label === '已完成') {
-    return 'labeler-item-history-current--complete';
-  }
-
-  return 'labeler-item-history-current--draft';
 }
 
 function resolveLatestAiReviewReport(history: WorkbenchDto['submissionHistory']): AiReviewReportData | null {
@@ -1835,16 +1741,20 @@ function getAnswerFields(fields: readonly SchemaField[]): SchemaField[] {
 }
 
 type QuestionProgressState = 'empty' | 'draft' | 'complete';
+type QuestionFlowStatusLabel = '待标注' | 'AI处理中' | '待审核' | '已完成' | '异常';
+type QuestionAnnotationStatusLabel = '未填写' | '草稿' | '已标注';
 type QuestionNavigatorStatusLabel =
   | '待标注'
   | '已标注'
   | 'AI预审'
   | 'AI打回'
-  | '审核员审核'
+  | '审核中'
   | '审核员打回'
   | '已完成';
 
 const AI_REVIEWING_SUBMISSION_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING', 'SUBMITTED']);
+const AI_FAILED_SUBMISSION_STATUSES = new Set(['AI_FAILED', 'FAILED']);
+const AI_REJECTED_SUBMISSION_STATUSES = new Set(['AI_REJECTED', 'REJECTED']);
 const REVIEWER_REVIEWING_SUBMISSION_STATUSES = new Set([
   'AI_PASSED',
   'AI_MANUAL',
@@ -2044,10 +1954,7 @@ function resolveSchemaAnswerProgressState(
   return hasAnyVisibleAnswer ? 'draft' : 'empty';
 }
 
-function resolveCurrentQuestionStatusLabel(
-  workbench: WorkbenchDto,
-  progress: QuestionProgressState,
-): QuestionNavigatorStatusLabel {
+function resolveCurrentQuestionFlowStatusLabel(workbench: WorkbenchDto): QuestionFlowStatusLabel {
   const status = workbench.assignment.status;
   const latestSubmission = latestSubmissionByRound(workbench.submissionHistory);
 
@@ -2056,29 +1963,25 @@ function resolveCurrentQuestionStatusLabel(
   }
 
   if (status === 'NEEDS_REVISION') {
-    return resolveWorkbenchRevisionStatusLabel(workbench);
+    return '待标注';
   }
 
   if (status === 'SUBMITTED') {
-    return resolveSubmittedQuestionStatusLabel(latestSubmission?.status ?? null);
+    return resolveSubmittedQuestionFlowStatusLabel(latestSubmission?.status ?? null);
   }
 
   if (status === 'UNDER_RECHECK' || status === 'FINAL_PENDING') {
-    return '审核员审核';
+    return '待审核';
   }
 
   if (isSubmittableAssignmentStatus(status)) {
-    return formatQuestionProgressLabel(progress);
+    return '待标注';
   }
 
   return '待标注';
 }
 
-function resolveNavigationQuestionStatusLabel(
-  assignment: LabelerAssignmentDto,
-  locallyProgress?: QuestionProgressState,
-  schema?: WorkbenchDto['task']['schema'],
-): QuestionNavigatorStatusLabel {
+function resolveNavigationQuestionFlowStatusLabel(assignment: LabelerAssignmentDto): QuestionFlowStatusLabel {
   if (
     assignment.status === 'FINAL_APPROVED' ||
     COMPLETED_SUBMISSION_STATUSES.has(assignment.latestSubmissionStatus ?? '')
@@ -2087,35 +1990,104 @@ function resolveNavigationQuestionStatusLabel(
   }
 
   if (assignment.status === 'NEEDS_REVISION') {
-    return resolveAssignmentRevisionStatusLabel(assignment);
+    return '待标注';
   }
 
   if (assignment.status === 'SUBMITTED') {
-    return resolveSubmittedQuestionStatusLabel(assignment.latestSubmissionStatus);
+    return resolveSubmittedQuestionFlowStatusLabel(assignment.latestSubmissionStatus);
   }
 
   if (assignment.status === 'UNDER_RECHECK' || assignment.status === 'FINAL_PENDING') {
-    return '审核员审核';
+    return '待审核';
   }
 
-  if (locallyProgress && isSubmittableAssignmentStatus(assignment.status)) {
-    return formatQuestionProgressLabel(locallyProgress);
-  }
-
-  if (assignment.draftAnswers && schema && isSubmittableAssignmentStatus(assignment.status)) {
-    const draftProgress = resolveSchemaAnswerProgressState(schema, assignment.draftAnswers);
-    return formatQuestionProgressLabel(draftProgress);
+  if (isSubmittableAssignmentStatus(assignment.status)) {
+    return '待标注';
   }
 
   return '待标注';
 }
 
-function formatQuestionProgressLabel(progress: QuestionProgressState): QuestionNavigatorStatusLabel {
+function resolveSubmittedQuestionFlowStatusLabel(status: string | null): QuestionFlowStatusLabel {
+  if (COMPLETED_SUBMISSION_STATUSES.has(status ?? '')) {
+    return '已完成';
+  }
+
+  if (AI_FAILED_SUBMISSION_STATUSES.has(status ?? '')) {
+    return '异常';
+  }
+
+  if (REVIEWER_REJECTED_SUBMISSION_STATUSES.has(status ?? '') || AI_REJECTED_SUBMISSION_STATUSES.has(status ?? '')) {
+    return '待标注';
+  }
+
+  if (REVIEWER_REVIEWING_SUBMISSION_STATUSES.has(status ?? '')) {
+    return '待审核';
+  }
+
+  if (AI_REVIEWING_SUBMISSION_STATUSES.has(status ?? '')) {
+    return 'AI处理中';
+  }
+
+  return 'AI处理中';
+}
+
+function resolveCurrentQuestionAnnotationStatusLabel(
+  workbench: WorkbenchDto,
+  progress: QuestionProgressState,
+): QuestionAnnotationStatusLabel {
+  const status = workbench.assignment.status;
+  const latestSubmission = latestSubmissionByRound(workbench.submissionHistory);
+
+  if (
+    status === 'FINAL_APPROVED' ||
+    status === 'SUBMITTED' ||
+    status === 'UNDER_RECHECK' ||
+    status === 'FINAL_PENDING' ||
+    COMPLETED_SUBMISSION_STATUSES.has(latestSubmission?.status ?? '')
+  ) {
+    return '已标注';
+  }
+
+  return formatAnnotationProgressLabel(progress);
+}
+
+function resolveNavigationQuestionAnnotationStatusLabel(
+  assignment: LabelerAssignmentDto,
+  locallyProgress?: QuestionProgressState,
+  schema?: WorkbenchDto['task']['schema'],
+): QuestionAnnotationStatusLabel {
+  if (
+    assignment.status === 'FINAL_APPROVED' ||
+    assignment.status === 'SUBMITTED' ||
+    assignment.status === 'UNDER_RECHECK' ||
+    assignment.status === 'FINAL_PENDING' ||
+    COMPLETED_SUBMISSION_STATUSES.has(assignment.latestSubmissionStatus ?? '')
+  ) {
+    return '已标注';
+  }
+
+  if (locallyProgress) {
+    return formatAnnotationProgressLabel(locallyProgress);
+  }
+
+  if (assignment.draftAnswers && schema && isSubmittableAssignmentStatus(assignment.status)) {
+    return formatAnnotationProgressLabel(resolveSchemaAnswerProgressState(schema, assignment.draftAnswers));
+  }
+
+  return '未填写';
+}
+
+function formatAnnotationProgressLabel(progress: QuestionProgressState): QuestionAnnotationStatusLabel {
   if (progress === 'complete') {
     return '已标注';
   }
 
-  return '待标注';
+  if (progress === 'draft') {
+    return '草稿';
+  }
+
+  return '未填写';
 }
 
 function resolveSubmittedQuestionStatusLabel(status: string | null): QuestionNavigatorStatusLabel {
@@ -2124,7 +2096,7 @@ function resolveSubmittedQuestionStatusLabel(status: string | null): QuestionNav
   }
 
   if (REVIEWER_REVIEWING_SUBMISSION_STATUSES.has(status ?? '')) {
-    return '审核员审核';
+    return '审核中';
   }
 
   return 'AI预审';
@@ -2164,16 +2136,6 @@ function latestReviewRecordByCreatedAt(
     (latest, record) => (!latest || latest.createdAt.localeCompare(record.createdAt) < 0 ? record : latest),
     null,
   );
-}
-
-function resolveAssignmentRevisionStatusLabel(assignment: LabelerAssignmentDto): QuestionNavigatorStatusLabel {
-  return isReviewerRejectionSource({
-    stage: assignment.latestReviewStage,
-    reviewerType: assignment.latestReviewerType,
-    submissionStatus: assignment.latestSubmissionStatus,
-  })
-    ? '审核员打回'
-    : 'AI打回';
 }
 
 function isReviewerRejectionSource(input: {

@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { TaskFlowDetailDto, TaskFlowItemDto, TaskFlowSummaryDto } from '../../api/taskFlows';
+import type { TaskFlowDetailDto, TaskFlowItemDto, TaskFlowLogDto, TaskFlowSummaryDto } from '../../api/taskFlows';
 import { AiReviewQueuePage } from './AiReviewQueuePage';
 
 const modelCompareFlow = createFlow({
@@ -67,6 +67,50 @@ const modelCompareDetail: TaskFlowDetailDto = {
   items: Array.from({ length: 10 }, (_, index) => createItem(index + 1, index < 2 ? 'PASSED' : 'REJECTED')),
 };
 
+const modelCompareLogs: TaskFlowLogDto[] = [
+  createLog({
+    id: 'log_owner_published',
+    eventType: 'OWNER_PUBLISHED',
+    actorRole: 'OWNER',
+    actorName: '张满',
+    occurredAt: '2026-05-20T09:00:00.000Z',
+    message: 'Owner 发布了任务。',
+  }),
+  createLog({
+    id: 'log_labeler_claimed',
+    eventType: 'LABELER_CLAIMED',
+    actorRole: 'LABELER',
+    actorName: '李雷',
+    occurredAt: '2026-05-21T09:00:00.000Z',
+    message: '李雷 领取了任务。',
+  }),
+  createLog({
+    id: 'log_labeler_submitted',
+    eventType: 'LABELER_SUBMITTED',
+    actorRole: 'LABELER',
+    actorName: '李雷',
+    occurredAt: '2026-05-21T10:00:00.000Z',
+    message: '李雷 提交了整个任务的标注结果。',
+  }),
+  createLog({
+    id: 'log_ai_completed',
+    eventType: 'AI_PRECHECK_COMPLETED',
+    actorRole: 'AI_AGENT',
+    actorName: 'AI Agent',
+    occurredAt: '2026-05-21T10:05:00.000Z',
+    message: 'AI Agent 完成本轮预审，存在建议打回题目。',
+    rejectedItemRefs: [{ itemId: 'item_3', externalId: 'P0003', index: 3 }],
+  }),
+  createLog({
+    id: 'log_reviewer_received',
+    eventType: 'REVIEWER_RECEIVED',
+    actorRole: 'REVIEWER',
+    actorName: null,
+    occurredAt: '2026-05-21T10:06:00.000Z',
+    message: '任务流转到 Reviewer 检查。',
+  }),
+];
+
 describe('AiReviewQueuePage', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -109,6 +153,31 @@ describe('AiReviewQueuePage', () => {
     expect(within(dialog).getAllByText('待 Reviewer 复核').length).toBeGreaterThan(0);
     expect(within(dialog).getAllByText('未最终完成').length).toBeGreaterThan(0);
     expect(within(dialog).queryByText('已完成')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('HUMAN_PENDING')).not.toBeInTheDocument();
+
+    const timeline = within(dialog).getByLabelText('当前任务时间线');
+    expect(within(timeline).getAllByRole('listitem')).toHaveLength(5);
+    ['Owner 发布', 'Labeler 标注', 'AI Agent 预审', 'Reviewer 检查', '任务完成']
+      .forEach((label) => expect(within(timeline).getByText(label)).toBeInTheDocument());
+    expect(within(timeline).getByText('张满')).toBeInTheDocument();
+    expect(within(timeline).getByText('李雷')).toBeInTheDocument();
+    expect(within(timeline).getByText('AI Agent')).toBeInTheDocument();
+    expect(within(timeline).queryByText('Labeler 修改')).not.toBeInTheDocument();
+    expect(within(timeline).queryByText('Reviewer 再次复审')).not.toBeInTheDocument();
+    expect(within(timeline).queryByText(/建议通过/)).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: '任务日志' }));
+
+    const logDialog = await screen.findByRole('dialog', { name: /任务日志 · 模型对比 json/ });
+    expect(within(logDialog).getByText('Owner 发布了任务。')).toBeInTheDocument();
+    expect(within(logDialog).getByText('李雷 领取了任务。')).toBeInTheDocument();
+    expect(within(logDialog).getByText('李雷 提交了整个任务的标注结果。')).toBeInTheDocument();
+    expect(within(logDialog).getByText('AI Agent 完成本轮预审，存在建议打回题目。')).toBeInTheDocument();
+    expect(within(logDialog).getByText('P0003')).toBeInTheDocument();
+    expect(within(logDialog).queryByText(/提交了 \\d+ 道题/)).not.toBeInTheDocument();
+    expect(within(logDialog).queryByText(/总共预审/)).not.toBeInTheDocument();
+    expect(within(logDialog).queryByText(/建议通过/)).not.toBeInTheDocument();
+    expect(within(logDialog).queryByText('HUMAN_PENDING')).not.toBeInTheDocument();
   });
 
   it('加载失败时提示任务质检流水线错误，而不是继续暴露 AI 队列口径', async () => {
@@ -133,6 +202,48 @@ function createFlow(overrides: Partial<TaskFlowSummaryDto> = {}): TaskFlowSummar
     currentStage: 'HUMAN_REVIEW',
     totalItems: 1,
     submittedItems: 1,
+    lifecycleSteps: [
+      {
+        key: 'OWNER_PUBLISHED',
+        label: 'Owner 发布',
+        status: 'COMPLETED',
+        actorRole: 'OWNER',
+        actorName: '张满',
+        occurredAt: '2026-05-20T09:00:00.000Z',
+      },
+      {
+        key: 'LABELER_SUBMITTED',
+        label: 'Labeler 标注',
+        status: 'COMPLETED',
+        actorRole: 'LABELER',
+        actorName: '李雷',
+        occurredAt: '2026-05-21T10:00:00.000Z',
+      },
+      {
+        key: 'AI_PRECHECK',
+        label: 'AI Agent 预审',
+        status: 'COMPLETED',
+        actorRole: 'AI_AGENT',
+        actorName: 'AI Agent',
+        occurredAt: '2026-05-21T10:05:00.000Z',
+      },
+      {
+        key: 'REVIEWER_CHECK',
+        label: 'Reviewer 检查',
+        status: 'CURRENT',
+        actorRole: 'REVIEWER',
+        actorName: null,
+        occurredAt: null,
+      },
+      {
+        key: 'TASK_COMPLETED',
+        label: '任务完成',
+        status: 'PENDING',
+        actorRole: null,
+        actorName: null,
+        occurredAt: null,
+      },
+    ],
     aiSummary: {
       pending: 0,
       queued: 0,
@@ -187,7 +298,7 @@ function createItem(index: number, aiStatus: TaskFlowItemDto['aiStatus']): TaskF
     },
     submission: {
       id: `submission_${index}`,
-      status: 'RECHECK_REVIEWING',
+      status: 'HUMAN_PENDING',
       round: 2,
       answers: {
         winner: index % 2 === 0 ? 'A' : 'B',
@@ -206,7 +317,9 @@ function createItem(index: number, aiStatus: TaskFlowItemDto['aiStatus']): TaskF
       stage: 'AI_PRECHECK',
       reviewerType: 'AI',
       reviewerId: null,
+      reviewerName: null,
       assignedReviewerId: null,
+      assignedReviewerName: null,
       decision: aiStatus === 'REJECTED' ? 'reject' : 'pass',
       comment: aiStatus === 'REJECTED' ? '模型建议打回。' : '模型建议通过。',
       scores: {
@@ -243,8 +356,27 @@ function createFetchMock() {
       return jsonResponse({ data: modelCompareDetail });
     }
 
+    if (path === '/agent/task-flows/task_model_compare_json/logs' && method === 'GET') {
+      return jsonResponse({ data: modelCompareLogs });
+    }
+
     return jsonResponse({ data: {} });
   });
+}
+
+function createLog(overrides: Partial<TaskFlowLogDto>): TaskFlowLogDto {
+  return {
+    id: 'log_default',
+    taskId: 'task_model_compare_json',
+    round: 1,
+    eventType: 'OWNER_PUBLISHED',
+    actorRole: 'OWNER',
+    actorName: '张满',
+    occurredAt: '2026-05-20T09:00:00.000Z',
+    message: 'Owner 发布了任务。',
+    rejectedItemRefs: [],
+    ...overrides,
+  };
 }
 
 function requestInfo(input: RequestInfo | URL, init?: RequestInit) {

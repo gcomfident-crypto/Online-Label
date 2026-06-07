@@ -6,12 +6,16 @@ import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import {
   getTaskFlow,
+  getTaskFlowLogs,
   listTaskFlows,
   type TaskFlowAiStatus,
   type TaskFlowDetailDto,
   type TaskFlowFinalStatus,
   type TaskFlowItemDto,
   type TaskFlowLabelerStatus,
+  type TaskFlowLifecycleStepDto,
+  type TaskFlowLifecycleStepStatus,
+  type TaskFlowLogDto,
   type TaskFlowReviewerStatus,
   type TaskFlowStage,
   type TaskFlowSummaryDto,
@@ -23,7 +27,7 @@ const SHEET_EXIT_ANIMATION_MS = 260;
 type FlowFilter = 'ALL' | 'ACTIVE' | 'FINAL_COMPLETED';
 type FlowSortField = 'taskId' | 'updatedAt';
 type FlowSortDirection = 'asc' | 'desc';
-type ItemStatusBucket = 'inProgress' | 'reviewerPending' | 'revision' | 'finalApproved';
+type ItemStatusBucket = 'aiProcessing' | 'failed' | 'finalApproved' | 'labelerProcessing' | 'reviewerPending';
 
 type FlowStatusSummary = {
   active: number;
@@ -42,10 +46,11 @@ const FLOW_SUMMARY_FILTERS: Array<{
 ];
 
 const ITEM_STATUS_TABS: Array<{ label: string; value: ItemStatusBucket }> = [
-  { label: '流转中', value: 'inProgress' },
-  { label: '待复审', value: 'reviewerPending' },
-  { label: '待修改', value: 'revision' },
-  { label: '最终完成', value: 'finalApproved' },
+  { label: '待标注', value: 'labelerProcessing' },
+  { label: 'AI处理中', value: 'aiProcessing' },
+  { label: '待审核', value: 'reviewerPending' },
+  { label: '已完成', value: 'finalApproved' },
+  { label: '异常', value: 'failed' },
 ];
 
 const STAGE_LABELS: Record<TaskFlowStage, string> = {
@@ -69,7 +74,7 @@ const AI_STATUS_LABELS: Record<TaskFlowAiStatus, string> = {
 
 const REVIEWER_STATUS_LABELS: Record<TaskFlowReviewerStatus, string> = {
   NOT_STARTED: '未进入 Reviewer',
-  PENDING: '待 Reviewer 复核',
+  PENDING: '待审核',
   PASSED: 'Reviewer 已标记通过',
   REJECTED: 'Reviewer 已标记打回',
 };
@@ -87,6 +92,14 @@ const FINAL_STATUS_LABELS: Record<TaskFlowFinalStatus, string> = {
   FINAL_APPROVED: '任务最终完成',
 };
 
+const LIFECYCLE_STATUS_LABELS: Record<TaskFlowLifecycleStepStatus, string> = {
+  COMPLETED: '完成',
+  CURRENT: '进行中',
+  PENDING: '待处理',
+  ACTION_REQUIRED: '需处理',
+  SKIPPED: '未启用',
+};
+
 export const AiReviewQueuePage = () => {
   const [flows, setFlows] = useState<TaskFlowSummaryDto[]>([]);
   const [taskDisplayIdByTaskId, setTaskDisplayIdByTaskId] = useState<Map<string, string>>(new Map());
@@ -97,9 +110,12 @@ export const AiReviewQueuePage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedFlow, setSelectedFlow] = useState<TaskFlowSummaryDto | TaskFlowDetailDto | null>(null);
   const [detail, setDetail] = useState<TaskFlowDetailDto | null>(null);
+  const [taskLogs, setTaskLogs] = useState<TaskFlowLogDto[]>([]);
+  const [isLogOpen, setIsLogOpen] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [isLogLoading, setIsLogLoading] = useState(false);
   const [isSheetClosing, setIsSheetClosing] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
   const { dismissToast, messages, showErrorToast } = useToastController();
@@ -205,6 +221,8 @@ export const AiReviewQueuePage = () => {
     setIsSheetClosing(false);
     setSelectedFlow(flow);
     setDetail(null);
+    setTaskLogs([]);
+    setIsLogOpen(false);
     setSelectedItemIndex(0);
     setIsDetailLoading(true);
 
@@ -228,10 +246,34 @@ export const AiReviewQueuePage = () => {
     closeTimerRef.current = window.setTimeout(() => {
       setSelectedFlow(null);
       setDetail(null);
+      setTaskLogs([]);
+      setIsLogOpen(false);
       setSelectedItemIndex(0);
       setIsSheetClosing(false);
       closeTimerRef.current = null;
     }, SHEET_EXIT_ANIMATION_MS);
+  };
+
+  const handleOpenLogs = async () => {
+    const flow = detail ?? selectedFlow;
+    if (!flow) {
+      return;
+    }
+
+    setIsLogOpen(true);
+    setIsLogLoading(true);
+    try {
+      setTaskLogs(await getTaskFlowLogs(flow.taskId));
+    } catch {
+      setTaskLogs([]);
+      showErrorToast('任务日志加载失败，请稍后重试。');
+    } finally {
+      setIsLogLoading(false);
+    }
+  };
+
+  const handleCloseLogs = () => {
+    setIsLogOpen(false);
   };
 
   const handleSort = (field: FlowSortField) => {
@@ -286,8 +328,13 @@ export const AiReviewQueuePage = () => {
             flow={detail ?? selectedFlow}
             isClosing={isSheetClosing}
             isLoading={isDetailLoading}
+            isLogLoading={isLogLoading}
+            isLogOpen={isLogOpen}
             selectedItemIndex={selectedItemIndex}
+            taskLogs={taskLogs}
             onClose={handleCloseDrawer}
+            onCloseLogs={handleCloseLogs}
+            onOpenLogs={() => void handleOpenLogs()}
             onSelectItem={setSelectedItemIndex}
           />
         ) : null}
@@ -534,17 +581,27 @@ const TaskFlowSheet = ({
   flow,
   isClosing,
   isLoading,
+  isLogLoading,
+  isLogOpen,
   onClose,
+  onCloseLogs,
+  onOpenLogs,
   onSelectItem,
   selectedItemIndex,
+  taskLogs,
 }: {
   detail: TaskFlowDetailDto | null;
   flow: TaskFlowSummaryDto | TaskFlowDetailDto;
   isClosing: boolean;
   isLoading: boolean;
+  isLogLoading: boolean;
+  isLogOpen: boolean;
   onClose: () => void;
+  onCloseLogs: () => void;
+  onOpenLogs: () => void;
   onSelectItem: (index: number) => void;
   selectedItemIndex: number;
+  taskLogs: TaskFlowLogDto[];
 }) => {
   const items = detail?.items ?? [];
   const selectedItem = items[Math.min(selectedItemIndex, Math.max(0, items.length - 1))] ?? null;
@@ -589,35 +646,23 @@ const TaskFlowSheet = ({
               <div className="agent-review-detail-summary-heading">
                 <div className="agent-review-detail-summary-title-group">
                   <div className="agent-review-detail-summary-title-row">
-                    <h2 id="agent-review-detail-title" className="agent-review-detail-summary-card__title">
-                      任务流转详情 · {flow.taskTitle}
-                    </h2>
-                    <span className="agent-review-detail-summary-title-count">
-                      <span aria-hidden="true">•</span>
-                      第 {flow.round.toLocaleString()} 轮 · {flow.totalItems.toLocaleString()} 题
-                    </span>
-                    <SummaryStatusPill stage={flow.currentStage} />
-                  </div>
-                  <div className="agent-review-detail-summary-subline" aria-label="模板和人员信息">
-                    <span className="agent-review-detail-summary-card__subtitle">
-                      {templateLabel(flow)}
-                    </span>
-                    <span className="agent-review-detail-summary-inline-meta">
-                      <span className="agent-review-detail-summary-inline-meta__item">
-                        <span>任务 Owner</span>
-                        <strong>{flow.ownerName ?? flow.ownerId ?? '未记录'}</strong>
-                      </span>
-                      <span className="agent-review-detail-summary-inline-meta__item">
-                        <span>当前阶段</span>
-                        <strong>{STAGE_LABELS[flow.currentStage]}</strong>
-                      </span>
-                    </span>
+                    <div className="agent-review-detail-summary-title-block">
+                      <span className="agent-review-detail-summary-eyebrow">任务名称</span>
+                      <h2 id="agent-review-detail-title" className="agent-review-detail-summary-card__title">
+                        {flow.taskTitle}
+                      </h2>
+                    </div>
                   </div>
                 </div>
               </div>
-              <button className="agent-review-sheet-close" type="button" aria-label="关闭任务流转详情" onClick={onClose}>
-                <span aria-hidden="true">×</span>
-              </button>
+              <div className="agent-review-detail-actions">
+                <button className="task-button task-button--ghost" type="button" onClick={onOpenLogs}>
+                  任务日志
+                </button>
+                <button className="agent-review-sheet-close" type="button" aria-label="关闭任务流转详情" onClick={onClose}>
+                  <span aria-hidden="true">×</span>
+                </button>
+              </div>
             </div>
             <TaskFlowTimeline flow={flow} />
           </section>
@@ -648,6 +693,14 @@ const TaskFlowSheet = ({
             )}
           </div>
         )}
+        {isLogOpen ? (
+          <TaskFlowLogDialog
+            flow={flow}
+            isLoading={isLogLoading}
+            logs={taskLogs}
+            onClose={onCloseLogs}
+          />
+        ) : null}
       </section>
     </div>
   );
@@ -668,8 +721,9 @@ const QuestionList = ({
       ...nextCounts,
       [tab.value]: items.filter((item) => itemBucket(item) === tab.value).length,
     }),
-    { finalApproved: 0, inProgress: 0, reviewerPending: 0, revision: 0 },
+    { aiProcessing: 0, failed: 0, finalApproved: 0, labelerProcessing: 0, reviewerPending: 0 },
   );
+  const visibleTabs = ITEM_STATUS_TABS.filter((tab) => counts[tab.value] > 0);
 
   const handleBucketClick = (bucket: ItemStatusBucket) => {
     const nextIndex = items.findIndex((item) => itemBucket(item) === bucket);
@@ -680,8 +734,8 @@ const QuestionList = ({
 
   return (
     <aside className="agent-review-question-list" aria-label="任务内题目流转列表">
-      <div className="agent-review-question-status-tabs" role="tablist" aria-label="题目流转状态统计">
-        {ITEM_STATUS_TABS.map((tab) => (
+      <div className="agent-review-question-status-tabs" role="tablist" aria-label="题目分组筛选">
+        {visibleTabs.map((tab) => (
           <button
             key={tab.value}
             type="button"
@@ -781,7 +835,7 @@ const SubmissionContentPanel = ({ item }: { item: TaskFlowItemDto }) => (
 
 const AiReviewRecordPanel = ({ item }: { item: TaskFlowItemDto }) => (
   <article className={`agent-review-card agent-review-card--comment is-${aiTone(item.aiStatus)}`}>
-    <PanelHeading title="AI 预审记录" meta={item.latestAiJob ? aiJobMeta(item.latestAiJob) : '无 AI job'} />
+    <PanelHeading title="AI 预审记录" />
     <div className="agent-review-comment-box">
       <strong>{AI_STATUS_LABELS[item.aiStatus]}</strong>
       <p>{item.aiReview?.comment ?? item.latestAiJob?.lastError ?? '当前题没有 AI 预审结论。'}</p>
@@ -815,7 +869,7 @@ const TraceSidebar = ({ item }: { item: TaskFlowItemDto }) => (
       <dl className="agent-review-trace-identifiers">
         <TraceSummaryItem label="提交轮次" value={item.submission ? `第${item.submission.round}轮` : '未提交'} />
         <TraceSummaryItem label="标注员" value={item.assignment?.assigneeName ?? '未领取'} />
-        <TraceSummaryItem label="提交状态" value={item.submission?.status ?? '未提交'} />
+        <TraceSummaryItem label="提交状态" value={submissionStatusLabel(item.submission?.status ?? null)} />
       </dl>
       <ol className="agent-review-trace-timeline" aria-label="当前题流程节点">
         {itemTraceEvents(item).map((event) => (
@@ -827,24 +881,222 @@ const TraceSidebar = ({ item }: { item: TaskFlowItemDto }) => (
 );
 
 const TaskFlowTimeline = ({ flow }: { flow: TaskFlowSummaryDto | TaskFlowDetailDto }) => {
-  const steps = buildTaskFlowTimeline(flow);
+  const steps = flow.lifecycleSteps;
+  const [activeStep, setActiveStep] = useState<{
+    key: TaskFlowLifecycleStepDto['key'];
+    step: TaskFlowLifecycleStepDto;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!activeStep) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('.agent-review-task-timeline li')) {
+        return;
+      }
+
+      setActiveStep(null);
+    };
+    const handleScroll = () => setActiveStep(null);
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('scroll', handleScroll, true);
+
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, [activeStep]);
+
+  const showStepPopover = (target: HTMLElement, step: TaskFlowLifecycleStepDto) => {
+    const targetRect = target.getBoundingClientRect();
+    const dotRect = target.querySelector<HTMLElement>('.agent-review-task-timeline__dot')?.getBoundingClientRect() ?? targetRect;
+
+    setActiveStep({
+      key: step.key,
+      step,
+      x: dotRect.left + dotRect.width / 2,
+      y: targetRect.bottom + 10,
+    });
+  };
 
   return (
-    <ol className="agent-review-task-timeline" aria-label="当前任务时间线">
-      {steps.map((step, index) => (
-        <li key={step.key} className={step.isComplete ? 'is-complete' : undefined}>
-          <span className="agent-review-task-timeline__dot" aria-hidden="true" />
-          {index < steps.length - 1 ? <span className="agent-review-task-timeline__track" aria-hidden="true" /> : null}
-          <div className="agent-review-task-timeline__content">
-            <span>{step.label}</span>
-            <strong>{step.value}</strong>
-            <small>{step.meta}</small>
-          </div>
-        </li>
-      ))}
-    </ol>
+    <section className="agent-review-task-progress" aria-label="流程进度">
+      <ol className="agent-review-task-timeline" aria-label="当前任务时间线">
+        {steps.map((step, index) => (
+          <li
+            key={step.key}
+            tabIndex={0}
+            aria-label={`${step.label}，${LIFECYCLE_STATUS_LABELS[step.status]}`}
+            className={[
+              `is-${lifecycleTone(step.status)}`,
+              `is-${step.status.toLowerCase().replace('_', '-')}`,
+              step.status === 'COMPLETED' ? 'is-complete' : '',
+            ].filter(Boolean).join(' ')}
+            onBlur={() => setActiveStep(null)}
+            onClick={(event) => showStepPopover(event.currentTarget, step)}
+            onFocus={(event) => showStepPopover(event.currentTarget, step)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                setActiveStep(null);
+              }
+            }}
+            onMouseEnter={(event) => showStepPopover(event.currentTarget, step)}
+            onMouseLeave={() => setActiveStep(null)}
+          >
+            <div className="agent-review-task-timeline__rail">
+              <span className="agent-review-task-timeline__dot" aria-hidden="true">
+                {step.status === 'COMPLETED' ? <TimelineCheckIcon /> : null}
+              </span>
+              {index < steps.length - 1 ? (
+                <span
+                  className="agent-review-task-timeline__track"
+                  style={{ background: taskFlowTrackBackground(step.status, steps[index + 1]?.status) }}
+                  aria-hidden="true"
+                />
+              ) : null}
+            </div>
+            <div className="agent-review-task-timeline__content">
+              <strong>{step.label}</strong>
+            </div>
+          </li>
+        ))}
+      </ol>
+      {activeStep
+        ? createPortal(
+            <TaskFlowStepPopover flow={flow} position={{ x: activeStep.x, y: activeStep.y }} step={activeStep.step} />,
+            document.body,
+          )
+        : null}
+    </section>
   );
 };
+
+const TaskFlowStepPopover = ({
+  flow,
+  position,
+  step,
+}: {
+  flow: TaskFlowSummaryDto | TaskFlowDetailDto;
+  position: { x: number; y: number };
+  step: TaskFlowLifecycleStepDto;
+}) => {
+  const rows = taskFlowStepPopoverRows(flow, step);
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <aside
+      className="agent-review-task-popover"
+      role="tooltip"
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+      }}
+    >
+      <dl className="agent-review-task-popover__details">
+        {rows.map((row) => (
+          <div key={row.label}>
+            <dt>{row.label}</dt>
+            <dd>{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </aside>
+  );
+};
+
+const TimelineCheckIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M5 12.5 9.4 17 19 7" />
+  </svg>
+);
+
+const TimelineMetaIcon = ({ type }: { type: 'bot' | 'clock' | 'user' }) => {
+  if (type === 'clock') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3.2 2" />
+      </svg>
+    );
+  }
+
+  if (type === 'bot') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="6" y="8" width="12" height="10" rx="3" />
+        <path d="M12 5v3M9 18v2M15 18v2M8.8 12h.1M15.1 12h.1" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.2" />
+      <path d="M5.5 19c.9-3.4 3.2-5.1 6.5-5.1s5.6 1.7 6.5 5.1" />
+    </svg>
+  );
+};
+
+const TaskFlowLogDialog = ({
+  flow,
+  isLoading,
+  logs,
+  onClose,
+}: {
+  flow: TaskFlowSummaryDto | TaskFlowDetailDto;
+  isLoading: boolean;
+  logs: TaskFlowLogDto[];
+  onClose: () => void;
+}) => (
+  <aside className="agent-review-log-dialog agent-review-card" role="dialog" aria-label={`任务日志 · ${flow.taskTitle}`}>
+    <header className="agent-review-card__heading">
+      <div>
+        <h3>任务日志 · {flow.taskTitle}</h3>
+        <span>按真实流转时间记录关键阶段事件</span>
+      </div>
+      <button className="agent-review-sheet-close" type="button" aria-label="关闭任务日志" onClick={onClose}>
+        <span aria-hidden="true">×</span>
+      </button>
+    </header>
+    {isLoading ? (
+      <PageLoading className="page-loading--compact" title="正在加载任务日志" />
+    ) : logs.length > 0 ? (
+      <ol className="agent-review-trace-timeline" aria-label="任务日志时间线">
+        {logs.map((log) => (
+          <li className={`is-${logTone(log)}`} key={log.id}>
+            <span className="agent-review-trace-timeline__dot" aria-hidden="true" />
+            <div className="agent-review-trace-timeline__body">
+              <time>{formatDateTimeSecond(log.occurredAt)}</time>
+              <strong>{logEventLabel(log.eventType)}</strong>
+              <p>{log.message}</p>
+              <small>{log.actorName ?? actorRoleLabel(log.actorRole)}</small>
+              {log.rejectedItemRefs.length > 0 ? (
+                <div className="agent-review-log-rejected-items" aria-label="打回题目">
+                  {log.rejectedItemRefs.map((item) => (
+                    <span className="agent-review-field-decision is-reject" key={`${log.id}:${item.itemId}`}>
+                      <span>Q{item.index}</span>
+                      <span>{item.externalId}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ol>
+    ) : (
+      <TableEmptyState title="暂无任务日志" illustrationAlt="空任务日志插画" />
+    )}
+  </aside>
+);
 
 type StatusTone = 'pass' | 'reject' | 'pending' | 'failed';
 
@@ -1080,6 +1332,137 @@ function labelerTone(status: TaskFlowLabelerStatus): StatusTone {
   return 'pending';
 }
 
+function lifecycleTone(status: TaskFlowLifecycleStepStatus): StatusTone {
+  if (status === 'COMPLETED' || status === 'SKIPPED') {
+    return 'pass';
+  }
+  if (status === 'ACTION_REQUIRED') {
+    return 'reject';
+  }
+  return 'pending';
+}
+
+function taskFlowStepPopoverRows(
+  _flow: TaskFlowSummaryDto | TaskFlowDetailDto,
+  step: TaskFlowLifecycleStepDto,
+): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string }> = [];
+
+  if (step.actorName) {
+    rows.push({ label: '经办人', value: step.actorName });
+  }
+
+  if (step.occurredAt) {
+    rows.push({ label: '时间', value: formatDateTimeSecond(step.occurredAt) });
+  }
+
+  return rows;
+}
+
+function taskFlowStepColor(status: TaskFlowLifecycleStepStatus | undefined): string {
+  if (status === 'COMPLETED') {
+    return '#269449';
+  }
+
+  if (status === 'CURRENT' || status === 'ACTION_REQUIRED') {
+    return '#ff7900';
+  }
+
+  return '#cfd4dc';
+}
+
+function taskFlowTrackBackground(
+  fromStatus: TaskFlowLifecycleStepStatus,
+  toStatus: TaskFlowLifecycleStepStatus | undefined,
+): string {
+  const fromColor = taskFlowStepColor(fromStatus);
+  const toColor = taskFlowStepColor(toStatus);
+
+  if (toColor === '#cfd4dc') {
+    return toColor;
+  }
+
+  if (fromColor === toColor) {
+    return fromColor;
+  }
+
+  return `linear-gradient(90deg, ${fromColor} 0%, ${toColor} 100%)`;
+}
+
+function logTone(log: TaskFlowLogDto): StatusTone {
+  if (log.eventType === 'REVIEWER_REJECTED' || log.rejectedItemRefs.length > 0) {
+    return 'reject';
+  }
+  if (log.eventType === 'TASK_COMPLETED') {
+    return 'pass';
+  }
+  return 'pending';
+}
+
+function actorRoleLabel(role: TaskFlowLogDto['actorRole']): string {
+  if (role === 'OWNER') {
+    return 'Owner';
+  }
+  if (role === 'LABELER') {
+    return 'Labeler';
+  }
+  if (role === 'AI_AGENT') {
+    return 'AI Agent';
+  }
+  if (role === 'REVIEWER') {
+    return 'Reviewer';
+  }
+
+  return '系统';
+}
+
+function logEventLabel(eventType: TaskFlowLogDto['eventType']): string {
+  const labels: Record<TaskFlowLogDto['eventType'], string> = {
+    OWNER_PUBLISHED: 'Owner 发布任务',
+    LABELER_CLAIMED: 'Labeler 领取任务',
+    LABELER_SUBMITTED: 'Labeler 提交标注结果',
+    LABELER_RESUBMITTED: 'Labeler 重新提交',
+    AI_PRECHECK_STARTED: 'AI Agent 开始预审',
+    AI_PRECHECK_COMPLETED: 'AI Agent 完成预审',
+    AI_RECHECK_STARTED: 'AI Agent 开始复审',
+    AI_RECHECK_COMPLETED: 'AI Agent 完成复审',
+    REVIEWER_RECEIVED: '流转到 Reviewer',
+    REVIEWER_CHECK_COMPLETED: 'Reviewer 完成检查',
+    REVIEWER_REJECTED: 'Reviewer 打回任务',
+    TASK_COMPLETED: '任务完成',
+  };
+
+  return labels[eventType];
+}
+
+function submissionStatusLabel(status: string | null): string {
+  if (!status) {
+    return '未提交';
+  }
+
+  const labels: Record<string, string> = {
+    DRAFT: '草稿',
+    SUBMITTED: '已提交',
+    AI_QUEUED: '等待 AI 预审',
+    AI_REVIEWING: 'AI 预审中',
+    AI_PASSED: 'AI 预审通过',
+    AI_REJECTED: 'AI 建议打回',
+    AI_MANUAL: '等待人工处理',
+    HUMAN_PENDING: '待审核',
+    RECHECK_REVIEWING: 'Reviewer 检查中',
+    RECHECK_APPROVED: 'Reviewer 检查通过',
+    RECHECK_REJECTED: 'Reviewer 已打回',
+    RECHECK_REVISED_APPROVED: 'Reviewer 修订通过',
+    FINAL_PENDING: '等待最终检查',
+    FINAL_REVIEWING: '最终检查中',
+    FINAL_APPROVED: '任务最终完成',
+    FINAL_REJECTED: '最终检查打回',
+    NEEDS_REVISION: '待 Labeler 修改',
+  };
+
+  return labels[status] ?? status;
+}
+
 function itemTone(item: TaskFlowItemDto): StatusTone {
   if (item.finalStatus === 'FINAL_APPROVED') {
     return 'pass';
@@ -1100,102 +1483,38 @@ function itemBucket(item: TaskFlowItemDto | null): ItemStatusBucket {
   if (item.finalStatus === 'FINAL_APPROVED') {
     return 'finalApproved';
   }
-  if (item.labelerStatus === 'NEEDS_REVISION') {
-    return 'revision';
+  if (item.aiStatus === 'FAILED') {
+    return 'failed';
   }
-  if (item.reviewerStatus === 'PENDING') {
+  if (item.labelerStatus === 'NEEDS_REVISION' || item.reviewerStatus === 'REJECTED' || item.aiStatus === 'REJECTED') {
+    return 'labelerProcessing';
+  }
+  if (item.reviewerStatus === 'PENDING' || item.aiStatus === 'PASSED' || item.aiStatus === 'SUCCEEDED') {
     return 'reviewerPending';
   }
-  return 'inProgress';
+  return 'aiProcessing';
 }
 
 function bucketTone(bucket: ItemStatusBucket): StatusTone {
   if (bucket === 'finalApproved') {
     return 'pass';
   }
-  if (bucket === 'revision') {
+  if (bucket === 'failed') {
     return 'reject';
   }
   return 'pending';
 }
 
 function shortItemStatusLabel(item: TaskFlowItemDto): string {
-  if (item.finalStatus === 'FINAL_APPROVED') {
-    return '最终完成';
-  }
-  if (item.labelerStatus === 'NEEDS_REVISION') {
-    return '待 Labeler 修改';
-  }
-  if (item.reviewerStatus === 'PENDING') {
-    return '待 Reviewer 复核';
-  }
-  if (item.reviewerStatus === 'REJECTED') {
-    return 'Reviewer 已打回';
-  }
-  if (item.reviewerStatus === 'PASSED') {
-    return 'Reviewer 已通过';
-  }
-  return AI_STATUS_LABELS[item.aiStatus];
-}
+  const labels: Record<ItemStatusBucket, string> = {
+    aiProcessing: 'AI处理中',
+    failed: '异常',
+    finalApproved: '已完成',
+    labelerProcessing: '待标注',
+    reviewerPending: '待审核',
+  };
 
-function buildTaskFlowTimeline(flow: TaskFlowSummaryDto | TaskFlowDetailDto) {
-  const submitted = flow.submittedItems;
-  const total = flow.totalItems;
-  const aiCompleted = flow.aiSummary.completed;
-  const reviewerDecided = flow.reviewerSummary.decided;
-  const finalCompleted = flow.finalSummary.completed;
-
-  return [
-    {
-      key: 'created',
-      label: '任务创建',
-      value: formatDateTimeSecond(flow.createdAt),
-      meta: flow.ownerName ?? 'Owner 未记录',
-      isComplete: true,
-    },
-    {
-      key: 'labeling',
-      label: 'Labeler 标注',
-      value: `${submitted.toLocaleString()} / ${total.toLocaleString()} 已提交`,
-      meta: submitted < total ? '仍有题目未提交' : '标注提交已覆盖全部题目',
-      isComplete: submitted >= total && total > 0,
-    },
-    {
-      key: 'ai',
-      label: 'AI 预审',
-      value: `${aiCompleted.toLocaleString()} / ${submitted.toLocaleString()} AI 预审完成`,
-      meta: `建议通过 ${flow.aiSummary.passed.toLocaleString()} · 建议打回 ${flow.aiSummary.rejected.toLocaleString()}`,
-      isComplete: submitted > 0 && aiCompleted >= submitted,
-    },
-    {
-      key: 'reviewer',
-      label: 'Reviewer 复核',
-      value: `${reviewerDecided.toLocaleString()} / ${submitted.toLocaleString()} 已决策`,
-      meta: `待复核 ${flow.reviewerSummary.pending.toLocaleString()} · 打回 ${flow.reviewerSummary.rejected.toLocaleString()}`,
-      isComplete: submitted > 0 && reviewerDecided >= submitted,
-    },
-    {
-      key: 'labeler-revision',
-      label: 'Labeler 修改',
-      value: `${flow.labelerRevisionSummary.editable.toLocaleString()} 可修改 · ${flow.labelerRevisionSummary.locked.toLocaleString()} 锁定`,
-      meta: `已修改 ${flow.labelerRevisionSummary.revised.toLocaleString()}`,
-      isComplete: flow.labelerRevisionSummary.editable === 0 && flow.labelerRevisionSummary.revised > 0,
-    },
-    {
-      key: 'rereview',
-      label: 'Reviewer 再次复审',
-      value: flow.round > 1 ? `第 ${flow.round.toLocaleString()} 轮` : '未进入再次复审',
-      meta: flow.round > 1 ? `待复审 ${flow.reviewerSummary.pending.toLocaleString()}` : '首轮复核阶段',
-      isComplete: flow.round > 1 && flow.reviewerSummary.pending === 0,
-    },
-    {
-      key: 'final',
-      label: '最终完成',
-      value: `${finalCompleted.toLocaleString()} / ${total.toLocaleString()} 最终完成`,
-      meta: `未最终完成 ${flow.finalSummary.notCompleted.toLocaleString()}`,
-      isComplete: total > 0 && finalCompleted >= total,
-    },
-  ];
+  return labels[itemBucket(item)];
 }
 
 function itemTraceEvents(item: TaskFlowItemDto): TraceEvent[] {
@@ -1236,14 +1555,6 @@ function itemTraceEvents(item: TaskFlowItemDto): TraceEvent[] {
       tone: item.finalStatus === 'FINAL_APPROVED' ? 'pass' : 'pending',
     },
   ];
-}
-
-function aiJobMeta(job: NonNullable<TaskFlowItemDto['latestAiJob']>): string {
-  return [
-    job.provider ?? 'provider 未记录',
-    job.model ?? 'model 未记录',
-    `${job.attempts.toLocaleString()} / ${job.maxAttempts.toLocaleString()} 次`,
-  ].join(' · ');
 }
 
 function formatJson(value: Record<string, unknown>): string {

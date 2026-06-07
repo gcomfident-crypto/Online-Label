@@ -24,6 +24,54 @@ export type TaskFlowAiStatus =
 export type TaskFlowReviewerStatus = 'NOT_STARTED' | 'PENDING' | 'PASSED' | 'REJECTED';
 export type TaskFlowLabelerStatus = 'NOT_STARTED' | 'LOCKED' | 'NEEDS_REVISION' | 'REVISED' | 'NOT_REQUIRED';
 export type TaskFlowFinalStatus = 'NOT_FINAL' | 'FINAL_APPROVED';
+export type TaskFlowActorRole = 'OWNER' | 'LABELER' | 'AI_AGENT' | 'REVIEWER';
+export type TaskFlowLifecycleStepKey =
+  | 'OWNER_PUBLISHED'
+  | 'LABELER_SUBMITTED'
+  | 'AI_PRECHECK'
+  | 'REVIEWER_CHECK'
+  | 'TASK_COMPLETED';
+export type TaskFlowLifecycleStepStatus = 'COMPLETED' | 'CURRENT' | 'PENDING' | 'ACTION_REQUIRED' | 'SKIPPED';
+export type TaskFlowLogEventType =
+  | 'OWNER_PUBLISHED'
+  | 'LABELER_CLAIMED'
+  | 'LABELER_SUBMITTED'
+  | 'LABELER_RESUBMITTED'
+  | 'AI_PRECHECK_STARTED'
+  | 'AI_PRECHECK_COMPLETED'
+  | 'AI_RECHECK_STARTED'
+  | 'AI_RECHECK_COMPLETED'
+  | 'REVIEWER_RECEIVED'
+  | 'REVIEWER_CHECK_COMPLETED'
+  | 'REVIEWER_REJECTED'
+  | 'TASK_COMPLETED';
+
+export type TaskFlowRejectedItemRefDto = {
+  itemId: string;
+  externalId: string;
+  index: number;
+};
+
+export type TaskFlowLifecycleStepDto = {
+  key: TaskFlowLifecycleStepKey;
+  label: string;
+  status: TaskFlowLifecycleStepStatus;
+  actorRole: TaskFlowActorRole | null;
+  actorName: string | null;
+  occurredAt: string | null;
+};
+
+export type TaskFlowLogDto = {
+  id: string;
+  taskId: string;
+  round: number;
+  eventType: TaskFlowLogEventType;
+  actorRole: TaskFlowActorRole | null;
+  actorName: string | null;
+  occurredAt: string;
+  message: string;
+  rejectedItemRefs: TaskFlowRejectedItemRefDto[];
+};
 
 export type TaskFlowSummaryDto = {
   taskId: string;
@@ -37,6 +85,7 @@ export type TaskFlowSummaryDto = {
   currentStage: TaskFlowStage;
   totalItems: number;
   submittedItems: number;
+  lifecycleSteps: TaskFlowLifecycleStepDto[];
   aiSummary: {
     pending: number;
     queued: number;
@@ -73,7 +122,9 @@ export type TaskFlowReviewRecordDto = {
   stage: string;
   reviewerType: string;
   reviewerId: string | null;
+  reviewerName: string | null;
   assignedReviewerId: string | null;
+  assignedReviewerName: string | null;
   decision: string | null;
   comment: string | null;
   scores: Record<string, unknown>;
@@ -136,12 +187,41 @@ type UserSummaryRecord = {
   name: string;
 };
 
+type AuditLogRecord = {
+  id: string;
+  taskId: string | null;
+  submissionId: string | null;
+  fromStatus: string | null;
+  toStatus: string;
+  actorId: string | null;
+  actor: UserSummaryRecord | null;
+  reason: string | null;
+  metadata: unknown;
+  createdAt: Date;
+};
+
+type TaskFlowEventRecord = {
+  id: string;
+  taskId: string;
+  round: number;
+  eventType: string;
+  actorRole: string | null;
+  actorId: string | null;
+  actorName: string | null;
+  occurredAt: Date;
+  message: string;
+  rejectedItemRefs: unknown;
+  createdAt: Date;
+};
+
 type ReviewRecordRecord = {
   id: string;
   stage: string;
   reviewerType: string;
   reviewerId: string | null;
   assignedReviewerId: string | null;
+  reviewer?: UserSummaryRecord | null;
+  assignedReviewer?: UserSummaryRecord | null;
   decision: string | null;
   comment: string | null;
   scores: unknown;
@@ -171,6 +251,7 @@ type SubmissionRecord = {
   submittedAt: Date;
   reviewRecords: ReviewRecordRecord[];
   aiReviewJobs: AiReviewJobRecord[];
+  auditLogs: AuditLogRecord[];
 };
 
 type AssignmentRecord = {
@@ -179,6 +260,7 @@ type AssignmentRecord = {
   status: string;
   assignee: UserSummaryRecord;
   submissions: SubmissionRecord[];
+  claimedAt?: Date;
   updatedAt: Date;
 };
 
@@ -206,7 +288,16 @@ type TaskFlowTaskRecord = {
     schemaVersion: string;
     schema: LabelHubSchema | null;
   } | null;
+  auditLogs: AuditLogRecord[];
+  flowEvents: TaskFlowEventRecord[];
   items: TaskItemRecord[];
+};
+
+type RoundSubmissionContext = {
+  index: number;
+  item: TaskItemRecord;
+  assignment: AssignmentRecord;
+  submission: SubmissionRecord;
 };
 
 const TASK_FLOW_INCLUDE = {
@@ -223,6 +314,20 @@ const TASK_FLOW_INCLUDE = {
       schema: true,
     },
   },
+  auditLogs: {
+    include: {
+      actor: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  },
+  flowEvents: {
+    orderBy: { occurredAt: 'asc' },
+  },
   items: {
     include: {
       assignments: {
@@ -236,10 +341,35 @@ const TASK_FLOW_INCLUDE = {
           submissions: {
             include: {
               reviewRecords: {
+                include: {
+                  reviewer: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                  assignedReviewer: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                },
                 orderBy: { createdAt: 'desc' },
               },
               aiReviewJobs: {
                 orderBy: [{ updatedAt: 'desc' }, { queuedAt: 'desc' }],
+              },
+              auditLogs: {
+                include: {
+                  actor: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                },
+                orderBy: { createdAt: 'asc' },
               },
             },
             orderBy: [{ round: 'asc' }, { submittedAt: 'asc' }],
@@ -273,6 +403,18 @@ export class TaskFlowsService {
   }
 
   async getTaskFlow(taskId: string, query: { round?: number } = {}): Promise<TaskFlowDetailDto> {
+    const task = await this.findTaskFlowTaskOrThrow(taskId);
+
+    return toTaskFlowDetail(task, query.round);
+  }
+
+  async getTaskFlowLogs(taskId: string): Promise<TaskFlowLogDto[]> {
+    const task = await this.findTaskFlowTaskOrThrow(taskId);
+
+    return toTaskFlowLogs(task);
+  }
+
+  private async findTaskFlowTaskOrThrow(taskId: string): Promise<TaskFlowTaskRecord> {
     const task = await this.prisma.task.findUnique({
       where: { id: taskId },
       include: TASK_FLOW_INCLUDE,
@@ -292,7 +434,7 @@ export class TaskFlowsService {
       });
     }
 
-    return toTaskFlowDetail(task, query.round);
+    return task;
   }
 }
 
@@ -325,6 +467,15 @@ function toTaskFlowDetail(task: TaskFlowTaskRecord, requestedRound?: number): Ta
     currentStage: stage,
     totalItems: task.items.length,
     submittedItems,
+    lifecycleSteps: buildLifecycleSteps(task, items, {
+      aiSummary,
+      finalSummary,
+      reviewerSummary,
+      round,
+      stage,
+      submittedItems,
+      totalItems: task.items.length,
+    }),
     aiSummary,
     reviewerSummary,
     labelerRevisionSummary,
@@ -431,8 +582,12 @@ function latestHumanReview(records: ReviewRecordRecord[]): ReviewRecordRecord | 
 }
 
 function reviewDecision(value: string | null): 'pass' | 'reject' | null {
-  if (value === 'pass' || value === 'reject') {
-    return value;
+  if (value === 'pass' || value === 'recheck_pass' || value === 'revise_pass' || value === 'final_pass') {
+    return 'pass';
+  }
+
+  if (value === 'reject') {
+    return 'reject';
   }
 
   return null;
@@ -642,6 +797,504 @@ function summarizeFinal(items: TaskFlowItemDto[], totalItems: number): TaskFlowS
   };
 }
 
+function buildLifecycleSteps(
+  task: TaskFlowTaskRecord,
+  items: TaskFlowItemDto[],
+  context: {
+    aiSummary: TaskFlowSummaryDto['aiSummary'];
+    finalSummary: TaskFlowSummaryDto['finalSummary'];
+    reviewerSummary: TaskFlowSummaryDto['reviewerSummary'];
+    round: number;
+    stage: TaskFlowStage;
+    submittedItems: number;
+    totalItems: number;
+  },
+): TaskFlowLifecycleStepDto[] {
+  const publish = publishAudit(task);
+  const labelerSubmission = latestSubmittedItem(items);
+  const aiStepTime = aiLifecycleTime(items, context.aiSummary, context.submittedItems);
+  const reviewer = latestReviewerDecision(items);
+  const taskCompleted = context.totalItems > 0 && context.finalSummary.completed >= context.totalItems;
+
+  return [
+    {
+      key: 'OWNER_PUBLISHED',
+      label: 'Owner 发布',
+      status: publish ? 'COMPLETED' : 'PENDING',
+      actorRole: 'OWNER',
+      actorName: publish?.actor?.name ?? task.createdBy?.name ?? null,
+      occurredAt: publish?.createdAt.toISOString() ?? null,
+    },
+    {
+      key: 'LABELER_SUBMITTED',
+      label: 'Labeler 标注',
+      status: labelerStepStatus(context.submittedItems, context.totalItems),
+      actorRole: 'LABELER',
+      actorName: labelerSubmission?.assignment?.assigneeName ?? null,
+      occurredAt: context.submittedItems >= context.totalItems && context.totalItems > 0 ? labelerSubmission?.submission?.submittedAt ?? null : null,
+    },
+    {
+      key: 'AI_PRECHECK',
+      label: 'AI Agent 预审',
+      status: aiLifecycleStatus(task.aiPreReviewEnabled, context.aiSummary, context.submittedItems),
+      actorRole: 'AI_AGENT',
+      actorName: task.aiPreReviewEnabled ? 'AI Agent' : null,
+      occurredAt: aiStepTime,
+    },
+    {
+      key: 'REVIEWER_CHECK',
+      label: 'Reviewer 检查',
+      status: reviewerLifecycleStatus(context.reviewerSummary, context.submittedItems, context.stage),
+      actorRole: 'REVIEWER',
+      actorName: reviewer?.actorName ?? null,
+      occurredAt: reviewer?.createdAt ?? null,
+    },
+    {
+      key: 'TASK_COMPLETED',
+      label: '任务完成',
+      status: taskCompleted ? 'COMPLETED' : 'PENDING',
+      actorRole: taskCompleted ? 'REVIEWER' : null,
+      actorName: taskCompleted ? reviewer?.actorName ?? null : null,
+      occurredAt: taskCompleted ? reviewer?.createdAt ?? null : null,
+    },
+  ];
+}
+
+function labelerStepStatus(submittedItems: number, totalItems: number): TaskFlowLifecycleStepStatus {
+  if (totalItems > 0 && submittedItems >= totalItems) {
+    return 'COMPLETED';
+  }
+
+  if (submittedItems > 0) {
+    return 'CURRENT';
+  }
+
+  return 'PENDING';
+}
+
+function aiLifecycleStatus(
+  enabled: boolean,
+  summary: TaskFlowSummaryDto['aiSummary'],
+  submittedItems: number,
+): TaskFlowLifecycleStepStatus {
+  if (!enabled) {
+    return 'SKIPPED';
+  }
+
+  if (submittedItems === 0) {
+    return 'PENDING';
+  }
+
+  if (summary.failed > 0) {
+    return 'ACTION_REQUIRED';
+  }
+
+  if (summary.queued > 0 || summary.running > 0 || summary.completed < submittedItems) {
+    return 'CURRENT';
+  }
+
+  return 'COMPLETED';
+}
+
+function reviewerLifecycleStatus(
+  summary: TaskFlowSummaryDto['reviewerSummary'],
+  submittedItems: number,
+  stage: TaskFlowStage,
+): TaskFlowLifecycleStepStatus {
+  if (submittedItems === 0 || summary.notStarted >= submittedItems) {
+    return 'PENDING';
+  }
+
+  if (stage === 'LABELER_REVISION' && summary.rejected > 0) {
+    return 'ACTION_REQUIRED';
+  }
+
+  if (summary.pending > 0 || summary.decided < submittedItems) {
+    return 'CURRENT';
+  }
+
+  return 'COMPLETED';
+}
+
+function publishAudit(task: TaskFlowTaskRecord): AuditLogRecord | null {
+  return task.auditLogs.find((log) => {
+    const metadata = recordValue(log.metadata);
+
+    return log.toStatus === 'PUBLISHED' && metadata.action === 'TASK_PUBLISHED';
+  }) ?? null;
+}
+
+function latestSubmittedItem(items: TaskFlowItemDto[]): TaskFlowItemDto | null {
+  return items
+    .filter((item) => item.submission)
+    .sort((left, right) => parseTimestamp(right.submission?.submittedAt) - parseTimestamp(left.submission?.submittedAt))[0] ?? null;
+}
+
+function aiLifecycleTime(
+  items: TaskFlowItemDto[],
+  summary: TaskFlowSummaryDto['aiSummary'],
+  submittedItems: number,
+): string | null {
+  const times = items.flatMap((item) => [item.aiReview?.createdAt, item.latestAiJob?.finishedAt, item.latestAiJob?.startedAt].filter(isString));
+  if (times.length === 0) {
+    return null;
+  }
+
+  const sortedTimes = times.sort((left, right) => parseTimestamp(left) - parseTimestamp(right));
+  if (submittedItems > 0 && summary.completed >= submittedItems) {
+    return sortedTimes.at(-1) ?? null;
+  }
+
+  return sortedTimes[0] ?? null;
+}
+
+function latestReviewerDecision(items: TaskFlowItemDto[]): { actorName: string | null; createdAt: string } | null {
+  const records = items
+    .flatMap((item) => item.humanReview ? [{ item, record: item.humanReview }] : [])
+    .sort((left, right) => parseTimestamp(right.record.createdAt) - parseTimestamp(left.record.createdAt));
+  const latest = records[0];
+
+  if (!latest) {
+    return null;
+  }
+
+  return {
+    actorName: reviewerNameFromItem(latest.item),
+    createdAt: latest.record.createdAt,
+  };
+}
+
+function reviewerNameFromItem(item: TaskFlowItemDto): string | null {
+  return item.humanReview?.reviewerName ??
+    item.humanReview?.assignedReviewerName ??
+    item.humanReview?.reviewerId ??
+    item.humanReview?.assignedReviewerId ??
+    null;
+}
+
+function toTaskFlowLogs(task: TaskFlowTaskRecord): TaskFlowLogDto[] {
+  const derivedLogs = buildDerivedTaskFlowLogs(task);
+  const persistedLogs = task.flowEvents
+    .map((event) => toPersistedTaskFlowLogDto(event))
+    .filter((event): event is TaskFlowLogDto => event !== null);
+  const logs = [...persistedLogs, ...derivedLogs];
+  const uniqueLogs = new Map<string, TaskFlowLogDto>();
+
+  for (const log of logs) {
+    uniqueLogs.set(`${log.eventType}:${log.round}:${log.occurredAt}:${log.message}`, log);
+  }
+
+  return [...uniqueLogs.values()].sort((left, right) => left.occurredAt.localeCompare(right.occurredAt));
+}
+
+function toPersistedTaskFlowLogDto(event: TaskFlowEventRecord): TaskFlowLogDto | null {
+  if (!isTaskFlowLogEventType(event.eventType)) {
+    return null;
+  }
+
+  return {
+    id: event.id,
+    taskId: event.taskId,
+    round: event.round,
+    eventType: event.eventType,
+    actorRole: isTaskFlowActorRole(event.actorRole) ? event.actorRole : null,
+    actorName: event.actorName,
+    occurredAt: event.occurredAt.toISOString(),
+    message: event.message,
+    rejectedItemRefs: rejectedItemRefsValue(event.rejectedItemRefs),
+  };
+}
+
+function buildDerivedTaskFlowLogs(task: TaskFlowTaskRecord): TaskFlowLogDto[] {
+  const contexts = submissionContexts(task);
+  const events: TaskFlowLogDto[] = [];
+  const publish = publishAudit(task);
+
+  if (publish) {
+    events.push({
+      id: `${task.id}:owner-published`,
+      taskId: task.id,
+      round: 1,
+      eventType: 'OWNER_PUBLISHED',
+      actorRole: 'OWNER',
+      actorName: publish.actor?.name ?? task.createdBy?.name ?? null,
+      occurredAt: publish.createdAt.toISOString(),
+      message: 'Owner 发布了任务。',
+      rejectedItemRefs: [],
+    });
+  }
+
+  events.push(...buildClaimLogs(task));
+  events.push(...buildSubmissionLogs(task.id, contexts));
+  events.push(...buildAiLogs(task.id, contexts));
+  events.push(...buildReviewerLogs(task.id, contexts));
+  const completed = buildTaskCompletedLog(task.id, contexts, task.items.length);
+  if (completed) {
+    events.push(completed);
+  }
+
+  return events.sort((left, right) => left.occurredAt.localeCompare(right.occurredAt));
+}
+
+function buildClaimLogs(task: TaskFlowTaskRecord): TaskFlowLogDto[] {
+  const groups = new Map<string, { actorName: string; claimedAt: Date }>();
+
+  for (const item of task.items) {
+    for (const assignment of item.assignments) {
+      if (!assignment.claimedAt) {
+        continue;
+      }
+      const current = groups.get(assignment.assigneeId);
+      if (!current || assignment.claimedAt.getTime() < current.claimedAt.getTime()) {
+        groups.set(assignment.assigneeId, {
+          actorName: assignment.assignee.name,
+          claimedAt: assignment.claimedAt,
+        });
+      }
+    }
+  }
+
+  return [...groups.entries()].map(([actorId, group]) => ({
+    id: `${task.id}:labeler-claimed:${actorId}`,
+    taskId: task.id,
+    round: 1,
+    eventType: 'LABELER_CLAIMED',
+    actorRole: 'LABELER',
+    actorName: group.actorName,
+    occurredAt: group.claimedAt.toISOString(),
+    message: `${group.actorName} 领取了任务。`,
+    rejectedItemRefs: [],
+  }));
+}
+
+function buildSubmissionLogs(taskId: string, contexts: RoundSubmissionContext[]): TaskFlowLogDto[] {
+  const groups = new Map<string, { actorName: string; occurredAt: Date; round: number }>();
+
+  for (const context of contexts) {
+    const key = `${context.assignment.assigneeId}:${context.submission.round}`;
+    const current = groups.get(key);
+    if (!current || context.submission.submittedAt.getTime() > current.occurredAt.getTime()) {
+      groups.set(key, {
+        actorName: context.assignment.assignee.name,
+        occurredAt: context.submission.submittedAt,
+        round: context.submission.round,
+      });
+    }
+  }
+
+  return [...groups.entries()].map(([key, group]) => ({
+    id: `${taskId}:labeler-submitted:${key}`,
+    taskId,
+    round: group.round,
+    eventType: group.round > 1 ? 'LABELER_RESUBMITTED' : 'LABELER_SUBMITTED',
+    actorRole: 'LABELER',
+    actorName: group.actorName,
+    occurredAt: group.occurredAt.toISOString(),
+    message: group.round > 1
+      ? `${group.actorName} 重新提交修复后的标注结果。`
+      : `${group.actorName} 提交了整个任务的标注结果。`,
+    rejectedItemRefs: [],
+  }));
+}
+
+function buildAiLogs(taskId: string, contexts: RoundSubmissionContext[]): TaskFlowLogDto[] {
+  const logs: TaskFlowLogDto[] = [];
+
+  for (const [round, roundContexts] of contextsByRound(contexts)) {
+    const startTime = earliestDate(roundContexts.flatMap((context) => [
+      latestJob(context.submission.aiReviewJobs)?.startedAt,
+      aiStartAudit(context.submission)?.createdAt,
+    ]));
+    if (startTime) {
+      logs.push({
+        id: `${taskId}:ai-started:${round}`,
+        taskId,
+        round,
+        eventType: round > 1 ? 'AI_RECHECK_STARTED' : 'AI_PRECHECK_STARTED',
+        actorRole: 'AI_AGENT',
+        actorName: 'AI Agent',
+        occurredAt: startTime.toISOString(),
+        message: round > 1 ? 'AI Agent 开始复审 Labeler 重新提交的内容。' : 'AI Agent 开始本轮预审。',
+        rejectedItemRefs: [],
+      });
+    }
+
+    if (!roundContexts.every((context) => latestReview(context.submission.reviewRecords, 'AI_PRECHECK', 'AI'))) {
+      continue;
+    }
+
+    const completedAt = latestDate(roundContexts.map((context) => latestReview(context.submission.reviewRecords, 'AI_PRECHECK', 'AI')?.createdAt ?? null));
+    if (!completedAt) {
+      continue;
+    }
+
+    const rejectedItemRefs = roundContexts
+      .filter((context) => latestReview(context.submission.reviewRecords, 'AI_PRECHECK', 'AI')?.decision === 'reject')
+      .map(toRejectedItemRef);
+
+    logs.push({
+      id: `${taskId}:ai-completed:${round}`,
+      taskId,
+      round,
+      eventType: round > 1 ? 'AI_RECHECK_COMPLETED' : 'AI_PRECHECK_COMPLETED',
+      actorRole: 'AI_AGENT',
+      actorName: 'AI Agent',
+      occurredAt: completedAt.toISOString(),
+      message: rejectedItemRefs.length > 0
+        ? 'AI Agent 完成本轮预审，存在建议打回题目。'
+        : 'AI Agent 完成本轮预审，未发现需要打回的题目。',
+      rejectedItemRefs,
+    });
+  }
+
+  return logs;
+}
+
+function buildReviewerLogs(taskId: string, contexts: RoundSubmissionContext[]): TaskFlowLogDto[] {
+  const logs: TaskFlowLogDto[] = [];
+
+  for (const [round, roundContexts] of contextsByRound(contexts)) {
+    const receivedAt = earliestDate(roundContexts.flatMap((context) => [
+      reviewerReceivedAudit(context.submission)?.createdAt,
+      humanReviewStartAudit(context.submission)?.createdAt,
+    ]));
+    if (receivedAt) {
+      logs.push({
+        id: `${taskId}:reviewer-received:${round}`,
+        taskId,
+        round,
+        eventType: 'REVIEWER_RECEIVED',
+        actorRole: 'REVIEWER',
+        actorName: null,
+        occurredAt: receivedAt.toISOString(),
+        message: round > 1 ? '任务再次流转到 Reviewer 复审。' : '任务流转到 Reviewer 检查。',
+        rejectedItemRefs: [],
+      });
+    }
+
+    const humanReviews = roundContexts.map((context) => latestHumanReview(context.submission.reviewRecords));
+    if (!humanReviews.every((review) => review && reviewDecision(review.decision) !== null)) {
+      continue;
+    }
+
+    const completedAt = latestDate(humanReviews.map((review) => review?.createdAt ?? null));
+    if (!completedAt) {
+      continue;
+    }
+
+    const rejectedItemRefs = roundContexts
+      .filter((context) => reviewDecision(latestHumanReview(context.submission.reviewRecords)?.decision ?? null) === 'reject')
+      .map(toRejectedItemRef);
+    const latestReviewRecord = humanReviews
+      .filter((review): review is ReviewRecordRecord => review !== null)
+      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0] ?? null;
+
+    logs.push({
+      id: `${taskId}:reviewer-completed:${round}`,
+      taskId,
+      round,
+      eventType: rejectedItemRefs.length > 0 ? 'REVIEWER_REJECTED' : 'REVIEWER_CHECK_COMPLETED',
+      actorRole: 'REVIEWER',
+      actorName: latestReviewRecord ? reviewerNameFromRecord(latestReviewRecord) : null,
+      occurredAt: completedAt.toISOString(),
+      message: rejectedItemRefs.length > 0
+        ? 'Reviewer 完成本轮检查，任务打回 Labeler 修改。'
+        : 'Reviewer 完成本轮检查，本轮检查通过。',
+      rejectedItemRefs,
+    });
+  }
+
+  return logs;
+}
+
+function buildTaskCompletedLog(taskId: string, contexts: RoundSubmissionContext[], totalItems: number): TaskFlowLogDto | null {
+  const latestByItem = latestContextByItem(contexts);
+  if (totalItems === 0 || latestByItem.length < totalItems || !latestByItem.every((context) => context.submission.status === 'FINAL_APPROVED')) {
+    return null;
+  }
+
+  const humanReviews = latestByItem
+    .map((context) => latestHumanReview(context.submission.reviewRecords))
+    .filter((review): review is ReviewRecordRecord => review !== null);
+  const completedAt = latestDate(humanReviews.map((review) => review.createdAt));
+  if (!completedAt) {
+    return null;
+  }
+  const latestReviewRecord = humanReviews.sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0] ?? null;
+
+  return {
+    id: `${taskId}:completed`,
+    taskId,
+    round: Math.max(1, ...latestByItem.map((context) => context.submission.round)),
+    eventType: 'TASK_COMPLETED',
+    actorRole: 'REVIEWER',
+    actorName: latestReviewRecord ? reviewerNameFromRecord(latestReviewRecord) : null,
+    occurredAt: completedAt.toISOString(),
+    message: '整个任务通过最终 Reviewer 检查，任务完成。',
+    rejectedItemRefs: [],
+  };
+}
+
+function submissionContexts(task: TaskFlowTaskRecord): RoundSubmissionContext[] {
+  return task.items.flatMap((item, itemIndex) =>
+    item.assignments.flatMap((assignment) =>
+      assignment.submissions.map((submission) => ({
+        index: itemIndex + 1,
+        item,
+        assignment,
+        submission,
+      })),
+    ),
+  );
+}
+
+function contextsByRound(contexts: RoundSubmissionContext[]): Map<number, RoundSubmissionContext[]> {
+  const map = new Map<number, RoundSubmissionContext[]>();
+  for (const context of contexts) {
+    const list = map.get(context.submission.round) ?? [];
+    list.push(context);
+    map.set(context.submission.round, list);
+  }
+
+  return new Map([...map.entries()].sort(([left], [right]) => left - right));
+}
+
+function latestContextByItem(contexts: RoundSubmissionContext[]): RoundSubmissionContext[] {
+  const latestByItem = new Map<string, RoundSubmissionContext>();
+  for (const context of contexts) {
+    const current = latestByItem.get(context.item.id);
+    if (!current || context.submission.round > current.submission.round) {
+      latestByItem.set(context.item.id, context);
+    }
+  }
+
+  return [...latestByItem.values()];
+}
+
+function toRejectedItemRef(context: RoundSubmissionContext): TaskFlowRejectedItemRefDto {
+  return {
+    itemId: context.item.id,
+    externalId: context.item.externalId,
+    index: context.index,
+  };
+}
+
+function aiStartAudit(submission: SubmissionRecord): AuditLogRecord | null {
+  return submission.auditLogs.find((log) => recordValue(log.metadata).action === 'AI_REVIEW_STARTED') ?? null;
+}
+
+function reviewerReceivedAudit(submission: SubmissionRecord): AuditLogRecord | null {
+  return submission.auditLogs.find((log) => recordValue(log.metadata).action === 'AI_REVIEW_TO_HUMAN_PENDING') ?? null;
+}
+
+function humanReviewStartAudit(submission: SubmissionRecord): AuditLogRecord | null {
+  return submission.auditLogs.find((log) => recordValue(log.metadata).action === 'HUMAN_REVIEW_STARTED') ?? null;
+}
+
+function reviewerNameFromRecord(record: ReviewRecordRecord): string | null {
+  return record.reviewer?.name ?? record.assignedReviewer?.name ?? record.reviewerId ?? record.assignedReviewerId ?? null;
+}
+
 function latestTaskFlowUpdatedAt(task: TaskFlowTaskRecord, items: TaskFlowItemDto[]): Date {
   const times = [task.updatedAt.getTime()];
   for (const item of items) {
@@ -668,7 +1321,9 @@ function toReviewRecordDto(record: ReviewRecordRecord): TaskFlowReviewRecordDto 
     stage: record.stage,
     reviewerType: record.reviewerType,
     reviewerId: record.reviewerId,
+    reviewerName: record.reviewer?.name ?? null,
     assignedReviewerId: record.assignedReviewerId,
+    assignedReviewerName: record.assignedReviewer?.name ?? null,
     decision: record.decision,
     comment: record.comment,
     scores: recordValue(record.scores),
@@ -698,4 +1353,74 @@ function recordValue(value: unknown): Record<string, unknown> {
   }
 
   return {};
+}
+
+function rejectedItemRefsValue(value: unknown): TaskFlowRejectedItemRefDto[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') {
+      return [];
+    }
+    const record = item as Record<string, unknown>;
+    if (typeof record.itemId !== 'string' || typeof record.externalId !== 'string' || typeof record.index !== 'number') {
+      return [];
+    }
+
+    return [{ itemId: record.itemId, externalId: record.externalId, index: record.index }];
+  });
+}
+
+function isTaskFlowActorRole(value: unknown): value is TaskFlowActorRole {
+  return value === 'OWNER' || value === 'LABELER' || value === 'AI_AGENT' || value === 'REVIEWER';
+}
+
+function isTaskFlowLogEventType(value: unknown): value is TaskFlowLogEventType {
+  return typeof value === 'string' && [
+    'OWNER_PUBLISHED',
+    'LABELER_CLAIMED',
+    'LABELER_SUBMITTED',
+    'LABELER_RESUBMITTED',
+    'AI_PRECHECK_STARTED',
+    'AI_PRECHECK_COMPLETED',
+    'AI_RECHECK_STARTED',
+    'AI_RECHECK_COMPLETED',
+    'REVIEWER_RECEIVED',
+    'REVIEWER_CHECK_COMPLETED',
+    'REVIEWER_REJECTED',
+    'TASK_COMPLETED',
+  ].includes(value);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === 'string';
+}
+
+function earliestDate(values: Array<Date | null | undefined>): Date | null {
+  const dates = values.filter((value): value is Date => value instanceof Date);
+  if (dates.length === 0) {
+    return null;
+  }
+
+  return new Date(Math.min(...dates.map((date) => date.getTime())));
+}
+
+function latestDate(values: Array<Date | null | undefined>): Date | null {
+  const dates = values.filter((value): value is Date => value instanceof Date);
+  if (dates.length === 0) {
+    return null;
+  }
+
+  return new Date(Math.max(...dates.map((date) => date.getTime())));
+}
+
+function parseTimestamp(value?: string | null): number {
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
 }

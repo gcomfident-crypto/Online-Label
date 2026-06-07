@@ -99,6 +99,21 @@ enum ExportFormat {
   xlsx
 }
 
+enum TaskFlowEventType {
+  OWNER_PUBLISHED
+  LABELER_CLAIMED
+  LABELER_SUBMITTED
+  LABELER_RESUBMITTED
+  AI_PRECHECK_STARTED
+  AI_PRECHECK_COMPLETED
+  AI_RECHECK_STARTED
+  AI_RECHECK_COMPLETED
+  REVIEWER_RECEIVED
+  REVIEWER_CHECK_COMPLETED
+  REVIEWER_REJECTED
+  TASK_COMPLETED
+}
+
 enum DatasetKind {
   qa_quality
   preference_compare
@@ -116,6 +131,7 @@ model User {
   reviewRecords      ReviewRecord[] @relation("ReviewRecordReviewer")
   assignedReviews    ReviewRecord[] @relation("ReviewRecordAssignee")
   auditLogs          AuditLog[]     @relation("AuditActor")
+  taskFlowEvents     TaskFlowEvent[] @relation("TaskFlowEventActor")
   exportJobs         ExportJob[]    @relation("ExportJobRequester")
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
@@ -178,6 +194,7 @@ model Task {
   reviewRules          ReviewRule[]
   aiReviewJobs         AiReviewJob[]
   auditLogs            AuditLog[]
+  flowEvents           TaskFlowEvent[]
   exportJobs           ExportJob[]
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
@@ -373,6 +390,29 @@ model AuditLog {
   @@index([submissionId])
   @@index([actorId])
   @@map("audit_logs")
+}
+
+model TaskFlowEvent {
+  id               String            @id @default(cuid())
+  taskId           String
+  task             Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  round            Int               @default(1)
+  eventType        TaskFlowEventType
+  actorRole        UserRole?
+  actorId          String?
+  actor            User?             @relation("TaskFlowEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorName        String?
+  occurredAt       DateTime          @default(now())
+  message          String
+  rejectedItemRefs Json?
+  metadata         Json?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([taskId, round])
+  @@index([eventType])
+  @@index([actorId])
+  @@map("task_flow_events")
 }
 
 model ExportJob {

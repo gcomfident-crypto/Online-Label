@@ -3,6 +3,7 @@ import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
 import {
   TaskFlowsService,
   type TaskFlowDetailDto,
+  type TaskFlowLogDto,
   type TaskFlowSummaryDto,
 } from './task-flows.service.ts';
 
@@ -16,6 +17,11 @@ export class TaskFlowsController {
   @Get()
   listTaskFlows(): Promise<TaskFlowSummaryDto[]> {
     return this.taskFlowsService.listTaskFlows();
+  }
+
+  @Get(':taskId/logs')
+  getTaskFlowLogs(@Param('taskId') taskId: string): Promise<TaskFlowLogDto[]> {
+    return this.taskFlowsService.getTaskFlowLogs(taskId);
   }
 
   @Get(':taskId')

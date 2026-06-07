@@ -5,7 +5,7 @@ import { TaskFlowsService } from './task-flows.service.ts';
 const baseTime = new Date('2026-05-21T10:00:00.000Z');
 
 describe('TaskFlowsService', () => {
-  it('按任务流转口径聚合 AI 完成数和 Reviewer 待复审数', async () => {
+  it('按任务级口径返回 5 个主流程节点和对应操作人时间', async () => {
     const task = createTask({
       items: Array.from({ length: 10 }, (_, index) => createItem(index + 1, {
         currentAiDecision: index < 2 ? 'pass' : 'reject',
@@ -40,6 +40,44 @@ describe('TaskFlowsService', () => {
         notCompleted: 10,
       },
     });
+    expect(detail.lifecycleSteps).toEqual([
+      expect.objectContaining({
+        key: 'OWNER_PUBLISHED',
+        label: 'Owner 发布',
+        status: 'COMPLETED',
+        actorRole: 'OWNER',
+        actorName: '张满',
+        occurredAt: '2026-05-20T09:00:00.000Z',
+      }),
+      expect.objectContaining({
+        key: 'LABELER_SUBMITTED',
+        label: 'Labeler 标注',
+        status: 'COMPLETED',
+        actorRole: 'LABELER',
+        actorName: '李雷',
+      }),
+      expect.objectContaining({
+        key: 'AI_PRECHECK',
+        label: 'AI Agent 预审',
+        status: 'COMPLETED',
+        actorRole: 'AI_AGENT',
+        actorName: 'AI Agent',
+      }),
+      expect.objectContaining({
+        key: 'REVIEWER_CHECK',
+        label: 'Reviewer 检查',
+        status: 'CURRENT',
+        actorRole: 'REVIEWER',
+      }),
+      expect.objectContaining({
+        key: 'TASK_COMPLETED',
+        label: '任务完成',
+        status: 'PENDING',
+        actorRole: null,
+        actorName: null,
+        occurredAt: null,
+      }),
+    ]);
     expect(detail.items).toHaveLength(10);
     expect(detail.items.map((item) => item.taskItem.externalId)).toEqual([
       'P0001',
@@ -68,6 +106,64 @@ describe('TaskFlowsService', () => {
 
     expect(detail.items[0]?.labelerStatus).toBe('REVISED');
     expect(detail.items[1]?.labelerStatus).toBe('NOT_REQUIRED');
+  });
+
+  it('任务日志只记录阶段级事件，打回事件才携带题目列表', async () => {
+    const task = createTask({
+      items: [
+        createItem(1, { currentAiDecision: 'pass', currentRound: 2, previousHumanDecision: 'reject' }),
+        createItem(2, { currentAiDecision: 'reject', currentRound: 2, previousHumanDecision: 'pass' }),
+      ],
+    });
+    const service = createService([task]);
+
+    const logs = await service.getTaskFlowLogs('task_model_compare_json');
+
+    expect(logs.map((log) => log.eventType)).toEqual([
+      'OWNER_PUBLISHED',
+      'LABELER_CLAIMED',
+      'LABELER_SUBMITTED',
+      'AI_PRECHECK_STARTED',
+      'AI_PRECHECK_COMPLETED',
+      'REVIEWER_RECEIVED',
+      'REVIEWER_REJECTED',
+      'LABELER_RESUBMITTED',
+      'AI_RECHECK_STARTED',
+      'AI_RECHECK_COMPLETED',
+      'REVIEWER_RECEIVED',
+    ]);
+    expect(logs.map((log) => log.eventType)).not.toContain('AI_PRECHECK_ITEM_COMPLETED');
+    expect(logs.map((log) => log.eventType)).not.toContain('REVIEWER_ITEM_COMPLETED');
+    expect(logs.find((log) => log.eventType === 'AI_PRECHECK_COMPLETED')?.rejectedItemRefs).toEqual([]);
+    expect(logs.find((log) => log.eventType === 'REVIEWER_REJECTED')?.rejectedItemRefs).toEqual([
+      { itemId: 'item_1', externalId: 'P0001', index: 1 },
+    ]);
+    expect(logs.find((log) => log.eventType === 'AI_RECHECK_COMPLETED')?.rejectedItemRefs).toEqual([
+      { itemId: 'item_2', externalId: 'P0002', index: 2 },
+    ]);
+    expect(logs.map((log) => log.message).join('\n')).not.toContain('提交了 2 道题');
+    expect(logs.map((log) => log.message).join('\n')).not.toContain('总共预审');
+    expect(logs.map((log) => log.message).join('\n')).not.toContain('建议通过');
+  });
+
+  it('未发生的主流程节点显示待处理且不伪造时间', async () => {
+    const task = createTask({
+      items: [
+        createUnsubmittedItem(1),
+      ],
+    });
+    const service = createService([task]);
+
+    const detail = await service.getTaskFlow('task_model_compare_json');
+
+    expect(detail.lifecycleSteps.map((step) => step.status)).toEqual([
+      'COMPLETED',
+      'PENDING',
+      'PENDING',
+      'PENDING',
+      'PENDING',
+    ]);
+    expect(detail.lifecycleSteps.slice(1).every((step) => step.occurredAt === null)).toBe(true);
   });
 
   it('不展示 Owner 未发布的草稿任务', async () => {
@@ -111,8 +207,53 @@ function createTask(overrides: Record<string, unknown> = {}) {
       schemaVersion: 'v2',
       schema: null,
     },
+    auditLogs: [
+      {
+        id: 'audit_publish',
+        taskId: 'task_model_compare_json',
+        submissionId: null,
+        fromStatus: 'DRAFT',
+        toStatus: 'PUBLISHED',
+        actorId: 'user_owner',
+        actor: {
+          id: 'user_owner',
+          name: '张满',
+        },
+        reason: null,
+        metadata: { action: 'TASK_PUBLISHED' },
+        createdAt: new Date('2026-05-20T09:00:00.000Z'),
+      },
+    ],
+    flowEvents: [],
     items: [],
     ...overrides,
+  };
+}
+
+function createUnsubmittedItem(index: number) {
+  const externalId = `P${index.toString().padStart(4, '0')}`;
+
+  return {
+    id: `item_${index}`,
+    externalId,
+    datasetKind: 'generic_json',
+    rawData: { prompt: `题目 ${index}` },
+    status: 'ASSIGNED',
+    sortOrder: index,
+    assignments: [
+      {
+        id: `assignment_${index}`,
+        assigneeId: 'user_labeler',
+        status: 'ASSIGNED',
+        claimedAt: new Date(baseTime.getTime() + index),
+        updatedAt: new Date(baseTime.getTime() + index),
+        assignee: {
+          id: 'user_labeler',
+          name: '李雷',
+        },
+        submissions: [],
+      },
+    ],
   };
 }
 
@@ -138,6 +279,7 @@ function createItem(
         id: `assignment_${index}`,
         assigneeId: 'user_labeler',
         status: 'UNDER_RECHECK',
+        claimedAt: new Date(baseTime.getTime() - 3600_000 + index),
         updatedAt: new Date(baseTime.getTime() + index),
         assignee: {
           id: 'user_labeler',
@@ -146,7 +288,7 @@ function createItem(
         submissions: [
           createSubmission(index, 1, {
             status: options.previousHumanDecision === 'reject' ? 'NEEDS_REVISION' : 'FINAL_APPROVED',
-            aiDecision: options.previousHumanDecision,
+            aiDecision: 'pass',
             humanDecision: options.previousHumanDecision,
           }),
           createSubmission(index, options.currentRound, {
@@ -170,12 +312,14 @@ function createSubmission(
   },
 ) {
   const submittedAt = new Date(baseTime.getTime() + round * 1000 + index);
+  const aiReviewedAt = new Date(submittedAt.getTime() + 2);
+  const humanReviewedAt = new Date(submittedAt.getTime() + 4);
   const reviewRecords = [
-    createReviewRecord(index, round, 'AI_PRECHECK', 'AI', options.aiDecision, submittedAt),
+    createReviewRecord(index, round, 'AI_PRECHECK', 'AI', options.aiDecision, aiReviewedAt),
   ];
 
   if (options.humanDecision) {
-    reviewRecords.push(createReviewRecord(index, round, 'RECHECK', 'HUMAN', options.humanDecision, submittedAt));
+    reviewRecords.push(createReviewRecord(index, round, 'RECHECK', 'HUMAN', options.humanDecision, humanReviewedAt));
   }
 
   return {
@@ -186,6 +330,32 @@ function createSubmission(
     schemaVersion: 'v2',
     submittedAt,
     reviewRecords,
+    auditLogs: [
+      {
+        id: `audit_ai_start_${index}_${round}`,
+        taskId: 'task_model_compare_json',
+        submissionId: `submission_${index}_${round}`,
+        fromStatus: 'AI_QUEUED',
+        toStatus: 'AI_REVIEWING',
+        actorId: null,
+        actor: null,
+        reason: null,
+        metadata: { action: 'AI_REVIEW_STARTED', jobId: `job_${index}_${round}` },
+        createdAt: new Date(submittedAt.getTime() + 1),
+      },
+      {
+        id: `audit_to_human_${index}_${round}`,
+        taskId: 'task_model_compare_json',
+        submissionId: `submission_${index}_${round}`,
+        fromStatus: 'AI_PASSED',
+        toStatus: 'HUMAN_PENDING',
+        actorId: null,
+        actor: null,
+        reason: null,
+        metadata: { action: 'AI_REVIEW_TO_HUMAN_PENDING', jobId: `job_${index}_${round}` },
+        createdAt: new Date(submittedAt.getTime() + 3),
+      },
+    ],
     aiReviewJobs: [
       {
         id: `job_${index}_${round}`,
@@ -196,9 +366,9 @@ function createSubmission(
         model: 'mock-reviewer',
         lastError: null,
         queuedAt: submittedAt,
-        startedAt: submittedAt,
-        finishedAt: submittedAt,
-        updatedAt: submittedAt,
+        startedAt: new Date(submittedAt.getTime() + 1),
+        finishedAt: aiReviewedAt,
+        updatedAt: aiReviewedAt,
       },
     ],
   };
