@@ -1537,6 +1537,127 @@ describe('SchemaRenderer', () => {
     expect(screen.getByText('准确性')).toHaveClass('task-tag-bubble__label');
   });
 
+  it('LLM 建议按钮请求中显示生成中并播放星星呼吸动画', async () => {
+    const user = userEvent.setup();
+    let resolveFetch!: (value: {
+      ok: boolean;
+      json: () => Promise<{
+        data: {
+          datasetKind: string;
+          targetFieldKey: string;
+          summary: string;
+          suggestion: string;
+        };
+      }>;
+    }) => void;
+    const fetchMock = vi.fn(() => new Promise((resolve) => {
+      resolveFetch = resolve;
+    }));
+    const schema: LabelHubSchema = baseSchema([
+      {
+        key: 'title',
+        fieldKey: 'cleaned_title',
+        type: 'text',
+        label: '清洗标题',
+        promptTemplate: '请根据 #prompt 输出清洗标题。',
+      },
+    ]);
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{ prompt: '请清洗蓝牙耳机商品标题。' }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const titleLlm = screen.getByLabelText('清洗标题 LLM 建议');
+    const triggerButton = within(titleLlm).getByRole('button', { name: '生成建议' });
+
+    await user.click(triggerButton);
+
+    await waitFor(() => {
+      expect(triggerButton).toHaveClass('is-loading');
+    });
+    expect(within(titleLlm).getByRole('button', { name: '生成中...' })).toBeInTheDocument();
+    expect(triggerButton).toHaveAttribute('aria-busy', 'true');
+    expect(triggerButton.querySelector('.schema-field__llm-trigger-icon')).not.toBeNull();
+
+    resolveFetch({
+      ok: true,
+      json: async () => ({
+        data: {
+          datasetKind: 'generic_json',
+          targetFieldKey: 'cleaned_title',
+          summary: '已生成清洗标题。',
+          suggestion: '轻量降噪蓝牙耳机',
+        },
+      }),
+    });
+
+    await waitFor(() => {
+      expect(within(titleLlm).getByRole('button', { name: '重新生成' })).not.toHaveClass('is-loading');
+    });
+  });
+
+  it('标注备注 LLM 操作区在重新生成右侧展示 Doubao 来源标识', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          datasetKind: 'generic_json',
+          targetFieldKey: 'annotator_note',
+          summary: '已生成标注备注。',
+          suggestion: 'A 回答更完整，且解释更贴近问题。',
+        },
+      }),
+    });
+    const schema: LabelHubSchema = baseSchema([
+      {
+        key: 'annotator_note',
+        fieldKey: 'annotator_note',
+        type: 'textarea',
+        label: '标注备注',
+        promptTemplate: '请根据回答生成标注备注。',
+      },
+    ]);
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <SchemaRenderer
+        schema={schema}
+        rawData={{ prompt: '请比较两个回答。' }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const noteLlm = screen.getByLabelText('标注备注 LLM 建议');
+    await user.click(within(noteLlm).getByRole('button', { name: '生成建议' }));
+
+    const regenerateButton = await within(noteLlm).findByRole('button', { name: '重新生成' });
+    const actionRow = regenerateButton.closest('.schema-field__actions');
+    const providerBadgeText = within(noteLlm).getByText('Doubao-2.0-lite');
+    const providerBadge = providerBadgeText.closest<HTMLElement>('.schema-field__llm-provider-badge');
+
+    expect(actionRow).toHaveClass('schema-field__llm-action-row');
+    expect(providerBadge).not.toBeNull();
+    if (!providerBadge) {
+      throw new Error('Doubao 来源标识缺少胶囊容器');
+    }
+    expect(providerBadge).toHaveClass('schema-field__llm-provider-badge');
+    expect(actionRow).toContainElement(regenerateButton);
+    expect(actionRow).toContainElement(providerBadge);
+    expect(providerBadge.querySelector('img[src]')).not.toBeNull();
+  });
+
   it('LLM 触发组件在请求失败时显示中文错误', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue({

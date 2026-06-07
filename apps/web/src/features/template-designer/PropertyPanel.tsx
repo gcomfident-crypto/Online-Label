@@ -106,7 +106,6 @@ export const PropertyPanel = ({
         <div className="designer-property-stack">
           <BasicProperties
             field={field}
-            schemaFields={schemaFields}
             onUpdateField={onUpdateField}
             onUpdateValidation={onUpdateValidation}
           />
@@ -125,12 +124,10 @@ export const PropertyPanel = ({
 
 const BasicProperties = ({
   field,
-  schemaFields,
   onUpdateField,
   onUpdateValidation,
 }: {
   field: SchemaField;
-  schemaFields: readonly SchemaField[];
   onUpdateField: (patch: Partial<SchemaField>) => void;
   onUpdateValidation: (patch: NonNullable<SchemaField['validation']>) => void;
 }) => {
@@ -243,7 +240,6 @@ const BasicProperties = ({
       {supportsLlmPrompt(field) ? (
         <LlmPromptProperties
           field={field}
-          schemaFields={schemaFields}
           onUpdateField={onUpdateField}
         />
       ) : null}
@@ -263,7 +259,7 @@ const GroupContainerProperties = ({
 
   return (
     <div className="designer-form-grid">
-      <PropertyRow label="标题">
+      <PropertyRow className="designer-property-row--metadata" label="标题">
         <input
           aria-label="标题"
           value={field.label}
@@ -380,7 +376,7 @@ const TabsContainerProperties = ({
   return (
     <>
       <div className="designer-form-grid">
-        <PropertyRow label="标题">
+        <PropertyRow className="designer-property-row--metadata" label="标题">
           <input
             aria-label="标题"
             value={field.label}
@@ -542,24 +538,16 @@ const AiReviewProperties = ({
   );
 };
 
-type ShowItemReference = {
-  label: string;
-  sourceKey: string;
-};
-
 const LlmPromptProperties = ({
   field,
-  schemaFields,
   onUpdateField,
 }: {
   field: SchemaField;
-  schemaFields: readonly SchemaField[];
   onUpdateField: (patch: Partial<SchemaField>) => void;
 }) => {
   const [isExpanded, setIsExpanded] = useState(() => field.promptTemplate !== undefined);
   const promptTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selectedFieldKey = field.fieldKey ?? field.key;
-  const showItemReferences = extractShowItemReferences(schemaFields);
   const promptTemplate = field.promptTemplate ?? '';
 
   useEffect(() => {
@@ -573,12 +561,6 @@ const LlmPromptProperties = ({
   const toggleLlmPrompt = (enabled: boolean) => {
     setIsExpanded(enabled);
     onUpdateField({ promptTemplate: enabled ? promptTemplate : undefined });
-  };
-  const insertShowItemReference = (sourceKey: string) => {
-    const token = `#${sourceKey}`;
-    const separator = promptTemplate && !promptTemplate.endsWith(' ') && !promptTemplate.endsWith('\n') ? ' ' : '';
-
-    onUpdateField({ promptTemplate: `${promptTemplate}${separator}${token}` });
   };
 
   return (
@@ -614,19 +596,6 @@ const LlmPromptProperties = ({
               }}
             />
           </PropertyRow>
-          {showItemReferences.length > 0 ? (
-            <div className="designer-llm-prompt-references" aria-label="可引用展示字段">
-              {showItemReferences.map((reference) => (
-                <button
-                  key={reference.sourceKey}
-                  type="button"
-                  onClick={() => insertShowItemReference(reference.sourceKey)}
-                >
-                  #{reference.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
         </div>
       </PropertyCollapse>
     </PropertySection>
@@ -728,56 +697,6 @@ const supportsPlaceholder = (field: SchemaField): boolean =>
 
 const supportsLlmPrompt = (field: SchemaField): boolean =>
   field.type === 'text' || field.type === 'textarea' || field.type === 'tag_select';
-
-const extractShowItemReferences = (fields: readonly SchemaField[]): ShowItemReference[] => {
-  const references = new Map<string, ShowItemReference>();
-
-  const visit = (fieldList: readonly SchemaField[]) => {
-    for (const field of fieldList) {
-      if (field.type === 'show_item') {
-        normalizeShowItemReferences(field).forEach((reference) => {
-          if (!references.has(reference.sourceKey)) {
-            references.set(reference.sourceKey, reference);
-          }
-        });
-      }
-
-      if (field.fields) {
-        visit(field.fields);
-      }
-
-      if (field.tabs) {
-        field.tabs.forEach((tab) => visit(tab.fields));
-      }
-    }
-  };
-
-  visit(fields);
-
-  return Array.from(references.values());
-};
-
-const normalizeShowItemReferences = (field: SchemaField): ShowItemReference[] => {
-  if (field.displayConfig?.fields) {
-    return field.displayConfig.fields
-      .filter((displayField) => displayField.visible !== false)
-      .map(showItemDisplayFieldToReference);
-  }
-
-  const sourceKeys = field.sourceKeys ?? (field.sourceKey ? [field.sourceKey] : []);
-
-  return sourceKeys.map((sourceKey) => ({
-    label: sourceKey,
-    sourceKey,
-  }));
-};
-
-const showItemDisplayFieldToReference = (
-  displayField: ShowItemDisplayField,
-): ShowItemReference => ({
-  label: displayField.label || displayField.sourceKey,
-  sourceKey: displayField.sourceKey,
-});
 
 const normalizeAiReviewConfig = (field: SchemaField): NormalizedAiReviewConfig => {
   return {

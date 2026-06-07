@@ -465,6 +465,10 @@ type LockedDesignerDropTarget = {
   target: DesignerDropTarget;
 };
 
+type ActiveDesignerDragProjection =
+  | { kind: 'field'; fieldKey: string }
+  | { kind: 'material'; type: MaterialSpec['type'] };
+
 const isPointInsideRect = (
   point: { x: number; y: number },
   rect: DOMRect,
@@ -781,7 +785,9 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const [draggingFieldKey, setDraggingFieldKey] = useState<string | null>(null);
   const [draggingMaterialType, setDraggingMaterialType] = useState<MaterialSpec['type'] | null>(null);
   const [isDraggingMaterialOverCanvas, setIsDraggingMaterialOverCanvas] = useState(false);
+  const [isDraggingFieldOverCanvas, setIsDraggingFieldOverCanvas] = useState(false);
   const [materialDropTarget, setMaterialDropTarget] = useState<DesignerDropTarget | null>(null);
+  const [fieldDropTarget, setFieldDropTarget] = useState<DesignerDropTarget | null>(null);
   const [materialOverlayWidth, setMaterialOverlayWidth] = useState<number | null>(null);
   const [committedDropFieldKey, setCommittedDropFieldKey] = useState<string | null>(null);
   const [isMaterialDropSettling, setIsMaterialDropSettling] = useState(false);
@@ -1150,7 +1156,9 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setDraggingFieldKey(null);
     setDraggingMaterialType(null);
     setIsDraggingMaterialOverCanvas(false);
+    setIsDraggingFieldOverCanvas(false);
     setMaterialDropTarget(null);
+    setFieldDropTarget(null);
     setMaterialOverlayWidth(null);
     stopDragPointerProjection();
     stopDesignerCanvasAutoScroll();
@@ -1304,6 +1312,9 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   const applyMaterialDropProjection = (
     projection: ReturnType<typeof resolveMaterialDropProjectionAtPoint> | null,
   ) => {
+    setIsDraggingFieldOverCanvas(false);
+    setFieldDropTarget(null);
+
     if (!projection?.insideCanvas) {
       setIsDraggingMaterialOverCanvas(false);
       setMaterialDropTarget(null);
@@ -1316,8 +1327,69 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setMaterialOverlayWidth(projection.width);
   };
 
+  const resolveFieldDropProjectionAtPoint = (
+    fieldKey: string,
+    currentPointer: { x: number; y: number },
+    overId?: string | null,
+  ) => {
+    if (!pointIsInsideDesignerCanvas(currentPointer)) {
+      return {
+        insideCanvas: false,
+        target: null,
+      };
+    }
+
+    const overTarget = resolveDesignerDropTarget(schema, overId);
+    const pointTarget = resolveLockedDropTarget(currentPointer);
+    const target = resolveDesignerDropTargetForProjection({ overTarget, pointTarget });
+
+    return {
+      fieldKey,
+      insideCanvas: true,
+      target,
+    };
+  };
+
+  const applyFieldDropProjection = (
+    projection: ReturnType<typeof resolveFieldDropProjectionAtPoint> | null,
+  ) => {
+    setIsDraggingMaterialOverCanvas(false);
+    setMaterialDropTarget(null);
+    setMaterialOverlayWidth(null);
+
+    if (!projection?.insideCanvas) {
+      setIsDraggingFieldOverCanvas(false);
+      setFieldDropTarget(null);
+      return;
+    }
+
+    setIsDraggingFieldOverCanvas(true);
+    setFieldDropTarget(projection.target);
+  };
+
+  const resolveActiveDropProjectionAtPoint = (
+    activeDrag: ActiveDesignerDragProjection,
+    currentPointer: { x: number; y: number },
+    overId?: string | null,
+  ) =>
+    activeDrag.kind === 'material'
+      ? resolveMaterialDropProjectionAtPoint(activeDrag.type, currentPointer, overId)
+      : resolveFieldDropProjectionAtPoint(activeDrag.fieldKey, currentPointer, overId);
+
+  const applyActiveDropProjection = (
+    activeDrag: ActiveDesignerDragProjection,
+    projection: ReturnType<typeof resolveMaterialDropProjectionAtPoint> | ReturnType<typeof resolveFieldDropProjectionAtPoint> | null,
+  ) => {
+    if (activeDrag.kind === 'material') {
+      applyMaterialDropProjection(projection as ReturnType<typeof resolveMaterialDropProjectionAtPoint> | null);
+      return;
+    }
+
+    applyFieldDropProjection(projection as ReturnType<typeof resolveFieldDropProjectionAtPoint> | null);
+  };
+
   const scheduleDesignerCanvasAutoScroll = (
-    type: MaterialSpec['type'],
+    activeDrag: ActiveDesignerDragProjection,
     point: { x: number; y: number },
   ) => {
     dragAutoScrollPointerRef.current = point;
@@ -1338,39 +1410,57 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
         return;
       }
 
-      applyMaterialDropProjection(resolveMaterialDropProjectionAtPoint(type, latestPoint));
+      applyActiveDropProjection(activeDrag, resolveActiveDropProjectionAtPoint(activeDrag, latestPoint));
       dragAutoScrollFrameRef.current = window.requestAnimationFrame(runAutoScroll);
     };
 
     dragAutoScrollFrameRef.current = window.requestAnimationFrame(runAutoScroll);
   };
 
-  const updateMaterialDropProjection = (event: DragMoveEvent | DragOverEvent) => {
+  const updateDesignerDropProjection = (event: DragMoveEvent | DragOverEvent) => {
     const type = event.active.data.current?.type as MaterialSpec['type'] | undefined;
+    const fieldKey = event.active.data.current?.fieldKey;
+    const isFieldDrag = event.active.data.current?.kind === 'field' && typeof fieldKey === 'string';
     const currentPointer = resolveCurrentDragPointer(event);
 
-    if (!type || !currentPointer) {
+    if (!currentPointer) {
       return;
     }
 
-    const projection = resolveMaterialDropProjectionAtPoint(
-      type,
+    const activeDrag: ActiveDesignerDragProjection | null = isFieldDrag
+      ? { kind: 'field', fieldKey }
+      : type
+        ? { kind: 'material', type }
+        : null;
+
+    if (!activeDrag) {
+      return;
+    }
+
+    const projection = resolveActiveDropProjectionAtPoint(
+      activeDrag,
       currentPointer,
       event.over?.id ? String(event.over.id) : null,
     );
 
     if (!projection?.insideCanvas) {
       stopDesignerCanvasAutoScroll();
-      applyMaterialDropProjection(projection);
+      applyActiveDropProjection(activeDrag, projection);
       return;
     }
 
-    scheduleDesignerCanvasAutoScroll(type, currentPointer);
-    applyMaterialDropProjection(projection);
+    scheduleDesignerCanvasAutoScroll(activeDrag, currentPointer);
+    applyActiveDropProjection(activeDrag, projection);
   };
 
   useEffect(() => {
-    if (!draggingMaterialType) {
+    const activeDrag: ActiveDesignerDragProjection | null = draggingMaterialType
+      ? { kind: 'material', type: draggingMaterialType }
+      : draggingFieldKey
+        ? { kind: 'field', fieldKey: draggingFieldKey }
+        : null;
+
+    if (!activeDrag) {
       return undefined;
     }
 
@@ -1385,16 +1475,16 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       stopDragPointerProjection();
       dragPointerProjectionFrameRef.current = window.requestAnimationFrame(() => {
         dragPointerProjectionFrameRef.current = null;
-        const projection = resolveMaterialDropProjectionAtPoint(draggingMaterialType, point);
+        const projection = resolveActiveDropProjectionAtPoint(activeDrag, point);
 
         if (!projection?.insideCanvas) {
           stopDesignerCanvasAutoScroll();
-          applyMaterialDropProjection(projection);
+          applyActiveDropProjection(activeDrag, projection);
           return;
         }
 
-        scheduleDesignerCanvasAutoScroll(draggingMaterialType, point);
-        applyMaterialDropProjection(projection);
+        scheduleDesignerCanvasAutoScroll(activeDrag, point);
+        applyActiveDropProjection(activeDrag, projection);
       });
     };
     const listenerOptions = { capture: true };
@@ -1410,7 +1500,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
       window.removeEventListener('touchmove', updateProjectionFromPointer, touchListenerOptions);
       stopDragPointerProjection();
     };
-  }, [draggingMaterialType, schema]);
+  }, [draggingFieldKey, draggingMaterialType, schema]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const fieldKey = event.active.data.current?.fieldKey;
@@ -1419,7 +1509,9 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     setDraggingFieldKey(typeof fieldKey === 'string' ? fieldKey : null);
     setDraggingMaterialType(type ?? null);
     setIsDraggingMaterialOverCanvas(false);
+    setIsDraggingFieldOverCanvas(false);
     setMaterialDropTarget(null);
+    setFieldDropTarget(null);
     setMaterialOverlayWidth(null);
     const startPointer = pointerCoordinatesFromActivator(event.activatorEvent);
     dragStartPointerRef.current = startPointer;
@@ -1427,11 +1519,11 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
   };
 
   const handleDragMove = (event: DragMoveEvent) => {
-    updateMaterialDropProjection(event);
+    updateDesignerDropProjection(event);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
-    updateMaterialDropProjection(event);
+    updateDesignerDropProjection(event);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -2484,15 +2576,20 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                   templateName={currentTemplateName}
                   previewRawData={designerPreviewRawData}
                   selectedFieldKey={selectedFieldKey}
-                  committingFieldKey={committedDropFieldKey}
-                  isMaterialDropSettling={isMaterialDropSettling}
-                  isDropHighlighted={isDraggingMaterialOverCanvas}
-                  materialDropPreview={
-                    draggingMaterial && isDraggingMaterialOverCanvas
-                      ? { target: materialDropTarget, type: draggingMaterial.type }
-                      : null
-                  }
-                  activeTabByFieldKey={activeDesignerTabByFieldKey}
+	                  committingFieldKey={committedDropFieldKey}
+	                  isMaterialDropSettling={isMaterialDropSettling}
+	                  isDropHighlighted={isDraggingMaterialOverCanvas || isDraggingFieldOverCanvas}
+	                  materialDropPreview={
+	                    draggingMaterial && isDraggingMaterialOverCanvas
+	                      ? { target: materialDropTarget, type: draggingMaterial.type }
+	                      : null
+	                  }
+	                  fieldDropPreview={
+	                    draggingField && isDraggingFieldOverCanvas
+	                      ? { sourceFieldKey: draggingField.key, target: fieldDropTarget, type: draggingField.type }
+	                      : null
+	                  }
+	                  activeTabByFieldKey={activeDesignerTabByFieldKey}
                   onActiveTabChange={handleDesignerTabChange}
                   onTemplateNameChange={setTemplateDraftName}
                   onTemplateNameDraftChange={setTemplateNameDraftOverride}

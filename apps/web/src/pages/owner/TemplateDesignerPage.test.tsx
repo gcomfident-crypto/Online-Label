@@ -2055,6 +2055,40 @@ describe('TemplateDesignerPage', () => {
     expect(preview).toHaveTextContent('松手添加 多选');
   });
 
+  it('画布内字段拖动调整位置时渲染同款蓝色插入线', () => {
+    const schema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'generic_json',
+      fields: [
+        { key: 'text_1', fieldKey: 'text_1', type: 'text', label: '单行输入' },
+        { key: 'textarea_2', fieldKey: 'textarea_2', type: 'textarea', label: '多行文本' },
+      ],
+    });
+    const { container } = render(
+      <DesignerCanvas
+        schema={schema}
+        selectedFieldKey={null}
+        fieldDropPreview={{
+          sourceFieldKey: 'text_1',
+          target: { kind: 'root', beforeFieldKey: 'textarea_2' },
+          type: 'text',
+        }}
+        onSelectField={() => undefined}
+        onDuplicateField={() => undefined}
+        onRemoveField={() => undefined}
+      />,
+    );
+
+    const preview = container.querySelector('.designer-drop-insertion-marker');
+
+    expect(preview).not.toBeNull();
+    expect(preview).toHaveClass('designer-drop-insertion-marker--before');
+    expect(container.querySelector('.designer-canvas__fields > .designer-drop-insertion-marker')).toBeNull();
+    expect(preview?.closest('.designer-field-card')?.getAttribute('data-designer-field-key')).toBe('textarea_2');
+    expect(preview).toHaveTextContent('松手移动 单行输入');
+    expect(preview).not.toHaveTextContent('松手添加');
+  });
+
   it('上传文件解析模板时才显示画布上方空白横栏', () => {
     const schema = createLabelHubSchema({
       schemaVersion: 'draft',

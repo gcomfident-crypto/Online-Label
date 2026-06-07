@@ -163,13 +163,54 @@ describe('global styles', () => {
   it('LLM 生成建议按钮使用更小的文字和图标', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const triggerRule = styles.match(/\.schema-field__llm-trigger-button\s*\{[^}]+\}/)?.[0] ?? '';
-    const iconRule = styles.match(/\.schema-field__llm-trigger-button img\s*\{[^}]+\}/)?.[0] ?? '';
+    const iconRule = styles.match(/\.schema-field__llm-trigger-icon\s*\{[^}]+\}/)?.[0] ?? '';
+    const iconImageRule = styles.match(/\.schema-field__llm-trigger-icon img\s*\{[^}]+\}/)?.[0] ?? '';
+    const loadingAnimationRule =
+      styles.match(/\.schema-field__llm-trigger-button\.is-loading \.schema-field__llm-trigger-icon img\s*\{[^}]+\}/)
+        ?.[0] ?? '';
+    const loadingButtonRule = styles.match(/\.schema-field__llm-trigger-button\.is-loading\s*\{[^}]+\}/)?.[0] ?? '';
+    const starKeyframes = styles.match(/@keyframes schema-llm-star-pulse\s*\{[\s\S]+?^\}/m)?.[0] ?? '';
 
     expect(triggerRule).toContain('font-size: 12px;');
     expect(triggerRule).toContain('padding: 7px 10px;');
     expect(triggerRule).toContain('gap: 4px;');
     expect(iconRule).toContain('width: 13px;');
     expect(iconRule).toContain('height: 13px;');
+    expect(iconImageRule).toContain('width: 13px;');
+    expect(iconImageRule).toContain('height: 13px;');
+    expect(loadingButtonRule).toContain('background: #ffffff;');
+    expect(loadingButtonRule).toContain('color: #8b52d9;');
+    expect(loadingAnimationRule).toContain('animation: schema-llm-star-pulse 1040ms');
+    expect(loadingAnimationRule).toContain('infinite;');
+    expect(starKeyframes).toContain('transform: scale(0.88) rotate(-7deg);');
+    expect(starKeyframes).toContain('opacity: 0.58;');
+    expect(starKeyframes).toContain('transform: scale(1.04) rotate(3deg);');
+    expect(starKeyframes).not.toContain('translate');
+    expect(starKeyframes).not.toContain('opacity: 0;');
+  });
+
+  it('LLM 标注备注操作区右侧展示克制的 Doubao 来源胶囊', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const actionRowRule = styles.match(/\.schema-field__llm-action-row\s*\{[^}]+\}/)?.[0] ?? '';
+    const badgeRule = styles.match(/\.schema-field__llm-provider-badge\s*\{[^}]+\}/)?.[0] ?? '';
+    const badgeIconRule = styles.match(/\.schema-field__llm-provider-badge img\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(actionRowRule).toContain('display: flex;');
+    expect(actionRowRule).toContain('align-items: center;');
+    expect(actionRowRule).toContain('justify-content: space-between;');
+    expect(actionRowRule).toContain('flex-wrap: wrap;');
+    expect(badgeRule).toContain('border-radius: 999px;');
+    expect(badgeRule).toContain('border: 1px solid #d8c7ff;');
+    expect(badgeRule).toContain('background: #f5f0ff;');
+    expect(badgeRule).toContain('color: #7c3aed;');
+    expect(badgeRule).toContain('font-size: 13px;');
+    expect(badgeRule).toContain('font-weight: 500;');
+    expect(badgeRule).toContain('min-height: 32px;');
+    expect(badgeRule).toContain('padding: 6px 16px;');
+    expect(badgeRule).toContain('white-space: nowrap;');
+    expect(badgeRule).not.toContain('box-shadow');
+    expect(badgeIconRule).toContain('width: 16px;');
+    expect(badgeIconRule).toContain('height: 16px;');
   });
 
   it('所有垃圾桶删除图标悬浮效果与题目展示字段删除按钮一致', () => {
@@ -1136,6 +1177,8 @@ describe('global styles', () => {
     const materialOverlayRule = styles.match(/\.designer-material-drag-overlay\s*\{[^}]+\}/)?.[0] ?? '';
     const materialOverlayExpandedRule =
       styles.match(/\.designer-material-drag-overlay\.is-expanded\s*\{[^}]+\}/)?.[0] ?? '';
+    const fieldDropCommitRule =
+      styles.match(/\.designer-field-card\.is-drop-committing\s*\{[^}]+\}/)?.[0] ?? '';
     const fieldDropCommitKeyframes =
       styles.match(/@keyframes designer-field-drop-commit\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
 
@@ -1147,6 +1190,8 @@ describe('global styles', () => {
     expect(materialOverlayRule).toContain('transform: var(--designer-material-overlay-transform);');
     expect(materialOverlayExpandedRule).toContain('--designer-material-overlay-transform: scale(1);');
     expect(styles).toContain('@keyframes designer-material-overlay-enter');
+    expect(fieldDropCommitRule).toContain('designer-field-card-enter 1ms');
+    expect(fieldDropCommitRule).toContain('designer-field-drop-commit 620ms');
     expect(fieldDropCommitKeyframes).toContain('box-shadow: inset 0 0 0 1px rgba(48, 109, 247, 0.28)');
     expect(fieldDropCommitKeyframes).not.toContain('transform:');
   });
@@ -1835,24 +1880,33 @@ describe('global styles', () => {
 
     expect(rowRule).toContain('align-items: start;');
     expect(editorRule).toContain('display: grid;');
-    expect(editorRule).toContain('justify-items: end;');
+    expect(editorRule).toContain('width: min(174px, 100%);');
+    expect(editorRule).toContain('justify-items: stretch;');
+    expect(editorRule).toContain('gap: 6px;');
     expect(modeRule).toContain('display: grid;');
-    expect(modeRule).toContain('grid-template-columns: minmax(66px, 1.45fr) repeat(3, minmax(0, 1fr));');
+    expect(modeRule).toContain('grid-template-columns: minmax(48px, 1.05fr) repeat(3, minmax(36px, 0.82fr));');
+    expect(modeRule).toContain('gap: 2px;');
+    expect(modeRule).toContain('padding: 2px;');
     expect(buttonRule).toContain('border-radius: 6px;');
+    expect(buttonRule).toContain('height: 28px;');
+    expect(buttonRule).toContain('padding: 0 4px;');
     expect(buttonRule).toContain('font-size: 12px;');
     expect(buttonRule).toContain('white-space: nowrap;');
     expect(buttonHoverRule).toContain('background: transparent;');
     expect(buttonHoverRule).toContain('box-shadow: none;');
     expect(buttonHoverRule).toContain('transform: none;');
-    expect(noneButtonRule).toContain('font-size: 11px;');
-    expect(noneButtonRule).toContain('min-width: 62px;');
+    expect(noneButtonRule).toContain('font-size: 12px;');
+    expect(noneButtonRule).toContain('min-width: 0;');
     expect(activeButtonRule).toContain('background: #306df8;');
     expect(activeButtonRule).toContain('color: #ffffff;');
     expect(activeButtonHoverRule).toContain('background: #306df8;');
-    expect(activeButtonHoverRule).toContain('box-shadow: 0 4px 10px rgba(48, 109, 248, 0.18);');
+    expect(activeButtonHoverRule).toContain('box-shadow: none;');
     expect(valueRule).toContain('display: inline-grid;');
+    expect(valueRule).toContain('width: 100%;');
     expect(valueRule).toContain('grid-auto-flow: column;');
-    expect(inputRule).toContain('width: 52px;');
+    expect(valueRule).toContain('justify-content: center;');
+    expect(valueRule).toContain('gap: 10px;');
+    expect(inputRule).toContain('width: 40px;');
     expect(inputRule).toContain('text-align: center;');
     expect(unitRule).toContain('color: #94a3b8;');
   });
@@ -1884,10 +1938,11 @@ describe('global styles', () => {
     expect(editorRule).toContain('grid-template-columns: minmax(0, 1fr);');
     expect(compactEditorRule).toContain('grid-template-columns: minmax(0, 1fr);');
     expect(compactEditorRule).toContain('gap: 8px;');
+    expect(compactEditorRule).toContain('padding: 0 0 8px;');
     expect(bubblesRule).toContain('display: flex;');
     expect(bubblesRule).toContain('flex-wrap: wrap;');
     expect(bubblesRule).toContain('justify-content: flex-start;');
-    expect(bubblesRule).toContain('margin: -4px;');
+    expect(bubblesRule).toContain('margin: -4px -4px 0;');
     expect(optionListRule).toContain('display: contents;');
     expect(actionRule).toContain('align-items: center;');
     expect(actionRule).toContain('justify-content: flex-start;');
@@ -1911,6 +1966,25 @@ describe('global styles', () => {
     expect(dragSurfaceRule).toContain('cursor: grabbing;');
     expect(dragSurfaceRule).toContain('box-shadow: 0 10px 22px rgba(48, 109, 247, 0.18);');
     expect(dragShiftedRule).toContain('transition: transform 210ms cubic-bezier(0.2, 0.8, 0.2, 1);');
+  });
+
+  it('labeler 工作台新标签输入沿用已保存标签胶囊的字体和颜色', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const tagTypographyRule =
+      styles.match(/\.task-tag-bubble,\s*\.task-tag-composer\s*\{[^}]+\}/)?.[0] ?? '';
+    const composerInputRule = styles.match(/\.task-tag-composer__input\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(tagTypographyRule).toContain('color: #1d4ed8;');
+    expect(tagTypographyRule).toContain(
+      'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;',
+    );
+    expect(tagTypographyRule).toContain('font-size: 13px;');
+    expect(tagTypographyRule).toContain('font-weight: 900;');
+    expect(composerInputRule).toContain('color: inherit;');
+    expect(composerInputRule).toContain('font: inherit;');
+    expect(composerInputRule).toContain('line-height: inherit;');
+    expect(composerInputRule).not.toContain('color: #172033;');
+    expect(composerInputRule).not.toContain('font-weight: 800;');
   });
 
   it('模板配置选项编辑器的气泡容器不被通用属性行控制样式覆盖', () => {
