@@ -836,9 +836,8 @@ describe('global styles', () => {
     expect(canvasScrollRule).toContain('padding: 16px 16px 0;');
   });
 
-  it('本题历史使用当前状态条和按轮次分组的时间线样式', () => {
+  it('本题历史使用按轮次分组的时间线样式', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
-    const currentRule = styles.match(/\.labeler-item-history-current\s*\{[^}]+\}/)?.[0] ?? '';
     const roundHeaderRule = styles.match(/\.labeler-item-history__round-header\s*\{[^}]+\}/)?.[0] ?? '';
     const roundLabelRule = styles.match(/\.labeler-item-history__round-header span\s*\{[^}]+\}/)?.[0] ?? '';
     const roundTimeRule = styles.match(/\.labeler-item-history__round-header small\s*\{[^}]+\}/)?.[0] ?? '';
@@ -846,11 +845,7 @@ describe('global styles', () => {
     const rowTimeRule = styles.match(/\.labeler-item-history__row time\s*\{[^}]+\}/)?.[0] ?? '';
     const eventRule = styles.match(/\.labeler-item-history__row::before\s*\{[^}]+\}/)?.[0] ?? '';
 
-    expect(currentRule).toContain('border-radius: 8px;');
-    expect(currentRule).toContain('justify-content: space-between;');
-    expect(styles).toContain('.labeler-item-history-current--reviewer');
-    expect(styles).toContain('.labeler-item-history-current--ai');
-    expect(styles).toContain('.labeler-item-history-current--rejected');
+    expect(styles).not.toContain('.labeler-item-history-current');
     expect(styles).toContain('.labeler-item-history__round');
     expect(roundHeaderRule).toContain('justify-content: space-between;');
     expect(roundLabelRule).toContain('font-size: 16px;');
@@ -874,9 +869,10 @@ describe('global styles', () => {
 
     expect(statusRule).toContain('font-weight: 700;');
     expect(statusPillRule).toContain('display: inline-flex;');
-    expect(statusPillRule).toContain('border-radius: 999px;');
-    expect(statusPillRule).toContain('max-width: 132px;');
-    expect(statusDotRule).toContain('width: 6px;');
+    expect(statusPillRule).toContain('border-radius: 6px;');
+    expect(statusPillRule).toContain('max-width: none;');
+    expect(statusDotRule).toContain('width: 4px;');
+    expect(statusDotRule).toContain('height: 4px;');
     expect(statusDotRule).toContain('border-radius: 999px;');
     expect(styles).toContain('.question-navigator__status--annotated');
     expect(styles).toContain('.question-navigator__status--ai-review');

@@ -58,18 +58,18 @@ const STAGE_LABELS: Record<TaskFlowStage, string> = {
   AI_PRECHECK: 'AI 预审中',
   HUMAN_REVIEW: 'Reviewer 复核中',
   LABELER_REVISION: 'Labeler 修改中',
-  HUMAN_RE_REVIEW: 'Reviewer 再次复审中',
+  HUMAN_RE_REVIEW: 'Reviewer 复审中',
   FINAL_COMPLETED: '任务最终完成',
 };
 
 const AI_STATUS_LABELS: Record<TaskFlowAiStatus, string> = {
-  NOT_STARTED: '未进入 AI 预审',
-  QUEUED: 'AI 等待预审',
-  RUNNING: 'AI 预审中',
-  PASSED: 'AI 建议通过',
-  REJECTED: 'AI 建议打回',
-  SUCCEEDED: 'AI 预审完成',
-  FAILED: 'AI 预审失败',
+  NOT_STARTED: '未预审',
+  QUEUED: '等待预审',
+  RUNNING: '预审中',
+  PASSED: '预审通过',
+  REJECTED: '建议修改',
+  SUCCEEDED: '预审完成',
+  FAILED: '预审失败',
 };
 
 const REVIEWER_STATUS_LABELS: Record<TaskFlowReviewerStatus, string> = {
@@ -111,6 +111,7 @@ export const AiReviewQueuePage = () => {
   const [selectedFlow, setSelectedFlow] = useState<TaskFlowSummaryDto | TaskFlowDetailDto | null>(null);
   const [detail, setDetail] = useState<TaskFlowDetailDto | null>(null);
   const [taskLogs, setTaskLogs] = useState<TaskFlowLogDto[]>([]);
+  const [isTaskLogStale, setIsTaskLogStale] = useState(false);
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -118,7 +119,7 @@ export const AiReviewQueuePage = () => {
   const [isLogLoading, setIsLogLoading] = useState(false);
   const [isSheetClosing, setIsSheetClosing] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
-  const { dismissToast, messages, showErrorToast } = useToastController();
+  const { clearToasts, dismissToast, messages, showErrorToast } = useToastController();
 
   useEffect(() => {
     void loadFlows();
@@ -222,6 +223,7 @@ export const AiReviewQueuePage = () => {
     setSelectedFlow(flow);
     setDetail(null);
     setTaskLogs([]);
+    setIsTaskLogStale(false);
     setIsLogOpen(false);
     setSelectedItemIndex(0);
     setIsDetailLoading(true);
@@ -232,8 +234,19 @@ export const AiReviewQueuePage = () => {
       setSelectedFlow(nextDetail);
     } catch {
       showErrorToast('任务质检流转详情加载失败，请稍后重试。');
+      return;
     } finally {
       setIsDetailLoading(false);
+    }
+
+    try {
+      const nextLogs = await getTaskFlowLogs(flow.taskId);
+      setTaskLogs(nextLogs);
+      setIsTaskLogStale(false);
+    } catch {
+      setTaskLogs([]);
+      setIsTaskLogStale(true);
+      showErrorToast('任务日志加载失败，右侧本题历史可能不完整。');
     }
   };
 
@@ -247,6 +260,7 @@ export const AiReviewQueuePage = () => {
       setSelectedFlow(null);
       setDetail(null);
       setTaskLogs([]);
+      setIsTaskLogStale(false);
       setIsLogOpen(false);
       setSelectedItemIndex(0);
       setIsSheetClosing(false);
@@ -261,11 +275,21 @@ export const AiReviewQueuePage = () => {
     }
 
     setIsLogOpen(true);
+    if (taskLogs.length > 0 && !isTaskLogStale) {
+      setIsLogLoading(false);
+      return;
+    }
+
     setIsLogLoading(true);
     try {
       setTaskLogs(await getTaskFlowLogs(flow.taskId));
+      if (isTaskLogStale) {
+        clearToasts();
+      }
+      setIsTaskLogStale(false);
     } catch {
       setTaskLogs([]);
+      setIsTaskLogStale(true);
       showErrorToast('任务日志加载失败，请稍后重试。');
     } finally {
       setIsLogLoading(false);
@@ -330,6 +354,7 @@ export const AiReviewQueuePage = () => {
             isLoading={isDetailLoading}
             isLogLoading={isLogLoading}
             isLogOpen={isLogOpen}
+            isTaskLogStale={isTaskLogStale}
             selectedItemIndex={selectedItemIndex}
             taskLogs={taskLogs}
             onClose={handleCloseDrawer}
@@ -503,14 +528,18 @@ const TaskFlowTable = ({
                     </td>
                     <td>
                       <TableCellInner>
-                        {flow.aiSummary.completed.toLocaleString()} / {flow.submittedItems.toLocaleString()} AI 预审完成
+                        <span className="agent-review-batch-table__metric">
+                          {flow.aiSummary.completed.toLocaleString()} / {flow.submittedItems.toLocaleString()} 预审完成
+                        </span>
                         <small>通过 {flow.aiSummary.passed.toLocaleString()} · 打回 {flow.aiSummary.rejected.toLocaleString()}</small>
                       </TableCellInner>
                     </td>
                     <td>
                       <TableCellInner>
-                        待复核 {flow.reviewerSummary.pending.toLocaleString()} / {flow.submittedItems.toLocaleString()}
-                        <small>已决策 {flow.reviewerSummary.decided.toLocaleString()} · 最终完成 {flow.finalSummary.completed.toLocaleString()}</small>
+                        <span className="agent-review-batch-table__metric">
+                          待审 {flow.reviewerSummary.pending.toLocaleString()} / {flow.submittedItems.toLocaleString()}
+                        </span>
+                        <small>已决策 {flow.reviewerSummary.decided.toLocaleString()} · 完成 {flow.finalSummary.completed.toLocaleString()}</small>
                       </TableCellInner>
                     </td>
                     <td className="task-table__date-column">
@@ -583,6 +612,7 @@ const TaskFlowSheet = ({
   isLoading,
   isLogLoading,
   isLogOpen,
+  isTaskLogStale,
   onClose,
   onCloseLogs,
   onOpenLogs,
@@ -596,6 +626,7 @@ const TaskFlowSheet = ({
   isLoading: boolean;
   isLogLoading: boolean;
   isLogOpen: boolean;
+  isTaskLogStale: boolean;
   onClose: () => void;
   onCloseLogs: () => void;
   onOpenLogs: () => void;
@@ -679,14 +710,13 @@ const TaskFlowSheet = ({
                   {selectedItem ? (
                     <>
                       <ItemFlowResultStrip item={selectedItem} />
-                      <ItemStatusPanel item={selectedItem} />
                       <SubmissionContentPanel item={selectedItem} />
                       <AiReviewRecordPanel item={selectedItem} />
                       <ReviewerRecordPanel item={selectedItem} />
                     </>
                   ) : null}
                 </div>
-                {selectedItem ? <TraceSidebar item={selectedItem} /> : null}
+                {selectedItem ? <TraceSidebar item={selectedItem} isLogStale={isTaskLogStale} logs={taskLogs} /> : null}
               </div>
             ) : (
               <TableEmptyState title="暂无题目流转详情" illustrationAlt="空任务流转详情插画" />
@@ -778,11 +808,9 @@ const QuestionList = ({
 
 const ItemFlowResultStrip = ({ item }: { item: TaskFlowItemDto }) => {
   const meta = [
-    AI_STATUS_LABELS[item.aiStatus],
-    REVIEWER_STATUS_LABELS[item.reviewerStatus],
-    LABELER_STATUS_LABELS[item.labelerStatus],
-    FINAL_STATUS_LABELS[item.finalStatus],
-  ].join(' · ');
+    item.submission ? `第 ${item.submission.round} 轮提交` : '尚未提交',
+    item.assignment?.assigneeName ? `标注员 ${item.assignment.assigneeName}` : null,
+  ].filter(Boolean).join(' · ');
 
   return (
     <section className={`agent-review-result-strip is-${itemTone(item)}`} aria-label="当前题流转结果">
@@ -800,29 +828,6 @@ const ItemFlowResultStrip = ({ item }: { item: TaskFlowItemDto }) => {
   );
 };
 
-const ItemStatusPanel = ({ item }: { item: TaskFlowItemDto }) => (
-  <article className="agent-review-card agent-review-card--fields">
-    <PanelHeading title="题目流转状态" meta="AI、Reviewer、Labeler、最终状态分层展示" />
-    <div className="agent-review-drawer-grid">
-      <StatusBlock title="AI 预审状态" label={AI_STATUS_LABELS[item.aiStatus]} tone={aiTone(item.aiStatus)} />
-      <StatusBlock title="Reviewer 复核状态" label={REVIEWER_STATUS_LABELS[item.reviewerStatus]} tone={reviewerTone(item.reviewerStatus)} />
-      <StatusBlock title="Labeler 修改边界" label={LABELER_STATUS_LABELS[item.labelerStatus]} tone={labelerTone(item.labelerStatus)} />
-      <StatusBlock title="任务最终状态" label={FINAL_STATUS_LABELS[item.finalStatus]} tone={item.finalStatus === 'FINAL_APPROVED' ? 'pass' : 'pending'} />
-    </div>
-  </article>
-);
-
-const StatusBlock = ({ label, title, tone }: { label: string; title: string; tone: StatusTone }) => (
-  <section className={`agent-review-field-block is-${tone}`}>
-    <header className="agent-review-field-block__header">
-      <div>
-        <strong>{title}</strong>
-      </div>
-      <DecisionPill tone={tone} label={label} />
-    </header>
-  </section>
-);
-
 const SubmissionContentPanel = ({ item }: { item: TaskFlowItemDto }) => (
   <article className="agent-review-card">
     <PanelHeading title="题目与标注内容" meta={item.submission ? `第 ${item.submission.round} 轮提交` : '尚未提交'} />
@@ -835,7 +840,7 @@ const SubmissionContentPanel = ({ item }: { item: TaskFlowItemDto }) => (
 
 const AiReviewRecordPanel = ({ item }: { item: TaskFlowItemDto }) => (
   <article className={`agent-review-card agent-review-card--comment is-${aiTone(item.aiStatus)}`}>
-    <PanelHeading title="AI 预审记录" />
+    <PanelHeading title="预审记录" />
     <div className="agent-review-comment-box">
       <strong>{AI_STATUS_LABELS[item.aiStatus]}</strong>
       <p>{item.aiReview?.comment ?? item.latestAiJob?.lastError ?? '当前题没有 AI 预审结论。'}</p>
@@ -854,12 +859,23 @@ const ReviewerRecordPanel = ({ item }: { item: TaskFlowItemDto }) => (
   </article>
 );
 
-const TraceSidebar = ({ item }: { item: TaskFlowItemDto }) => (
-  <aside className="agent-review-trace-sidebar" aria-label="当前题追溯">
-    <section className="agent-review-trace-card agent-review-trace-current" aria-label={`当前题追溯（Q${item.index}）`}>
+const TraceSidebar = ({
+  isLogStale,
+  item,
+  logs,
+}: {
+  isLogStale: boolean;
+  item: TaskFlowItemDto;
+  logs: TaskFlowLogDto[];
+}) => {
+  const events = itemTraceEvents(item, logs);
+
+  return (
+  <aside className="agent-review-trace-sidebar" aria-label="本题历史">
+    <section className="agent-review-trace-card agent-review-trace-current" aria-label={`本题历史（Q${item.index}）`}>
       <header className="agent-review-trace-current__header">
         <div>
-          <span>当前题</span>
+          <span>本题历史</span>
           <h3>
             Q{item.index} · {item.taskItem.externalId}
           </h3>
@@ -869,16 +885,21 @@ const TraceSidebar = ({ item }: { item: TaskFlowItemDto }) => (
       <dl className="agent-review-trace-identifiers">
         <TraceSummaryItem label="提交轮次" value={item.submission ? `第${item.submission.round}轮` : '未提交'} />
         <TraceSummaryItem label="标注员" value={item.assignment?.assigneeName ?? '未领取'} />
-        <TraceSummaryItem label="提交状态" value={submissionStatusLabel(item.submission?.status ?? null)} />
       </dl>
-      <ol className="agent-review-trace-timeline" aria-label="当前题流程节点">
-        {itemTraceEvents(item).map((event) => (
+      {isLogStale ? (
+        <p className="agent-review-trace-warning" role="alert">
+          完整历史加载失败，当前仅展示本题最新记录。请点击任务日志重试。
+        </p>
+      ) : null}
+      <ol className="agent-review-trace-timeline" aria-label="本题历史记录">
+        {events.map((event) => (
           <TraceTimelineItem event={event} key={event.key} />
         ))}
       </ol>
     </section>
   </aside>
-);
+  );
+};
 
 const TaskFlowTimeline = ({ flow }: { flow: TaskFlowSummaryDto | TaskFlowDetailDto }) => {
   const steps = flow.lifecycleSteps;
@@ -1076,7 +1097,7 @@ const TaskFlowLogDialog = ({
             <div className="agent-review-trace-timeline__body">
               <time>{formatDateTimeSecond(log.occurredAt)}</time>
               <strong>{logEventLabel(log.eventType)}</strong>
-              <p>{log.message}</p>
+              {isUsefulTaskLogMessage(log.message) ? <p>{log.message}</p> : null}
               <small>{log.actorName ?? actorRoleLabel(log.actorRole)}</small>
               {log.rejectedItemRefs.length > 0 ? (
                 <div className="agent-review-log-rejected-items" aria-label="打回题目">
@@ -1113,14 +1134,51 @@ const SummaryStatusPill = ({ stage }: { stage: TaskFlowStage }) => (
   </span>
 );
 
-const PreviewBlock = ({ title, value }: { title: string; value: Record<string, unknown> }) => (
-  <section className="agent-review-card">
-    <PanelHeading title={title} />
-    <div className="agent-review-value-preview">
-      <pre className={Object.keys(value).length === 0 ? 'is-empty' : undefined}>{formatJson(value)}</pre>
-    </div>
-  </section>
-);
+const PreviewBlock = ({ title, value }: { title: string; value: Record<string, unknown> }) => {
+  const entries = Object.entries(value);
+
+  return (
+    <section className="agent-review-card agent-review-card--preview">
+      <PanelHeading title={title} />
+      {entries.length > 0 ? (
+        <dl className="agent-review-preview-list">
+          {entries.map(([key, fieldValue]) => (
+            <div className={isLongPreviewValue(fieldValue) ? 'is-wide' : undefined} key={key}>
+              <dt>{formatPreviewFieldLabel(key)}</dt>
+              <dd>
+                <PreviewValue value={fieldValue} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="agent-review-empty-text">未记录</p>
+      )}
+    </section>
+  );
+};
+
+const PreviewValue = ({ value }: { value: unknown }) => {
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return <span className="agent-review-preview-empty">未记录</span>;
+    }
+
+    return (
+      <span className="agent-review-preview-chips">
+        {value.map((item, index) => (
+          <span key={`${formatPreviewScalar(item)}:${index}`}>{formatPreviewScalar(item)}</span>
+        ))}
+      </span>
+    );
+  }
+
+  if (value && typeof value === 'object') {
+    return <pre>{JSON.stringify(value, null, 2)}</pre>;
+  }
+
+  return <span>{formatPreviewScalar(value)}</span>;
+};
 
 const ScoreList = ({ scores }: { scores: Record<string, unknown> }) => {
   const entries = Object.entries(scores).filter(([, value]) => typeof value === 'number' || typeof value === 'string');
@@ -1132,7 +1190,7 @@ const ScoreList = ({ scores }: { scores: Record<string, unknown> }) => {
   return (
     <dl className="agent-review-trace-identifiers">
       {entries.map(([key, value]) => (
-        <TraceSummaryItem key={key} label={key} value={String(value)} />
+        <TraceSummaryItem key={key} label={formatScoreLabel(key)} value={formatScoreValue(value)} />
       ))}
     </dl>
   );
@@ -1149,6 +1207,8 @@ type TraceEvent = {
   key: string;
   title: string;
   description: string;
+  actorName?: string | null;
+  round?: number;
   time: string | null;
   tone: StatusTone;
 };
@@ -1159,7 +1219,10 @@ const TraceTimelineItem = ({ event }: { event: TraceEvent }) => (
     <div className="agent-review-trace-timeline__body">
       <time>{event.time ? formatDateTimeSecond(event.time) : '未发生'}</time>
       <strong>{event.title}</strong>
-      <p>{event.description}</p>
+          {event.description ? <p>{event.description}</p> : null}
+      {event.actorName || event.round ? (
+        <small>{[event.actorName, event.round ? `第 ${event.round} 轮` : null].filter(Boolean).join(' · ')}</small>
+      ) : null}
     </div>
   </li>
 );
@@ -1416,16 +1479,36 @@ function actorRoleLabel(role: TaskFlowLogDto['actorRole']): string {
   return '系统';
 }
 
+function isUsefulTaskLogMessage(message: string): boolean {
+  if (
+    message === 'Owner 发布了任务。' ||
+    message === 'AI Agent 开始本轮预审。' ||
+    message === '任务流转到 Reviewer 检查。'
+  ) {
+    return false;
+  }
+
+  if (
+    /领取了任务。$/.test(message) ||
+    /提交了整个任务的标注结果。$/.test(message) ||
+    /完成本轮预审/.test(message)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 function logEventLabel(eventType: TaskFlowLogDto['eventType']): string {
   const labels: Record<TaskFlowLogDto['eventType'], string> = {
     OWNER_PUBLISHED: 'Owner 发布任务',
     LABELER_CLAIMED: 'Labeler 领取任务',
     LABELER_SUBMITTED: 'Labeler 提交标注结果',
     LABELER_RESUBMITTED: 'Labeler 重新提交',
-    AI_PRECHECK_STARTED: 'AI Agent 开始预审',
-    AI_PRECHECK_COMPLETED: 'AI Agent 完成预审',
+    AI_PRECHECK_STARTED: '开始预审',
+    AI_PRECHECK_COMPLETED: '完成预审',
     AI_RECHECK_STARTED: 'AI Agent 开始复审',
-    AI_RECHECK_COMPLETED: 'AI Agent 完成复审',
+    AI_RECHECK_COMPLETED: '完成复审',
     REVIEWER_RECEIVED: '流转到 Reviewer',
     REVIEWER_CHECK_COMPLETED: 'Reviewer 完成检查',
     REVIEWER_REJECTED: 'Reviewer 打回任务',
@@ -1433,34 +1516,6 @@ function logEventLabel(eventType: TaskFlowLogDto['eventType']): string {
   };
 
   return labels[eventType];
-}
-
-function submissionStatusLabel(status: string | null): string {
-  if (!status) {
-    return '未提交';
-  }
-
-  const labels: Record<string, string> = {
-    DRAFT: '草稿',
-    SUBMITTED: '已提交',
-    AI_QUEUED: '等待 AI 预审',
-    AI_REVIEWING: 'AI 预审中',
-    AI_PASSED: 'AI 预审通过',
-    AI_REJECTED: 'AI 建议打回',
-    AI_MANUAL: '等待人工处理',
-    HUMAN_PENDING: '待审核',
-    RECHECK_REVIEWING: 'Reviewer 检查中',
-    RECHECK_APPROVED: 'Reviewer 检查通过',
-    RECHECK_REJECTED: 'Reviewer 已打回',
-    RECHECK_REVISED_APPROVED: 'Reviewer 修订通过',
-    FINAL_PENDING: '等待最终检查',
-    FINAL_REVIEWING: '最终检查中',
-    FINAL_APPROVED: '任务最终完成',
-    FINAL_REJECTED: '最终检查打回',
-    NEEDS_REVISION: '待 Labeler 修改',
-  };
-
-  return labels[status] ?? status;
 }
 
 function itemTone(item: TaskFlowItemDto): StatusTone {
@@ -1517,44 +1572,269 @@ function shortItemStatusLabel(item: TaskFlowItemDto): string {
   return labels[itemBucket(item)];
 }
 
-function itemTraceEvents(item: TaskFlowItemDto): TraceEvent[] {
-  return [
-    {
+function itemTraceEvents(item: TaskFlowItemDto, logs: TaskFlowLogDto[]): TraceEvent[] {
+  const logEvents = logs
+    .filter((log) => logAppliesToItem(log, item))
+    .map((log) => itemLogToTraceEvent(log, item));
+
+  if (logEvents.length > 0) {
+    return logEvents.sort((left, right) => timestampValue(left.time) - timestampValue(right.time));
+  }
+
+  return itemSnapshotTraceEvents(item);
+}
+
+function itemSnapshotTraceEvents(item: TaskFlowItemDto): TraceEvent[] {
+  const events: TraceEvent[] = [];
+
+  if (item.submission) {
+    events.push({
       key: 'submitted',
-      title: 'Labeler 提交',
-      description: item.submission ? `第 ${item.submission.round} 轮提交进入质检流程。` : '当前题尚未提交。',
-      time: item.submission?.submittedAt ?? null,
-      tone: item.submission ? 'pass' : 'pending',
-    },
-    {
+      title: item.submission.round > 1 ? 'Labeler 重新提交' : 'Labeler 提交',
+      description: `第 ${item.submission.round} 轮提交`,
+      time: item.submission.submittedAt,
+      tone: 'pass',
+    });
+  }
+
+  const aiTime = item.aiReview?.createdAt ?? item.latestAiJob?.finishedAt ?? item.latestAiJob?.updatedAt ?? null;
+  if (aiTime) {
+    events.push({
       key: 'ai',
       title: 'AI 预审',
-      description: AI_STATUS_LABELS[item.aiStatus],
-      time: item.aiReview?.createdAt ?? item.latestAiJob?.updatedAt ?? null,
+      description: item.aiReview?.decision ? `AI ${reviewDecisionLabel(item.aiReview.decision)}` : AI_STATUS_LABELS[item.aiStatus],
+      time: aiTime,
       tone: aiTone(item.aiStatus),
-    },
-    {
+    });
+  }
+
+  if (item.humanReview) {
+    events.push({
       key: 'reviewer',
       title: 'Reviewer 复核',
-      description: REVIEWER_STATUS_LABELS[item.reviewerStatus],
-      time: item.humanReview?.createdAt ?? null,
+      description: item.humanReview.decision ? `Reviewer ${reviewDecisionLabel(item.humanReview.decision)}` : REVIEWER_STATUS_LABELS[item.reviewerStatus],
+      time: item.humanReview.createdAt,
       tone: reviewerTone(item.reviewerStatus),
-    },
-    {
-      key: 'labeler',
-      title: 'Labeler 修改边界',
-      description: LABELER_STATUS_LABELS[item.labelerStatus],
-      time: item.submission?.submittedAt ?? null,
-      tone: labelerTone(item.labelerStatus),
-    },
-    {
+    });
+  }
+
+  if (item.finalStatus === 'FINAL_APPROVED') {
+    events.push({
       key: 'final',
-      title: '最终状态',
-      description: FINAL_STATUS_LABELS[item.finalStatus],
-      time: item.finalStatus === 'FINAL_APPROVED' ? item.humanReview?.createdAt ?? item.submission?.submittedAt ?? null : null,
-      tone: item.finalStatus === 'FINAL_APPROVED' ? 'pass' : 'pending',
-    },
-  ];
+      title: '题目完成',
+      description: '最终通过',
+      time: item.humanReview?.createdAt ?? item.submission?.submittedAt ?? null,
+      tone: 'pass',
+    });
+  }
+
+  return events.sort((left, right) => timestampValue(left.time) - timestampValue(right.time));
+}
+
+function logAppliesToItem(log: TaskFlowLogDto, item: TaskFlowItemDto): boolean {
+  const refs = log.itemRefs.length > 0 ? log.itemRefs : log.rejectedItemRefs;
+
+  return refs.some((ref) => itemRefMatchesItem(ref, item));
+}
+
+function itemRefMatchesItem(
+  ref: TaskFlowLogDto['itemRefs'][number] | TaskFlowLogDto['rejectedItemRefs'][number],
+  item: TaskFlowItemDto,
+): boolean {
+  return ref.itemId === item.taskItem.id || ref.externalId === item.taskItem.externalId || ref.index === item.index;
+}
+
+function itemLogToTraceEvent(log: TaskFlowLogDto, item: TaskFlowItemDto): TraceEvent {
+  const isRejectedItem = log.rejectedItemRefs.some((ref) => itemRefMatchesItem(ref, item));
+
+  return {
+    key: `log:${log.id}`,
+    title: itemLogTitle(log.eventType, isRejectedItem),
+    description: itemLogDescription(log, isRejectedItem),
+    actorName: log.actorName ?? actorRoleLabel(log.actorRole),
+    round: log.round,
+    time: log.occurredAt,
+    tone: itemLogTone(log, isRejectedItem),
+  };
+}
+
+function itemLogTitle(eventType: TaskFlowLogDto['eventType'], isRejectedItem: boolean): string {
+  const labels: Record<TaskFlowLogDto['eventType'], string> = {
+    OWNER_PUBLISHED: '任务发布',
+    LABELER_CLAIMED: 'Labeler 领取',
+    LABELER_SUBMITTED: 'Labeler 提交',
+    LABELER_RESUBMITTED: 'Labeler 重新提交',
+    AI_PRECHECK_STARTED: '进入预审',
+    AI_PRECHECK_COMPLETED: isRejectedItem ? '预审建议修改' : '预审通过',
+    AI_RECHECK_STARTED: '进入 AI 复审',
+    AI_RECHECK_COMPLETED: isRejectedItem ? '复审仍需修改' : '复审通过',
+    REVIEWER_RECEIVED: '进入 Reviewer',
+    REVIEWER_CHECK_COMPLETED: 'Reviewer 通过',
+    REVIEWER_REJECTED: isRejectedItem ? 'Reviewer 打回' : 'Reviewer 通过',
+    TASK_COMPLETED: '题目完成',
+  };
+
+  return labels[eventType];
+}
+
+function itemLogDescription(log: TaskFlowLogDto, isRejectedItem: boolean): string {
+  if (log.eventType === 'OWNER_PUBLISHED') {
+    return '';
+  }
+
+  if (log.eventType === 'LABELER_CLAIMED') {
+    return '';
+  }
+
+  if (log.eventType === 'AI_PRECHECK_STARTED') {
+    return '';
+  }
+
+  if (log.eventType === 'AI_RECHECK_STARTED') {
+    return '';
+  }
+
+  if (log.eventType === 'REVIEWER_RECEIVED') {
+    return '';
+  }
+
+  if (log.eventType === 'AI_PRECHECK_COMPLETED' || log.eventType === 'AI_RECHECK_COMPLETED') {
+    return '';
+  }
+
+  if (log.eventType === 'REVIEWER_REJECTED') {
+    return '';
+  }
+
+  if (log.eventType === 'LABELER_RESUBMITTED') {
+    return '';
+  }
+
+  if (log.eventType === 'LABELER_SUBMITTED') {
+    return '';
+  }
+
+  return log.message;
+}
+
+function itemLogTone(log: TaskFlowLogDto, isRejectedItem: boolean): StatusTone {
+  if (isRejectedItem) {
+    return 'reject';
+  }
+
+  if (
+    log.eventType === 'AI_PRECHECK_COMPLETED' ||
+    log.eventType === 'AI_RECHECK_COMPLETED' ||
+    log.eventType === 'REVIEWER_CHECK_COMPLETED' ||
+    log.eventType === 'REVIEWER_REJECTED' ||
+    log.eventType === 'TASK_COMPLETED'
+  ) {
+    return 'pass';
+  }
+
+  return 'pending';
+}
+
+function reviewDecisionLabel(decision: string): string {
+  if (decision === 'pass') {
+    return '通过';
+  }
+  if (decision === 'reject') {
+    return '打回';
+  }
+  if (decision === 'manual') {
+    return '转人工';
+  }
+  return decision;
+}
+
+function timestampValue(value?: string | null): number {
+  if (!value) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
+}
+
+const PREVIEW_FIELD_LABELS: Record<string, string> = {
+  annotator_note: '标注备注',
+  dimensions: '评估维度',
+  id: '题目编号',
+  lang: '语言',
+  margin: '差距判断',
+  model_a: '模型 A',
+  model_b: '模型 B',
+  preferred: '选择结果',
+  prompt: '题目',
+  response_a: '模型 A 回复',
+  response_b: '模型 B 回复',
+  safety_flag: '安全标记',
+  task_type: '任务类型',
+};
+
+const SCORE_FIELD_LABELS: Record<string, string> = {
+  fieldCount: '检查字段',
+  overall: '综合分',
+  passedFieldCount: '通过字段',
+  rejectedFieldCount: '打回字段',
+};
+
+function formatScoreLabel(key: string): string {
+  return SCORE_FIELD_LABELS[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim();
+}
+
+function formatScoreValue(value: unknown): string {
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
+  }
+
+  return formatPreviewScalar(value);
+}
+
+function formatPreviewFieldLabel(key: string): string {
+  return PREVIEW_FIELD_LABELS[key] ?? key.replace(/_/g, ' ');
+}
+
+function formatPreviewScalar(value: unknown): string {
+  if (value === null || value === undefined || value === '') {
+    return '未记录';
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? '是' : '否';
+  }
+
+  if (typeof value === 'string') {
+    if (value === 'true') {
+      return '是';
+    }
+    if (value === 'false') {
+      return '否';
+    }
+    if (value === 'zh') {
+      return '中文';
+    }
+    if (value === 'en') {
+      return '英文';
+    }
+
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return String(value);
+  }
+
+  return JSON.stringify(value);
+}
+
+function isLongPreviewValue(value: unknown): boolean {
+  if (typeof value === 'string') {
+    return value.length > 42;
+  }
+
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function formatJson(value: Record<string, unknown>): string {

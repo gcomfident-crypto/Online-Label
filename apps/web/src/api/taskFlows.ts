@@ -32,11 +32,13 @@ export type TaskFlowLifecycleStepDto = {
   occurredAt: string | null;
 };
 
-export type TaskFlowRejectedItemRefDto = {
+export type TaskFlowItemRefDto = {
   itemId: string;
   externalId: string;
   index: number;
 };
+
+export type TaskFlowRejectedItemRefDto = TaskFlowItemRefDto;
 
 export type TaskFlowLogDto = {
   id: string;
@@ -59,6 +61,7 @@ export type TaskFlowLogDto = {
   actorName: string | null;
   occurredAt: string;
   message: string;
+  itemRefs: TaskFlowItemRefDto[];
   rejectedItemRefs: TaskFlowRejectedItemRefDto[];
 };
 

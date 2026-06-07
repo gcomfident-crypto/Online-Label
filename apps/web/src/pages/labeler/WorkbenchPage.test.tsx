@@ -566,7 +566,7 @@ describe('WorkbenchPage', () => {
     expect(screen.queryByText(/题目 ID/)).not.toBeInTheDocument();
     const navigationPanel = screen.getByRole('complementary', { name: '题目导航' });
     expect(within(navigationPanel).getByRole('heading', { name: '题目导航' })).toBeInTheDocument();
-    expect(navigationPanel).toHaveTextContent('已完成 100% · 当前第 1 题');
+    expect(navigationPanel).not.toHaveTextContent(/已完成 \d+%/);
     expect(navigationPanel).not.toHaveTextContent('1 / 2');
     expect(navigationPanel).not.toHaveTextContent('当前题 qa_1');
     expect(navigationPanel).toHaveTextContent('qa_1');
@@ -793,7 +793,7 @@ describe('WorkbenchPage', () => {
     const firstQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_1/ });
     expect(firstQuestionButton).toHaveTextContent('待标注');
     expect(within(firstQuestionButton).getByText('待标注').closest('.question-navigator__status')).toHaveClass(
-      'question-navigator__status--pending',
+      'question-navigator__status--draft',
     );
 
     await user.click(screen.getByLabelText('优秀'));
@@ -806,12 +806,14 @@ describe('WorkbenchPage', () => {
     const completedQuestionButton = within(refreshedNavigationPanel).getByRole('button', { name: /qa_1/ });
     const pendingQuestionButton = within(refreshedNavigationPanel).getByRole('button', { name: /qa_2/ });
     expect(completedQuestionButton).toHaveTextContent('已标注');
-    expect(within(completedQuestionButton).getByText('已标注').closest('.question-navigator__status')).toHaveClass(
-      'question-navigator__status--annotated',
+    expect(
+      within(completedQuestionButton).getByText('已标注').closest('.question-navigator__annotation-status'),
+    ).toHaveClass(
+      'is-complete',
     );
     expect(pendingQuestionButton).toHaveTextContent('待标注');
     expect(within(pendingQuestionButton).getByText('待标注').closest('.question-navigator__status')).toHaveClass(
-      'question-navigator__status--pending',
+      'question-navigator__status--draft',
     );
   });
 
@@ -853,12 +855,12 @@ describe('WorkbenchPage', () => {
     const currentQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_1/ });
     const completedDraftQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_2/ });
 
-    expect(navigationPanel).toHaveTextContent('已完成 50% · 当前第 1 题');
+    expect(navigationPanel).not.toHaveTextContent(/已完成 \d+%/);
     expect(currentQuestionButton).toHaveTextContent('待标注');
     expect(completedDraftQuestionButton).toHaveTextContent('已标注');
     expect(
-      within(completedDraftQuestionButton).getByText('已标注').closest('.question-navigator__status'),
-    ).toHaveClass('question-navigator__status--annotated');
+      within(completedDraftQuestionButton).getByText('已标注').closest('.question-navigator__annotation-status'),
+    ).toHaveClass('is-complete');
   });
 
   it('题目导航使用待标注、已标注、AI 和 reviewer 的题目级状态', async () => {
@@ -985,36 +987,36 @@ describe('WorkbenchPage', () => {
 
     expect(within(navigationPanel).getByRole('button', { name: /P0001/ })).toHaveTextContent('待标注');
     expect(within(navigationPanel).getByRole('button', { name: /P0002/ })).toHaveTextContent('已标注');
-    expect(within(navigationPanel).getByRole('button', { name: /P0003/ })).toHaveTextContent('AI预审');
-    expect(within(navigationPanel).getByRole('button', { name: /P0004/ })).toHaveTextContent('AI打回');
-    expect(within(navigationPanel).getByRole('button', { name: /P0005/ })).toHaveTextContent('审核员审核');
-    expect(within(navigationPanel).getByRole('button', { name: /P0006/ })).toHaveTextContent('审核员打回');
+    expect(within(navigationPanel).getByRole('button', { name: /P0003/ })).toHaveTextContent('AI处理中');
+    expect(within(navigationPanel).getByRole('button', { name: /P0004/ })).toHaveTextContent('待标注');
+    expect(within(navigationPanel).getByRole('button', { name: /P0005/ })).toHaveTextContent('待审核');
+    expect(within(navigationPanel).getByRole('button', { name: /P0006/ })).toHaveTextContent('待标注');
     expect(within(navigationPanel).getByRole('button', { name: /P0007/ })).toHaveTextContent('已完成');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0002/ }))
         .getByText('已标注')
-        .closest('.question-navigator__status'),
-    ).toHaveClass('question-navigator__status--annotated');
+        .closest('.question-navigator__annotation-status'),
+    ).toHaveClass('is-complete');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0003/ }))
-        .getByText('AI预审')
+        .getByText('AI处理中')
         .closest('.question-navigator__status'),
     ).toHaveClass('question-navigator__status--ai-review');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0004/ }))
-        .getByText('AI打回')
+        .getByText('待标注')
         .closest('.question-navigator__status'),
-    ).toHaveClass('question-navigator__status--ai-rejected');
+    ).toHaveClass('question-navigator__status--draft');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0005/ }))
-        .getByText('审核员审核')
+        .getByText('待审核')
         .closest('.question-navigator__status'),
     ).toHaveClass('question-navigator__status--reviewer-reviewing');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0006/ }))
-        .getByText('审核员打回')
+        .getByText('待标注')
         .closest('.question-navigator__status'),
-    ).toHaveClass('question-navigator__status--reviewer-rejected');
+    ).toHaveClass('question-navigator__status--draft');
   });
 
   it('混合复审结果下仅允许编辑打回题，其他题保持只读', async () => {
@@ -1088,7 +1090,7 @@ describe('WorkbenchPage', () => {
     expect(screen.getByRole('button', { name: '提交任务' })).toBeDisabled();
   });
 
-  it('题目导航对当前 AI 打回题优先显示 AI 打回状态', async () => {
+  it('题目导航对当前 AI 打回题显示待标注状态', async () => {
     const rejectedTaskAssignments = taskAssignments.map((assignment) => ({
       ...assignment,
       status: 'NEEDS_REVISION',
@@ -1136,13 +1138,13 @@ describe('WorkbenchPage', () => {
     const currentQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_1/ });
     const secondQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_2/ });
 
-    expect(currentQuestionButton).toHaveTextContent('AI打回');
-    expect(secondQuestionButton).toHaveTextContent('AI打回');
-    expect(within(currentQuestionButton).getByText('AI打回').closest('.question-navigator__status')).toHaveClass(
-      'question-navigator__status--ai-rejected',
+    expect(currentQuestionButton).toHaveTextContent('待标注');
+    expect(secondQuestionButton).toHaveTextContent('待标注');
+    expect(within(currentQuestionButton).getByText('待标注').closest('.question-navigator__status')).toHaveClass(
+      'question-navigator__status--draft',
     );
-    expect(within(secondQuestionButton).getByText('AI打回').closest('.question-navigator__status')).toHaveClass(
-      'question-navigator__status--ai-rejected',
+    expect(within(secondQuestionButton).getByText('待标注').closest('.question-navigator__status')).toHaveClass(
+      'question-navigator__status--draft',
     );
   });
 
@@ -1244,17 +1246,10 @@ describe('WorkbenchPage', () => {
     renderWorkbenchPage();
 
     const infoPanel = await screen.findByRole('complementary', { name: '标注信息' });
-    expect(within(infoPanel).getByRole('heading', { name: '我的贡献（本任务）' })).toBeInTheDocument();
+    expect(within(infoPanel).queryByRole('heading', { name: '我的贡献（本任务）' })).not.toBeInTheDocument();
+    expect(within(infoPanel).queryByLabelText('我的贡献统计')).not.toBeInTheDocument();
     expect(within(infoPanel).getByRole('heading', { name: '本题历史' })).toBeInTheDocument();
     expect(within(infoPanel).getByRole('heading', { name: '快捷键' })).toBeInTheDocument();
-
-    const contribution = within(infoPanel).getByLabelText('我的贡献统计');
-    expect(within(contribution).getByText('已提交')).toBeInTheDocument();
-    expect(within(contribution).getByText('通过')).toBeInTheDocument();
-    expect(within(contribution).getByText('打回')).toBeInTheDocument();
-    expect(within(contribution).getByText('62')).toHaveClass('labeler-info-stat__value--submitted');
-    expect(within(contribution).getByText('54')).toHaveClass('labeler-info-stat__value--approved');
-    expect(within(contribution).getByText('5')).toHaveClass('labeler-info-stat__value--rejected');
 
     const history = within(infoPanel).getByLabelText('本题历史列表');
     expect(history).toHaveTextContent('第 1 轮');
@@ -1263,9 +1258,7 @@ describe('WorkbenchPage', () => {
     expect(history).toHaveTextContent('复审员 王芳 · 复审打回');
     expect(history).toHaveTextContent('05-16 14:22');
     expect(history).toHaveTextContent('05-16 15:08');
-    const currentStatus = within(infoPanel).getByLabelText('当前状态');
-    expect(currentStatus).toHaveTextContent('当前');
-    expect(currentStatus).toHaveTextContent('审核员打回');
+    expect(within(infoPanel).queryByLabelText('当前状态')).not.toBeInTheDocument();
 
     expect(within(infoPanel).queryByText('⌘+Enter 提交本题')).not.toBeInTheDocument();
     expect(within(infoPanel).getByText('⌘+S 保存草稿')).toBeInTheDocument();
@@ -1310,10 +1303,7 @@ describe('WorkbenchPage', () => {
     expect(history).toHaveTextContent('06-06 13:39');
     expect(history).not.toHaveTextContent('标注员 李雷 · 已提交');
 
-    const currentStatus = within(infoPanel).getByLabelText('当前状态');
-    expect(currentStatus).toHaveTextContent('当前');
-    expect(currentStatus).toHaveTextContent('审核员审核');
-    expect(currentStatus).toHaveClass('labeler-item-history-current--reviewer');
+    expect(within(infoPanel).queryByLabelText('当前状态')).not.toBeInTheDocument();
   });
 
   it('完成后的题目历史不追加当前行，并将倒计时和报告入口置为完成态', async () => {
@@ -1891,6 +1881,69 @@ describe('WorkbenchPage', () => {
     expect(rejectNotice).toHaveTextContent('上一轮被打回');
     expect(rejectNotice).toHaveTextContent('修改建议');
     expect(rejectNotice).toHaveTextContent('复审打回。');
+  });
+
+  it('reviewer 字段级打回评论展示在对应字段', async () => {
+    const reviewerFieldWorkbench = {
+      ...historyWorkbench,
+      submissionHistory: [
+        {
+          ...historyWorkbench.submissionHistory[0],
+          answers: {
+            quality: 'pass',
+            comment: '可以通过。',
+          },
+          reviewRecords: [
+            historyWorkbench.submissionHistory[0].reviewRecords[0],
+            {
+              ...historyWorkbench.submissionHistory[0].reviewRecords[1],
+              structuredOutput: {
+                verdict: 'reject',
+                fieldReviews: [
+                  {
+                    fieldKey: 'quality',
+                    label: '整体质量',
+                    decision: 'pass',
+                    comment: '整体质量无需修改。',
+                    suggestions: [],
+                  },
+                  {
+                    fieldKey: 'comment',
+                    label: '审核意见',
+                    decision: 'reject',
+                    comment: '请补充完整判断依据。',
+                    suggestions: [],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse({ data: reviewerFieldWorkbench }))
+        .mockResolvedValueOnce(jsonResponse({ data: { ...stats, needsRevisionCount: 1 } }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: taskList })),
+    );
+
+    renderWorkbenchPage();
+
+    await screen.findByRole('heading', { name: /问答质量标注/ });
+    const passedFieldNode = document.querySelector('[data-field-key="quality"]');
+    const rejectedFieldNode = document.querySelector('[data-field-key="comment"]');
+
+    expect(passedFieldNode).not.toHaveClass('schema-renderer__field-node--diff-rejected');
+    expect(passedFieldNode).not.toHaveTextContent('修改建议：');
+    expect(rejectedFieldNode).toHaveClass('schema-renderer__field-node--diff-rejected');
+    expect(rejectedFieldNode).toHaveAttribute('data-diff-state', 'rejected');
+    expect(rejectedFieldNode).toHaveTextContent('待修改');
+    expect(rejectedFieldNode).toHaveTextContent('修改建议：请补充完整判断依据。');
   });
 
   it('AI 预审字段全部通过时不展示重新标注按钮', async () => {

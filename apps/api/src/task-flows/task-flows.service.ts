@@ -46,11 +46,13 @@ export type TaskFlowLogEventType =
   | 'REVIEWER_REJECTED'
   | 'TASK_COMPLETED';
 
-export type TaskFlowRejectedItemRefDto = {
+export type TaskFlowItemRefDto = {
   itemId: string;
   externalId: string;
   index: number;
 };
+
+export type TaskFlowRejectedItemRefDto = TaskFlowItemRefDto;
 
 export type TaskFlowLifecycleStepDto = {
   key: TaskFlowLifecycleStepKey;
@@ -70,6 +72,7 @@ export type TaskFlowLogDto = {
   actorName: string | null;
   occurredAt: string;
   message: string;
+  itemRefs: TaskFlowItemRefDto[];
   rejectedItemRefs: TaskFlowRejectedItemRefDto[];
 };
 
@@ -1001,6 +1004,7 @@ function toPersistedTaskFlowLogDto(event: TaskFlowEventRecord): TaskFlowLogDto |
     actorName: event.actorName,
     occurredAt: event.occurredAt.toISOString(),
     message: event.message,
+    itemRefs: rejectedItemRefsValue(event.rejectedItemRefs),
     rejectedItemRefs: rejectedItemRefsValue(event.rejectedItemRefs),
   };
 }
@@ -1020,6 +1024,11 @@ function buildDerivedTaskFlowLogs(task: TaskFlowTaskRecord): TaskFlowLogDto[] {
       actorName: publish.actor?.name ?? task.createdBy?.name ?? null,
       occurredAt: publish.createdAt.toISOString(),
       message: 'Owner 发布了任务。',
+      itemRefs: task.items.map((item, index) => ({
+        itemId: item.id,
+        externalId: item.externalId,
+        index: index + 1,
+      })),
       rejectedItemRefs: [],
     });
   }
@@ -1037,19 +1046,27 @@ function buildDerivedTaskFlowLogs(task: TaskFlowTaskRecord): TaskFlowLogDto[] {
 }
 
 function buildClaimLogs(task: TaskFlowTaskRecord): TaskFlowLogDto[] {
-  const groups = new Map<string, { actorName: string; claimedAt: Date }>();
+  const groups = new Map<string, { actorName: string; claimedAt: Date; itemRefs: TaskFlowItemRefDto[] }>();
 
-  for (const item of task.items) {
+  for (const [itemIndex, item] of task.items.entries()) {
     for (const assignment of item.assignments) {
       if (!assignment.claimedAt) {
         continue;
       }
       const current = groups.get(assignment.assigneeId);
+      const itemRef = {
+        itemId: item.id,
+        externalId: item.externalId,
+        index: itemIndex + 1,
+      };
       if (!current || assignment.claimedAt.getTime() < current.claimedAt.getTime()) {
         groups.set(assignment.assigneeId, {
           actorName: assignment.assignee.name,
           claimedAt: assignment.claimedAt,
+          itemRefs: current ? [...current.itemRefs, itemRef] : [itemRef],
         });
+      } else {
+        current.itemRefs.push(itemRef);
       }
     }
   }
@@ -1063,22 +1080,27 @@ function buildClaimLogs(task: TaskFlowTaskRecord): TaskFlowLogDto[] {
     actorName: group.actorName,
     occurredAt: group.claimedAt.toISOString(),
     message: `${group.actorName} 领取了任务。`,
+    itemRefs: group.itemRefs,
     rejectedItemRefs: [],
   }));
 }
 
 function buildSubmissionLogs(taskId: string, contexts: RoundSubmissionContext[]): TaskFlowLogDto[] {
-  const groups = new Map<string, { actorName: string; occurredAt: Date; round: number }>();
+  const groups = new Map<string, { actorName: string; occurredAt: Date; round: number; itemRefs: TaskFlowItemRefDto[] }>();
 
   for (const context of contexts) {
     const key = `${context.assignment.assigneeId}:${context.submission.round}`;
     const current = groups.get(key);
+    const itemRef = toTaskFlowItemRef(context);
     if (!current || context.submission.submittedAt.getTime() > current.occurredAt.getTime()) {
       groups.set(key, {
         actorName: context.assignment.assignee.name,
         occurredAt: context.submission.submittedAt,
         round: context.submission.round,
+        itemRefs: current ? [...current.itemRefs, itemRef] : [itemRef],
       });
+    } else {
+      current.itemRefs.push(itemRef);
     }
   }
 
@@ -1093,6 +1115,7 @@ function buildSubmissionLogs(taskId: string, contexts: RoundSubmissionContext[])
     message: group.round > 1
       ? `${group.actorName} 重新提交修复后的标注结果。`
       : `${group.actorName} 提交了整个任务的标注结果。`,
+    itemRefs: group.itemRefs,
     rejectedItemRefs: [],
   }));
 }
@@ -1115,6 +1138,7 @@ function buildAiLogs(taskId: string, contexts: RoundSubmissionContext[]): TaskFl
         actorName: 'AI Agent',
         occurredAt: startTime.toISOString(),
         message: round > 1 ? 'AI Agent 开始复审 Labeler 重新提交的内容。' : 'AI Agent 开始本轮预审。',
+        itemRefs: roundContexts.map(toTaskFlowItemRef),
         rejectedItemRefs: [],
       });
     }
@@ -1143,6 +1167,7 @@ function buildAiLogs(taskId: string, contexts: RoundSubmissionContext[]): TaskFl
       message: rejectedItemRefs.length > 0
         ? 'AI Agent 完成本轮预审，存在建议打回题目。'
         : 'AI Agent 完成本轮预审，未发现需要打回的题目。',
+      itemRefs: roundContexts.map(toTaskFlowItemRef),
       rejectedItemRefs,
     });
   }
@@ -1168,6 +1193,7 @@ function buildReviewerLogs(taskId: string, contexts: RoundSubmissionContext[]): 
         actorName: null,
         occurredAt: receivedAt.toISOString(),
         message: round > 1 ? '任务再次流转到 Reviewer 复审。' : '任务流转到 Reviewer 检查。',
+        itemRefs: roundContexts.map(toTaskFlowItemRef),
         rejectedItemRefs: [],
       });
     }
@@ -1200,6 +1226,7 @@ function buildReviewerLogs(taskId: string, contexts: RoundSubmissionContext[]): 
       message: rejectedItemRefs.length > 0
         ? 'Reviewer 完成本轮检查，任务打回 Labeler 修改。'
         : 'Reviewer 完成本轮检查，本轮检查通过。',
+      itemRefs: roundContexts.map(toTaskFlowItemRef),
       rejectedItemRefs,
     });
   }
@@ -1231,6 +1258,7 @@ function buildTaskCompletedLog(taskId: string, contexts: RoundSubmissionContext[
     actorName: latestReviewRecord ? reviewerNameFromRecord(latestReviewRecord) : null,
     occurredAt: completedAt.toISOString(),
     message: '整个任务通过最终 Reviewer 检查，任务完成。',
+    itemRefs: latestByItem.map(toTaskFlowItemRef),
     rejectedItemRefs: [],
   };
 }
@@ -1271,12 +1299,16 @@ function latestContextByItem(contexts: RoundSubmissionContext[]): RoundSubmissio
   return [...latestByItem.values()];
 }
 
-function toRejectedItemRef(context: RoundSubmissionContext): TaskFlowRejectedItemRefDto {
+function toTaskFlowItemRef(context: RoundSubmissionContext): TaskFlowItemRefDto {
   return {
     itemId: context.item.id,
     externalId: context.item.externalId,
     index: context.index,
   };
+}
+
+function toRejectedItemRef(context: RoundSubmissionContext): TaskFlowRejectedItemRefDto {
+  return toTaskFlowItemRef(context);
 }
 
 function aiStartAudit(submission: SubmissionRecord): AuditLogRecord | null {

@@ -90,6 +90,12 @@ type ManualReviewRoundProgress = {
   pendingCount: number;
 };
 
+type ManualReviewStats = {
+  pendingReviewCount: number;
+  todayPassRateLabel: string;
+  todayReviewedCount: number;
+};
+
 type DeadlineCountdownStatus = 'normal' | 'warning' | 'danger' | 'expired' | 'unset';
 
 type DeadlineCountdownUnit = {
@@ -105,6 +111,7 @@ type DeadlineCountdownState = {
 };
 
 const REVIEW_DECISIONS = new Set(['recheck_pass', 'reject', 'revise_pass']);
+const REVIEW_PASS_DECISIONS = new Set(['recheck_pass', 'revise_pass']);
 const REVIEW_ITEM_REVIEWABLE_STATUSES = new Set<ReviewQueueItemDto['status']>(['HUMAN_PENDING', 'RECHECK_REVIEWING']);
 
 export const ReviewDetailPage = () => {
@@ -126,6 +133,7 @@ export const ReviewTaskDetailContent = ({
   const [reviewComment, setReviewComment] = useState('');
   const [sidePanelTab, setSidePanelTab] = useState<ManualReviewSideTab>('timeline');
   const [selectedCommentFieldKey, setSelectedCommentFieldKey] = useState<string | null>(null);
+  const [fieldCommentDraft, setFieldCommentDraft] = useState('');
   const [fieldCommentsBySubmissionId, setFieldCommentsBySubmissionId] = useState<
     Record<string, Record<string, FieldReviewComment>>
   >({});
@@ -249,8 +257,16 @@ export const ReviewTaskDetailContent = ({
   const selectedItemDetail =
     selectedItem && reviewDetail?.submission.id === selectedItem.submissionId ? reviewDetail : null;
   const selectedFieldComments = selectedItem ? fieldCommentsBySubmissionId[selectedItem.submissionId] ?? {} : {};
-  const selectedFieldComment = selectedCommentFieldKey ? selectedFieldComments[selectedCommentFieldKey] ?? null : null;
+  const orderedSubmitFields = useMemo(
+    () => buildReviewSubmitFields(selectedItem?.currentRoundSubmit ?? {}, schemaFieldLabels),
+    [schemaFieldLabels, selectedItem?.currentRoundSubmit],
+  );
+  const selectedCommentField = useMemo(
+    () => orderedSubmitFields.find((field) => field.fieldKey === selectedCommentFieldKey) ?? null,
+    [orderedSubmitFields, selectedCommentFieldKey],
+  );
   const deadlineCountdown = buildDeadlineCountdown(selectedItem?.deadline ?? task?.deadline ?? null, currentTimeMs);
+  const reviewStats = useMemo(() => buildManualReviewStats(queueItems, currentTimeMs), [currentTimeMs, queueItems]);
   const isCurrentItemReviewable = selectedQueueItem ? isReviewableQueueItem(selectedQueueItem) : false;
 
   useEffect(() => {
@@ -260,6 +276,7 @@ export const ReviewTaskDetailContent = ({
 
     setReviewComment('');
     setSelectedCommentFieldKey(null);
+    setFieldCommentDraft('');
     setSidePanelTab('timeline');
   }, [selectedItem?.submissionId]);
 
@@ -308,50 +325,44 @@ export const ReviewTaskDetailContent = ({
       return;
     }
 
-    setFieldCommentsBySubmissionId((current) => {
-      const submissionComments = current[selectedItem.submissionId] ?? {};
-      const existingComment = submissionComments[field.fieldKey];
-
-      return {
-        ...current,
-        [selectedItem.submissionId]: {
-          ...submissionComments,
-          [field.fieldKey]: existingComment ?? {
-            fieldKey: field.fieldKey,
-            label: field.label,
-            comment: '',
-            value: field.value,
-          },
-        },
-      };
-    });
+    setFieldCommentDraft(selectedFieldComments[field.fieldKey]?.comment ?? '');
     setSelectedCommentFieldKey(field.fieldKey);
     setSidePanelTab('comments');
   };
 
-  const handleFieldCommentChange = (fieldKey: string, comment: string) => {
-    if (!selectedItem) {
+  const handleCancelFieldComment = () => {
+    setSelectedCommentFieldKey(null);
+    setFieldCommentDraft('');
+  };
+
+  const handleSendFieldComment = () => {
+    if (!selectedItem || !selectedCommentField) {
+      return;
+    }
+
+    const trimmedComment = fieldCommentDraft.trim();
+    if (!trimmedComment) {
       return;
     }
 
     setFieldCommentsBySubmissionId((current) => {
       const submissionComments = current[selectedItem.submissionId] ?? {};
-      const existingComment = submissionComments[fieldKey];
-      if (!existingComment) {
-        return current;
-      }
 
       return {
         ...current,
         [selectedItem.submissionId]: {
           ...submissionComments,
-          [fieldKey]: {
-            ...existingComment,
-            comment,
+          [selectedCommentField.fieldKey]: {
+            fieldKey: selectedCommentField.fieldKey,
+            label: selectedCommentField.label,
+            comment: trimmedComment,
+            value: selectedCommentField.value,
           },
         },
       };
     });
+    setSelectedCommentFieldKey(null);
+    setFieldCommentDraft('');
   };
 
   const handleReviewAction = async (action: ManualReviewResult) => {
@@ -365,7 +376,7 @@ export const ReviewTaskDetailContent = ({
         await passReview(selectedItem.submissionId, { actorId: REVIEWER_ID, comment: reviewComment });
         showStatusToast(`${selectedItem.subId} 已通过入库`);
       } else if (action === 'reject') {
-        const fieldReviews = fieldReviewsFromComments(selectedFieldComments);
+        const fieldReviews = fieldReviewsFromComments(selectedFieldComments, orderedSubmitFields);
         const rejectReason = reviewComment.trim() || fieldReviews[0]?.comment || '请根据审核意见修改';
         await rejectReview(selectedItem.submissionId, {
           actorId: REVIEWER_ID,
@@ -523,10 +534,16 @@ export const ReviewTaskDetailContent = ({
         <ReviewSidePanel
           activeTab={sidePanelTab}
           deadlineCountdown={deadlineCountdown}
+          fieldCommentDraft={fieldCommentDraft}
+          fieldComments={selectedFieldComments}
           item={selectedItem}
-          selectedField={selectedFieldComment}
+          orderedFields={orderedSubmitFields}
+          selectedField={selectedCommentField}
+          stats={reviewStats}
           task={task}
-          onFieldCommentChange={handleFieldCommentChange}
+          onCancelFieldComment={handleCancelFieldComment}
+          onFieldCommentDraftChange={setFieldCommentDraft}
+          onSendFieldComment={handleSendFieldComment}
           onTabChange={setSidePanelTab}
         />
       </div>
@@ -787,33 +804,45 @@ const ScoreMetric = ({ label, value }: { label: string; value: number | null }) 
 const ReviewSidePanel = ({
   activeTab,
   deadlineCountdown,
+  fieldCommentDraft,
+  fieldComments,
   item,
-  onFieldCommentChange,
+  onCancelFieldComment,
+  onFieldCommentDraftChange,
+  onSendFieldComment,
   onTabChange,
+  orderedFields,
   selectedField,
+  stats,
   task,
 }: {
   activeTab: ManualReviewSideTab;
   deadlineCountdown: DeadlineCountdownState;
+  fieldCommentDraft: string;
+  fieldComments: Record<string, FieldReviewComment>;
   item: ManualReviewItem | null;
-  selectedField: FieldReviewComment | null;
+  orderedFields: ReviewSubmitField[];
+  selectedField: ReviewSubmitField | null;
+  stats: ManualReviewStats;
   task: ManualReviewTask | null;
-  onFieldCommentChange: (fieldKey: string, comment: string) => void;
+  onCancelFieldComment: () => void;
+  onFieldCommentDraftChange: (comment: string) => void;
+  onSendFieldComment: () => void;
   onTabChange: (tab: ManualReviewSideTab) => void;
 }) => (
   <aside className="manual-review-side-panel" aria-label="人工审核侧栏">
     <section className="manual-review-stats" aria-label="审核统计">
       <div>
         <span>今日已审</span>
-        <strong className="is-blue">0</strong>
+        <strong className="is-blue">{stats.todayReviewedCount.toLocaleString()}</strong>
       </div>
       <div>
         <span>今日通过率</span>
-        <strong className="is-green">--</strong>
+        <strong className="is-green">{stats.todayPassRateLabel}</strong>
       </div>
       <div>
         <span>待我审核</span>
-        <strong className="is-orange">{(task?.pendingCount ?? 0).toLocaleString()}</strong>
+        <strong className="is-orange">{stats.pendingReviewCount.toLocaleString()}</strong>
       </div>
       <DeadlineCountdownCard countdown={deadlineCountdown} />
     </section>
@@ -838,7 +867,15 @@ const ReviewSidePanel = ({
     </div>
 
     {activeTab === 'comments' ? (
-      <FieldCommentPanel field={selectedField} onCommentChange={onFieldCommentChange} />
+      <FieldCommentPanel
+        draft={fieldCommentDraft}
+        field={selectedField}
+        fieldComments={fieldComments}
+        orderedFields={orderedFields}
+        onCancel={onCancelFieldComment}
+        onChangeDraft={onFieldCommentDraftChange}
+        onSend={onSendFieldComment}
+      />
     ) : item ? (
       <TimelinePanel item={item} />
     ) : null}
@@ -866,35 +903,65 @@ const DeadlineCountdownCard = ({ countdown }: { countdown: DeadlineCountdownStat
 );
 
 const FieldCommentPanel = ({
+  draft,
   field,
-  onCommentChange,
+  fieldComments,
+  onCancel,
+  onChangeDraft,
+  onSend,
+  orderedFields,
 }: {
-  field: FieldReviewComment | null;
-  onCommentChange: (fieldKey: string, comment: string) => void;
-}) => (
-  <section className="manual-review-field-comment-panel" aria-label="字段评论">
-    {field ? (
-      <>
-        <div className="manual-review-field-comment-panel__quote">
-          <span>引用字段</span>
-          <strong>{field.label}</strong>
-          <p>{formatSnapshotValue(field.value)}</p>
-        </div>
-        <label>
-          <span>评论</span>
+  draft: string;
+  field: ReviewSubmitField | null;
+  fieldComments: Record<string, FieldReviewComment>;
+  orderedFields: ReviewSubmitField[];
+  onCancel: () => void;
+  onChangeDraft: (comment: string) => void;
+  onSend: () => void;
+}) => {
+  const sentComments = orderedFieldComments(fieldComments, orderedFields);
+
+  return (
+    <section className="manual-review-field-comment-panel" aria-label="字段评论">
+      {field ? (
+        <section className="manual-review-field-comment-editor" aria-label={`编辑字段评论：${field.label}`}>
+          <header className="manual-review-field-comment-editor__topline">
+            <span>{field.label}</span>
+          </header>
           <textarea
             aria-label={`字段评论：${field.label}`}
             placeholder="写下这一个字段需要修改的原因"
-            value={field.comment}
-            onChange={(event) => onCommentChange(field.fieldKey, event.target.value)}
+            value={draft}
+            onChange={(event) => onChangeDraft(event.target.value)}
           />
-        </label>
-      </>
-    ) : (
-      <p className="manual-review-field-comment-panel__empty">点击本轮提交里的字段，给具体字段写打回意见。</p>
-    )}
-  </section>
-);
+          <div className="manual-review-field-comment-editor__actions">
+            <button type="button" onClick={onCancel}>
+              取消
+            </button>
+            <button type="button" disabled={!draft.trim()} onClick={onSend}>
+              发送
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {sentComments.length > 0 ? (
+        <div className="manual-review-field-comment-list" aria-label="已发送字段评论">
+          {sentComments.map((comment) => (
+            <article className="manual-review-field-comment-card" key={comment.fieldKey}>
+              <h3>{comment.label}</h3>
+              <p>{comment.comment}</p>
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      {!field && sentComments.length === 0 ? (
+        <p className="manual-review-field-comment-panel__empty">点击本轮提交字段添加评论。</p>
+      ) : null}
+    </section>
+  );
+};
 
 const TimelinePanel = ({ item }: { item: ManualReviewItem }) => (
   <section className="manual-review-timeline-panel" aria-label={`审计时间线（${item.subId}）`}>
@@ -943,6 +1010,34 @@ function buildManualReviewTask(
     manualCount: countByTab(queueItems, 'manual'),
     status: resolveManualReviewTaskStatus(taskRoundProgress),
   };
+}
+
+function buildManualReviewStats(queueItems: ReviewQueueItemDto[], currentTimeMs: number): ManualReviewStats {
+  const todayReviewedItems = queueItems.filter((item) => {
+    if (!REVIEW_DECISIONS.has(item.humanDecision ?? '')) {
+      return false;
+    }
+
+    return isSameLocalDate(item.updatedAt, currentTimeMs);
+  });
+  const todayPassCount = todayReviewedItems.filter((item) => REVIEW_PASS_DECISIONS.has(item.humanDecision ?? '')).length;
+
+  return {
+    pendingReviewCount: queueItems.filter(isReviewableQueueItem).length,
+    todayPassRateLabel: formatPassRate(todayPassCount, todayReviewedItems.length),
+    todayReviewedCount: todayReviewedItems.length,
+  };
+}
+
+function buildReviewSubmitFields(
+  snapshot: ReviewSubmitSnapshot,
+  fieldLabels: ReadonlyMap<string, string>,
+): ReviewSubmitField[] {
+  return Object.entries(snapshot).map(([fieldKey, value]) => ({
+    fieldKey,
+    label: fieldLabels.get(fieldKey) ?? fieldKey,
+    value,
+  }));
 }
 
 function buildManualReviewItem(queueItem: ReviewQueueItemDto, detail: ReviewDetailDto | null): ManualReviewItem {
@@ -1037,6 +1132,25 @@ function timelineItemFromDto(entry: ReviewTimelineItemDto): ReviewTimelineItem {
     statusType: entry.toStatus === 'NEEDS_REVISION' ? 'danger' : entry.kind === 'review' ? 'warning' : 'success',
     time: formatTimelineTime(entry.createdAt),
   };
+}
+
+function isSameLocalDate(value: string, currentTimeMs: number): boolean {
+  const date = new Date(value);
+  const current = new Date(currentTimeMs);
+
+  return (
+    date.getFullYear() === current.getFullYear() &&
+    date.getMonth() === current.getMonth() &&
+    date.getDate() === current.getDate()
+  );
+}
+
+function formatPassRate(passCount: number, totalCount: number): string {
+  if (totalCount === 0) {
+    return '--';
+  }
+
+  return `${Math.round((passCount / totalCount) * 100)}%`;
 }
 
 function countByTab(queueItems: ReviewQueueItemDto[], tab: ManualReviewSuggestion): number {
@@ -1360,8 +1474,26 @@ function buildScoreMetrics(scores: Record<string, unknown>): ScoreMetricItem[] {
   return metrics;
 }
 
-function fieldReviewsFromComments(fieldComments: Record<string, FieldReviewComment>): ReviewFieldCommentInput[] {
-  return Object.values(fieldComments)
+function orderedFieldComments(
+  fieldComments: Record<string, FieldReviewComment>,
+  orderedFields: readonly ReviewSubmitField[],
+): FieldReviewComment[] {
+  const orderedFieldKeys = new Set(orderedFields.map((field) => field.fieldKey));
+  const orderedComments = orderedFields
+    .map((field) => fieldComments[field.fieldKey])
+    .filter((fieldComment): fieldComment is FieldReviewComment => Boolean(fieldComment?.comment.trim()));
+  const extraComments = Object.values(fieldComments).filter(
+    (fieldComment) => !orderedFieldKeys.has(fieldComment.fieldKey) && fieldComment.comment.trim(),
+  );
+
+  return [...orderedComments, ...extraComments];
+}
+
+function fieldReviewsFromComments(
+  fieldComments: Record<string, FieldReviewComment>,
+  orderedFields: readonly ReviewSubmitField[],
+): ReviewFieldCommentInput[] {
+  return orderedFieldComments(fieldComments, orderedFields)
     .map((fieldComment) => ({
       fieldKey: fieldComment.fieldKey,
       label: fieldComment.label,

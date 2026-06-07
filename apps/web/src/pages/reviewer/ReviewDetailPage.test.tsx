@@ -250,7 +250,7 @@ describe('ReviewDetailPage', () => {
     expect(expiredDeadlineCard).not.toHaveTextContent('-');
   });
 
-  it('点击本轮提交字段后在右侧评论 Tab 写字段级打回意见', async () => {
+  it('点击本轮提交字段后可取消编辑，取消内容不会高亮字段也不会随打回提交', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = input.toString();
@@ -285,20 +285,94 @@ describe('ReviewDetailPage', () => {
 
     const sidePanel = screen.getByRole('complementary', { name: '人工审核侧栏' });
     expect(within(sidePanel).getByRole('tab', { name: '评论' })).toHaveAttribute('aria-selected', 'true');
-    expect(within(sidePanel).getByText('引用字段')).toBeInTheDocument();
-    expect(within(sidePanel).getByText('判断理由')).toBeInTheDocument();
-    expect(within(sidePanel).getByText('覆盖核心点。')).toBeInTheDocument();
+    const editCard = within(sidePanel).getByRole('region', { name: '编辑字段评论：判断理由' });
+    expect(editCard).toBeInTheDocument();
+    expect(editCard).not.toHaveTextContent('王芳');
+    expect(editCard).not.toHaveTextContent('Reviewer');
 
     await user.type(within(sidePanel).getByRole('textbox', { name: '字段评论：判断理由' }), '请补充完整判断依据。');
-    expect(screen.getByRole('button', { name: '评论字段 判断理由' })).toHaveClass('has-review-comment');
+    expect(screen.getByRole('button', { name: '评论字段 判断理由' })).not.toHaveClass('has-review-comment');
+    await user.click(within(sidePanel).getByRole('button', { name: '取消' }));
+    expect(within(sidePanel).queryByRole('region', { name: '编辑字段评论：判断理由' })).not.toBeInTheDocument();
+    expect(within(sidePanel).queryByText('请补充完整判断依据。')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '评论字段 判断理由' })).not.toHaveClass('has-review-comment');
     await user.click(within(screen.getByLabelText('审核操作')).getByRole('button', { name: /打回/ }));
 
     const rejectCall = fetchMock.mock.calls.find(([path]) => path === '/reviews/submission_1/reject');
     expect(rejectCall).toBeDefined();
     expect(JSON.parse((rejectCall?.[1] as RequestInit).body as string)).toEqual({
       actorId: 'user_reviewer_wang_fang',
-      reason: '请补充完整判断依据。',
+      reason: '请根据审核意见修改',
+    });
+    expect(within(screen.getByLabelText('当前任务题目列表')).getByRole('button', { name: /P0001/ })).not.toHaveTextContent('打回');
+  });
+
+  it('发送字段评论后按本轮提交字段顺序停靠、高亮字段，并随打回提交', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/reviews/pending' && method === 'GET') {
+        return jsonResponse({ data: [reviewQueueItems[0]] });
+      }
+
+      if (path === '/reviews/submission_1' && method === 'GET') {
+        return jsonResponse({ data: reviewDetail });
+      }
+
+      if (path === '/reviews/submission_1/reject' && method === 'POST') {
+        return jsonResponse({ data: reviewDetail });
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MemoryRouter initialEntries={['/reviewer/reviews/task_real']}>
+        <Routes>
+          <Route path="/reviewer/reviews/:taskId" element={<ReviewDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: '评论字段 判断理由' }));
+    const sidePanel = screen.getByRole('complementary', { name: '人工审核侧栏' });
+    await user.type(within(sidePanel).getByRole('textbox', { name: '字段评论：判断理由' }), '请补充完整判断依据。');
+    await user.click(within(sidePanel).getByRole('button', { name: '发送' }));
+
+    await user.click(screen.getByRole('button', { name: '评论字段 质量判断' }));
+    await user.type(within(sidePanel).getByRole('textbox', { name: '字段评论：质量判断' }), '质量判断要改成未通过。');
+    await user.click(within(sidePanel).getByRole('button', { name: '发送' }));
+
+    const sentComments = within(sidePanel).getByLabelText('已发送字段评论');
+    expect(sentComments).not.toHaveTextContent('王芳');
+    expect(sentComments).not.toHaveTextContent('Reviewer');
+    const commentCards = Array.from(sentComments.querySelectorAll<HTMLElement>('.manual-review-field-comment-card'));
+    expect(commentCards.map((card) => within(card).getByRole('heading').textContent)).toEqual([
+      '质量判断',
+      '判断理由',
+    ]);
+    expect(commentCards[0]).toHaveTextContent('质量判断要改成未通过。');
+    expect(commentCards[1]).toHaveTextContent('请补充完整判断依据。');
+    expect(screen.getByRole('button', { name: '评论字段 质量判断' })).toHaveClass('has-review-comment');
+    expect(screen.getByRole('button', { name: '评论字段 判断理由' })).toHaveClass('has-review-comment');
+
+    await user.click(within(screen.getByLabelText('审核操作')).getByRole('button', { name: /打回/ }));
+
+    const rejectCall = fetchMock.mock.calls.find(([path]) => path === '/reviews/submission_1/reject');
+    expect(rejectCall).toBeDefined();
+    expect(JSON.parse((rejectCall?.[1] as RequestInit).body as string)).toEqual({
+      actorId: 'user_reviewer_wang_fang',
+      reason: '质量判断要改成未通过。',
       fieldReviews: [
+        {
+          fieldKey: 'quality',
+          label: '质量判断',
+          comment: '质量判断要改成未通过。',
+          value: 'pass',
+        },
         {
           fieldKey: 'comment',
           label: '判断理由',
@@ -307,7 +381,6 @@ describe('ReviewDetailPage', () => {
         },
       ],
     });
-    expect(within(screen.getByLabelText('当前任务题目列表')).getByRole('button', { name: /P0001/ })).not.toHaveTextContent('打回');
   });
 
   it('左侧题目列表按题号自然升序展示，且题目条只保留题号和操作状态', async () => {

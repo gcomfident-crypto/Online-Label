@@ -1222,17 +1222,6 @@ const MediaMaterial = ({ rawData }: { rawData: Record<string, unknown> }) => {
   return null;
 };
 
-const ASSIGNMENT_STATUS_LABELS: Record<AssignmentStatus, string> = {
-  ASSIGNED: '待标注',
-  IN_PROGRESS: '进行中',
-  SUBMITTED: '已提交',
-  UNDER_RECHECK: '复审中',
-  FINAL_PENDING: '待完成',
-  FINAL_APPROVED: '已完成',
-  NEEDS_REVISION: '待修改',
-  CANCELLED: '已取消',
-};
-
 type QuestionHistoryEntry = {
   id: string;
   label: string;
@@ -1743,14 +1732,6 @@ function getAnswerFields(fields: readonly SchemaField[]): SchemaField[] {
 type QuestionProgressState = 'empty' | 'draft' | 'complete';
 type QuestionFlowStatusLabel = '待标注' | 'AI处理中' | '待审核' | '已完成' | '异常';
 type QuestionAnnotationStatusLabel = '未填写' | '草稿' | '已标注';
-type QuestionNavigatorStatusLabel =
-  | '待标注'
-  | '已标注'
-  | 'AI预审'
-  | 'AI打回'
-  | '审核中'
-  | '审核员打回'
-  | '已完成';
 
 const AI_REVIEWING_SUBMISSION_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING', 'SUBMITTED']);
 const AI_FAILED_SUBMISSION_STATUSES = new Set(['AI_FAILED', 'FAILED']);
@@ -2090,18 +2071,6 @@ function formatAnnotationProgressLabel(progress: QuestionProgressState): Questio
   return '未填写';
 }
 
-function resolveSubmittedQuestionStatusLabel(status: string | null): QuestionNavigatorStatusLabel {
-  if (COMPLETED_SUBMISSION_STATUSES.has(status ?? '')) {
-    return '已完成';
-  }
-
-  if (REVIEWER_REVIEWING_SUBMISSION_STATUSES.has(status ?? '')) {
-    return '审核中';
-  }
-
-  return 'AI预审';
-}
-
 function latestSubmissionByRound(
   submissions: WorkbenchDto['submissionHistory'],
 ): WorkbenchDto['submissionHistory'][number] | null {
@@ -2109,24 +2078,6 @@ function latestSubmissionByRound(
     (latest, submission) => (!latest || submission.round > latest.round ? submission : latest),
     null,
   );
-}
-
-function resolveWorkbenchRevisionStatusLabel(workbench: WorkbenchDto): QuestionNavigatorStatusLabel {
-  const latestSubmission = latestSubmissionByRound(workbench.submissionHistory);
-  const rejectionSubmission = workbench.rejectionNotice
-    ? workbench.submissionHistory.find((submission) => submission.id === workbench.rejectionNotice?.submissionId)
-    : null;
-  const latestReviewRecord = latestReviewRecordByCreatedAt(
-    (rejectionSubmission ?? latestSubmission)?.reviewRecords ?? [],
-  );
-
-  return isReviewerRejectionSource({
-    stage: latestReviewRecord?.stage,
-    reviewerType: latestReviewRecord?.reviewerType,
-    submissionStatus: latestSubmission?.status ?? null,
-  })
-    ? '审核员打回'
-    : 'AI打回';
 }
 
 function latestReviewRecordByCreatedAt(

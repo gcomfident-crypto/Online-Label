@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 
-import { SUBMISSION_STATUS_LABELS } from '@labelhub/shared';
 import type { ReviewDetailDto } from '../../api/reviews';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 
@@ -56,7 +55,6 @@ export const ReviewDecisionPanel = ({
           <span>人工复审</span>
           <h3>人工复审决策</h3>
         </div>
-        <small>{statusLabel(detail.submission.status)}</small>
       </header>
       <label>
         复审意见
@@ -114,8 +112,4 @@ function stringifyJson(value: unknown): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function statusLabel(status: string): string {
-  return SUBMISSION_STATUS_LABELS[status as keyof typeof SUBMISSION_STATUS_LABELS] ?? status;
 }

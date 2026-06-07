@@ -136,7 +136,7 @@ describe('AiReviewQueuePage', () => {
     ['任务ID', '任务名称', '当前阶段', 'AI 预审进度', 'Reviewer 复核', '最近更新']
       .forEach((header) => expect(within(table).getByText(header)).toBeInTheDocument());
     expect(within(table).getByText('模型对比 json')).toBeInTheDocument();
-    expect(within(table).getByText('Reviewer 再次复审中')).toBeInTheDocument();
+    expect(within(table).getByText('Reviewer 复审中')).toBeInTheDocument();
     expect(within(table).getByText('10 / 10 AI 预审完成')).toBeInTheDocument();
     expect(within(table).getByText('通过 2 · 打回 8')).toBeInTheDocument();
     expect(within(table).getByText('待复核 10 / 10')).toBeInTheDocument();
@@ -144,24 +144,25 @@ describe('AiReviewQueuePage', () => {
 
     await user.click(within(table).getByRole('row', { name: /模型对比 json/ }));
 
-    const dialog = await screen.findByRole('dialog', { name: /任务流转详情 · 模型对比 json/ });
+    const dialog = await screen.findByRole('dialog', { name: /模型对比 json/ });
     expect(dialog).toHaveClass('agent-review-batch-sheet');
     expect(within(dialog).getByLabelText('任务内题目流转列表')).toHaveTextContent('10 题');
     expect(within(dialog).getByText('P0001')).toBeInTheDocument();
     expect(within(dialog).getByText('P0010')).toBeInTheDocument();
-    expect(within(dialog).getAllByText('AI 建议通过').length).toBeGreaterThan(0);
-    expect(within(dialog).getAllByText('待 Reviewer 复核').length).toBeGreaterThan(0);
-    expect(within(dialog).getAllByText('未最终完成').length).toBeGreaterThan(0);
-    expect(within(dialog).queryByText('已完成')).not.toBeInTheDocument();
+    expect(within(dialog).getAllByText('待审核').length).toBeGreaterThan(0);
+    expect(within(dialog).getByText('本题历史')).toBeInTheDocument();
+    expect(within(dialog).getByText('预审记录')).toBeInTheDocument();
+    expect(within(dialog).getByText('综合分')).toBeInTheDocument();
+    expect(within(dialog).queryByText('AI 建议通过')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('未最终完成')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('HUMAN_PENDING')).not.toBeInTheDocument();
 
     const timeline = within(dialog).getByLabelText('当前任务时间线');
     expect(within(timeline).getAllByRole('listitem')).toHaveLength(5);
     ['Owner 发布', 'Labeler 标注', 'AI Agent 预审', 'Reviewer 检查', '任务完成']
       .forEach((label) => expect(within(timeline).getByText(label)).toBeInTheDocument());
-    expect(within(timeline).getByText('张满')).toBeInTheDocument();
-    expect(within(timeline).getByText('李雷')).toBeInTheDocument();
-    expect(within(timeline).getByText('AI Agent')).toBeInTheDocument();
+    await user.hover(within(timeline).getByRole('listitem', { name: /Owner 发布/ }));
+    expect(screen.getByText('张满')).toBeInTheDocument();
     expect(within(timeline).queryByText('Labeler 修改')).not.toBeInTheDocument();
     expect(within(timeline).queryByText('Reviewer 再次复审')).not.toBeInTheDocument();
     expect(within(timeline).queryByText(/建议通过/)).not.toBeInTheDocument();
@@ -169,15 +170,63 @@ describe('AiReviewQueuePage', () => {
     await user.click(within(dialog).getByRole('button', { name: '任务日志' }));
 
     const logDialog = await screen.findByRole('dialog', { name: /任务日志 · 模型对比 json/ });
-    expect(within(logDialog).getByText('Owner 发布了任务。')).toBeInTheDocument();
-    expect(within(logDialog).getByText('李雷 领取了任务。')).toBeInTheDocument();
-    expect(within(logDialog).getByText('李雷 提交了整个任务的标注结果。')).toBeInTheDocument();
-    expect(within(logDialog).getByText('AI Agent 完成本轮预审，存在建议打回题目。')).toBeInTheDocument();
+    expect(within(logDialog).getByText('Owner 发布任务')).toBeInTheDocument();
+    expect(within(logDialog).getByText('Labeler 领取任务')).toBeInTheDocument();
+    expect(within(logDialog).getByText('Labeler 提交标注结果')).toBeInTheDocument();
+    expect(within(logDialog).getByText('完成预审')).toBeInTheDocument();
+    expect(within(logDialog).getByText('流转到 Reviewer')).toBeInTheDocument();
+    expect(within(logDialog).queryByText('Owner 发布了任务。')).not.toBeInTheDocument();
+    expect(within(logDialog).queryByText('李雷 领取了任务。')).not.toBeInTheDocument();
+    expect(within(logDialog).queryByText('李雷 提交了整个任务的标注结果。')).not.toBeInTheDocument();
+    expect(within(logDialog).queryByText('AI Agent 完成本轮预审，存在建议打回题目。')).not.toBeInTheDocument();
+    expect(within(logDialog).queryByText('任务流转到 Reviewer 检查。')).not.toBeInTheDocument();
+    expect(within(logDialog).getByLabelText('打回题目')).toHaveTextContent('P0003');
     expect(within(logDialog).getByText('P0003')).toBeInTheDocument();
     expect(within(logDialog).queryByText(/提交了 \\d+ 道题/)).not.toBeInTheDocument();
     expect(within(logDialog).queryByText(/总共预审/)).not.toBeInTheDocument();
     expect(within(logDialog).queryByText(/建议通过/)).not.toBeInTheDocument();
     expect(within(logDialog).queryByText('HUMAN_PENDING')).not.toBeInTheDocument();
+  });
+
+  it('任务日志加载失败不阻断详情页，并在右侧本题历史提示历史不完整', async () => {
+    const user = userEvent.setup();
+    let logRequestCount = 0;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const { method, path } = requestInfo(input, init);
+
+      if (path === '/agent/task-flows' && method === 'GET') {
+        return jsonResponse({ data: [modelCompareFlow, completedFlow] });
+      }
+
+      if (path === '/agent/task-flows/task_model_compare_json' && method === 'GET') {
+        return jsonResponse({ data: modelCompareDetail });
+      }
+
+      if (path === '/agent/task-flows/task_model_compare_json/logs' && method === 'GET') {
+        logRequestCount += 1;
+        return logRequestCount === 1
+          ? jsonResponse({ error: { message: 'logs down' } }, 500)
+          : jsonResponse({ data: modelCompareLogs });
+      }
+
+      return jsonResponse({ data: {} });
+    }));
+
+    render(<AiReviewQueuePage />);
+
+    const table = await screen.findByRole('table', { name: '任务质检流水线表格' });
+    await user.click(within(table).getByRole('row', { name: /模型对比 json/ }));
+
+    const dialog = await screen.findByRole('dialog', { name: /模型对比 json/ });
+    expect(within(dialog).getByText('P0001')).toBeInTheDocument();
+    expect(await within(dialog).findByText('完整历史加载失败，当前仅展示本题最新记录。请点击任务日志重试。')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: '任务日志' }));
+
+    const logDialog = await screen.findByRole('dialog', { name: /任务日志 · 模型对比 json/ });
+    expect(within(logDialog).getByText('Owner 发布任务')).toBeInTheDocument();
+    expect(within(logDialog).queryByText('Owner 发布了任务。')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('完整历史加载失败，当前仅展示本题最新记录。请点击任务日志重试。')).not.toBeInTheDocument();
   });
 
   it('加载失败时提示任务质检流水线错误，而不是继续暴露 AI 队列口径', async () => {
@@ -374,6 +423,7 @@ function createLog(overrides: Partial<TaskFlowLogDto>): TaskFlowLogDto {
     actorName: '张满',
     occurredAt: '2026-05-20T09:00:00.000Z',
     message: 'Owner 发布了任务。',
+    itemRefs: [],
     rejectedItemRefs: [],
     ...overrides,
   };
