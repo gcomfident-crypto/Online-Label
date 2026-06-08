@@ -15838,6 +15838,8 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  align-content: start;
+  align-items: start;
   padding-right: 4px;
 }
 
@@ -15977,6 +15979,9 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .labeler-item-history {
   display: grid;
   gap: 10px;
+  grid-auto-rows: max-content;
+  align-content: start;
+  align-items: start;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -15985,6 +15990,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .labeler-item-history__round {
   display: grid;
   gap: 6px;
+  align-self: start;
   border: 1px solid #e6eaf2;
   border-radius: 10px;
   padding: 9px 10px 8px;
@@ -16018,6 +16024,9 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .labeler-item-history__events {
   display: grid;
   gap: 2px;
+  grid-auto-rows: max-content;
+  align-content: start;
+  align-items: start;
   margin: 0;
   padding: 1px 0 0;
   list-style: none;
