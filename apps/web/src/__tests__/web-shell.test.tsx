@@ -8,7 +8,6 @@ import databoardIconAsset from '../assets/databoard.svg';
 import exportIconAsset from '../assets/export.svg';
 import foldIconAsset from '../assets/fold.svg';
 import llmIconAsset from '../assets/llm.svg';
-import logoIconAsset from '../assets/logo.svg';
 import missionSquareIconAsset from '../assets/mission_square.svg';
 import modelIconAsset from '../assets/model.svg';
 import personIconAsset from '../assets/person.svg';
@@ -155,11 +154,12 @@ describe('Web 壳 smoke test', () => {
       sessionStore.loginAs(USER_ROLE.OWNER);
     });
     const { unmount } = renderRoute('/owner/tasks');
-    const ownerTopbar = screen.getByRole('banner', { name: '平台顶栏' });
+    const ownerTopbar = await screen.findByRole('banner', { name: '平台顶栏' });
     expect(ownerTopbar).toHaveTextContent('LabelHub');
     const brandIcon = ownerTopbar.querySelector('.platform-brand__mark');
-    expect(brandIcon?.tagName.toLowerCase()).toBe('img');
-    expect(brandIcon?.getAttribute('src')).toContain(logoIconAsset);
+    expect(brandIcon?.tagName.toLowerCase()).toBe('span');
+    expect(brandIcon).toHaveTextContent('LH');
+    expect(brandIcon).not.toHaveAttribute('src');
     expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('任务负责人后台 / 任务管理');
     expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('张满 · Owner');
     const currentPath = screen.getByLabelText('当前路径');
@@ -215,8 +215,8 @@ describe('Web 壳 smoke test', () => {
       sessionStore.loginAs(USER_ROLE.LABELER);
     });
     const labelerView = renderRoute('/labeler/market');
-    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('标注员工作台 / 任务广场');
-    const labelerNav = screen.getByRole('navigation', { name: 'Labeler 端导航' });
+    expect(await screen.findByRole('banner', { name: '平台顶栏' })).toHaveTextContent('标注员工作台 / 任务广场');
+    const labelerNav = await screen.findByRole('navigation', { name: 'Labeler 端导航' });
     expect(labelerNav).toHaveTextContent('任务广场');
     expect(labelerNav).toHaveTextContent('工作台');
     const marketIcon = within(labelerNav)
@@ -238,8 +238,8 @@ describe('Web 壳 smoke test', () => {
       sessionStore.loginAs(USER_ROLE.AI_AGENT);
     });
     const agentView = renderRoute('/agent/dashboard');
-    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('AI Agent 后台 / 数据看板');
-    const agentNav = screen.getByRole('navigation', { name: 'AI Agent 端导航' });
+    expect(await screen.findByRole('banner', { name: '平台顶栏' })).toHaveTextContent('AI Agent 后台 / 数据看板');
+    const agentNav = await screen.findByRole('navigation', { name: 'AI Agent 端导航' });
     expect(agentNav).toHaveTextContent('数据看板');
     expect(agentNav).toHaveTextContent('质检流转');
     expect(
@@ -262,8 +262,8 @@ describe('Web 壳 smoke test', () => {
     });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ data: [] })));
     renderRoute('/reviewer/reviews');
-    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('审核与质检 / 人工审核 / 审核任务列表');
-    const reviewerNav = screen.getByRole('navigation', { name: 'Reviewer 端导航' });
+    expect(await screen.findByRole('banner', { name: '平台顶栏' })).toHaveTextContent('审核与质检 / 人工审核 / 审核任务列表');
+    const reviewerNav = await screen.findByRole('navigation', { name: 'Reviewer 端导航' });
     expect(reviewerNav).toHaveTextContent('人工审核');
     expect(reviewerNav).not.toHaveTextContent('终审');
     const reviewerIcon = screen.getByRole('link', { name: '人工审核' }).querySelector('.portal-nav__icon--review');
@@ -285,7 +285,7 @@ describe('Web 壳 smoke test', () => {
     renderRoute('/owner/templates');
 
     expect(screen.queryByRole('menu', { name: '账号菜单' })).not.toBeInTheDocument();
-    const accountButton = screen.getByRole('button', { name: '打开账号菜单' });
+    const accountButton = await screen.findByRole('button', { name: '打开账号菜单' });
     expect(accountButton.querySelector('.platform-user__chevron')).toBeNull();
     expect(accountButton).not.toHaveTextContent('▾');
     await user.click(accountButton);
@@ -296,7 +296,7 @@ describe('Web 壳 smoke test', () => {
 
     await user.click(screen.getByRole('menuitem', { name: '退出' }));
 
-    expect(screen.getByRole('button', { name: '登录平台' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '登录平台' })).toBeInTheDocument();
   });
 });
 

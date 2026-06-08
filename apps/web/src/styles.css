@@ -764,14 +764,24 @@ p {
 }
 
 .platform-brand__mark {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   width: var(--platform-topbar-brand-mark-size);
   height: var(--platform-topbar-brand-mark-size);
-  object-fit: contain;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0578FE 0%, #17F7DE 100%);
+  color: #ffffff;
+  font-size: calc(var(--platform-topbar-brand-mark-size) * 0.32);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  box-shadow: 0 10px 22px rgba(5, 120, 254, 0.18);
   transition:
     width 180ms ease,
-    height 180ms ease;
+    height 180ms ease,
+    border-radius 180ms ease,
+    font-size 180ms ease;
 }
 
 .platform-brand strong {

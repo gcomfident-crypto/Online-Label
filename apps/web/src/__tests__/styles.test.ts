@@ -403,7 +403,9 @@ describe('global styles', () => {
     expect(brandRule).toContain('font-size: var(--platform-topbar-brand-font-size);');
     expect(brandRule).toContain('padding-left: var(--platform-topbar-brand-start-padding);');
     expect(brandMarkRule).toContain('width: var(--platform-topbar-brand-mark-size);');
-    expect(brandMarkRule).toContain('object-fit: contain;');
+    expect(brandMarkRule).toContain('display: inline-flex;');
+    expect(brandMarkRule).toContain('background: linear-gradient(135deg, #0578FE 0%, #17F7DE 100%);');
+    expect(brandMarkRule).not.toContain('object-fit: contain;');
     expect(brandTextRule).toContain('color: #0578FE;');
     expect(brandTextRule).toContain('font-family: "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif;');
     expect(styles).toContain('background: linear-gradient(45deg, #0578FE 0%, #17F7DE 100%);');
