@@ -1,17 +1,6 @@
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-
-import {
   DASHBOARD_RANGE_OPTIONS,
   type AbnormalBatch,
   type AgentDashboardData,
@@ -299,17 +288,7 @@ const TrendChartCard = ({ data, isLoading }: { data: AgentDashboardData; isLoadi
 );
 
 const TrendChart = ({ points }: { points: TrendPoint[] }) => {
-  const trendColor = '#16a34a';
-  const areaColor = '#dcfce7';
-
-  const chartData = useMemo(
-    () =>
-      points.map((point) => ({
-        label: point.label,
-        passRate: point.passRate,
-      })),
-    [points],
-  );
+  const chart = useMemo(() => buildTrendChartGeometry(points), [points]);
 
   return (
     <div className="agent-dashboard-trend-chart">
@@ -317,75 +296,101 @@ const TrendChart = ({ points }: { points: TrendPoint[] }) => {
         <span className="is-line">通过率</span>
       </div>
 
-      <div className="agent-dashboard-trend-plot" role="img" aria-label="处理趋势图">
-        <ResponsiveContainer width="100%" height={236}>
-          <AreaChart data={chartData} margin={{ top: 12, right: 24, left: 22, bottom: 24 }}>
-            <defs>
-              <linearGradient id="trend-pass-rate-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={areaColor} stopOpacity={0.85} />
-                <stop offset="100%" stopColor={areaColor} stopOpacity={0.24} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="4 6" stroke="#edf2fb" vertical={false} />
-            <XAxis
-              axisLine={false}
-              dataKey="label"
-              tick={{ fill: '#64748b', fontSize: 14, fontWeight: 600 }}
-              tickLine={false}
-              minTickGap={18}
-              angle={points.length > 14 ? -25 : 0}
-              textAnchor={points.length > 14 ? 'end' : 'middle'}
-              interval="preserveStartEnd"
+      <svg
+        className="agent-dashboard-trend-plot"
+        role="img"
+        aria-label="处理趋势图"
+        viewBox={`0 0 ${TREND_CHART_WIDTH} ${TREND_CHART_HEIGHT}`}
+      >
+        <title>{chart.accessibleLabel}</title>
+        <defs>
+          <linearGradient id="trend-pass-rate-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#dcfce7" stopOpacity="0.86" />
+            <stop offset="100%" stopColor="#dcfce7" stopOpacity="0.24" />
+          </linearGradient>
+        </defs>
+        {chart.yTicks.map((tick) => (
+          <g key={tick.value}>
+            <line
+              className="agent-dashboard-trend-grid-line"
+              x1={TREND_CHART_MARGIN.left}
+              x2={TREND_CHART_WIDTH - TREND_CHART_MARGIN.right}
+              y1={tick.y}
+              y2={tick.y}
             />
-            <YAxis
-              domain={[0, 100]}
-              tick={{ fill: '#64748b', fontSize: 14, fontWeight: 600 }}
-              width={52}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(value) => `${value}%`}
-            />
-            <Tooltip
-              content={({ active, payload, label }) => {
-                if (!active || !payload || payload.length === 0) {
-                  return null;
-                }
-                const passRate = payload.find((item) => item.dataKey === 'passRate')?.value;
-                return (
-                  <div className="agent-dashboard-tooltip" role="tooltip">
-                    <strong>{label}</strong>
-                    <span>通过率 {Number(passRate).toFixed(1)}%</span>
-                  </div>
-                );
-              }}
-              cursor={false}
-            />
-            <Area
-              dataKey="passRate"
-              stroke="none"
-              fill="url(#trend-pass-rate-fill)"
-              strokeOpacity={0}
-              type="monotone"
-              baseValue={0}
-              connectNulls
-              name="通过率"
-            />
-            <Line
-              dataKey="passRate"
-              stroke={trendColor}
-              strokeWidth={3.2}
-              type="monotone"
-              dot={{ r: 3.5, fill: '#ffffff', stroke: trendColor, strokeWidth: 2.8 }}
-              activeDot={{ r: 5, fill: trendColor, strokeWidth: 0 }}
-              connectNulls
-              name="通过率"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+            <text className="agent-dashboard-trend-y-label" x={TREND_CHART_MARGIN.left - 8} y={tick.y + 4}>
+              {tick.value}%
+            </text>
+          </g>
+        ))}
+        {chart.areaPath ? <path className="agent-dashboard-trend-area" d={chart.areaPath} /> : null}
+        {chart.linePath ? <path className="agent-dashboard-trend-line" d={chart.linePath} /> : null}
+        {chart.points.map((point) => (
+          <g className="agent-dashboard-trend-point" key={point.label}>
+            <circle cx={point.x} cy={point.y} r="4.2">
+              <title>{`${point.label} 通过率 ${point.passRate.toFixed(1)}%`}</title>
+            </circle>
+          </g>
+        ))}
+        {chart.xLabels.map((label) => (
+          <text className="agent-dashboard-trend-x-label" key={label.label} x={label.x} y={TREND_CHART_HEIGHT - 8}>
+            {label.label}
+          </text>
+        ))}
+      </svg>
     </div>
   );
 };
+
+const TREND_CHART_WIDTH = 760;
+const TREND_CHART_HEIGHT = 236;
+const TREND_CHART_MARGIN = {
+  top: 12,
+  right: 26,
+  bottom: 28,
+  left: 58,
+};
+
+function buildTrendChartGeometry(points: TrendPoint[]) {
+  const plotWidth = TREND_CHART_WIDTH - TREND_CHART_MARGIN.left - TREND_CHART_MARGIN.right;
+  const plotHeight = TREND_CHART_HEIGHT - TREND_CHART_MARGIN.top - TREND_CHART_MARGIN.bottom;
+  const baseline = TREND_CHART_MARGIN.top + plotHeight;
+  const coordinates = points.map((point, index) => {
+    const x = TREND_CHART_MARGIN.left + (index / Math.max(1, points.length - 1)) * plotWidth;
+    const clampedPassRate = Math.min(100, Math.max(0, point.passRate));
+    const y = TREND_CHART_MARGIN.top + ((100 - clampedPassRate) / 100) * plotHeight;
+
+    return {
+      label: point.label,
+      passRate: clampedPassRate,
+      x,
+      y,
+    };
+  });
+  const linePath = coordinates.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
+  const areaPath = coordinates.length > 0
+    ? `${linePath} L ${coordinates[coordinates.length - 1].x.toFixed(2)} ${baseline.toFixed(2)} L ${coordinates[0].x.toFixed(2)} ${baseline.toFixed(2)} Z`
+    : '';
+  const xLabelStep = Math.max(1, Math.ceil(points.length / 8));
+
+  return {
+    accessibleLabel: coordinates.length > 0
+      ? `处理趋势图，${coordinates.map((point) => `${point.label} 通过率 ${point.passRate.toFixed(1)}%`).join('，')}`
+      : '处理趋势图，暂无数据',
+    areaPath,
+    linePath,
+    points: coordinates,
+    xLabels: coordinates.filter((point, index) =>
+      index === 0 ||
+      index === coordinates.length - 1 ||
+      index % xLabelStep === 0,
+    ),
+    yTicks: [0, 25, 50, 75, 100].map((value) => ({
+      value,
+      y: TREND_CHART_MARGIN.top + ((100 - value) / 100) * plotHeight,
+    })),
+  };
+}
 
 const QualityDistributionCard = ({ data, isLoading }: { data: AgentDashboardData; isLoading: boolean }) => (
   <section className="agent-dashboard-card agent-dashboard-card--distribution" aria-labelledby="agent-dashboard-quality-title">

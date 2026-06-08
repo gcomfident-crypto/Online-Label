@@ -17592,6 +17592,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-dashboard-trend-plot {
   width: 100%;
   height: 236px;
+  overflow: visible;
 }
 
 .agent-dashboard-chart-legend {
@@ -17628,44 +17629,43 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   color: #16a34a;
 }
 
-.agent-dashboard-trend-plot .recharts-cartesian-axis-tick-value {
+.agent-dashboard-trend-grid-line {
+  stroke: #edf2fb;
+  stroke-dasharray: 4 6;
+  stroke-width: 1;
+}
+
+.agent-dashboard-trend-area {
+  fill: url(#trend-pass-rate-fill);
+}
+
+.agent-dashboard-trend-line {
+  fill: none;
+  stroke: #16a34a;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3.2;
+}
+
+.agent-dashboard-trend-point circle {
+  fill: #ffffff;
+  stroke: #16a34a;
+  stroke-width: 2.8;
+}
+
+.agent-dashboard-trend-y-label,
+.agent-dashboard-trend-x-label {
   fill: #64748b;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.agent-dashboard-trend-plot .recharts-cartesian-axis-tick {
-  font-size: 14px;
+.agent-dashboard-trend-y-label {
+  text-anchor: end;
 }
 
-.agent-dashboard-trend-plot .recharts-legend-item {
-  font-size: 14px;
-}
-
-.agent-dashboard-tooltip {
-  position: absolute;
-  top: 44px;
-  right: 16px;
-  z-index: 2;
-  display: grid;
-  gap: 4px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 12px;
-  color: #334155;
-  background: #ffffff;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.agent-dashboard-tooltip strong {
-  color: #172b4d;
-  font-size: 15px;
-}
-
-.agent-dashboard-trend-plot .recharts-text {
-  fill: #475569;
+.agent-dashboard-trend-x-label {
+  text-anchor: middle;
 }
 
 .agent-dashboard-quality {
