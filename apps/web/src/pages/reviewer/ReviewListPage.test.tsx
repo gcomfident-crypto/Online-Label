@@ -16,7 +16,11 @@ describe('ReviewListPage', () => {
       const path = input.toString();
       const method = init?.method ?? 'GET';
 
-      if (path === '/reviews/pending' && method === 'GET') {
+      if (path === '/reviews/pending/tasks' && method === 'GET') {
+        return jsonResponse({ data: reviewTaskItems });
+      }
+
+      if (path === `/reviews/pending?taskId=${rawReviewTaskId}` && method === 'GET') {
         return jsonResponse({ data: reviewQueueItems });
       }
 
@@ -46,8 +50,7 @@ describe('ReviewListPage', () => {
     );
     expect(pageDescription).toHaveClass('task-management-table-description');
     expect(pageDescription.closest('.manual-review-list-header')).not.toBeNull();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/reviews/pending', expect.anything()));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/tasks', expect.anything()));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/reviews/pending/tasks', expect.anything()));
     const table = screen.getByRole('table', { name: '人工审核任务列表' });
     [
       '任务ID',
@@ -114,6 +117,23 @@ describe('ReviewListPage', () => {
 });
 
 const rawReviewTaskId = 'cmpsfkanp0001d7pemk';
+
+const reviewTaskItems = [
+  {
+    taskId: rawReviewTaskId,
+    taskDisplayId: 'T-001',
+    taskTitle: '真实人工审核任务',
+    status: '复审中',
+    pendingCount: 2,
+    totalInRound: 2,
+    decidedCount: 0,
+    needsRevisionCount: 0,
+    round: 1,
+    deadline: '2026-06-01T15:59:00.000Z',
+    createdAt: '2026-05-30T10:01:02.000Z',
+    updatedAt: '2026-05-30T10:02:02.000Z',
+  },
+];
 
 const taskItems = [
   {

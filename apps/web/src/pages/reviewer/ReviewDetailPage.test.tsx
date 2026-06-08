@@ -19,7 +19,7 @@ describe('ReviewDetailPage', () => {
       const path = input.toString();
       const method = init?.method ?? 'GET';
 
-      if (path === '/reviews/pending' && method === 'GET') {
+      if (path === '/reviews/pending?taskId=task_real' && method === 'GET') {
         return jsonResponse({ data: reviewQueueItems });
       }
 
@@ -74,7 +74,7 @@ describe('ReviewDetailPage', () => {
     expect(screen.queryByRole('link', { name: '复审视角' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '切换：终审' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '导出审计日志' })).not.toBeInTheDocument();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/reviews/pending', expect.anything()));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/reviews/pending?taskId=task_real', expect.anything()));
 
     const queue = screen.getByLabelText('当前任务题目列表');
     expect(within(queue).queryByRole('tab')).not.toBeInTheDocument();
@@ -166,7 +166,7 @@ describe('ReviewDetailPage', () => {
       const path = input.toString();
       const method = init?.method ?? 'GET';
 
-      if (path === '/reviews/pending' && method === 'GET') {
+      if (path === '/reviews/pending?taskId=task_real' && method === 'GET') {
         return jsonResponse({ data: withDeadline('2026-05-30T01:59:59.000Z') });
       }
 
@@ -195,7 +195,7 @@ describe('ReviewDetailPage', () => {
         const path = input.toString();
         const method = init?.method ?? 'GET';
 
-        if (path === '/reviews/pending' && method === 'GET') {
+        if (path === '/reviews/pending?taskId=task_real' && method === 'GET') {
           return jsonResponse({ data: withDeadline('2026-05-30T12:00:00.000Z') });
         }
 
@@ -224,7 +224,7 @@ describe('ReviewDetailPage', () => {
         const path = input.toString();
         const method = init?.method ?? 'GET';
 
-        if (path === '/reviews/pending' && method === 'GET') {
+        if (path === '/reviews/pending?taskId=task_real' && method === 'GET') {
           return jsonResponse({ data: withDeadline('2026-05-29T23:59:59.000Z') });
         }
 
@@ -256,7 +256,7 @@ describe('ReviewDetailPage', () => {
       const path = input.toString();
       const method = init?.method ?? 'GET';
 
-      if (path === '/reviews/pending' && method === 'GET') {
+      if (path === '/reviews/pending?taskId=task_real' && method === 'GET') {
         return jsonResponse({ data: [reviewQueueItems[0]] });
       }
 
@@ -313,7 +313,7 @@ describe('ReviewDetailPage', () => {
       const path = input.toString();
       const method = init?.method ?? 'GET';
 
-      if (path === '/reviews/pending' && method === 'GET') {
+      if (path === '/reviews/pending?taskId=task_real' && method === 'GET') {
         return jsonResponse({ data: [reviewQueueItems[0]] });
       }
 
@@ -390,7 +390,7 @@ describe('ReviewDetailPage', () => {
         const path = input.toString();
         const method = init?.method ?? 'GET';
 
-        if (path === '/reviews/pending' && method === 'GET') {
+        if (path === '/reviews/pending?taskId=task_real' && method === 'GET') {
           return jsonResponse({ data: [reviewQueueItems[2], reviewQueueItems[1]] });
         }
 
@@ -438,7 +438,7 @@ describe('ReviewDetailPage', () => {
       const path = input.toString();
       const method = init?.method ?? 'GET';
 
-      if (path === '/reviews/pending' && method === 'GET') {
+      if (path === '/reviews/pending?taskId=task_real' && method === 'GET') {
         return jsonResponse({ data: reviewQueueItems });
       }
 
@@ -514,7 +514,7 @@ describe('ReviewDetailPage', () => {
       const path = input.toString();
       const method = init?.method ?? 'GET';
 
-      if (path === '/reviews/pending' && method === 'GET') {
+      if (path === '/reviews/pending?taskId=task_real' && method === 'GET') {
         return jsonResponse({ data: reviewQueueItems });
       }
 
@@ -578,7 +578,7 @@ describe('ReviewDetailPage', () => {
         const path = input.toString();
         const method = init?.method ?? 'GET';
 
-        if (path === '/reviews/pending' && method === 'GET') {
+        if (path === '/reviews/pending?taskId=task_real' && method === 'GET') {
           return jsonResponse({ data: [reviewQueueItems[0]] });
         }
 
