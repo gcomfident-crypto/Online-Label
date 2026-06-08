@@ -36,6 +36,7 @@ import {
   type ToastMessage,
 } from '../../components/ToastViewport';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
+import { readPageDataCache, writePageDataCache } from '../../utils/pageDataCache';
 import { DatasetPreviewModal } from './components/DatasetPreviewModal';
 import { PublishDrawer, type TaskDrawerFieldErrors } from './components/PublishDrawer';
 import { TaskTable, type TaskTableSortDirection, type TaskTableSortField } from './components/TaskTable';
@@ -64,6 +65,7 @@ const TASK_ROW_ENTER_ANIMATION_MS = 680;
 const TASK_ROW_DELETE_ANIMATION_MS = 260;
 const TASKS_FALLBACK_PAGE_SIZE = 7;
 const TASK_TABLE_ROW_HEIGHT = 66;
+const OWNER_TASKS_CACHE_KEY = `labelhub.owner.tasks.${OWNER_ID}.v1`;
 const DATASET_FILE_MAX_SIZE_BYTES = 20 * 1024 * 1024;
 const SUPPORTED_DATASET_EXTENSIONS = ['.json', '.jsonl', '.csv', '.xlsx'] as const;
 const SUMMARY_FILTERS: Array<{ label: string; value: TaskStatus | 'ALL'; summaryKey: keyof TaskSummary }> = [
@@ -92,7 +94,8 @@ type DatasetTemplateDraft = {
 
 export const TaskListPage = () => {
   const navigate = useNavigate();
-  const [tasks, setTasks] = useState<TaskDto[]>([]);
+  const cachedTasks = useMemo(() => readPageDataCache(OWNER_TASKS_CACHE_KEY, isTaskDtoArray), []);
+  const [tasks, setTasks] = useState<TaskDto[]>(cachedTasks ?? []);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'ALL'>('ALL');
   const [currentTaskPage, setCurrentTaskPage] = useState(1);
@@ -119,7 +122,7 @@ export const TaskListPage = () => {
   const [toastMessages, setToastMessages] = useState<ToastMessage[]>([]);
   const [deletingTaskIds, setDeletingTaskIds] = useState<ReadonlySet<string>>(() => new Set());
   const [enteringTaskIds, setEnteringTaskIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(cachedTasks === null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPreparingNewTask, setIsPreparingNewTask] = useState(false);
   const datasetFileSelectionId = useRef(0);
@@ -171,13 +174,17 @@ export const TaskListPage = () => {
   }, []);
 
   const loadTasks = async () => {
-    setIsLoading(true);
+    setIsLoading((current) => tasks.length === 0 || current);
     try {
-      setTasks(await listTasks({ ownerId: OWNER_ID }));
+      const nextTasks = await listTasks({ ownerId: OWNER_ID });
+      writePageDataCache(OWNER_TASKS_CACHE_KEY, nextTasks);
+      setTasks(nextTasks);
     } catch (error) {
       const message = error instanceof Error ? error.message : '任务列表加载失败。';
 
-      setTasks([]);
+      if (tasks.length === 0) {
+        setTasks([]);
+      }
       if (!isTaskListBootstrapError(message)) {
         showErrorToast(message);
       }
@@ -1082,7 +1089,7 @@ export const TaskListPage = () => {
           </div>
         </div>
 
-        {isLoading ? (
+        {isLoading && tasks.length === 0 ? (
           <PageLoading title="正在加载任务列表" description="正在同步任务状态、题目数和发布信息。" />
         ) : (
           <TaskTable
@@ -2013,3 +2020,7 @@ const isDatasetRecordLike = (value: unknown): value is Record<string, unknown> =
 
 const formatRewardRule = (rewardPerItem: number | null): string | null =>
   rewardPerItem !== null ? `${rewardPerItem.toFixed(2)} 元 / 条` : null;
+
+function isTaskDtoArray(value: unknown): value is TaskDto[] {
+  return Array.isArray(value);
+}

@@ -9,6 +9,7 @@ import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
+import { readPageDataCache, writePageDataCache } from '../../utils/pageDataCache';
 import eyeIcon from '../../assets/eye.svg';
 import getIcon from '../../assets/get.svg';
 
@@ -44,14 +45,16 @@ const DATASET_KIND_LABELS: Record<MarketTaskDto['datasetKind'], string> = {
 
 const TASK_MARKET_FALLBACK_PAGE_SIZE = 7;
 const TASK_MARKET_TABLE_ROW_HEIGHT = 66;
+const TASK_MARKET_CACHE_KEY = `labelhub.labeler.market.${LABELER_ID}.v1`;
 
 export const TaskMarketPage = () => {
-  const [tasks, setTasks] = useState<MarketTaskDto[]>([]);
+  const cachedTasks = useMemo(() => readPageDataCache(TASK_MARKET_CACHE_KEY, isMarketTaskDtoArray), []);
+  const [tasks, setTasks] = useState<MarketTaskDto[]>(cachedTasks ?? []);
   const [keyword, setKeyword] = useState('');
   const [claimStatus, setClaimStatus] = useState<MarketClaimStatus | 'ALL'>('ALL');
   const [sortField, setSortField] = useState<TaskMarketSortField | null>(null);
   const [sortDirection, setSortDirection] = useState<TaskMarketSortDirection>('asc');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(cachedTasks === null);
   const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [previewTask, setPreviewTask] = useState<MarketTaskDto | null>(null);
@@ -144,16 +147,20 @@ export const TaskMarketPage = () => {
   }, [claimStatus, keyword, sortDirection, sortField]);
 
   const loadTasks = async () => {
-    setIsLoading(true);
+    setIsLoading((current) => tasks.length === 0 || current);
     try {
       const nextTasks = await listMarketTasks({
         labelerId: LABELER_ID,
       });
-      setTasks(nextTasks.filter(isVisibleMarketTask));
+      const visibleTasks = nextTasks.filter(isVisibleMarketTask);
+      writePageDataCache(TASK_MARKET_CACHE_KEY, visibleTasks);
+      setTasks(visibleTasks);
       setCurrentPage(1);
     } catch (error) {
-      setTasks([]);
-      setCurrentPage(1);
+      if (tasks.length === 0) {
+        setTasks([]);
+        setCurrentPage(1);
+      }
       showErrorToast(error instanceof Error ? error.message : '任务接口请求失败，请稍后重试。');
     } finally {
       setIsLoading(false);
@@ -229,7 +236,7 @@ export const TaskMarketPage = () => {
           </div>
         </div>
 
-        {isLoading ? (
+        {isLoading && tasks.length === 0 ? (
           <PageLoading title="正在加载任务广场" description="正在获取可领取任务和题目数。" />
         ) : (
           <>
@@ -764,3 +771,7 @@ const formatProgressPercent = (value: number): string => {
 
   return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
 };
+
+function isMarketTaskDtoArray(value: unknown): value is MarketTaskDto[] {
+  return Array.isArray(value);
+}

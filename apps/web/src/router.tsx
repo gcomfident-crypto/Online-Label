@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import { USER_ROLE } from '@labelhub/shared';
@@ -62,7 +62,7 @@ export const AppRouter = () => {
   return (
     <>
       <PageTitleSync />
-      <Suspense fallback={<PageLoading title="正在加载页面" description="正在准备当前页面资源。" />}>
+      <Suspense fallback={<DelayedRouteFallback />}>
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<LoginPage />} />
@@ -153,3 +153,21 @@ const OwnerTemplatesRoutePage = () => {
 
   return <TemplateDesignerPage onReturnTo={(path) => navigate(path)} />;
 };
+
+const DelayedRouteFallback = () => (
+  <DelayedFallback delay={450}>
+    <PageLoading title="正在加载页面" description="正在准备当前页面资源。" />
+  </DelayedFallback>
+);
+
+function DelayedFallback({ children, delay }: { children: ReactNode; delay: number }) {
+  const [shouldShow, setShouldShow] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShouldShow(true), delay);
+
+    return () => window.clearTimeout(timer);
+  }, [delay]);
+
+  return shouldShow ? children : null;
+}
