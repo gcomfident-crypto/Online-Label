@@ -418,9 +418,9 @@ export const WorkbenchPage = () => {
   );
   const currentTaskDisplayId = workbench
     ? taskIdentity?.displayId.trim() ||
-      workbenchNavigationState?.taskDisplayId?.trim() ||
-      workbench.assignment.taskId
-    : workbenchNavigationState?.taskDisplayId?.trim() || '';
+      resolveDisplayableTaskId(workbenchNavigationState?.taskDisplayId) ||
+      formatGeneratedTaskDisplayId(1)
+    : resolveDisplayableTaskId(workbenchNavigationState?.taskDisplayId) || '';
   const currentTaskTitle = workbench
     ? taskIdentity?.title.trim() ||
       workbenchNavigationState?.taskTitle?.trim() ||
@@ -1195,22 +1195,26 @@ const LabelerWorkbenchInfoPanel = ({
       <section className="labeler-info-section">
         <h2>本题历史</h2>
         <ol className="labeler-item-history" aria-label="本题历史列表">
-          {historyTimeline.rounds.map((round) => (
-            <li className="labeler-item-history__round" key={round.id}>
-              <div className="labeler-item-history__round-header">
-                <span>第 {round.round} 轮</span>
-                <small>{round.summary}</small>
-              </div>
-              <ol className="labeler-item-history__events" aria-label={`第 ${round.round} 轮历史`}>
-                {round.entries.map((entry) => (
-                  <li className={`labeler-item-history__row ${entry.className}`} key={entry.id}>
-                    <span>{entry.label}</span>
-                    <time dateTime={entry.dateTime}>{entry.timeText}</time>
-                  </li>
-                ))}
-              </ol>
-            </li>
-          ))}
+          {historyTimeline.rounds.length > 0 ? (
+            historyTimeline.rounds.map((round) => (
+              <li className="labeler-item-history__round" key={round.id}>
+                <div className="labeler-item-history__round-header">
+                  <span>第 {round.round} 轮</span>
+                  <small>{round.summary}</small>
+                </div>
+                <ol className="labeler-item-history__events" aria-label={`第 ${round.round} 轮历史`}>
+                  {round.entries.map((entry) => (
+                    <li className={`labeler-item-history__row ${entry.className}`} key={entry.id}>
+                      <span>{entry.label}</span>
+                      <time dateTime={entry.dateTime}>{entry.timeText}</time>
+                    </li>
+                  ))}
+                </ol>
+              </li>
+            ))
+          ) : (
+            <li className="labeler-item-history__empty">暂无本题流转记录</li>
+          )}
         </ol>
       </section>
 
@@ -2270,20 +2274,55 @@ function resolveWorkbenchTaskIdentity(
   taskAssignments: LabelerAssignmentDto[],
   navigationState: WorkbenchNavigationState | null,
 ): WorkbenchTaskIdentity {
-  const assignmentTaskTitle = taskAssignments.find(
+  const currentTaskAssignment = taskAssignments.find(
     (assignment) => assignment.taskId === workbench.assignment.taskId,
-  )?.taskTitle;
+  );
+  const assignmentTaskTitle = currentTaskAssignment?.taskTitle;
 
   return {
-    displayId:
-      navigationState?.taskDisplayId?.trim() ??
-      taskAssignments.find((assignment) => assignment.taskId === workbench.assignment.taskId)?.taskDisplayId ??
+    displayId: resolveWorkbenchTaskDisplayId(
       workbench.assignment.taskId,
+      [navigationState?.taskDisplayId, currentTaskAssignment?.taskDisplayId],
+      taskAssignments,
+    ),
     title:
       assignmentTaskTitle?.trim() ||
       navigationState?.taskTitle?.trim() ||
       workbench.task.title,
   };
+}
+
+const BUSINESS_TASK_DISPLAY_ID_PATTERN = /^T-\d+$/i;
+
+function resolveWorkbenchTaskDisplayId(
+  taskId: string,
+  candidates: Array<string | null | undefined>,
+  taskAssignments: LabelerAssignmentDto[],
+): string {
+  const displayId = candidates.map(resolveDisplayableTaskId).find((candidate): candidate is string => Boolean(candidate));
+
+  if (displayId) {
+    return displayId;
+  }
+
+  const uniqueTaskIds = [...new Set(taskAssignments.map((assignment) => assignment.taskId))].sort();
+  const taskIndex = uniqueTaskIds.indexOf(taskId);
+
+  return formatGeneratedTaskDisplayId(taskIndex >= 0 ? taskIndex + 1 : 1);
+}
+
+function resolveDisplayableTaskId(value: string | null | undefined): string | null {
+  const trimmedValue = value?.trim();
+
+  if (!trimmedValue || !BUSINESS_TASK_DISPLAY_ID_PATTERN.test(trimmedValue)) {
+    return null;
+  }
+
+  return trimmedValue.toUpperCase();
+}
+
+function formatGeneratedTaskDisplayId(sequence: number): string {
+  return `T-${sequence.toString().padStart(3, '0')}`;
 }
 
 function cacheWorkbenchSnapshot<TWorkbench extends WorkbenchDto>(

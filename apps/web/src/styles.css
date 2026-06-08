@@ -16009,7 +16009,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .labeler-item-history {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-auto-rows: max-content;
   align-content: start;
   align-items: start;
@@ -16020,12 +16020,12 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .labeler-item-history__round {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   align-self: start;
-  border: 1px solid #e6eaf2;
-  border-radius: 10px;
-  padding: 9px 10px 8px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  position: relative;
+  border-left: 1px solid #dbe4f0;
+  padding: 0 0 2px 14px;
+  background: transparent;
 }
 
 .labeler-item-history__round-header {
@@ -16036,30 +16036,27 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .labeler-item-history__round-header span {
-  border-radius: 7px;
-  background: #eef4ff;
-  padding: 4px 8px;
-  color: #334155;
-  font-size: 13px;
+  color: #0f172a;
+  font-size: 16px;
   font-weight: 900;
   line-height: 1.2;
 }
 
 .labeler-item-history__round-header small {
   color: #64748b;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   white-space: nowrap;
 }
 
 .labeler-item-history__events {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   grid-auto-rows: max-content;
   align-content: start;
   align-items: start;
   margin: 0;
-  padding: 1px 0 0;
+  padding: 0;
   list-style: none;
 }
 
@@ -16069,10 +16066,10 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   align-items: center;
   gap: 8px;
   position: relative;
-  border-radius: 8px;
-  padding: 6px 6px 6px 18px;
+  border-radius: 7px;
+  padding: 5px 6px 5px 16px;
   color: #64748b;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -16083,11 +16080,12 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .labeler-item-history__row::before {
   content: '';
   position: absolute;
-  left: 7px;
+  left: 3px;
   top: 50%;
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
+  box-shadow: 0 0 0 3px #ffffff;
   background: #cbd5e1;
   transform: translateY(-50%);
 }
@@ -16113,10 +16111,23 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .labeler-item-history__row time {
   color: #94a3b8;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
+}
+
+.labeler-item-history__empty {
+  display: grid;
+  place-items: center;
+  min-height: 92px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 800;
+  list-style: none;
 }
 
 .labeler-shortcut-list {

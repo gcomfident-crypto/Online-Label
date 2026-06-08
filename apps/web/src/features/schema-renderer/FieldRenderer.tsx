@@ -1,4 +1,4 @@
-import { Suspense, lazy, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { MultiChoiceField, RadioField, TagSelectField } from './fields/ChoiceField';
 import { FileUploadField } from './fields/FileUploadField';
@@ -90,9 +90,11 @@ export const FieldRenderer = (props: FieldRendererProps) => {
       break;
     case 'rich_text':
       fieldElement = (
-        <Suspense fallback={<DeferredEditorFallback label={field.label} meta="富文本编辑器" />}>
-          <LazyRichTextField {...fieldProps} />
-        </Suspense>
+        <ViewportDeferredEditor label={field.label} meta="富文本编辑器">
+          <Suspense fallback={<DeferredEditorFallback label={field.label} meta="富文本编辑器" />}>
+            <LazyRichTextField {...fieldProps} />
+          </Suspense>
+        </ViewportDeferredEditor>
       );
       break;
     case 'file_upload':
@@ -103,9 +105,11 @@ export const FieldRenderer = (props: FieldRendererProps) => {
       break;
     case 'json_editor':
       fieldElement = (
-        <Suspense fallback={<DeferredEditorFallback label={field.label} meta="JSON 编辑器" />}>
-          <LazyJsonEditorField {...fieldProps} />
-        </Suspense>
+        <ViewportDeferredEditor label={field.label} meta="JSON 编辑器">
+          <Suspense fallback={<DeferredEditorFallback label={field.label} meta="JSON 编辑器" />}>
+            <LazyJsonEditorField {...fieldProps} />
+          </Suspense>
+        </ViewportDeferredEditor>
       );
       break;
     case 'group':
@@ -158,6 +162,52 @@ export const FieldRenderer = (props: FieldRendererProps) => {
           ))}
         </ul>
       ) : null}
+    </div>
+  );
+};
+
+const ViewportDeferredEditor = ({
+  children,
+  label,
+  meta,
+}: {
+  children: ReactNode;
+  label: string;
+  meta: string;
+}) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [shouldLoad, setShouldLoad] = useState(() => typeof window !== 'undefined' && !('IntersectionObserver' in window));
+
+  useEffect(() => {
+    if (shouldLoad) {
+      return;
+    }
+
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+      setShouldLoad(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoad(true);
+        }
+      },
+      { rootMargin: '160px 0px' },
+    );
+    const element = containerRef.current;
+
+    if (element) {
+      observer.observe(element);
+    }
+
+    return () => observer.disconnect();
+  }, [shouldLoad]);
+
+  return (
+    <div ref={containerRef}>
+      {shouldLoad ? children : <DeferredEditorFallback label={label} meta={meta} />}
     </div>
   );
 };
