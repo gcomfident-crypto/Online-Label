@@ -678,16 +678,18 @@ describe('global styles', () => {
     expect(styles).toContain('margin-left: 80px;');
   });
 
-  it('登录页使用 back.png 作为页面背景图', () => {
+  it('登录页使用 CSS 渐变背景，避免加载大背景图', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const loginPageRule = styles.match(/\.login-page\s*\{[^}]+\}/)?.[0] ?? '';
 
-    expect(loginPageRule).toContain("url('./assets/back.png')");
+    expect(loginPageRule).not.toContain("url('./assets/back.png')");
+    expect(loginPageRule).toContain('radial-gradient(circle at 18% 18%');
+    expect(loginPageRule).toContain('linear-gradient(135deg, #f8faff 0%, #f3f7ff 52%, #eef7fa 100%);');
     expect(loginPageRule).toContain('background-size: cover;');
     expect(loginPageRule).toContain('background-position: center;');
   });
 
-  it('登录页顶部品牌图标使用放大的横向 Logo', () => {
+  it('登录页顶部品牌使用轻量横向文字 Logo', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const lockupRule = styles.match(/\.login-brand-lockup\s*\{[^}]+\}/)?.[0] ?? '';
     const logoRule = styles.match(/\.login-brand-lockup__mark\s*\{[^}]+\}/)?.[0] ?? '';
@@ -696,7 +698,9 @@ describe('global styles', () => {
     expect(lockupRule).toContain('width: 100%;');
     expect(lockupRule).not.toContain('width: fit-content;');
     expect(logoRule).toContain('width: min(470px, 100%);');
-    expect(logoRule).toContain('height: auto;');
+    expect(logoRule).toContain('display: inline-flex;');
+    expect(logoRule).toContain('font-size: clamp(52px, 8vw, 92px);');
+    expect(logoRule).not.toContain('object-fit: contain;');
     expect(logoRule).not.toContain('width: 34px;');
     expect(logoRule).not.toContain('height: 34px;');
   });
