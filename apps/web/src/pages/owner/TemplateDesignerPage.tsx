@@ -52,6 +52,7 @@ import {
   type MaterialSpec,
 } from '../../features/template-designer/templateStore';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
+import { readPageDataCache, writePageDataCache } from '../../utils/pageDataCache';
 import versionIcon from '../../assets/version.svg';
 import { createAutoShowItemTemplateSchema } from './autoShowItemTemplate';
 import { DatasetPreviewModal } from './components/DatasetPreviewModal';
@@ -77,6 +78,7 @@ const DESIGNER_PREVIEW_RAW_DATA = {
 };
 
 const OWNER_ID = 'user_owner_zhang_man';
+const OWNER_TEMPLATES_CACHE_KEY = `labelhub.owner.templates.${OWNER_ID}.v1`;
 const DESIGNER_CANVAS_AUTOSCROLL_EDGE = 72;
 const DESIGNER_CANVAS_AUTOSCROLL_MAX_STEP = 22;
 
@@ -767,13 +769,14 @@ const createDesignerPreviewItems = (
 
 export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps = {}) => {
   const [routeTemplateTarget] = useState(resolveInitialTemplateOpenTarget);
-  const [templates, setTemplates] = useState<TemplateDto[]>([]);
+  const cachedTemplates = useMemo(() => readPageDataCache(OWNER_TEMPLATES_CACHE_KEY, isTemplateDtoArray), []);
+  const [templates, setTemplates] = useState<TemplateDto[]>(cachedTemplates ?? []);
   const [templateSearchKeyword, setTemplateSearchKeyword] = useState('');
   const [templateStatusFilter, setTemplateStatusFilter] = useState<TemplateStatusFilter>('ALL');
   const [currentTemplatePage, setCurrentTemplatePage] = useState(1);
   const [templateSortField, setTemplateSortField] = useState<TemplateSortField | null>(null);
   const [templateSortDirection, setTemplateSortDirection] = useState<TemplateSortDirection>('asc');
-  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(cachedTemplates === null);
   const [isDesignerOpen, setIsDesignerOpen] = useState(false);
   const [isDesignerClosing, setIsDesignerClosing] = useState(false);
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
@@ -992,7 +995,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
     let isMounted = true;
 
     readPersistedDesignerDraft();
-    setIsLoadingTemplates(true);
+    setIsLoadingTemplates((current) => current && templates.length === 0);
 
     void listTemplates()
       .then((nextTemplates) => {
@@ -1000,6 +1003,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
           return;
         }
 
+        writePageDataCache(OWNER_TEMPLATES_CACHE_KEY, nextTemplates);
         setTemplates(nextTemplates);
       })
       .catch(() => {
@@ -1007,7 +1011,9 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
           return;
         }
 
-        setTemplates([]);
+        if (templates.length === 0) {
+          setTemplates([]);
+        }
       })
       .finally(() => {
         if (isMounted) {
@@ -2455,7 +2461,7 @@ export const TemplateDesignerPage = ({ onReturnTo }: TemplateDesignerPageProps =
                   </td>
                 </tr>
               ))}
-              {isLoadingTemplates ? (
+              {isLoadingTemplates && templates.length === 0 ? (
                 <tr>
                   <td colSpan={8}>
                     <p className="template-manager-list-message">模板列表加载中...</p>
@@ -3021,6 +3027,10 @@ const templateStatusTagStyles = {
     '--status-bg-color': '#FFF7E6',
   },
 } satisfies Record<TemplateDto['status'], TemplateStatusTagStyle>;
+
+function isTemplateDtoArray(value: unknown): value is TemplateDto[] {
+  return Array.isArray(value);
+}
 
 const TemplateStatusTag = ({
   label,

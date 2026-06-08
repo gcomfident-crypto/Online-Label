@@ -9,6 +9,11 @@ import { AgentPortalLayout } from './layouts/AgentPortalLayout';
 import { LabelerPortalLayout } from './layouts/LabelerPortalLayout';
 import { OwnerPortalLayout } from './layouts/OwnerPortalLayout';
 import { ReviewerPortalLayout } from './layouts/ReviewerPortalLayout';
+import {
+  loadExportCenterPage,
+  loadOwnerTasksPage,
+  loadTemplateDesignerPage,
+} from './utils/ownerRoutePreload';
 import { resolvePagePathTitle, resolvePageTabTitle } from './utils/routePathTitle';
 
 const LoginPage = lazy(() => import('./pages/LoginPage').then(({ LoginPage }) => ({ default: LoginPage })));
@@ -20,24 +25,18 @@ const RendererPlaygroundPage = lazy(() =>
     default: RendererPlaygroundPage,
   })),
 );
-const OwnerTasksPage = lazy(() =>
-  import('./pages/owner/OwnerTasksPage').then(({ OwnerTasksPage }) => ({ default: OwnerTasksPage })),
-);
+const OwnerTasksPage = lazy(loadOwnerTasksPage);
 const TaskDetailPage = lazy(() =>
   import('./pages/owner/TaskDetailPage').then(({ TaskDetailPage }) => ({ default: TaskDetailPage })),
 );
 const DatasetImportPage = lazy(() =>
   import('./pages/owner/DatasetImportPage').then(({ DatasetImportPage }) => ({ default: DatasetImportPage })),
 );
-const TemplateDesignerPage = lazy(() =>
-  import('./pages/owner/TemplateDesignerPage').then(({ TemplateDesignerPage }) => ({ default: TemplateDesignerPage })),
-);
+const TemplateDesignerPage = lazy(loadTemplateDesignerPage);
 const AiRuleConfigPage = lazy(() =>
   import('./pages/owner/AiRuleConfigPage').then(({ AiRuleConfigPage }) => ({ default: AiRuleConfigPage })),
 );
-const ExportCenterPage = lazy(() =>
-  import('./pages/owner/ExportCenterPage').then(({ ExportCenterPage }) => ({ default: ExportCenterPage })),
-);
+const ExportCenterPage = lazy(loadExportCenterPage);
 const LabelerMarketPage = lazy(() =>
   import('./pages/labeler/LabelerMarketPage').then(({ LabelerMarketPage }) => ({ default: LabelerMarketPage })),
 );

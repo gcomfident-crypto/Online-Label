@@ -17,12 +17,14 @@ import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
+import { readPageDataCache, writePageDataCache } from '../../utils/pageDataCache';
 import { DatasetPreviewModal } from './components/DatasetPreviewModal';
 import { createTaskDisplayIdMap, taskCreatedAtTimestamp } from './taskDisplayId';
 
 const OWNER_ID = 'user_owner_zhang_man';
 const EXPORT_TASKS_FALLBACK_PAGE_SIZE = 8;
 const EXPORT_TASK_TABLE_ROW_HEIGHT = 66;
+const OWNER_EXPORT_TASKS_CACHE_KEY = `labelhub.owner.exports.${OWNER_ID}.v1`;
 const EXPORT_FORMAT_OPTIONS: Array<{ label: string; value: ExportFormat }> = [
   { label: 'XLSX', value: 'xlsx' },
   { label: 'CSV', value: 'csv' },
@@ -34,7 +36,8 @@ type ExportTaskSortField = 'taskId' | 'createdAt' | 'endedAt';
 type ExportTaskSortDirection = 'asc' | 'desc';
 
 export const ExportCenterPage = () => {
-  const [tasks, setTasks] = useState<TaskDto[]>([]);
+  const cachedTasks = useMemo(() => readPageDataCache(OWNER_EXPORT_TASKS_CACHE_KEY, isTaskDtoArray), []);
+  const [tasks, setTasks] = useState<TaskDto[]>(cachedTasks ?? []);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [pendingExportTaskIds, setPendingExportTaskIds] = useState<string[]>([]);
   const [selectedExportFormat, setSelectedExportFormat] = useState<ExportFormat>('xlsx');
@@ -43,7 +46,7 @@ export const ExportCenterPage = () => {
   const [exportTaskSortDirection, setExportTaskSortDirection] = useState<ExportTaskSortDirection>('asc');
   const [previewDialog, setPreviewDialog] = useState<ExportPreviewDialogState | null>(null);
   const [previewingTaskId, setPreviewingTaskId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(cachedTasks === null);
   const [isBusy, setIsBusy] = useState(false);
   const [currentExportTaskPage, setCurrentExportTaskPage] = useState(1);
   const { dismissToast, messages, showErrorToast, showStatusToast } = useToastController();
@@ -124,12 +127,15 @@ export const ExportCenterPage = () => {
   }, [exportableTasks]);
 
   const loadInitialData = async () => {
-    setIsLoading(true);
+    setIsLoading((current) => current && tasks.length === 0);
     try {
       const nextTasks = await listTasks();
+      writePageDataCache(OWNER_EXPORT_TASKS_CACHE_KEY, nextTasks);
       setTasks(nextTasks);
     } catch {
-      setTasks([]);
+      if (tasks.length === 0) {
+        setTasks([]);
+      }
       showErrorToast('导出中心加载失败，请稍后重试。');
     } finally {
       setIsLoading(false);
@@ -255,11 +261,11 @@ export const ExportCenterPage = () => {
         </p>
       </div>
 
-      {isLoading ? (
+      {isLoading && tasks.length === 0 ? (
         <PageLoading title="正在加载导出中心" description="正在同步可导出任务和预览字段映射。" />
       ) : null}
 
-      {!isLoading ? (
+      {!isLoading || tasks.length > 0 ? (
         <div className="export-center-workspace export-center-workspace--table-only">
           <section className="export-records-section" aria-label="导出记录">
             <ExportableTaskTable
@@ -332,6 +338,10 @@ const formatExportPreviewDescription = (previewDialog: ExportPreviewDialogState)
 
   return `${previewDialog.taskDisplayId} · 完整可导出 ${previewDialog.totalFinalApproved.toLocaleString()} 条 · ${previewScope}`;
 };
+
+function isTaskDtoArray(value: unknown): value is TaskDto[] {
+  return Array.isArray(value);
+}
 
 type ExportableTaskTableProps = {
   currentPage: number;

@@ -147,7 +147,7 @@ export const TaskMarketPage = () => {
   }, [claimStatus, keyword, sortDirection, sortField]);
 
   const loadTasks = async () => {
-    setIsLoading((current) => tasks.length === 0 || current);
+    setIsLoading((current) => current && tasks.length === 0);
     try {
       const nextTasks = await listMarketTasks({
         labelerId: LABELER_ID,

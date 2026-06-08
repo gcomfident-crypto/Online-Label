@@ -3,12 +3,19 @@ type CachedPageData<TData> = {
   savedAt: string;
 };
 
-export function readPageDataCache<TData>(key: string, isData: (value: unknown) => value is TData): TData | null {
+type PageDataCacheScope = 'local' | 'session';
+
+export function readPageDataCache<TData>(
+  key: string,
+  isData: (value: unknown) => value is TData,
+  scope: PageDataCacheScope = 'local',
+): TData | null {
   if (typeof window === 'undefined') {
     return null;
   }
 
-  const rawValue = window.sessionStorage.getItem(key);
+  const storage = getPageDataStorage(scope);
+  const rawValue = storage.getItem(key);
   if (!rawValue) {
     return null;
   }
@@ -22,16 +29,24 @@ export function readPageDataCache<TData>(key: string, isData: (value: unknown) =
   return parsed.data;
 }
 
-export function writePageDataCache<TData>(key: string, data: TData) {
+export function writePageDataCache<TData>(
+  key: string,
+  data: TData,
+  scope: PageDataCacheScope = 'local',
+) {
   if (typeof window === 'undefined') {
     return;
   }
 
-  window.sessionStorage.setItem(
+  getPageDataStorage(scope).setItem(
     key,
     JSON.stringify({
       data,
       savedAt: new Date().toISOString(),
     } satisfies CachedPageData<TData>),
   );
+}
+
+function getPageDataStorage(scope: PageDataCacheScope) {
+  return scope === 'local' ? window.localStorage : window.sessionStorage;
 }

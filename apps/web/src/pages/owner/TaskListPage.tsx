@@ -174,7 +174,7 @@ export const TaskListPage = () => {
   }, []);
 
   const loadTasks = async () => {
-    setIsLoading((current) => tasks.length === 0 || current);
+    setIsLoading((current) => current && tasks.length === 0);
     try {
       const nextTasks = await listTasks({ ownerId: OWNER_ID });
       writePageDataCache(OWNER_TASKS_CACHE_KEY, nextTasks);

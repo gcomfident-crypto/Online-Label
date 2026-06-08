@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import exportIcon from '../assets/export.svg';
 import modelIcon from '../assets/model.svg';
@@ -7,6 +7,7 @@ import { DemoDataBanner } from '../components/DemoDataBanner';
 import { PortalPageTransitionOutlet } from './PortalPageTransitionOutlet';
 import { PortalSidebar } from './PortalSidebar';
 import { PortalTopbar } from './PortalTopbar';
+import { prefetchOwnerPortalRoutes } from '../utils/ownerRoutePreload';
 
 const OWNER_NAV_ITEMS = [
   {
@@ -34,6 +35,12 @@ const OWNER_NAV_ITEMS = [
 
 export const OwnerPortalLayout = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const prefetchTimer = window.setTimeout(prefetchOwnerPortalRoutes, 80);
+
+    return () => window.clearTimeout(prefetchTimer);
+  }, []);
 
   return (
     <div
