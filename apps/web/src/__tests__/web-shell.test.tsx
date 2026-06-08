@@ -64,7 +64,12 @@ describe('Web 壳 smoke test', () => {
     expect(screen.queryByText('Intelligent Annotation Platform')).not.toBeInTheDocument();
     expect(screen.getByLabelText('账号')).toBeInTheDocument();
     expect(screen.getByLabelText('密码')).toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: '登录身份' })).not.toBeInTheDocument();
+    const roleCombobox = screen.getByRole('combobox', { name: '登录身份' });
+    expect(roleCombobox).toBeInTheDocument();
+    expect(roleCombobox).toHaveAttribute('aria-expanded', 'false');
+    expect(container.querySelector('.login-role-trigger__cue')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('3D 数据流动画')).not.toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'LabelHub 平台能力总览' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '登录平台' })).toBeInTheDocument();
     expect(screen.getByText('记住登录状态')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: '记住登录状态' })).not.toBeChecked();
@@ -73,17 +78,39 @@ describe('Web 壳 smoke test', () => {
 
     await user.click(screen.getByRole('button', { name: '登录平台' }));
     expect(screen.getByText('请输入账号和密码')).toBeInTheDocument();
+
+    await user.click(roleCombobox);
+    expect(roleCombobox).toHaveAttribute('aria-expanded', 'true');
+    await user.click(screen.getByRole('option', { name: 'AI Agent 质检' }));
+    expect(roleCombobox).toHaveTextContent('AI Agent 质检');
+    expect(roleCombobox).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('输入未注册账号提示账号不存在', async () => {
+  it('角色下拉与账号不匹配时拒绝登录', async () => {
     const user = userEvent.setup();
     renderRoute('/login');
 
-    await user.type(screen.getByLabelText('账号'), 'unknown');
+    // 选择 Owner 身份，但输入 labeler 账号
+    await user.click(screen.getByRole('combobox', { name: '登录身份' }));
+    await user.click(screen.getByRole('option', { name: 'Owner 任务负责人' }));
+    await user.type(screen.getByLabelText('账号'), 'lilei');
     await user.type(screen.getByLabelText('密码'), '123456');
     await user.click(screen.getByRole('button', { name: '登录平台' }));
 
-    expect(screen.getByText('账号不存在，请输入有效的演示账号。')).toBeInTheDocument();
+    expect(screen.getByText('账号「lilei」不是Owner 任务负责人，请检查身份选择。')).toBeInTheDocument();
+  });
+
+  it('角色下拉与账号匹配时正常登录', async () => {
+    const user = userEvent.setup();
+    renderRoute('/login');
+
+    await user.click(screen.getByRole('combobox', { name: '登录身份' }));
+    await user.click(screen.getByRole('option', { name: 'Labeler 标注员' }));
+    await user.type(screen.getByLabelText('账号'), 'lilei');
+    await user.type(screen.getByLabelText('密码'), '123456');
+    await user.click(screen.getByRole('button', { name: '登录平台' }));
+
+    expect(await screen.findByRole('navigation', { name: 'Labeler 端导航' })).toBeInTheDocument();
   });
 
   it('根路径不会复用历史 Agent 会话自动进入 Agent 页面', () => {
@@ -334,13 +361,18 @@ describe('Web 路由守卫', () => {
   });
 
   it.each([
-    { role: USER_ROLE.OWNER, account: 'zhangman' },
-    { role: USER_ROLE.LABELER, account: 'lilei' },
-    { role: USER_ROLE.AI_AGENT, account: 'agent' },
-    { role: USER_ROLE.REVIEWER, account: 'wangfang' },
-  ])('登录 $role 后按角色默认首页跳转', async ({ role, account }) => {
+    { role: USER_ROLE.OWNER, account: 'zhangman', roleLabel: 'Owner 任务负责人' },
+    { role: USER_ROLE.LABELER, account: 'lilei', roleLabel: 'Labeler 标注员' },
+    { role: USER_ROLE.AI_AGENT, account: 'agent', roleLabel: 'AI Agent 质检' },
+    { role: USER_ROLE.REVIEWER, account: 'wangfang', roleLabel: 'Reviewer 审核员' },
+  ])('登录 $role 后按角色默认首页跳转', async ({ role, account, roleLabel }) => {
     const user = userEvent.setup();
     renderRoute('/login');
+
+    // 先选择匹配的角色
+    const roleCombobox = screen.getByRole('combobox', { name: '登录身份' });
+    await user.click(roleCombobox);
+    await user.click(screen.getByRole('option', { name: roleLabel }));
 
     await user.type(screen.getByLabelText('账号'), account);
     await user.type(screen.getByLabelText('密码'), '123456');
@@ -372,6 +404,11 @@ describe('Web 路由守卫', () => {
 
     await user.type(screen.getByLabelText('账号'), 'lilei');
     await user.type(screen.getByLabelText('密码'), '123456');
+
+    // 选择匹配的 Labeler 角色
+    await user.click(screen.getByRole('combobox', { name: '登录身份' }));
+    await user.click(screen.getByRole('option', { name: 'Labeler 标注员' }));
+
     await user.click(screen.getByRole('checkbox', { name: '记住登录状态' }));
     await user.click(screen.getByRole('button', { name: '登录平台' }));
 
