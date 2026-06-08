@@ -21,12 +21,14 @@ export type MockUser = {
 };
 
 const ACCOUNT_ROLE_MAP: Record<string, UserRole> = {
+  zhangman: USER_ROLE.OWNER,
   owner: USER_ROLE.OWNER,
+  lilei: USER_ROLE.LABELER,
   labeler: USER_ROLE.LABELER,
-  labeler1: USER_ROLE.LABELER,
+  hanmeimei: USER_ROLE.LABELER,
   labeler2: USER_ROLE.LABELER,
-  ai_agent: USER_ROLE.AI_AGENT,
   agent: USER_ROLE.AI_AGENT,
+  wangfang: USER_ROLE.REVIEWER,
   reviewer: USER_ROLE.REVIEWER,
 };
 
@@ -38,12 +40,14 @@ const ROLE_NAMES: Record<UserRole, string> = {
 };
 
 const ACCOUNT_USERS: Record<string, Pick<MockUser, 'id' | 'name' | 'role'>> = {
+  zhangman: { id: 'mock-owner', name: '张满', role: USER_ROLE.OWNER },
   owner: { id: 'mock-owner', name: '张满', role: USER_ROLE.OWNER },
+  lilei: { id: 'mock-labeler-li-lei', name: '李雷', role: USER_ROLE.LABELER },
   labeler: { id: 'mock-labeler-li-lei', name: '李雷', role: USER_ROLE.LABELER },
-  labeler1: { id: 'mock-labeler-li-lei', name: '李雷', role: USER_ROLE.LABELER },
+  hanmeimei: { id: 'mock-labeler-han-mei-mei', name: '韩梅梅', role: USER_ROLE.LABELER },
   labeler2: { id: 'mock-labeler-han-mei-mei', name: '韩梅梅', role: USER_ROLE.LABELER },
   agent: { id: 'mock-ai_agent', name: '系统机审账号', role: USER_ROLE.AI_AGENT },
-  ai_agent: { id: 'mock-ai_agent', name: '系统机审账号', role: USER_ROLE.AI_AGENT },
+  wangfang: { id: 'mock-reviewer', name: '王芳', role: USER_ROLE.REVIEWER },
   reviewer: { id: 'mock-reviewer', name: '王芳', role: USER_ROLE.REVIEWER },
 };
 

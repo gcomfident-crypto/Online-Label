@@ -61,7 +61,7 @@ describe('LabelHub API shell', () => {
   it('logs in the second labeler demo account', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ account: 'labeler2', password: '123456' })
+      .send({ account: 'hanmeimei', password: '123456' })
       .expect(201);
 
     expect(response.body.data.user).toEqual({
