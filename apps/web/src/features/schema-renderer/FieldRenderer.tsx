@@ -1,12 +1,10 @@
-import type { ReactNode } from 'react';
+import { Suspense, lazy, type ReactNode } from 'react';
 
 import { MultiChoiceField, RadioField, TagSelectField } from './fields/ChoiceField';
 import { FileUploadField } from './fields/FileUploadField';
 import { GroupField } from './fields/GroupField';
 import { ImageUploadField } from './fields/ImageUploadField';
-import { JsonEditorField } from './fields/JsonEditorField';
 import { LlmAssistField } from './fields/LlmAssistField';
-import { RichTextField } from './fields/RichTextField';
 import { ShowItemField } from './fields/ShowItemField';
 import { TabsField } from './fields/TabsField';
 import { TextareaField } from './fields/TextareaField';
@@ -14,6 +12,13 @@ import { TextField } from './fields/TextField';
 import { UnsupportedField } from './fields/UnsupportedField';
 import type { FieldRendererProps } from './types';
 import { getSchemaFieldKey } from './types';
+
+const LazyJsonEditorField = lazy(() =>
+  import('./fields/JsonEditorField').then(({ JsonEditorField }) => ({ default: JsonEditorField })),
+);
+const LazyRichTextField = lazy(() =>
+  import('./fields/RichTextField').then(({ RichTextField }) => ({ default: RichTextField })),
+);
 
 const withAllowedOptions = (
   field: FieldRendererProps['field'],
@@ -84,7 +89,11 @@ export const FieldRenderer = (props: FieldRendererProps) => {
       fieldElement = <TagSelectField {...fieldProps} />;
       break;
     case 'rich_text':
-      fieldElement = <RichTextField {...fieldProps} />;
+      fieldElement = (
+        <Suspense fallback={<DeferredEditorFallback label={field.label} meta="富文本编辑器" />}>
+          <LazyRichTextField {...fieldProps} />
+        </Suspense>
+      );
       break;
     case 'file_upload':
       fieldElement = <FileUploadField {...fieldProps} />;
@@ -93,7 +102,11 @@ export const FieldRenderer = (props: FieldRendererProps) => {
       fieldElement = <ImageUploadField {...fieldProps} />;
       break;
     case 'json_editor':
-      fieldElement = <JsonEditorField {...fieldProps} />;
+      fieldElement = (
+        <Suspense fallback={<DeferredEditorFallback label={field.label} meta="JSON 编辑器" />}>
+          <LazyJsonEditorField {...fieldProps} />
+        </Suspense>
+      );
       break;
     case 'group':
       fieldElement = <GroupField {...fieldProps} />;
@@ -148,3 +161,14 @@ export const FieldRenderer = (props: FieldRendererProps) => {
     </div>
   );
 };
+
+const DeferredEditorFallback = ({ label, meta }: { label: string; meta: string }) => (
+  <section className="schema-field" aria-busy="true" aria-label={`${label}${meta}加载中`}>
+    <div className="schema-field__title-row">
+      <div>
+        <span className="schema-field__label">{label}</span>
+        <span className="schema-field__meta">{meta}</span>
+      </div>
+    </div>
+  </section>
+);

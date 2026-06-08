@@ -1920,7 +1920,7 @@ describe('SchemaRenderer', () => {
 
     render(<ControlledRenderer />);
 
-    expect(screen.getByText('富文本')).toBeInTheDocument();
+    expect(await screen.findByText('富文本')).toBeInTheDocument();
     const editor = await screen.findByLabelText('正文');
     expect(editor).toHaveAttribute('contenteditable', 'true');
     expect(editor).toHaveTextContent('已有内容');
@@ -2092,7 +2092,7 @@ describe('SchemaRenderer', () => {
 
     render(<ControlledRenderer />);
 
-    const input = screen.getByLabelText('JSON');
+    const input = await screen.findByLabelText('JSON');
 
     await user.click(input);
     await user.paste('{"ok":true}');
@@ -2114,7 +2114,7 @@ describe('SchemaRenderer', () => {
       />,
     );
 
-    await user.type(screen.getByLabelText('JSON'), 'x');
+    await user.type(await screen.findByLabelText('JSON'), 'x');
 
     expect(screen.getByRole('alert')).toHaveTextContent('JSON 格式不合法');
     expect(onChange).not.toHaveBeenCalled();
@@ -2150,7 +2150,7 @@ describe('SchemaRenderer', () => {
 
     await user.click(screen.getByRole('button', { name: '加载 JSON' }));
 
-    const input = screen.getByLabelText('JSON');
+    const input = await screen.findByLabelText('JSON');
 
     expect(input).toHaveValue('{\n  "ok": true\n}');
 
@@ -2189,7 +2189,7 @@ describe('SchemaRenderer', () => {
 
     render(<ControlledRenderer />);
 
-    const input = screen.getByLabelText('JSON');
+    const input = await screen.findByLabelText('JSON');
 
     await user.type(input, 'x');
 
@@ -2261,7 +2261,7 @@ describe('SchemaRenderer', () => {
     const richText = await screen.findByLabelText('正文');
     const fileUpload = screen.getByLabelText('附件');
     const imageUpload = screen.getByLabelText('图片');
-    const jsonEditor = screen.getByRole('group', { name: 'JSON 编辑器' });
+    const jsonEditor = await screen.findByRole('group', { name: 'JSON 编辑器' });
 
     expect(richText).toHaveAttribute('aria-disabled', 'true');
     expect(richText).toHaveAttribute('contenteditable', 'false');
