@@ -50,7 +50,7 @@ paths:
                   $ref: "#/components/schemas/UserRole"
                 account:
                   type: string
-                  enum: [owner, labeler, ai_agent, agent, reviewer]
+                  enum: [owner, labeler, labeler1, labeler2, ai_agent, agent, reviewer]
       responses:
         "201":
           description: 返回 mock token 和角色首页

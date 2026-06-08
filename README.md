@@ -117,12 +117,13 @@ pnpm --filter @labelhub/worker dev
 
 登录页可直接选择演示账号，无需密码。
 
-| 角色 | API role | 默认首页 |
-| --- | --- | --- |
-| 任务负责人 | `OWNER` | `/owner/tasks` |
-| 标注员 | `LABELER` | `/labeler/market` |
-| AI Agent | `AI_AGENT` | `/agent/ai-review` |
-| 人工审核员 | `REVIEWER` | `/reviewer/reviews` |
+| 账号 | 角色 | API role | 默认首页 |
+| --- | --- | --- | --- |
+| `owner` | 任务负责人 | `OWNER` | `/owner/tasks` |
+| `labeler` / `labeler1` | 标注员李雷 | `LABELER` | `/labeler/market` |
+| `labeler2` | 标注员韩梅梅 | `LABELER` | `/labeler/market` |
+| `agent` / `ai_agent` | AI Agent | `AI_AGENT` | `/agent/ai-review` |
+| `reviewer` | 人工审核员 | `REVIEWER` | `/reviewer/reviews` |
 
 API 登录示例：
 

@@ -7,7 +7,7 @@ describe('buildSeedData', () => {
     const first = buildSeedData();
     const second = buildSeedData();
 
-    expect(first.users).toHaveLength(4);
+    expect(first.users).toHaveLength(5);
     expect(first.users).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -18,6 +18,11 @@ describe('buildSeedData', () => {
         expect.objectContaining({
           id: 'user_labeler_li_lei',
           name: '李雷',
+          role: 'LABELER',
+        }),
+        expect.objectContaining({
+          id: 'user_labeler_han_mei_mei',
+          name: '韩梅梅',
           role: 'LABELER',
         }),
         expect.objectContaining({

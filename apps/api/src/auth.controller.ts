@@ -22,6 +22,8 @@ export type MockUser = {
 const ACCOUNT_ROLE_MAP: Record<string, UserRole> = {
   owner: USER_ROLE.OWNER,
   labeler: USER_ROLE.LABELER,
+  labeler1: USER_ROLE.LABELER,
+  labeler2: USER_ROLE.LABELER,
   ai_agent: USER_ROLE.AI_AGENT,
   agent: USER_ROLE.AI_AGENT,
   reviewer: USER_ROLE.REVIEWER,
@@ -32,6 +34,16 @@ const ROLE_NAMES: Record<UserRole, string> = {
   LABELER: '演示标注员',
   AI_AGENT: '演示 AI Agent',
   REVIEWER: '演示审核员',
+};
+
+const ACCOUNT_USERS: Record<string, Pick<MockUser, 'id' | 'name' | 'role'>> = {
+  owner: { id: 'mock-owner', name: '张满', role: USER_ROLE.OWNER },
+  labeler: { id: 'mock-labeler-li-lei', name: '李雷', role: USER_ROLE.LABELER },
+  labeler1: { id: 'mock-labeler-li-lei', name: '李雷', role: USER_ROLE.LABELER },
+  labeler2: { id: 'mock-labeler-han-mei-mei', name: '韩梅梅', role: USER_ROLE.LABELER },
+  agent: { id: 'mock-ai_agent', name: '系统机审账号', role: USER_ROLE.AI_AGENT },
+  ai_agent: { id: 'mock-ai_agent', name: '系统机审账号', role: USER_ROLE.AI_AGENT },
+  reviewer: { id: 'mock-reviewer', name: '王芳', role: USER_ROLE.REVIEWER },
 };
 
 @Controller('auth')
@@ -49,12 +61,20 @@ export class AuthController {
 
     return {
       token: createMockToken(role),
-      user: createMockUser(role),
+      user: createMockUser(role, body.account),
     };
   }
 }
 
-export function createMockUser(role: UserRole): MockUser {
+export function createMockUser(role: UserRole, account?: string): MockUser {
+  const accountUser = resolveAccountUser(account);
+  if (accountUser?.role === role) {
+    return {
+      ...accountUser,
+      homePath: getRoleHomePath(role),
+    };
+  }
+
   return {
     id: `mock-${role.toLowerCase()}`,
     name: ROLE_NAMES[role],
@@ -78,10 +98,15 @@ function resolveRole(body: LoginBody): UserRole | null {
     return body.role;
   }
 
-  const account = body.account?.trim().toLowerCase();
+  const account = body.account?.trim().toLowerCase().split('@')[0];
   return account ? ACCOUNT_ROLE_MAP[account] ?? null : null;
 }
 
 function createMockToken(role: UserRole): string {
   return `mock_${role.toLowerCase()}_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+}
+
+function resolveAccountUser(account?: string): Pick<MockUser, 'id' | 'name' | 'role'> | null {
+  const normalizedAccount = account?.trim().toLowerCase().split('@')[0];
+  return normalizedAccount ? ACCOUNT_USERS[normalizedAccount] ?? null : null;
 }

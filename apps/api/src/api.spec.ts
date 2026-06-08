@@ -58,6 +58,20 @@ describe('LabelHub API shell', () => {
     expect(response.body.data.user.homePath).toBe(getRoleHomePath('REVIEWER'));
   });
 
+  it('logs in the second labeler demo account', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ account: 'labeler2' })
+      .expect(201);
+
+    expect(response.body.data.user).toEqual({
+      id: 'mock-labeler-han-mei-mei',
+      name: '韩梅梅',
+      role: 'LABELER',
+      homePath: getRoleHomePath('LABELER'),
+    });
+  });
+
   it('returns a simplified Chinese error envelope for invalid login', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')

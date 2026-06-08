@@ -1,6 +1,7 @@
 export const SEED_USER_IDS = [
   'user_owner_zhang_man',
   'user_labeler_li_lei',
+  'user_labeler_han_mei_mei',
   'user_reviewer_wang_fang',
   'user_ai_agent_system',
 ] as const;

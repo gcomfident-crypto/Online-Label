@@ -75,6 +75,7 @@ export type SeedData = {
 export const SEED_USER_IDS = [
   'user_owner_zhang_man',
   'user_labeler_li_lei',
+  'user_labeler_han_mei_mei',
   'user_reviewer_wang_fang',
   'user_ai_agent_system',
 ] as const;
@@ -99,8 +100,9 @@ export function buildSeedData(): SeedData {
   const users: SeedUser[] = [
     { id: SEED_USER_IDS[0], name: '张满', role: 'OWNER' },
     { id: SEED_USER_IDS[1], name: '李雷', role: 'LABELER' },
-    { id: SEED_USER_IDS[2], name: '王芳', role: 'REVIEWER' },
-    { id: SEED_USER_IDS[3], name: '系统机审账号', role: 'AI_AGENT' },
+    { id: SEED_USER_IDS[2], name: '韩梅梅', role: 'LABELER' },
+    { id: SEED_USER_IDS[3], name: '王芳', role: 'REVIEWER' },
+    { id: SEED_USER_IDS[4], name: '系统机审账号', role: 'AI_AGENT' },
   ];
 
   return {
@@ -626,7 +628,7 @@ function createDemoReviewRecords(): Prisma.ReviewRecordUncheckedCreateInput[] {
       submissionId: 'submission_qa_quality_round1_demo',
       stage: 'RECHECK',
       reviewerType: 'HUMAN',
-      reviewerId: SEED_USER_IDS[2],
+      reviewerId: SEED_USER_IDS[3],
       decision: 'reject',
       comment: '事实性依据不足，需要补充说明。',
       scores: { overall: 62 },
@@ -649,7 +651,7 @@ function createDemoReviewRecords(): Prisma.ReviewRecordUncheckedCreateInput[] {
       submissionId: 'submission_qa_quality_round2_demo',
       stage: 'RECHECK',
       reviewerType: 'HUMAN',
-      reviewerId: SEED_USER_IDS[2],
+      reviewerId: SEED_USER_IDS[3],
       decision: 'recheck_pass',
       comment: '二次提交已满足要求，进入终审。',
       scores: { overall: 90 },
@@ -660,7 +662,7 @@ function createDemoReviewRecords(): Prisma.ReviewRecordUncheckedCreateInput[] {
       submissionId: 'submission_qa_quality_round2_demo',
       stage: 'FINAL',
       reviewerType: 'HUMAN',
-      reviewerId: SEED_USER_IDS[2],
+      reviewerId: SEED_USER_IDS[3],
       decision: 'final_pass',
       comment: '终审通过，可进入导出。',
       scores: { overall: 94 },
@@ -700,7 +702,7 @@ function createReviewRecord(input: {
     ruleId: input.ruleId,
     stage: input.stage,
     reviewerId: input.reviewerId,
-    assignedReviewerId: input.reviewerType === 'HUMAN' ? input.reviewerId : SEED_USER_IDS[2],
+    assignedReviewerId: input.reviewerType === 'HUMAN' ? input.reviewerId : SEED_USER_IDS[3],
     reviewerType: input.reviewerType,
     scores: toPrismaJson(input.scores),
     decision: input.decision,
@@ -737,7 +739,7 @@ function createAuditLog(
     submissionId,
     fromStatus,
     toStatus,
-    actorId: toStatus === 'HUMAN_PENDING' ? SEED_USER_IDS[3] : SEED_USER_IDS[2],
+    actorId: toStatus === 'HUMAN_PENDING' ? SEED_USER_IDS[4] : SEED_USER_IDS[3],
     reason,
     metadata: toPrismaJson({ source: 'demo_seed' }),
   };

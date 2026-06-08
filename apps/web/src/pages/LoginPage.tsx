@@ -21,6 +21,8 @@ const ACCOUNT_ROLE_ALIASES: Record<string, UserRole> = {
   ai: USER_ROLE.AI_AGENT,
   ai_agent: USER_ROLE.AI_AGENT,
   labeler: USER_ROLE.LABELER,
+  labeler1: USER_ROLE.LABELER,
+  labeler2: USER_ROLE.LABELER,
   owner: USER_ROLE.OWNER,
   reviewer: USER_ROLE.REVIEWER,
 };
@@ -47,7 +49,7 @@ export const LoginPage = () => {
     }
 
     const role = resolveRoleFromAccount(account, selectedRole);
-    const nextSession = sessionStore.loginAs(role, { remember: rememberSession });
+    const nextSession = sessionStore.loginAs(role, { account, remember: rememberSession });
 
     void navigate(getRoleHomePath(nextSession.user.role), { replace: true });
   };
@@ -127,7 +129,7 @@ function LoginForm({
             aria-invalid={formError ? true : undefined}
             autoComplete="username"
             name="account"
-            placeholder="owner / labeler / agent / reviewer"
+            placeholder="owner / labeler / labeler2 / agent / reviewer"
             value={account}
             onChange={(event) => onAccountChange(event.target.value)}
           />

@@ -39,6 +39,29 @@ const DEMO_USERS: Record<UserRole, SessionUser> = {
   },
 };
 
+const DEMO_ACCOUNT_USERS: Record<string, SessionUser> = {
+  owner: DEMO_USERS[USER_ROLE.OWNER],
+  labeler: {
+    id: 'demo-labeler-li-lei',
+    name: '李雷',
+    role: USER_ROLE.LABELER,
+  },
+  labeler1: {
+    id: 'demo-labeler-li-lei',
+    name: '李雷',
+    role: USER_ROLE.LABELER,
+  },
+  labeler2: {
+    id: 'demo-labeler-han-mei-mei',
+    name: '韩梅梅',
+    role: USER_ROLE.LABELER,
+  },
+  agent: DEMO_USERS[USER_ROLE.AI_AGENT],
+  ai: DEMO_USERS[USER_ROLE.AI_AGENT],
+  ai_agent: DEMO_USERS[USER_ROLE.AI_AGENT],
+  reviewer: DEMO_USERS[USER_ROLE.REVIEWER],
+};
+
 const subscribers = new Set<() => void>();
 
 const getStorage = (scope: SessionStorageScope): Storage | null => {
@@ -134,8 +157,9 @@ export const sessionStore = {
     subscribers.add(listener);
     return () => subscribers.delete(listener);
   },
-  loginAs: (role: UserRole, options: { remember?: boolean } = {}) => {
-    const user = DEMO_USERS[role];
+  loginAs: (role: UserRole, options: { account?: string; remember?: boolean } = {}) => {
+    const accountUser = resolveDemoAccountUser(options.account);
+    const user = accountUser?.role === role ? accountUser : DEMO_USERS[role];
     const session: SessionState = {
       token: `mock-token-${role.toLowerCase()}`,
       user,
@@ -162,4 +186,9 @@ function isStoredSession(value: Partial<SessionState>): value is SessionState {
     typeof value.user?.name === 'string' &&
     isUserRole(value.user?.role)
   );
+}
+
+function resolveDemoAccountUser(account?: string): SessionUser | null {
+  const normalizedAccount = account?.trim().toLowerCase().split('@')[0];
+  return normalizedAccount ? DEMO_ACCOUNT_USERS[normalizedAccount] ?? null : null;
 }
