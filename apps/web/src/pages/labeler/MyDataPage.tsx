@@ -406,7 +406,7 @@ const groupAssignmentsByTask = (
 
       return {
         taskId: firstAssignment.taskId,
-        taskDisplayId: firstAssignment.taskId,
+        taskDisplayId: firstAssignment.taskDisplayId,
         taskTitle: firstAssignment.taskTitle,
         datasetKind: firstAssignment.datasetKind,
         templateName: firstAssignment.templateName,

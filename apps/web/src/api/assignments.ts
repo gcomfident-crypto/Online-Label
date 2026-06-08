@@ -61,6 +61,7 @@ export type ClaimAssignmentDto = {
 export type LabelerAssignmentDto = {
   assignmentId: string;
   taskId: string;
+  taskDisplayId: string;
   taskTitle: string;
   taskItemId: string;
   taskItemSortOrder: number;

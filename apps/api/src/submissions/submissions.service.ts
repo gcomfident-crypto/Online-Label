@@ -78,6 +78,11 @@ type AssignmentRecord = {
   drafts: DraftRecord[];
 };
 
+type TaskDisplayRecord = {
+  id: string;
+  createdAt: Date;
+};
+
 export type SubmitInput = {
   assignmentId: string;
   actorId?: string;
@@ -138,6 +143,7 @@ export type LabelerSubmissionDto = {
 export type LabelerAssignmentDto = {
   assignmentId: string;
   taskId: string;
+  taskDisplayId: string;
   taskTitle: string;
   taskItemId: string;
   taskItemSortOrder: number;
@@ -169,6 +175,9 @@ export type LabelerStatsDto = {
 };
 
 type SubmissionsPrismaClient = {
+  task: {
+    findMany: (args: { select: { id: true; createdAt: true }; orderBy: Array<{ createdAt: 'asc' } | { id: 'asc' }> }) => Promise<TaskDisplayRecord[]>;
+  };
   assignment: {
     findUnique: (args: { where: { id: string }; include?: unknown }) => Promise<AssignmentRecord | null>;
     findMany: (args?: { where?: Record<string, unknown>; include?: unknown }) => Promise<AssignmentRecord[]>;
@@ -389,8 +398,15 @@ export class SubmissionsService {
     query: Pick<LabelerSubmissionQuery, 'labelerId' | 'taskId'>,
   ): Promise<LabelerAssignmentDto[]> {
     const assignments = await this.findLabelerAssignments(query);
+    const taskDisplayIdByTaskId = await this.createTaskDisplayIdMap();
+    const includeDraftAnswers = Boolean(query.taskId);
 
-    return assignments.map(toLabelerAssignmentDto);
+    return assignments.map((assignment) =>
+      toLabelerAssignmentDto(assignment, {
+        includeDraftAnswers,
+        taskDisplayId: taskDisplayIdByTaskId.get(assignment.taskId) ?? assignment.taskId,
+      }),
+    );
   }
 
   async getLabelerStats(query: Pick<LabelerSubmissionQuery, 'labelerId' | 'taskId'>): Promise<LabelerStatsDto> {
@@ -438,6 +454,20 @@ export class SubmissionsService {
       },
       include: ASSIGNMENT_INCLUDE,
     });
+  }
+
+  private async createTaskDisplayIdMap(): Promise<Map<string, string>> {
+    const tasks = await this.prisma.task.findMany({
+      select: { id: true, createdAt: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+
+    return new Map(
+      tasks.map((task, index) => [
+        task.id,
+        isBusinessTaskId(task.id) ? task.id : formatTaskDisplayId(index + 1),
+      ]),
+    );
   }
 
   private async createSubmittedSubmission(
@@ -554,7 +584,10 @@ function toLabelerSubmissionDtos(assignment: AssignmentRecord): LabelerSubmissio
   }));
 }
 
-function toLabelerAssignmentDto(assignment: AssignmentRecord): LabelerAssignmentDto {
+function toLabelerAssignmentDto(
+  assignment: AssignmentRecord,
+  options: { includeDraftAnswers: boolean; taskDisplayId: string },
+): LabelerAssignmentDto {
   const latestSubmission = latestSubmissionByRound(assignment.submissions);
   const latestReviewRecord = latestSubmission?.reviewRecords?.[0] ?? null;
   const latestDraft = assignment.drafts[0] ?? null;
@@ -562,6 +595,7 @@ function toLabelerAssignmentDto(assignment: AssignmentRecord): LabelerAssignment
   return {
     assignmentId: assignment.id,
     taskId: assignment.taskId,
+    taskDisplayId: options.taskDisplayId,
     taskTitle: assignment.task.title,
     taskItemId: assignment.taskItemId,
     taskItemSortOrder: assignment.taskItem.sortOrder,
@@ -576,10 +610,18 @@ function toLabelerAssignmentDto(assignment: AssignmentRecord): LabelerAssignment
     latestReviewStage: latestReviewRecord?.stage ?? null,
     latestReviewerType: latestReviewRecord?.reviewerType ?? null,
     latestReviewDecision: latestReviewRecord?.decision ?? null,
-    draftAnswers: latestDraft?.answers ?? null,
+    draftAnswers: options.includeDraftAnswers ? latestDraft?.answers ?? null : null,
     draftUpdatedAt: latestDraft?.updatedAt.toISOString() ?? null,
     round: latestSubmission?.round ?? 0,
   };
+}
+
+function isBusinessTaskId(taskId: string): boolean {
+  return /^T-\d+$/i.test(taskId);
+}
+
+function formatTaskDisplayId(sequence: number): string {
+  return `T-${sequence.toString().padStart(3, '0')}`;
 }
 
 function latestSubmissionByRound(submissions: SubmissionRecord[]): SubmissionRecord | null {

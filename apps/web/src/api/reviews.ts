@@ -5,6 +5,7 @@ export type ReviewQueueItemDto = {
   submissionId: string;
   assignmentId: string;
   taskId: string;
+  taskDisplayId: string;
   taskTitle: string;
   taskItemId: string;
   externalId: string;

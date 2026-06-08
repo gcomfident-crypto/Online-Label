@@ -76,6 +76,9 @@ type AssignmentRecord = {
 };
 
 type MockSubmissionsPrisma = {
+  task: {
+    findMany: (args: { select: { id: true; createdAt: true }; orderBy: Array<{ createdAt: 'asc' } | { id: 'asc' }> }) => Promise<Array<{ id: string; createdAt: Date }>>;
+  };
   assignment: {
     findUnique: (args: { where: { id: string } }) => Promise<AssignmentRecord | null>;
     findMany: (args?: { where?: Record<string, unknown>; include?: unknown }) => Promise<AssignmentRecord[]>;
@@ -639,6 +642,23 @@ function createService(
   const aiReviewJobs: Array<Record<string, unknown>> = [];
 
   const prisma: MockSubmissionsPrisma = {
+    task: {
+      findMany: async () => {
+        const taskById = new Map<string, { id: string; createdAt: Date }>();
+        for (const assignment of assignments) {
+          taskById.set(assignment.taskId, {
+            id: assignment.taskId,
+            createdAt: now,
+          });
+        }
+
+        return [...taskById.values()].sort((first, second) =>
+          first.createdAt.getTime() === second.createdAt.getTime()
+            ? first.id.localeCompare(second.id)
+            : first.createdAt.getTime() - second.createdAt.getTime(),
+        );
+      },
+    },
     assignment: {
       findUnique: async ({ where }) => assignments.find((assignment) => assignment.id === where.id) ?? null,
       findMany: async (args) =>

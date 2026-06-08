@@ -379,7 +379,7 @@ function buildManualReviewTasks(
       const latestItem = orderedItems[orderedItems.length - 1] ?? items[0];
       const createdAt = orderedItems[0]?.submittedAt ?? latestItem?.submittedAt ?? '';
       const updatedAt = latestItem?.updatedAt ?? latestItem?.submittedAt ?? createdAt;
-      const taskDisplayId = taskId;
+      const taskDisplayId = latestItem?.taskDisplayId ?? taskId;
       const latestRoundProgress = getLatestTaskRoundProgress(taskId, items, roundProgressByScope);
       const status = resolveManualReviewTaskStatus(latestRoundProgress);
 

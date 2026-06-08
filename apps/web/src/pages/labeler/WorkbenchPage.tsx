@@ -509,7 +509,7 @@ export const WorkbenchPage = () => {
       navigate(workbenchHref(assignment), {
         state: {
           ...(workbenchNavigationState?.source ? { source: workbenchNavigationState.source } : {}),
-          taskDisplayId: currentTaskDisplayId || assignment.taskId,
+          taskDisplayId: currentTaskDisplayId || assignment.taskDisplayId,
           taskTitle: currentTaskTitle || assignment.taskTitle,
         } satisfies WorkbenchNavigationState,
       });
@@ -2277,6 +2277,7 @@ function resolveWorkbenchTaskIdentity(
   return {
     displayId:
       navigationState?.taskDisplayId?.trim() ??
+      taskAssignments.find((assignment) => assignment.taskId === workbench.assignment.taskId)?.taskDisplayId ??
       workbench.assignment.taskId,
     title:
       assignmentTaskTitle?.trim() ||

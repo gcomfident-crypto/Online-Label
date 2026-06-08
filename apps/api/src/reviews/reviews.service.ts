@@ -94,10 +94,16 @@ type ReviewSubmissionRecord = {
   auditLogs: AuditLogRecord[];
 };
 
+type TaskDisplayRecord = {
+  id: string;
+  createdAt: Date;
+};
+
 export type ReviewQueueItemDto = {
   submissionId: string;
   assignmentId: string;
   taskId: string;
+  taskDisplayId: string;
   taskTitle: string;
   taskItemId: string;
   externalId: string;
@@ -238,6 +244,9 @@ export type BatchReviewResultDto = {
 };
 
 type ReviewsPrismaClient = {
+  task: {
+    findMany: (args: { select: { id: true; createdAt: true }; orderBy: Array<{ createdAt: 'asc' } | { id: 'asc' }> }) => Promise<TaskDisplayRecord[]>;
+  };
   submission: {
     findMany: (args?: { where?: Record<string, unknown>; include?: unknown; orderBy?: unknown }) => Promise<ReviewSubmissionRecord[]>;
     findUnique: (args: { where: { id: string }; include?: unknown }) => Promise<ReviewSubmissionRecord | null>;
@@ -357,9 +366,13 @@ export class ReviewsService {
         .map(([key]) => key),
     );
 
+    const taskDisplayIdByTaskId = await this.createTaskDisplayIdMap();
     const queueItems = latestRoundSubmissions
       .filter((submission) => visibleScopes.has(roundScopeKey(submission.assignment.task.id, submission.round)))
-      .map(toQueueItemDto);
+      .map((submission) => toQueueItemDto(
+        submission,
+        taskDisplayIdByTaskId.get(submission.assignment.task.id) ?? submission.assignment.task.id,
+      ));
 
     const roundProgressByScope = buildRoundProgress(queueItems);
 
@@ -374,6 +387,7 @@ export class ReviewsService {
       include: REVIEW_SUBMISSION_INCLUDE,
       orderBy: [{ updatedAt: 'desc' }, { submittedAt: 'desc' }],
     });
+    const taskDisplayIdByTaskId = await this.createTaskDisplayIdMap();
 
     return submissions
       .filter((submission) => {
@@ -381,9 +395,26 @@ export class ReviewsService {
         return humanReview && RESULT_DECISIONS.has(humanReview.decision ?? '') && (!query.verdict || humanReview.decision === query.verdict);
       })
       .map((submission) => ({
-        ...toQueueItemDto(submission),
+        ...toQueueItemDto(
+          submission,
+          taskDisplayIdByTaskId.get(submission.assignment.task.id) ?? submission.assignment.task.id,
+        ),
         ...EMPTY_ROUND_PROGRESS,
       }));
+  }
+
+  private async createTaskDisplayIdMap(): Promise<Map<string, string>> {
+    const tasks = await this.prisma.task.findMany({
+      select: { id: true, createdAt: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+
+    return new Map(
+      tasks.map((task, index) => [
+        task.id,
+        isBusinessTaskId(task.id) ? task.id : formatTaskDisplayId(index + 1),
+      ]),
+    );
   }
 
   async getReview(submissionId: string): Promise<ReviewDetailDto> {
@@ -866,7 +897,7 @@ async function writeBatchAudit(
   });
 }
 
-function toQueueItemDto(submission: ReviewSubmissionRecord): ReviewQueueItemDto {
+function toQueueItemDto(submission: ReviewSubmissionRecord, taskDisplayId: string): ReviewQueueItemDto {
   const aiReview = latestRecord(submission.reviewRecords, 'AI_PRECHECK', 'AI');
   const humanReview = latestRecord(submission.reviewRecords, 'RECHECK', 'HUMAN');
   const datasetKind = resolveReviewDatasetKind(submission);
@@ -875,6 +906,7 @@ function toQueueItemDto(submission: ReviewSubmissionRecord): ReviewQueueItemDto 
     submissionId: submission.id,
     assignmentId: submission.assignmentId,
     taskId: submission.assignment.task.id,
+    taskDisplayId,
     taskTitle: submission.assignment.task.title,
     taskItemId: submission.assignment.taskItem.id,
     externalId: submission.assignment.taskItem.externalId,
@@ -891,6 +923,14 @@ function toQueueItemDto(submission: ReviewSubmissionRecord): ReviewQueueItemDto 
     updatedAt: submission.updatedAt.toISOString(),
     ...EMPTY_ROUND_PROGRESS,
   };
+}
+
+function isBusinessTaskId(taskId: string): boolean {
+  return /^T-\d+$/i.test(taskId);
+}
+
+function formatTaskDisplayId(sequence: number): string {
+  return `T-${sequence.toString().padStart(3, '0')}`;
 }
 
 function buildRoundProgress(
