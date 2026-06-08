@@ -1,5 +1,5 @@
-import type { AiReviewBatchDetailDto, AiReviewBatchDto, AiReviewJobDto } from '../../api/aiReview';
-import { getAiReviewBatch, listAiReviewBatches, listAiReviewJobs } from '../../api/aiReview';
+import type { AiReviewBatchDto } from '../../api/aiReview';
+import { listAiReviewBatches } from '../../api/aiReview';
 import { listTaskSummaries, type TaskDto } from '../../api/tasks';
 
 export type DashboardRange = '7d' | '30d';
@@ -80,8 +80,6 @@ export const DASHBOARD_RANGE_OPTIONS: DashboardRangeOption[] = [
 
 type DashboardSource = {
   batches: AiReviewBatchDto[];
-  batchDetails: Map<string, AiReviewBatchDetailDto>;
-  jobs: AiReviewJobDto[];
   tasks: TaskDto[];
 };
 
@@ -101,52 +99,32 @@ export async function loadAgentDashboardData(
   range: DashboardRange,
   now = new Date(),
 ): Promise<AgentDashboardData> {
-  const [batches, jobs, tasks] = await Promise.all([
+  const [batches, tasks] = await Promise.all([
     listAiReviewBatches(),
-    listAiReviewJobs(),
     listTaskSummaries(),
   ]);
-  const selectedBatchIds = new Set(filterBatchesByRange(batches, range, now).map((batch) => batch.batchId));
-  const abnormalBatches = batches
-    .filter((batch) => selectedBatchIds.has(batch.batchId) && isAbnormalDecision(batch.aggregateDecision))
-    .slice(0, 20);
-  const detailEntries = await Promise.all(
-    abnormalBatches.map(async (batch) => {
-      try {
-        return [batch.batchId, await getAiReviewBatch(batch.batchId)] as const;
-      } catch {
-        return [batch.batchId, null] as const;
-      }
-    }),
-  );
-  const batchDetails = new Map<string, AiReviewBatchDetailDto>();
-  for (const [batchId, detail] of detailEntries) {
-    if (detail) {
-      batchDetails.set(batchId, detail);
-    }
-  }
 
-  return buildAgentDashboardData({ batches, batchDetails, jobs, tasks }, range, now);
+  return buildAgentDashboardData({ batches, tasks }, range, now);
 }
 
 export function emptyAgentDashboardData(range: DashboardRange, now = new Date()): AgentDashboardData {
-  return buildAgentDashboardData({ batches: [], batchDetails: new Map(), jobs: [], tasks: [] }, range, now);
+  return buildAgentDashboardData({ batches: [], tasks: [] }, range, now);
 }
 
 export function buildAgentDashboardData(source: DashboardSource, range: DashboardRange, now = new Date()): AgentDashboardData {
   const selectedBatches = filterBatchesByRange(source.batches, range, now);
   const todayBatches = filterBatchesByDay(source.batches, now);
   const yesterdayBatches = filterBatchesByDay(source.batches, addDays(startOfDay(now), -1));
-  const todayJobs = filterJobsByDay(source.jobs, now);
-  const yesterdayJobs = filterJobsByDay(source.jobs, addDays(startOfDay(now), -1));
+  const todayAverageDuration = averageBatchItemDurationSeconds(todayBatches);
+  const yesterdayAverageDuration = averageBatchItemDurationSeconds(yesterdayBatches);
   const trend = buildTrendPoints(selectedBatches, range, now);
   const dailyRejectRates = trend.map((point) => dailyRejectRate(selectedBatches, point.label, now));
-  const dailyDurations = trend.map((point) => averageDurationSeconds(filterJobsByLabel(source.jobs, point.label, now)));
+  const dailyDurations = trend.map((point) => averageBatchItemDurationSeconds(filterBatchesByLabel(selectedBatches, point.label, now)));
   const qualityDistribution = buildQualityDistribution(selectedBatches);
   const qualityTotal = qualityDistribution.reduce((total, item) => total + item.count, 0);
-  const problemReasons = buildProblemReasons(selectedBatches, source.batchDetails);
+  const problemReasons = buildProblemReasons(selectedBatches);
   const highRiskTasks = buildHighRiskTasks(selectedBatches, source.tasks);
-  const abnormalBatches = buildAbnormalBatches(selectedBatches, source.batchDetails);
+  const abnormalBatches = buildAbnormalBatches(selectedBatches);
   const taskStatus = buildTaskStatus(source.tasks, selectedBatches);
 
   return {
@@ -187,9 +165,9 @@ export function buildAgentDashboardData(source: DashboardSource, range: Dashboar
       },
       {
         label: '平均处理时长',
-        value: formatDuration(averageDurationSeconds(todayJobs)),
-        change: formatDurationChange(averageDurationSeconds(todayJobs), averageDurationSeconds(yesterdayJobs)),
-        trendTone: averageDurationSeconds(todayJobs) <= averageDurationSeconds(yesterdayJobs) ? 'positive' : 'negative',
+        value: formatDuration(todayAverageDuration),
+        change: formatDurationChange(todayAverageDuration, yesterdayAverageDuration),
+        trendTone: todayAverageDuration <= yesterdayAverageDuration ? 'positive' : 'negative',
         icon: 'duration',
         sparkline: dailyDurations.some((value) => value > 0) ? dailyDurations : EMPTY_SPARKLINE,
       },
@@ -225,21 +203,11 @@ function filterBatchesByDay(batches: AiReviewBatchDto[], day: Date): AiReviewBat
   });
 }
 
-function filterJobsByDay(jobs: AiReviewJobDto[], day: Date): AiReviewJobDto[] {
-  const start = startOfDay(day);
-  const end = endOfDay(day);
-
-  return jobs.filter((job) => {
-    const date = dateValue(job.finishedAt) ?? dateValue(job.updatedAt) ?? dateValue(job.queuedAt);
-    return date ? date >= start && date <= end : false;
-  });
-}
-
-function filterJobsByLabel(jobs: AiReviewJobDto[], label: string, now: Date): AiReviewJobDto[] {
+function filterBatchesByLabel(batches: AiReviewBatchDto[], label: string, now: Date): AiReviewBatchDto[] {
   const year = now.getFullYear();
 
-  return jobs.filter((job) => {
-    const date = dateValue(job.finishedAt) ?? dateValue(job.updatedAt) ?? dateValue(job.queuedAt);
+  return batches.filter((batch) => {
+    const date = dateValue(batch.submittedAt) ?? dateValue(batch.updatedAt);
     return date ? formatDayLabel(date, year) === label : false;
   });
 }
@@ -275,13 +243,10 @@ function buildQualityDistribution(batches: AiReviewBatchDto[]): QualityDistribut
   ];
 }
 
-function buildProblemReasons(
-  batches: AiReviewBatchDto[],
-  details: Map<string, AiReviewBatchDetailDto>,
-): ProblemReasonItem[] {
+function buildProblemReasons(batches: AiReviewBatchDto[]): ProblemReasonItem[] {
   const reasonCounts = new Map<string, number>();
   for (const batch of batches.filter((item) => isAbnormalDecision(item.aggregateDecision))) {
-    const reason = reasonForBatch(batch, details.get(batch.batchId));
+    const reason = reasonForBatch(batch);
     reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + batch.itemCount);
   }
   const total = [...reasonCounts.values()].reduce((sum, count) => sum + count, 0);
@@ -322,21 +287,16 @@ function buildHighRiskTasks(batches: AiReviewBatchDto[], tasks: TaskDto[]): High
     .map(({ rawVolume: _rawVolume, riskScore: _riskScore, ...task }) => task);
 }
 
-function buildAbnormalBatches(
-  batches: AiReviewBatchDto[],
-  details: Map<string, AiReviewBatchDetailDto>,
-): AbnormalBatch[] {
+function buildAbnormalBatches(batches: AiReviewBatchDto[]): AbnormalBatch[] {
   return batches
     .filter((batch) => isAbnormalDecision(batch.aggregateDecision))
     .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt))
     .slice(0, 5)
     .map((batch) => {
-      const detail = details.get(batch.batchId);
-
       return {
         taskName: batch.taskTitle,
-        reason: reasonForBatch(batch, detail),
-        duration: formatDuration(batchDurationSeconds(batch, detail)),
+        reason: reasonForBatch(batch),
+        duration: formatDuration(batchDurationSeconds(batch)),
         time: formatMonthDayTime(dateValue(batch.updatedAt) ?? dateValue(batch.submittedAt) ?? new Date()),
       };
     });
@@ -360,18 +320,8 @@ function buildTaskStatus(tasks: TaskDto[], batches: AiReviewBatchDto[]): TaskSta
   ];
 }
 
-function reasonForBatch(batch: AiReviewBatchDto, detail?: AiReviewBatchDetailDto): string {
-  const detailReasons = detail?.items
-    .flatMap((item) => [
-      stringValue(item.reviewRecord?.comment),
-      stringValue(item.reviewRecord?.scores.reason),
-      stringValue(item.reviewRecord?.structuredOutput?.reason),
-      stringValue(item.reviewRecord?.structuredOutput?.overallComment),
-      stringValue(item.job.lastError),
-      ...item.logs.map((log) => stringValue(log.type === 'error' ? log.message : null)),
-    ])
-    .filter((value): value is string => Boolean(value));
-  const reason = detailReasons?.[0] ?? stringValue(batch.failureReason);
+function reasonForBatch(batch: AiReviewBatchDto): string {
+  const reason = stringValue(batch.failureReason);
   if (reason) {
     return compactReason(reason);
   }
@@ -420,27 +370,17 @@ function sumItems(batches: AiReviewBatchDto[]): number {
   return batches.reduce((total, batch) => total + batch.itemCount, 0);
 }
 
-function averageDurationSeconds(jobs: AiReviewJobDto[]): number {
-  const durations = jobs
-    .map((job) => {
-      const started = dateValue(job.startedAt) ?? dateValue(job.queuedAt);
-      const finished = dateValue(job.finishedAt);
-      return started && finished ? Math.max(0, (finished.getTime() - started.getTime()) / 1000) : null;
-    })
-    .filter((duration): duration is number => typeof duration === 'number' && Number.isFinite(duration));
-  if (durations.length === 0) {
+function averageBatchItemDurationSeconds(batches: AiReviewBatchDto[]): number {
+  const totalItems = sumItems(batches);
+  if (totalItems === 0) {
     return 0;
   }
 
-  return Math.round(durations.reduce((total, duration) => total + duration, 0) / durations.length);
+  const totalSeconds = batches.reduce((total, batch) => total + batchDurationSeconds(batch), 0);
+  return Math.round(totalSeconds / totalItems);
 }
 
-function batchDurationSeconds(batch: AiReviewBatchDto, detail?: AiReviewBatchDetailDto): number {
-  const detailDuration = detail ? averageDurationSeconds(detail.items.map((item) => item.job)) : 0;
-  if (detailDuration > 0) {
-    return detailDuration;
-  }
-
+function batchDurationSeconds(batch: AiReviewBatchDto): number {
   const submitted = dateValue(batch.submittedAt);
   const updated = dateValue(batch.updatedAt);
   return submitted && updated ? Math.round(Math.max(0, (updated.getTime() - submitted.getTime()) / 1000)) : 0;
@@ -449,7 +389,6 @@ function batchDurationSeconds(batch: AiReviewBatchDto, detail?: AiReviewBatchDet
 function latestSourceDate(source: DashboardSource, now: Date): Date {
   const dates = [
     ...source.batches.flatMap((batch) => [dateValue(batch.updatedAt), dateValue(batch.submittedAt)]),
-    ...source.jobs.flatMap((job) => [dateValue(job.updatedAt), dateValue(job.finishedAt), dateValue(job.queuedAt)]),
     ...source.tasks.map((task) => dateValue(task.updatedAt)),
   ].filter((value): value is Date => Boolean(value));
 

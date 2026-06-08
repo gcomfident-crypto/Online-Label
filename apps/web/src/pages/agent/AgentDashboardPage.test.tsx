@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AiReviewBatchDetailDto, AiReviewBatchDto, AiReviewJobDto } from '../../api/aiReview';
+import type { AiReviewBatchDto } from '../../api/aiReview';
 import type { TaskDto } from '../../api/tasks';
 import { AgentDashboardPage } from './AgentDashboardPage';
 
@@ -32,8 +32,9 @@ describe('AgentDashboardPage', () => {
 
     await screen.findByText('今日预审批次');
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/ai-review/batches', expect.objectContaining({ method: 'GET' })));
-    expect(fetchMock).toHaveBeenCalledWith('/ai-review/jobs', expect.objectContaining({ method: 'GET' }));
     expect(fetchMock).toHaveBeenCalledWith('/tasks/summaries', expect.objectContaining({ method: 'GET' }));
+    expect(fetchMock).not.toHaveBeenCalledWith('/ai-review/jobs', expect.objectContaining({ method: 'GET' }));
+    expect(fetchMock.mock.calls.some(([path]) => String(path).startsWith('/ai-review/batches/batch_'))).toBe(false);
 
     const metrics = within(page).getByRole('list', { name: '核心 KPI' });
     ['今日预审批次', '今日处理题目数', '通过率', '打回率', '平均处理时长'].forEach((label) => {
@@ -44,7 +45,7 @@ describe('AgentDashboardPage', () => {
     expect(within(metrics).getByText('10')).toBeInTheDocument();
     expect(within(metrics).getByText('60.0%')).toBeInTheDocument();
     expect(within(metrics).getByText('40.0%')).toBeInTheDocument();
-    expect(within(metrics).getByText('55s')).toBeInTheDocument();
+    expect(within(metrics).getByText('2m42s')).toBeInTheDocument();
     expect(within(metrics).queryByText('128')).not.toBeInTheDocument();
 
     expect(within(page).getByRole('img', { name: '处理趋势图' })).toBeInTheDocument();
@@ -61,11 +62,9 @@ describe('AgentDashboardPage', () => {
     });
 
     const problemList = within(page).getByRole('list', { name: '高频问题原因 Top 5' });
-    expect(within(problemList).getByText('标签选择错误')).toBeInTheDocument();
+    expect(within(problemList).getByText('AI 建议打回')).toBeInTheDocument();
     expect(within(problemList).getByText('4')).toBeInTheDocument();
     expect(within(problemList).getByText('模型超时')).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith('/ai-review/batches/batch_city', expect.objectContaining({ method: 'GET' }));
-    expect(fetchMock).toHaveBeenCalledWith('/ai-review/batches/batch_failed', expect.objectContaining({ method: 'GET' }));
 
     const riskTable = within(page).getByRole('table', { name: '高风险任务' });
     expect(riskTable).toBeInTheDocument();
@@ -74,8 +73,8 @@ describe('AgentDashboardPage', () => {
 
     const abnormalTable = within(page).getByRole('table', { name: '异常批次' });
     expect(abnormalTable).toBeInTheDocument();
-    expect(within(abnormalTable).getByText('标签选择错误')).toBeInTheDocument();
-    expect(within(page).getByRole('button', { name: '查看 城市道路-视频标注 标签选择错误' })).toBeInTheDocument();
+    expect(within(abnormalTable).getByText('AI 建议打回')).toBeInTheDocument();
+    expect(within(page).getByRole('button', { name: '查看 城市道路-视频标注 AI 建议打回' })).toBeInTheDocument();
 
     const statusOverview = within(page).getByRole('region', { name: '任务状态概览' });
     expect(within(statusOverview).getByText('总任务数：4')).toBeInTheDocument();
@@ -194,37 +193,14 @@ const batches: AiReviewBatchDto[] = [
   }),
 ];
 
-const jobs: AiReviewJobDto[] = [
-  createJob({ id: 'job_today_pass', taskId: 'task_auto', taskTitle: '自动驾驶-道路场景标注', queuedAt: '2026-06-05T01:20:00.000Z', startedAt: '2026-06-05T01:20:10.000Z', finishedAt: '2026-06-05T01:20:40.000Z' }),
-  createJob({ id: 'job_today_reject', taskId: 'task_city', taskTitle: '城市道路-视频标注', queuedAt: '2026-06-05T02:10:00.000Z', startedAt: '2026-06-05T02:10:10.000Z', finishedAt: '2026-06-05T02:11:30.000Z' }),
-  createJob({ id: 'job_yesterday_pass', taskId: 'task_auto', taskTitle: '自动驾驶-道路场景标注', queuedAt: '2026-06-04T02:20:00.000Z', startedAt: '2026-06-04T02:20:10.000Z', finishedAt: '2026-06-04T02:21:00.000Z' }),
-  createJob({ id: 'job_yesterday_failed', taskId: 'task_city', taskTitle: '城市道路-视频标注', status: 'FAILED_FINAL', queuedAt: '2026-06-04T03:20:00.000Z', startedAt: '2026-06-04T03:20:10.000Z', finishedAt: '2026-06-04T03:21:20.000Z', lastError: '模型超时' }),
-];
-
 function createDashboardFetchMock() {
   return vi.fn(async (input: RequestInfo | URL) => {
     const path = String(input);
     if (path === '/ai-review/batches') {
       return jsonResponse({ data: batches });
     }
-    if (path === '/ai-review/jobs') {
-      return jsonResponse({ data: jobs });
-    }
     if (path === '/tasks/summaries') {
       return jsonResponse({ data: tasks });
-    }
-    if (path === '/ai-review/batches/batch_city') {
-      return jsonResponse({ data: createBatchDetail(batches[1], '标签选择错误') });
-    }
-    if (path === '/ai-review/batches/batch_failed') {
-      return jsonResponse({ data: createBatchDetail(batches[3], '模型超时') });
-    }
-    if (path.startsWith('/ai-review/batches/')) {
-      const batchId = decodeURIComponent(path.replace('/ai-review/batches/', ''));
-      const batch = batches.find((item) => item.batchId === batchId);
-      if (batch) {
-        return jsonResponse({ data: createBatchDetail(batch, batch.failureReason ?? '') });
-      }
     }
 
     return new Response('', { status: 404 });
@@ -293,89 +269,6 @@ function createBatch(input: Partial<AiReviewBatchDto> & Pick<AiReviewBatchDto, '
     provider: 'mock',
     model: 'mock-stable-reviewer',
     updatedAt: input.updatedAt ?? input.submittedAt ?? '2026-06-05T00:00:00.000Z',
-  };
-}
-
-function createJob(input: Partial<AiReviewJobDto> & Pick<AiReviewJobDto, 'id' | 'taskId' | 'taskTitle'>): AiReviewJobDto {
-  return {
-    id: input.id,
-    submissionId: `${input.id}_submission`,
-    taskId: input.taskId,
-    taskTitle: input.taskTitle,
-    externalId: `${input.id}_item`,
-    datasetKind: 'qa_quality',
-    submissionStatus: 'HUMAN_PENDING',
-    round: 1,
-    status: input.status ?? 'SUCCEEDED',
-    attempts: 1,
-    maxAttempts: 3,
-    idempotencyKey: `${input.id}:ai-review`,
-    structuredOutputMode: null,
-    provider: 'mock',
-    model: 'mock-stable-reviewer',
-    lastError: input.lastError ?? null,
-    queuedAt: input.queuedAt ?? '2026-06-05T00:00:00.000Z',
-    startedAt: input.startedAt ?? null,
-    finishedAt: input.finishedAt ?? null,
-    updatedAt: input.finishedAt ?? input.queuedAt ?? '2026-06-05T00:00:00.000Z',
-  };
-}
-
-function createBatchDetail(batch: AiReviewBatchDto, reason: string): AiReviewBatchDetailDto {
-  return {
-    ...batch,
-    items: [
-      {
-        index: 1,
-        job: createJob({
-          id: `${batch.batchId}_detail_job`,
-          taskId: batch.taskId,
-          taskTitle: batch.taskTitle,
-          queuedAt: batch.submittedAt,
-          startedAt: batch.submittedAt,
-          finishedAt: batch.updatedAt,
-          status: batch.aggregateDecision === 'failed' ? 'FAILED_FINAL' : 'SUCCEEDED',
-          lastError: batch.aggregateDecision === 'failed' ? reason : null,
-        }),
-        submission: {
-          id: `${batch.batchId}_submission`,
-          assignmentId: `${batch.batchId}_assignment`,
-          status: batch.aggregateDecision === 'reject' ? 'NEEDS_REVISION' : 'HUMAN_PENDING',
-          round: 1,
-          answers: {},
-          schemaVersion: 'r1',
-          submittedAt: batch.submittedAt,
-        },
-        taskItem: {
-          id: `${batch.batchId}_item`,
-          externalId: `${batch.batchId}_item`,
-          datasetKind: 'qa_quality',
-          rawData: {},
-        },
-        reviewRecord: reason
-          ? {
-              id: `${batch.batchId}_record`,
-              ruleId: null,
-              stage: 'AI_PRECHECK',
-              reviewerType: 'AI',
-              scores: { reason },
-              decision: batch.aggregateDecision === 'pass' ? 'pass' : 'reject',
-              comment: reason,
-              rawPrompt: null,
-              rawOutput: null,
-              structuredOutput: { reason, overallComment: reason },
-              modelMetadata: null,
-              retryCount: 1,
-              idempotencyKey: null,
-              createdAt: batch.updatedAt,
-            }
-          : null,
-        reviewFields: [],
-        decision: batch.aggregateDecision,
-        overallScore: batch.aggregateScore,
-        logs: [],
-      },
-    ],
   };
 }
 
