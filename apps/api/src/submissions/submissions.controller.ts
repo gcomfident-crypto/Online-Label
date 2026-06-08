@@ -5,6 +5,7 @@ import { resolveIdempotencyKey } from '../common/idempotency/idempotency-key.ts'
 import {
   SubmissionsService,
   type LabelerAssignmentDto,
+  type LabelerAssignmentTaskDto,
   type LabelerStatsDto,
   type LabelerSubmissionDto,
   type LabelerSubmissionQuery,
@@ -38,7 +39,7 @@ export class SubmissionsController {
     @Inject(SubmissionsService)
     private readonly submissionsService: Pick<
       SubmissionsService,
-      'submit' | 'submitTask' | 'listLabelerAssignments' | 'listLabelerSubmissions' | 'getLabelerStats'
+      'submit' | 'submitTask' | 'listLabelerAssignments' | 'listLabelerAssignmentTasks' | 'listLabelerSubmissions' | 'getLabelerStats'
     >,
   ) {}
 
@@ -79,6 +80,15 @@ export class SubmissionsController {
     return this.submissionsService.listLabelerAssignments({
       labelerId: stringValue(labelerId) ?? DEFAULT_LABELER_ID,
       ...(stringValue(taskId) ? { taskId: stringValue(taskId) } : {}),
+    });
+  }
+
+  @Get('labeler/assignment-tasks')
+  listLabelerAssignmentTasks(
+    @Query('labelerId') labelerId?: string,
+  ): Promise<LabelerAssignmentTaskDto[]> {
+    return this.submissionsService.listLabelerAssignmentTasks({
+      labelerId: stringValue(labelerId) ?? DEFAULT_LABELER_ID,
     });
   }
 

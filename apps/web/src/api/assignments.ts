@@ -81,6 +81,23 @@ export type LabelerAssignmentDto = {
   round: number;
 };
 
+export type LabelerAssignmentTaskDto = {
+  taskId: string;
+  taskDisplayId: string;
+  taskTitle: string;
+  datasetKind: DatasetKind;
+  templateName: string;
+  schemaVersion: string;
+  assignmentCount: number;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'NEEDS_REVISION';
+  isWaitingAiReview: boolean;
+  latestSubmittedAt: string | null;
+  claimedAtStart: string | null;
+  claimedAtEnd: string | null;
+  searchText: string;
+  nextAssignment: LabelerAssignmentDto;
+};
+
 type MarketTaskQuery = {
   keyword?: string;
   tag?: string;
@@ -134,6 +151,17 @@ export async function listLabelerAssignments(input: {
   }
 
   return requestAssignmentApi<LabelerAssignmentDto[]>(`/labeler/assignments?${searchParams.toString()}`, {
+    method: 'GET',
+  });
+}
+
+export async function listLabelerAssignmentTasks(input: {
+  labelerId: string;
+}): Promise<LabelerAssignmentTaskDto[]> {
+  const searchParams = new URLSearchParams();
+  searchParams.set('labelerId', input.labelerId);
+
+  return requestAssignmentApi<LabelerAssignmentTaskDto[]>(`/labeler/assignment-tasks?${searchParams.toString()}`, {
     method: 'GET',
   });
 }

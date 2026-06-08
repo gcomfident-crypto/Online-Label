@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { LabelerAssignmentDto } from '../../api/assignments';
+import type { LabelerAssignmentDto, LabelerAssignmentTaskDto } from '../../api/assignments';
 import type { TaskDto } from '../../api/tasks';
 import { MyDataPage } from './MyDataPage';
 
@@ -59,7 +59,7 @@ describe('MyDataPage', () => {
     const user = userEvent.setup();
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ data: assignments }))
+      .mockResolvedValueOnce(jsonResponse({ data: toAssignmentTasks(assignments) }))
       .mockResolvedValueOnce(jsonResponse({ data: tasks }));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -132,7 +132,7 @@ describe('MyDataPage', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn()
-        .mockResolvedValueOnce(jsonResponse({ data: assignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: toAssignmentTasks(assignments) }))
         .mockResolvedValueOnce(jsonResponse({ data: tasks })),
     );
 
@@ -194,7 +194,7 @@ describe('MyDataPage', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn()
-        .mockResolvedValueOnce(jsonResponse({ data: mixedAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: toAssignmentTasks(mixedAssignments) }))
         .mockResolvedValueOnce(jsonResponse({
           data: [
             createTaskDto({
@@ -301,7 +301,7 @@ describe('MyDataPage', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn()
-        .mockResolvedValueOnce(jsonResponse({ data: progressAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: toAssignmentTasks(progressAssignments) }))
         .mockResolvedValueOnce(jsonResponse({
           data: [
             createTaskDto({ id: 'task_partial', title: '部分完成任务', createdAt: '2026-05-21T08:00:00.000Z' }),
@@ -362,7 +362,7 @@ describe('MyDataPage', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn()
-        .mockResolvedValueOnce(jsonResponse({ data: aiReviewAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: toAssignmentTasks(aiReviewAssignments) }))
         .mockResolvedValueOnce(jsonResponse({
           data: [
             createTaskDto({ id: 'task_ai_review', title: '等待 AI 预审任务', createdAt: '2026-05-21T10:00:00.000Z' }),
@@ -441,7 +441,7 @@ describe('MyDataPage', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn()
-        .mockResolvedValueOnce(jsonResponse({ data: sortableAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: toAssignmentTasks(sortableAssignments) }))
         .mockResolvedValueOnce(jsonResponse({ data: sortableTasks })),
     );
 
@@ -543,7 +543,7 @@ describe('MyDataPage', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn()
-        .mockResolvedValueOnce(jsonResponse({ data: manyTaskAssignments }))
+        .mockResolvedValueOnce(jsonResponse({ data: toAssignmentTasks(manyTaskAssignments) }))
         .mockResolvedValueOnce(jsonResponse({
           data: manyTaskAssignments.map((assignment) =>
             createTaskDto({
@@ -595,6 +595,7 @@ function createAssignment(overrides: Partial<LabelerAssignmentDto> = {}): Labele
   return {
     assignmentId: 'assignment_default',
     taskId: 'task_default',
+    taskDisplayId: 'T-001',
     taskTitle: '默认任务',
     taskItemId: 'item_default',
     taskItemSortOrder: 1,
@@ -609,6 +610,71 @@ function createAssignment(overrides: Partial<LabelerAssignmentDto> = {}): Labele
     schemaVersion: 'r1',
     ...overrides,
   };
+}
+
+function toAssignmentTasks(items: LabelerAssignmentDto[]): LabelerAssignmentTaskDto[] {
+  const groups = new Map<string, LabelerAssignmentDto[]>();
+
+  for (const item of items) {
+    groups.set(item.taskId, [...(groups.get(item.taskId) ?? []), item]);
+  }
+
+  return [...groups.values()]
+    .map((groupItems) => {
+      const sortedItems = [...groupItems].sort((first, second) => first.taskItemSortOrder - second.taskItemSortOrder);
+      const firstItem = sortedItems[0];
+      const claimedAtValues = sortedItems.map((item) => item.claimedAt).sort();
+      const latestSubmittedAt = sortedItems.reduce<string | null>((latest, item) => {
+        if (!item.latestSubmittedAt) {
+          return latest;
+        }
+
+        return !latest || item.latestSubmittedAt > latest ? item.latestSubmittedAt : latest;
+      }, null);
+      const status = sortedItems.some(
+        (item) => item.status === 'NEEDS_REVISION' || item.latestSubmissionStatus === 'NEEDS_REVISION' || item.latestSubmissionStatus === 'AI_REJECTED',
+      )
+        ? 'NEEDS_REVISION'
+        : sortedItems.every((item) => item.status === 'FINAL_APPROVED')
+          ? 'COMPLETED'
+          : 'IN_PROGRESS';
+
+      return {
+        taskId: firstItem.taskId,
+        taskDisplayId: resolveFixtureTaskDisplayId(firstItem),
+        taskTitle: firstItem.taskTitle,
+        datasetKind: firstItem.datasetKind,
+        templateName: firstItem.templateName,
+        schemaVersion: firstItem.schemaVersion,
+        assignmentCount: sortedItems.length,
+        status,
+        isWaitingAiReview: sortedItems.every(
+          (item) => item.status === 'SUBMITTED' && (item.latestSubmissionStatus === 'AI_QUEUED' || item.latestSubmissionStatus === 'AI_REVIEWING'),
+        ),
+        latestSubmittedAt,
+        claimedAtStart: claimedAtValues[0] ?? null,
+        claimedAtEnd: claimedAtValues[claimedAtValues.length - 1] ?? null,
+        searchText: sortedItems.flatMap((item) => [item.externalId, item.taskItemId]).join(' '),
+        nextAssignment:
+          sortedItems.find((item) => item.status === 'ASSIGNED' || item.status === 'IN_PROGRESS') ??
+          sortedItems.find((item) => item.status === 'NEEDS_REVISION') ??
+          sortedItems[0],
+      };
+    })
+    .sort((first, second) => (second.claimedAtStart ?? '').localeCompare(first.claimedAtStart ?? ''));
+}
+
+function resolveFixtureTaskDisplayId(item: LabelerAssignmentDto): string {
+  if (item.taskId.startsWith('T-')) {
+    return item.taskId;
+  }
+
+  const numericSuffix = item.taskId.match(/\d+$/)?.[0];
+  if (numericSuffix) {
+    return `T-${numericSuffix.padStart(3, '0')}`;
+  }
+
+  return item.taskDisplayId;
 }
 
 function createTaskDto(overrides: Partial<TaskDto> = {}): TaskDto {

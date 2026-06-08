@@ -561,7 +561,7 @@ describe('SubmissionsService', () => {
         status: 'ASSIGNED',
         latestSubmissionStatus: null,
         latestSubmittedAt: null,
-        draftAnswers: { quality: 'excellent' },
+        draftAnswers: null,
         draftUpdatedAt: '2026-05-21T08:04:00.000Z',
         round: 0,
       }),

@@ -8,6 +8,7 @@ describe('SubmissionsController', () => {
       submit: vi.fn().mockResolvedValue({ id: 'submission_1' }),
       submitTask: vi.fn().mockResolvedValue({ taskId: 'task_qa', submittedCount: 2 }),
       listLabelerAssignments: vi.fn().mockResolvedValue([{ assignmentId: 'assignment_1' }]),
+      listLabelerAssignmentTasks: vi.fn().mockResolvedValue([{ taskId: 'task_qa' }]),
       listLabelerSubmissions: vi.fn().mockResolvedValue([{ submissionId: 'submission_1' }]),
       getLabelerStats: vi.fn().mockResolvedValue({ submittedCount: 1 }),
     };
@@ -48,6 +49,9 @@ describe('SubmissionsController', () => {
     await expect(controller.listLabelerAssignments(' user_labeler_li_lei ', 'task_qa')).resolves.toEqual([
       { assignmentId: 'assignment_1' },
     ]);
+    await expect(controller.listLabelerAssignmentTasks(' user_labeler_li_lei ')).resolves.toEqual([
+      { taskId: 'task_qa' },
+    ]);
 
     expect(service.submit).toHaveBeenCalledWith({
       assignmentId: 'assignment_1',
@@ -78,6 +82,9 @@ describe('SubmissionsController', () => {
       labelerId: 'user_labeler_li_lei',
       taskId: 'task_qa',
     });
+    expect(service.listLabelerAssignmentTasks).toHaveBeenCalledWith({
+      labelerId: 'user_labeler_li_lei',
+    });
   });
 
   it('缺省标注员使用演示账号，非对象 answers 归一为空对象', async () => {
@@ -85,6 +92,7 @@ describe('SubmissionsController', () => {
       submit: vi.fn().mockResolvedValue({ id: 'submission_1' }),
       submitTask: vi.fn().mockResolvedValue({ taskId: 'task_qa', submittedCount: 0 }),
       listLabelerAssignments: vi.fn().mockResolvedValue([]),
+      listLabelerAssignmentTasks: vi.fn().mockResolvedValue([]),
       listLabelerSubmissions: vi.fn().mockResolvedValue([]),
       getLabelerStats: vi.fn().mockResolvedValue({ submittedCount: 0 }),
     };

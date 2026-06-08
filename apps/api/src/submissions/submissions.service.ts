@@ -163,6 +163,25 @@ export type LabelerAssignmentDto = {
   round: number;
 };
 
+export type LabelerAssignmentTaskStatus = 'IN_PROGRESS' | 'COMPLETED' | 'NEEDS_REVISION';
+
+export type LabelerAssignmentTaskDto = {
+  taskId: string;
+  taskDisplayId: string;
+  taskTitle: string;
+  datasetKind: DatasetKind;
+  templateName: string;
+  schemaVersion: string;
+  assignmentCount: number;
+  status: LabelerAssignmentTaskStatus;
+  isWaitingAiReview: boolean;
+  latestSubmittedAt: string | null;
+  claimedAtStart: string | null;
+  claimedAtEnd: string | null;
+  searchText: string;
+  nextAssignment: LabelerAssignmentDto;
+};
+
 export type LabelerStatsDto = {
   labelerId: string;
   taskId?: string;
@@ -232,6 +251,7 @@ const ASSIGNMENT_INCLUDE = {
 
 const APPROVED_STATUSES = new Set(['AI_PASSED', 'FINAL_APPROVED', 'RECHECK_APPROVED']);
 const REJECTED_STATUSES = new Set(['NEEDS_REVISION', 'AI_REJECTED', 'RECHECK_REJECTED', 'FINAL_REJECTED']);
+const AI_REVIEW_PENDING_SUBMISSION_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING']);
 const TASK_SUBMITTABLE_ASSIGNMENT_STATUSES = new Set<AssignmentStatus>([
   'ASSIGNED',
   'IN_PROGRESS',
@@ -407,6 +427,12 @@ export class SubmissionsService {
         taskDisplayId: taskDisplayIdByTaskId.get(assignment.taskId) ?? assignment.taskId,
       }),
     );
+  }
+
+  async listLabelerAssignmentTasks(
+    query: Pick<LabelerSubmissionQuery, 'labelerId'>,
+  ): Promise<LabelerAssignmentTaskDto[]> {
+    return groupLabelerAssignmentTasks(await this.listLabelerAssignments(query));
   }
 
   async getLabelerStats(query: Pick<LabelerSubmissionQuery, 'labelerId' | 'taskId'>): Promise<LabelerStatsDto> {
@@ -614,6 +640,110 @@ function toLabelerAssignmentDto(
     draftUpdatedAt: latestDraft?.updatedAt.toISOString() ?? null,
     round: latestSubmission?.round ?? 0,
   };
+}
+
+function groupLabelerAssignmentTasks(assignments: LabelerAssignmentDto[]): LabelerAssignmentTaskDto[] {
+  const groupsByTaskId = new Map<string, LabelerAssignmentDto[]>();
+
+  for (const assignment of assignments) {
+    groupsByTaskId.set(assignment.taskId, [...(groupsByTaskId.get(assignment.taskId) ?? []), assignment]);
+  }
+
+  return [...groupsByTaskId.values()]
+    .map((groupAssignments) => {
+      const sortedAssignments = [...groupAssignments].sort(compareLabelerAssignmentDtosByItemOrder);
+      const firstAssignment = sortedAssignments[0];
+
+      return {
+        taskId: firstAssignment.taskId,
+        taskDisplayId: firstAssignment.taskDisplayId,
+        taskTitle: firstAssignment.taskTitle,
+        datasetKind: firstAssignment.datasetKind,
+        templateName: firstAssignment.templateName,
+        schemaVersion: firstAssignment.schemaVersion,
+        assignmentCount: sortedAssignments.length,
+        status: deriveLabelerAssignmentTaskStatus(sortedAssignments),
+        isWaitingAiReview: sortedAssignments.every(
+          (assignment) =>
+            assignment.status === 'SUBMITTED' &&
+            AI_REVIEW_PENDING_SUBMISSION_STATUSES.has(assignment.latestSubmissionStatus ?? ''),
+        ),
+        latestSubmittedAt: latestAssignmentSubmittedAt(sortedAssignments),
+        claimedAtStart: earliestAssignmentClaimedAt(sortedAssignments),
+        claimedAtEnd: latestAssignmentClaimedAt(sortedAssignments),
+        searchText: sortedAssignments
+          .flatMap((assignment) => [assignment.externalId, assignment.taskItemId])
+          .join(' '),
+        nextAssignment: nextAssignmentToLabel(sortedAssignments),
+      };
+    })
+    .sort((first, second) => (second.claimedAtStart ?? '').localeCompare(first.claimedAtStart ?? ''));
+}
+
+function deriveLabelerAssignmentTaskStatus(assignments: LabelerAssignmentDto[]): LabelerAssignmentTaskStatus {
+  if (
+    assignments.some(
+      (assignment) =>
+        assignment.status === 'NEEDS_REVISION' ||
+        REJECTED_STATUSES.has(assignment.latestSubmissionStatus ?? ''),
+    )
+  ) {
+    return 'NEEDS_REVISION';
+  }
+
+  if (assignments.length > 0 && assignments.every((assignment) => assignment.status === 'FINAL_APPROVED')) {
+    return 'COMPLETED';
+  }
+
+  return 'IN_PROGRESS';
+}
+
+function nextAssignmentToLabel(assignments: LabelerAssignmentDto[]): LabelerAssignmentDto {
+  const orderedAssignments = [...assignments].sort(compareLabelerAssignmentDtosByItemOrder);
+
+  return (
+    orderedAssignments.find((assignment) => assignment.status === 'ASSIGNED' || assignment.status === 'IN_PROGRESS') ??
+    orderedAssignments.find((assignment) => assignment.status === 'NEEDS_REVISION') ??
+    orderedAssignments[0]
+  );
+}
+
+function compareLabelerAssignmentDtosByItemOrder(first: LabelerAssignmentDto, second: LabelerAssignmentDto): number {
+  if (first.taskItemSortOrder !== second.taskItemSortOrder) {
+    return first.taskItemSortOrder - second.taskItemSortOrder;
+  }
+
+  return first.externalId.localeCompare(second.externalId, 'zh-CN', { numeric: true });
+}
+
+function latestAssignmentSubmittedAt(assignments: LabelerAssignmentDto[]): string | null {
+  return assignments.reduce<string | null>((latest, assignment) => {
+    if (!assignment.latestSubmittedAt) {
+      return latest;
+    }
+
+    return !latest || assignment.latestSubmittedAt > latest ? assignment.latestSubmittedAt : latest;
+  }, null);
+}
+
+function earliestAssignmentClaimedAt(assignments: LabelerAssignmentDto[]): string | null {
+  return assignments.reduce<string | null>((earliest, assignment) => {
+    if (!assignment.claimedAt) {
+      return earliest;
+    }
+
+    return !earliest || assignment.claimedAt < earliest ? assignment.claimedAt : earliest;
+  }, null);
+}
+
+function latestAssignmentClaimedAt(assignments: LabelerAssignmentDto[]): string | null {
+  return assignments.reduce<string | null>((latest, assignment) => {
+    if (!assignment.claimedAt) {
+      return latest;
+    }
+
+    return !latest || assignment.claimedAt > latest ? assignment.claimedAt : latest;
+  }, null);
 }
 
 function isBusinessTaskId(taskId: string): boolean {

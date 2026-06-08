@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 
 import type { DatasetKind } from '@labelhub/shared';
 import {
-  listLabelerAssignments,
-  type AssignmentStatus,
+  listLabelerAssignmentTasks,
   type LabelerAssignmentDto,
+  type LabelerAssignmentTaskDto,
 } from '../../api/assignments';
 import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
@@ -15,8 +15,6 @@ import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
 const LABELER_ID = 'user_labeler_li_lei';
 const MY_DATA_FALLBACK_PAGE_SIZE = 7;
 const MY_DATA_TABLE_ROW_HEIGHT = 66;
-const AI_REVIEW_PENDING_SUBMISSION_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING']);
-const NEEDS_REVISION_SUBMISSION_STATUSES = new Set(['NEEDS_REVISION', 'AI_REJECTED']);
 
 type LabelerStatusFilter = '' | 'IN_PROGRESS' | 'COMPLETED' | 'NEEDS_REVISION';
 type LabelerTaskStatus = Exclude<LabelerStatusFilter, ''>;
@@ -42,7 +40,7 @@ type WorkbenchNavigationState = {
 
 export const MyDataPage = () => {
   const navigate = useNavigate();
-  const [assignments, setAssignments] = useState<LabelerAssignmentDto[]>([]);
+  const [allTaskGroups, setAllTaskGroups] = useState<LabelerTaskGroup[]>([]);
   const [statusFilter, setStatusFilter] = useState<LabelerStatusFilter>('');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [sortField, setSortField] = useState<MyDataSortField | null>(null);
@@ -59,10 +57,6 @@ export const MyDataPage = () => {
     void loadMyData();
   }, []);
 
-  const allTaskGroups = useMemo(
-    () => groupAssignmentsByTask(assignments),
-    [assignments],
-  );
   const filteredTaskGroups = useMemo(() => {
     const keyword = searchKeyword.trim();
 
@@ -125,8 +119,8 @@ export const MyDataPage = () => {
   const loadMyData = async () => {
     setIsLoading(true);
     try {
-      const nextAssignments = await listLabelerAssignments({ labelerId: LABELER_ID });
-      setAssignments(nextAssignments);
+      const nextTaskGroups = await listLabelerAssignmentTasks({ labelerId: LABELER_ID });
+      setAllTaskGroups(nextTaskGroups);
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : '工作台加载失败。');
     } finally {
@@ -272,7 +266,7 @@ export const MyDataPage = () => {
                     </td>
                     <td>
                       <MyDataTableCell>
-                        <strong>{taskGroup.assignments.length.toLocaleString()} 条</strong>
+                        <strong>{taskGroup.assignmentCount.toLocaleString()} 条</strong>
                       </MyDataTableCell>
                     </td>
                     <td>
@@ -286,7 +280,7 @@ export const MyDataPage = () => {
                       </MyDataTableCell>
                     </td>
                     <td>
-                      <MyDataTableCell>{formatClaimedAtRange(taskGroup.assignments)}</MyDataTableCell>
+                      <MyDataTableCell>{formatClaimedAtRange(taskGroup.claimedAtStart, taskGroup.claimedAtEnd)}</MyDataTableCell>
                     </td>
                   </tr>
                 )) : (
@@ -365,17 +359,7 @@ const SortableMyDataHeader = ({
   );
 };
 
-type LabelerTaskGroup = {
-  taskId: string;
-  taskDisplayId: string;
-  taskTitle: string;
-  datasetKind: DatasetKind;
-  templateName: string;
-  schemaVersion: string;
-  assignments: LabelerAssignmentDto[];
-  latestSubmittedAt: string | null;
-  nextAssignment: LabelerAssignmentDto;
-};
+type LabelerTaskGroup = LabelerAssignmentTaskDto;
 
 const workbenchHref = (assignment: LabelerAssignmentDto): string =>
   `/labeler/tasks/${assignment.taskId}/items/${assignment.taskItemId}?assignmentId=${assignment.assignmentId}`;
@@ -388,48 +372,8 @@ const DATASET_KIND_LABELS: Record<DatasetKind, string> = {
 
 const formatDateTime = (value: string): string => value.slice(0, 16).replace('T', ' ');
 
-const groupAssignmentsByTask = (
-  assignments: LabelerAssignmentDto[],
-): LabelerTaskGroup[] => {
-  const groupMap = new Map<string, LabelerAssignmentDto[]>();
-
-  for (const assignment of assignments) {
-    const current = groupMap.get(assignment.taskId) ?? [];
-    current.push(assignment);
-    groupMap.set(assignment.taskId, current);
-  }
-
-  return [...groupMap.values()]
-    .map((groupAssignments) => {
-      const sortedAssignments = [...groupAssignments].sort(compareAssignmentsForDisplay);
-      const firstAssignment = sortedAssignments[0];
-
-      return {
-        taskId: firstAssignment.taskId,
-        taskDisplayId: firstAssignment.taskDisplayId,
-        taskTitle: firstAssignment.taskTitle,
-        datasetKind: firstAssignment.datasetKind,
-        templateName: firstAssignment.templateName,
-        schemaVersion: firstAssignment.schemaVersion,
-        assignments: sortedAssignments,
-        latestSubmittedAt: latestSubmittedAt(sortedAssignments),
-        nextAssignment: nextAssignmentToLabel(sortedAssignments),
-      };
-    })
-    .sort((first, second) => {
-      const firstClaimedAt = first.assignments[0]?.claimedAt ?? '';
-      const secondClaimedAt = second.assignments[0]?.claimedAt ?? '';
-
-      return secondClaimedAt.localeCompare(firstClaimedAt);
-    });
-};
-
 const TaskProgressSummary = ({ taskGroup }: { taskGroup: LabelerTaskGroup }) => {
-  const taskStatus = deriveTaskGroupStatus(taskGroup);
-  const isWaitingAiReview = taskGroup.assignments.every((assignment) =>
-    assignment.status === 'SUBMITTED' &&
-    AI_REVIEW_PENDING_SUBMISSION_STATUSES.has(assignment.latestSubmissionStatus ?? '')
-  );
+  const taskStatus = taskGroup.status;
 
   return (
     <div className="labeler-task-progress-summary">
@@ -443,7 +387,7 @@ const TaskProgressSummary = ({ taskGroup }: { taskGroup: LabelerTaskGroup }) => 
         <span className="labeler-assignment-status labeler-assignment-status--needs_revision">
           待修改
         </span>
-      ) : isWaitingAiReview ? (
+      ) : taskGroup.isWaitingAiReview ? (
         <span className="labeler-assignment-status labeler-assignment-status--ai_review">
           AI预审
         </span>
@@ -457,7 +401,7 @@ const TaskProgressSummary = ({ taskGroup }: { taskGroup: LabelerTaskGroup }) => 
 };
 
 function matchesTaskGroupStatusFilter(taskGroup: LabelerTaskGroup, statusFilter: LabelerStatusFilter): boolean {
-  return deriveTaskGroupStatus(taskGroup) === statusFilter;
+  return taskGroup.status === statusFilter;
 }
 
 function matchesTaskGroupKeyword(taskGroup: LabelerTaskGroup, keyword: string): boolean {
@@ -465,14 +409,8 @@ function matchesTaskGroupKeyword(taskGroup: LabelerTaskGroup, keyword: string): 
     taskGroup.taskDisplayId.includes(keyword) ||
     taskGroup.taskId.includes(keyword) ||
     taskGroup.taskTitle.includes(keyword) ||
-    taskGroup.assignments.some(
-      (assignment) => assignment.externalId.includes(keyword) || assignment.taskItemId.includes(keyword),
-    )
+    taskGroup.searchText.includes(keyword)
   );
-}
-
-function compareAssignmentsForDisplay(first: LabelerAssignmentDto, second: LabelerAssignmentDto): number {
-  return compareAssignmentsByItemOrder(first, second);
 }
 
 function compareMyDataTaskGroupsBySortField(
@@ -495,7 +433,9 @@ function compareMyDataTaskGroupsBySortField(
       numeric: true,
     });
 
-    return displayIdDiff === 0 ? firstGroup.taskId.localeCompare(secondGroup.taskId) : displayIdDiff * multiplier;
+    return displayIdDiff === 0
+      ? firstGroup.taskId.localeCompare(secondGroup.taskId) * multiplier
+      : displayIdDiff * multiplier;
   }
 
   if (field === 'latestSubmittedAt') {
@@ -509,81 +449,12 @@ function compareMyDataTaskGroupsBySortField(
   }
 
   return compareNullableMyDataTimestamps(
-    earliestClaimedAt(firstGroup.assignments),
-    earliestClaimedAt(secondGroup.assignments),
+    firstGroup.claimedAtStart,
+    secondGroup.claimedAtStart,
     direction,
     firstGroup,
     secondGroup,
   );
-}
-
-function nextAssignmentToLabel(assignments: LabelerAssignmentDto[]): LabelerAssignmentDto {
-  const orderedAssignments = [...assignments].sort(compareAssignmentsByItemOrder);
-
-  return (
-    orderedAssignments.find((assignment) => assignment.status === 'ASSIGNED' || assignment.status === 'IN_PROGRESS') ??
-    orderedAssignments.find((assignment) => assignment.status === 'NEEDS_REVISION') ??
-    orderedAssignments[0]
-  );
-}
-
-function compareAssignmentsByItemOrder(first: LabelerAssignmentDto, second: LabelerAssignmentDto): number {
-  if (first.taskItemSortOrder !== second.taskItemSortOrder) {
-    return first.taskItemSortOrder - second.taskItemSortOrder;
-  }
-
-  return first.externalId.localeCompare(second.externalId, 'zh-CN', { numeric: true });
-}
-
-function latestSubmittedAt(assignments: LabelerAssignmentDto[]): string | null {
-  return assignments.reduce<string | null>((latest, assignment) => {
-    if (!assignment.latestSubmittedAt) {
-      return latest;
-    }
-
-    return !latest || assignment.latestSubmittedAt > latest ? assignment.latestSubmittedAt : latest;
-  }, null);
-}
-
-function isCompletedAssignmentStatus(status: AssignmentStatus): boolean {
-  return status === 'FINAL_APPROVED';
-}
-
-function isCompletedTaskGroup(taskGroup: LabelerTaskGroup): boolean {
-  return (
-    taskGroup.assignments.length > 0 &&
-    taskGroup.assignments.every((assignment) => isCompletedAssignmentStatus(assignment.status))
-  );
-}
-
-function deriveTaskGroupStatus(taskGroup: LabelerTaskGroup): LabelerTaskStatus {
-  if (hasTaskGroupNeedsRevision(taskGroup)) {
-    return 'NEEDS_REVISION';
-  }
-
-  if (isCompletedTaskGroup(taskGroup)) {
-    return 'COMPLETED';
-  }
-
-  return 'IN_PROGRESS';
-}
-
-function hasTaskGroupNeedsRevision(taskGroup: LabelerTaskGroup): boolean {
-  return taskGroup.assignments.some(
-    (assignment) =>
-      assignment.status === 'NEEDS_REVISION' ||
-      NEEDS_REVISION_SUBMISSION_STATUSES.has(assignment.latestSubmissionStatus ?? ''),
-  );
-}
-
-function earliestClaimedAt(assignments: LabelerAssignmentDto[]): string | null {
-  return assignments.reduce<string | null>((earliest, assignment) => {
-    if (!assignment.claimedAt) {
-      return earliest;
-    }
-
-    return !earliest || assignment.claimedAt < earliest ? assignment.claimedAt : earliest;
-  }, null);
 }
 
 function compareNullableMyDataTimestamps(
@@ -641,11 +512,7 @@ function parseMyDataTaskSortTimestamp(value: string | null | undefined): number 
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-function formatClaimedAtRange(assignments: LabelerAssignmentDto[]): string {
-  const claimedAtValues = assignments.map((assignment) => assignment.claimedAt).sort();
-  const firstClaimedAt = claimedAtValues[0];
-  const lastClaimedAt = claimedAtValues[claimedAtValues.length - 1];
-
+function formatClaimedAtRange(firstClaimedAt: string | null, lastClaimedAt: string | null): string {
   if (!firstClaimedAt) {
     return '-';
   }
