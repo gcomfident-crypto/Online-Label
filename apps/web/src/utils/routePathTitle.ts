@@ -65,3 +65,12 @@ export const resolvePagePathTitle = (pathname: string): string => {
 
   return 'LabelHub';
 };
+
+/**
+ * 仅用于浏览器标签页标题，精简直观。
+ */
+export const resolvePageTabTitle = (pathname: string): string => {
+  const fullTitle = resolvePagePathTitle(pathname);
+  const parts = fullTitle.split(' / ');
+  return parts[parts.length - 1] ?? fullTitle;
+};

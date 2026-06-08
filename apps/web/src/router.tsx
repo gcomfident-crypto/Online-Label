@@ -24,7 +24,7 @@ import { OwnerTasksPage } from './pages/owner/OwnerTasksPage';
 import { TemplateDesignerPage } from './pages/owner/TemplateDesignerPage';
 import { ReviewDetailPage } from './pages/reviewer/ReviewDetailPage';
 import { ReviewListPage } from './pages/reviewer/ReviewListPage';
-import { resolvePagePathTitle } from './utils/routePathTitle';
+import { resolvePagePathTitle, resolvePageTabTitle } from './utils/routePathTitle';
 
 export const AppRouter = () => {
   return (
@@ -108,7 +108,7 @@ const PageTitleSync = () => {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    document.title = `${resolvePagePathTitle(pathname)} - LabelHub`;
+    document.title = `${resolvePageTabTitle(pathname)} · LabelHub`;
   }, [pathname]);
 
   return null;
