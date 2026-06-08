@@ -78,6 +78,42 @@ type AssignmentRecord = {
   drafts: DraftRecord[];
 };
 
+type AssignmentTaskSummaryRecord = {
+  id: string;
+  taskId: string;
+  taskItemId: string;
+  assigneeId: string;
+  status: AssignmentStatus;
+  claimedAt: Date;
+  task: {
+    id: string;
+    title: string;
+    template: {
+      id: string;
+      name: string;
+      datasetKind: DatasetKind;
+      schemaVersion: string;
+    };
+  };
+  taskItem: {
+    id: string;
+    externalId: string;
+    datasetKind: DatasetKind;
+    sortOrder: number;
+  };
+  submissions: Array<{
+    id: string;
+    assignmentId: string;
+    status: SubmissionStatus;
+    round: number;
+    schemaVersion: string;
+    submittedAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+    reviewRecords?: ReviewRecordSummary[];
+  }>;
+};
+
 type TaskDisplayRecord = {
   id: string;
   createdAt: Date;
@@ -199,7 +235,7 @@ type SubmissionsPrismaClient = {
   };
   assignment: {
     findUnique: (args: { where: { id: string }; include?: unknown }) => Promise<AssignmentRecord | null>;
-    findMany: (args?: { where?: Record<string, unknown>; include?: unknown }) => Promise<AssignmentRecord[]>;
+    findMany: <TRecord = AssignmentRecord>(args?: { where?: Record<string, unknown>; include?: unknown; orderBy?: unknown }) => Promise<TRecord[]>;
     update: (args: { where: { id: string }; data: { status: 'SUBMITTED' } }) => Promise<AssignmentRecord>;
   };
   taskItem: {
@@ -246,6 +282,55 @@ const ASSIGNMENT_INCLUDE = {
   drafts: {
     orderBy: { updatedAt: 'desc' },
     take: 1,
+  },
+} as const;
+
+const ASSIGNMENT_TASK_SUMMARY_INCLUDE = {
+  task: {
+    select: {
+      id: true,
+      title: true,
+      template: {
+        select: {
+          id: true,
+          name: true,
+          datasetKind: true,
+          schemaVersion: true,
+        },
+      },
+    },
+  },
+  taskItem: {
+    select: {
+      id: true,
+      externalId: true,
+      datasetKind: true,
+      sortOrder: true,
+    },
+  },
+  submissions: {
+    orderBy: { round: 'desc' },
+    take: 1,
+    select: {
+      id: true,
+      assignmentId: true,
+      status: true,
+      round: true,
+      schemaVersion: true,
+      submittedAt: true,
+      createdAt: true,
+      updatedAt: true,
+      reviewRecords: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: {
+          stage: true,
+          reviewerType: true,
+          decision: true,
+          createdAt: true,
+        },
+      },
+    },
   },
 } as const;
 
@@ -432,7 +517,20 @@ export class SubmissionsService {
   async listLabelerAssignmentTasks(
     query: Pick<LabelerSubmissionQuery, 'labelerId'>,
   ): Promise<LabelerAssignmentTaskDto[]> {
-    return groupLabelerAssignmentTasks(await this.listLabelerAssignments(query));
+    const assignments = await this.prisma.assignment.findMany<AssignmentTaskSummaryRecord>({
+      where: {
+        assigneeId: query.labelerId,
+      },
+      include: ASSIGNMENT_TASK_SUMMARY_INCLUDE,
+      orderBy: [{ claimedAt: 'desc' }],
+    });
+    const taskDisplayIdByTaskId = await this.createTaskDisplayIdMap();
+
+    return groupLabelerAssignmentTasks(
+      assignments.map((assignment) =>
+        toLabelerAssignmentTaskSummaryItem(assignment, taskDisplayIdByTaskId.get(assignment.taskId) ?? assignment.taskId),
+      ),
+    );
   }
 
   async getLabelerStats(query: Pick<LabelerSubmissionQuery, 'labelerId' | 'taskId'>): Promise<LabelerStatsDto> {
@@ -642,6 +740,37 @@ function toLabelerAssignmentDto(
   };
 }
 
+function toLabelerAssignmentTaskSummaryItem(
+  assignment: AssignmentTaskSummaryRecord,
+  taskDisplayId: string,
+): LabelerAssignmentDto {
+  const latestSubmission = latestSubmissionByRound(assignment.submissions);
+  const latestReviewRecord = latestSubmission?.reviewRecords?.[0] ?? null;
+
+  return {
+    assignmentId: assignment.id,
+    taskId: assignment.taskId,
+    taskDisplayId,
+    taskTitle: assignment.task.title,
+    taskItemId: assignment.taskItemId,
+    taskItemSortOrder: assignment.taskItem.sortOrder,
+    externalId: assignment.taskItem.externalId,
+    datasetKind: assignment.task.template.datasetKind,
+    status: assignment.status,
+    claimedAt: assignment.claimedAt.toISOString(),
+    templateName: assignment.task.template.name,
+    schemaVersion: assignment.task.template.schemaVersion,
+    latestSubmissionStatus: latestSubmission?.status ?? null,
+    latestSubmittedAt: latestSubmission?.submittedAt.toISOString() ?? null,
+    latestReviewStage: latestReviewRecord?.stage ?? null,
+    latestReviewerType: latestReviewRecord?.reviewerType ?? null,
+    latestReviewDecision: latestReviewRecord?.decision ?? null,
+    draftAnswers: null,
+    draftUpdatedAt: null,
+    round: latestSubmission?.round ?? 0,
+  };
+}
+
 function groupLabelerAssignmentTasks(assignments: LabelerAssignmentDto[]): LabelerAssignmentTaskDto[] {
   const groupsByTaskId = new Map<string, LabelerAssignmentDto[]>();
 
@@ -754,8 +883,8 @@ function formatTaskDisplayId(sequence: number): string {
   return `T-${sequence.toString().padStart(3, '0')}`;
 }
 
-function latestSubmissionByRound(submissions: SubmissionRecord[]): SubmissionRecord | null {
-  return submissions.reduce<SubmissionRecord | null>(
+function latestSubmissionByRound<TSubmission extends { round: number }>(submissions: TSubmission[]): TSubmission | null {
+  return submissions.reduce<TSubmission | null>(
     (latest, submission) => (!latest || submission.round > latest.round ? submission : latest),
     null,
   );

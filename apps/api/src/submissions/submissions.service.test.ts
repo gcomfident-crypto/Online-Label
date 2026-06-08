@@ -81,7 +81,7 @@ type MockSubmissionsPrisma = {
   };
   assignment: {
     findUnique: (args: { where: { id: string } }) => Promise<AssignmentRecord | null>;
-    findMany: (args?: { where?: Record<string, unknown>; include?: unknown }) => Promise<AssignmentRecord[]>;
+    findMany: <TRecord = AssignmentRecord>(args?: { where?: Record<string, unknown>; include?: unknown; orderBy?: unknown }) => Promise<TRecord[]>;
     update: (args: { where: { id: string }; data: { status: AssignmentStatus } }) => Promise<AssignmentRecord>;
   };
   taskItem: {
@@ -661,12 +661,12 @@ function createService(
     },
     assignment: {
       findUnique: async ({ where }) => assignments.find((assignment) => assignment.id === where.id) ?? null,
-      findMany: async (args) =>
+      findMany: async <TRecord = AssignmentRecord>(args?: { where?: Record<string, unknown> }) =>
         assignments.filter(
           (assignment) =>
             (args?.where?.assigneeId === undefined || assignment.assigneeId === args.where.assigneeId) &&
             (args?.where?.taskId === undefined || assignment.taskId === args.where.taskId),
-        ),
+        ) as TRecord[],
       update: async ({ where, data }) => {
         const assignment = assignments.find((candidate) => candidate.id === where.id);
         if (!assignment) {
