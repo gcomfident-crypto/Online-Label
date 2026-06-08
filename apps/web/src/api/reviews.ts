@@ -27,6 +27,21 @@ export type ReviewQueueItemDto = {
   pendingCount: number;
 };
 
+export type ReviewTaskQueueDto = {
+  taskId: string;
+  taskDisplayId: string;
+  taskTitle: string;
+  status: '复审中' | '待复审' | '已完成';
+  pendingCount: number;
+  totalInRound: number;
+  decidedCount: number;
+  needsRevisionCount: number;
+  round: number;
+  deadline: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ReviewRecordDto = {
   id: string;
   submissionId: string;
@@ -137,7 +152,24 @@ export type ReviewFieldCommentInput = {
   value?: unknown;
 };
 
-export async function listPendingReviews(input: { reviewerId?: string; aiDecision?: string } = {}): Promise<ReviewQueueItemDto[]> {
+export async function listPendingReviews(input: { reviewerId?: string; aiDecision?: string; taskId?: string } = {}): Promise<ReviewQueueItemDto[]> {
+  const searchParams = new URLSearchParams();
+  if (input.reviewerId) {
+    searchParams.set('reviewerId', input.reviewerId);
+  }
+  if (input.aiDecision) {
+    searchParams.set('aiDecision', input.aiDecision);
+  }
+  if (input.taskId) {
+    searchParams.set('taskId', input.taskId);
+  }
+
+  const suffix = searchParams.size > 0 ? `?${searchParams.toString()}` : '';
+
+  return requestReviewApi<ReviewQueueItemDto[]>(`/reviews/pending${suffix}`, { method: 'GET' });
+}
+
+export async function listPendingReviewTasks(input: { reviewerId?: string; aiDecision?: string } = {}): Promise<ReviewTaskQueueDto[]> {
   const searchParams = new URLSearchParams();
   if (input.reviewerId) {
     searchParams.set('reviewerId', input.reviewerId);
@@ -148,7 +180,7 @@ export async function listPendingReviews(input: { reviewerId?: string; aiDecisio
 
   const suffix = searchParams.size > 0 ? `?${searchParams.toString()}` : '';
 
-  return requestReviewApi<ReviewQueueItemDto[]>(`/reviews/pending${suffix}`, { method: 'GET' });
+  return requestReviewApi<ReviewTaskQueueDto[]>(`/reviews/pending/tasks${suffix}`, { method: 'GET' });
 }
 
 export async function listReviewResults(input: { verdict?: string } = {}): Promise<ReviewQueueItemDto[]> {

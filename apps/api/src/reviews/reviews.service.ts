@@ -94,6 +94,35 @@ type ReviewSubmissionRecord = {
   auditLogs: AuditLogRecord[];
 };
 
+type ReviewQueueReviewRecord = Pick<
+  ReviewRecordRecord,
+  'stage' | 'reviewerType' | 'scores' | 'decision' | 'comment' | 'assignedReviewerId' | 'createdAt'
+>;
+
+type ReviewQueueSubmissionRecord = Pick<
+  ReviewSubmissionRecord,
+  'id' | 'assignmentId' | 'status' | 'round' | 'submittedAt' | 'updatedAt'
+> & {
+  assignment: {
+    id: string;
+    taskId: string;
+    task: {
+      id: string;
+      title: string;
+      deadline: Date | null;
+      template: {
+        datasetKind: DatasetKind;
+      } | null;
+    };
+    taskItem: {
+      id: string;
+      externalId: string;
+      datasetKind: DatasetKind;
+    };
+  };
+  reviewRecords: ReviewQueueReviewRecord[];
+};
+
 type TaskDisplayRecord = {
   id: string;
   createdAt: Date;
@@ -123,6 +152,21 @@ export type ReviewQueueItemDto = {
   decidedCount: number;
   needsRevisionCount: number;
   pendingCount: number;
+};
+
+export type ReviewTaskQueueDto = {
+  taskId: string;
+  taskDisplayId: string;
+  taskTitle: string;
+  status: '复审中' | '待复审' | '已完成';
+  pendingCount: number;
+  totalInRound: number;
+  decidedCount: number;
+  needsRevisionCount: number;
+  round: number;
+  deadline: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type ReviewQueueRoundProgress = {
@@ -248,7 +292,7 @@ type ReviewsPrismaClient = {
     findMany: (args: { select: { id: true; createdAt: true }; orderBy: Array<{ createdAt: 'asc' } | { id: 'asc' }> }) => Promise<TaskDisplayRecord[]>;
   };
   submission: {
-    findMany: (args?: { where?: Record<string, unknown>; include?: unknown; orderBy?: unknown }) => Promise<ReviewSubmissionRecord[]>;
+    findMany: <TRecord = ReviewSubmissionRecord>(args?: { where?: Record<string, unknown>; include?: unknown; select?: unknown; orderBy?: unknown }) => Promise<TRecord[]>;
     findUnique: (args: { where: { id: string }; include?: unknown }) => Promise<ReviewSubmissionRecord | null>;
     update: (args: { where: { id: string }; data: Record<string, unknown>; include?: unknown }) => Promise<ReviewSubmissionRecord>;
   };
@@ -291,6 +335,44 @@ const REVIEW_SUBMISSION_INCLUDE = {
   },
 } as const;
 
+const REVIEW_QUEUE_SUBMISSION_INCLUDE = {
+  assignment: {
+    include: {
+      task: {
+        select: {
+          id: true,
+          title: true,
+          deadline: true,
+          template: {
+            select: {
+              datasetKind: true,
+            },
+          },
+        },
+      },
+      taskItem: {
+        select: {
+          id: true,
+          externalId: true,
+          datasetKind: true,
+        },
+      },
+    },
+  },
+  reviewRecords: {
+    select: {
+      stage: true,
+      reviewerType: true,
+      scores: true,
+      decision: true,
+      comment: true,
+      assignedReviewerId: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  },
+} as const;
+
 const PENDING_STATUSES = ['HUMAN_PENDING', 'RECHECK_REVIEWING'];
 const REVIEW_QUEUE_SCOPE_STATUSES = [...PENDING_STATUSES, 'NEEDS_REVISION', 'FINAL_APPROVED'];
 const RESULT_DECISIONS = new Set(['recheck_pass', 'reject', 'revise_pass']);
@@ -314,18 +396,19 @@ export class ReviewsService {
     private readonly prisma: ReviewsPrismaClient,
   ) {}
 
-  async listPending(query: { reviewerId?: string; aiDecision?: string } = {}): Promise<ReviewQueueItemDto[]> {
-    const submissions = await this.prisma.submission.findMany({
+  async listPending(query: { reviewerId?: string; aiDecision?: string; taskId?: string } = {}): Promise<ReviewQueueItemDto[]> {
+    const submissions = await this.prisma.submission.findMany<ReviewQueueSubmissionRecord>({
       where: {
         status: { in: REVIEW_QUEUE_SCOPE_STATUSES },
+        ...(query.taskId ? { assignment: { taskId: query.taskId } } : {}),
       },
-      include: REVIEW_SUBMISSION_INCLUDE,
+      include: REVIEW_QUEUE_SUBMISSION_INCLUDE,
       orderBy: [{ updatedAt: 'desc' }, { submittedAt: 'desc' }],
     });
 
     const latestRoundSubmissions = pickLatestRoundSubmissionPerAssignment(submissions);
 
-    const submissionsByScope = new Map<string, ReviewSubmissionRecord[]>();
+    const submissionsByScope = new Map<string, ReviewQueueSubmissionRecord[]>();
     for (const submission of latestRoundSubmissions) {
       const key = roundScopeKey(submission.assignment.task.id, submission.round);
       const list = submissionsByScope.get(key) ?? [];
@@ -380,6 +463,10 @@ export class ReviewsService {
       ...item,
       ...(roundProgressByScope.get(roundScopeKey(item.taskId, item.round)) ?? EMPTY_ROUND_PROGRESS),
     }));
+  }
+
+  async listPendingTasks(query: { reviewerId?: string; aiDecision?: string } = {}): Promise<ReviewTaskQueueDto[]> {
+    return buildReviewTaskQueue(await this.listPending(query));
   }
 
   async listResults(query: { verdict?: string } = {}): Promise<ReviewQueueItemDto[]> {
@@ -897,7 +984,7 @@ async function writeBatchAudit(
   });
 }
 
-function toQueueItemDto(submission: ReviewSubmissionRecord, taskDisplayId: string): ReviewQueueItemDto {
+function toQueueItemDto(submission: ReviewQueueSubmissionRecord, taskDisplayId: string): ReviewQueueItemDto {
   const aiReview = latestRecord(submission.reviewRecords, 'AI_PRECHECK', 'AI');
   const humanReview = latestRecord(submission.reviewRecords, 'RECHECK', 'HUMAN');
   const datasetKind = resolveReviewDatasetKind(submission);
@@ -923,6 +1010,56 @@ function toQueueItemDto(submission: ReviewSubmissionRecord, taskDisplayId: strin
     updatedAt: submission.updatedAt.toISOString(),
     ...EMPTY_ROUND_PROGRESS,
   };
+}
+
+function buildReviewTaskQueue(queueItems: ReviewQueueItemDto[]): ReviewTaskQueueDto[] {
+  const groups = new Map<string, ReviewQueueItemDto[]>();
+
+  for (const item of queueItems) {
+    groups.set(item.taskId, [...(groups.get(item.taskId) ?? []), item]);
+  }
+
+  return [...groups.entries()]
+    .map(([taskId, items]) => {
+      const orderedItems = [...items].sort((first, second) => first.submittedAt.localeCompare(second.submittedAt));
+      const latestItem = orderedItems[orderedItems.length - 1] ?? items[0];
+      const latestRound = Math.max(...items.map((item) => item.round));
+      const latestRoundItem = items.find((item) => item.round === latestRound) ?? latestItem;
+      const progress = {
+        totalInRound: latestRoundItem.totalInRound,
+        decidedCount: latestRoundItem.decidedCount,
+        needsRevisionCount: latestRoundItem.needsRevisionCount,
+        pendingCount: latestRoundItem.pendingCount,
+      };
+
+      return {
+        taskId,
+        taskDisplayId: latestItem.taskDisplayId,
+        taskTitle: latestItem.taskTitle,
+        status: resolveReviewTaskStatus(progress),
+        pendingCount: progress.pendingCount,
+        totalInRound: progress.totalInRound,
+        decidedCount: progress.decidedCount,
+        needsRevisionCount: progress.needsRevisionCount,
+        round: latestRound,
+        deadline: latestItem.deadline,
+        createdAt: orderedItems[0]?.submittedAt ?? latestItem.submittedAt,
+        updatedAt: latestItem.updatedAt,
+      };
+    })
+    .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
+}
+
+function resolveReviewTaskStatus(progress: Pick<ReviewQueueRoundProgress, 'pendingCount' | 'needsRevisionCount'>): ReviewTaskQueueDto['status'] {
+  if (progress.pendingCount > 0) {
+    return '复审中';
+  }
+
+  if (progress.needsRevisionCount > 0) {
+    return '待复审';
+  }
+
+  return '已完成';
 }
 
 function isBusinessTaskId(taskId: string): boolean {
@@ -1030,7 +1167,7 @@ function toReviewDetailDto(submission: ReviewSubmissionRecord): ReviewDetailDto 
   };
 }
 
-function resolveReviewDatasetKind(submission: ReviewSubmissionRecord): DatasetKind {
+function resolveReviewDatasetKind(submission: ReviewSubmissionRecord | ReviewQueueSubmissionRecord): DatasetKind {
   return submission.assignment.task.template?.datasetKind ?? submission.assignment.taskItem.datasetKind;
 }
 
@@ -1073,12 +1210,12 @@ function buildTimeline(submission: ReviewSubmissionRecord): ReviewTimelineItemDt
   return [...auditItems, ...reviewItems].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
-function latestRecord(
-  records: ReviewRecordRecord[],
+function latestRecord<TRecord extends { stage: ReviewStage | string; reviewerType: ReviewerType | string; createdAt: Date }>(
+  records: TRecord[],
   stage: ReviewStage,
   reviewerType: ReviewerType,
-): ReviewRecordRecord | null {
-  return records.reduce<ReviewRecordRecord | null>((latest, record) => {
+): TRecord | null {
+  return records.reduce<TRecord | null>((latest, record) => {
     if (record.stage !== stage || record.reviewerType !== reviewerType) {
       return latest;
     }
@@ -1091,8 +1228,10 @@ function latestRecord(
   }, null);
 }
 
-function latestAssignedReviewerId(records: ReviewRecordRecord[]): string | null {
-  return records.reduce<ReviewRecordRecord | null>((latest, record) => {
+function latestAssignedReviewerId<TRecord extends { stage: ReviewStage | string; assignedReviewerId: string | null; createdAt: Date }>(
+  records: TRecord[],
+): string | null {
+  return records.reduce<TRecord | null>((latest, record) => {
     if (record.stage !== 'RECHECK' || !record.assignedReviewerId) {
       return latest;
     }
@@ -1105,14 +1244,14 @@ function latestAssignedReviewerId(records: ReviewRecordRecord[]): string | null 
   }, null)?.assignedReviewerId ?? null;
 }
 
-function latestHumanDecision(submission: ReviewSubmissionRecord): string | null {
+function latestHumanDecision(submission: Pick<ReviewSubmissionRecord, 'reviewRecords'> | ReviewQueueSubmissionRecord): string | null {
   return latestRecord(submission.reviewRecords, 'RECHECK', 'HUMAN')?.decision ?? null;
 }
 
-function pickLatestRoundSubmissionPerAssignment(
-  submissions: ReviewSubmissionRecord[],
-): ReviewSubmissionRecord[] {
-  const latestByAssignment = new Map<string, ReviewSubmissionRecord>();
+function pickLatestRoundSubmissionPerAssignment<TSubmission extends { assignmentId: string; round: number }>(
+  submissions: TSubmission[],
+): TSubmission[] {
+  const latestByAssignment = new Map<string, TSubmission>();
 
   for (const submission of submissions) {
     const latest = latestByAssignment.get(submission.assignmentId);

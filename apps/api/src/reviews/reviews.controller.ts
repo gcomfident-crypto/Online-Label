@@ -5,6 +5,7 @@ import {
   type BatchReviewResultDto,
   type ReviewDetailDto,
   type ReviewQueueItemDto,
+  type ReviewTaskQueueDto,
   type ReviewTimelineItemDto,
 } from './reviews.service.ts';
 import {
@@ -27,6 +28,7 @@ export class ReviewsController {
     private readonly reviewsService: Pick<
       ReviewsService,
       | 'listPending'
+      | 'listPendingTasks'
       | 'listResults'
       | 'getReview'
       | 'getTimeline'
@@ -42,12 +44,21 @@ export class ReviewsController {
     private readonly reviewDiffService: Pick<ReviewDiffService, 'listRounds' | 'getDiff'>,
   ) {}
 
+  @Get('reviews/pending/tasks')
+  listPendingTasks(
+    @Query('reviewerId') reviewerId?: string,
+    @Query('aiDecision') aiDecision?: string,
+  ): Promise<ReviewTaskQueueDto[]> {
+    return this.reviewsService.listPendingTasks(normalizePendingQuery(reviewerId, aiDecision));
+  }
+
   @Get('reviews/pending')
   listPending(
     @Query('reviewerId') reviewerId?: string,
     @Query('aiDecision') aiDecision?: string,
+    @Query('taskId') taskId?: string,
   ): Promise<ReviewQueueItemDto[]> {
-    return this.reviewsService.listPending(normalizePendingQuery(reviewerId, aiDecision));
+    return this.reviewsService.listPending(normalizePendingQuery(reviewerId, aiDecision, taskId));
   }
 
   @Get('reviews/results')
@@ -138,10 +149,12 @@ export class ReviewsController {
 function normalizePendingQuery(
   reviewerId?: unknown,
   aiDecision?: unknown,
-): { reviewerId?: string; aiDecision?: string } {
+  taskId?: unknown,
+): { reviewerId?: string; aiDecision?: string; taskId?: string } {
   return {
     ...(stringValue(reviewerId) ? { reviewerId: stringValue(reviewerId) } : {}),
     ...(stringValue(aiDecision) ? { aiDecision: stringValue(aiDecision) } : {}),
+    ...(stringValue(taskId) ? { taskId: stringValue(taskId) } : {}),
   };
 }
 

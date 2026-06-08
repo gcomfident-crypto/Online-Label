@@ -527,11 +527,20 @@ function createReviewDb() {
     reviewRecords,
     auditLogs,
     client: {
+      task: {
+        findMany: async () => [
+          {
+            id: 'task_qa',
+            createdAt: new Date('2026-05-21T07:55:00.000Z'),
+          },
+        ],
+      },
       submission: {
-        findMany: async (args?: { where?: { status?: { in?: SubmissionStatus[] } } }) =>
+        findMany: async (args?: { where?: { status?: { in?: SubmissionStatus[] }; assignment?: { taskId?: string } } }) =>
           materializeSubmissions(submissions, reviewRecords, auditLogs).filter((submission) => {
             const allowed = args?.where?.status?.in;
-            return allowed ? allowed.includes(submission.status) : true;
+            const taskId = args?.where?.assignment?.taskId;
+            return (allowed ? allowed.includes(submission.status) : true) && (taskId ? submission.assignment.taskId === taskId : true);
           }),
         findUnique: async (args: { where: { id: string } }) =>
           materializeSubmissions(submissions, reviewRecords, auditLogs).find((submission) => submission.id === args.where.id) ?? null,

@@ -6,6 +6,7 @@ describe('ReviewsController', () => {
   it('暴露人工复审列表、详情、动作、批量和指派接口并归一化参数', async () => {
     const service = {
       listPending: vi.fn().mockResolvedValue([{ submissionId: 'submission_1' }]),
+      listPendingTasks: vi.fn().mockResolvedValue([{ taskId: 'task_1' }]),
       listResults: vi.fn().mockResolvedValue([{ submissionId: 'submission_2' }]),
       getReview: vi.fn().mockResolvedValue({ submission: { id: 'submission_1' } }),
       getTimeline: vi.fn().mockResolvedValue([{ id: 'timeline_1' }]),
@@ -26,6 +27,7 @@ describe('ReviewsController', () => {
     await expect(controller.listPending(' reviewer_1 ', ' manual ')).resolves.toEqual([
       { submissionId: 'submission_1' },
     ]);
+    await expect(controller.listPendingTasks(' reviewer_1 ', ' manual ')).resolves.toEqual([{ taskId: 'task_1' }]);
     await expect(controller.listResults(' reject ')).resolves.toEqual([{ submissionId: 'submission_2' }]);
     await expect(controller.getReview('submission_1')).resolves.toEqual({ submission: { id: 'submission_1' } });
     await expect(controller.getTimeline('submission_1')).resolves.toEqual([{ id: 'timeline_1' }]);
@@ -86,6 +88,7 @@ describe('ReviewsController', () => {
     ).resolves.toEqual({ processedCount: 2 });
 
     expect(service.listPending).toHaveBeenCalledWith({ reviewerId: 'reviewer_1', aiDecision: 'manual' });
+    expect(service.listPendingTasks).toHaveBeenCalledWith({ reviewerId: 'reviewer_1', aiDecision: 'manual' });
     expect(service.listResults).toHaveBeenCalledWith({ verdict: 'reject' });
     expect(service.getReview).toHaveBeenCalledWith('submission_1');
     expect(service.getTimeline).toHaveBeenCalledWith('submission_1');

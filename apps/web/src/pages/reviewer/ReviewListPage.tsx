@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { TableEmptyState } from '../../components/TableEmptyState';
-import { listPendingReviews, type ReviewQueueItemDto } from '../../api/reviews';
+import { listPendingReviewTasks, type ReviewTaskQueueDto } from '../../api/reviews';
 import { ReviewTaskDetailContent } from './ReviewDetailPage';
 
 type ManualReviewTaskStatus = '复审中' | '待复审' | '已完成';
@@ -18,27 +18,15 @@ type ManualReviewTask = {
   deadline: string;
 };
 
-type ManualReviewRoundProgress = {
-  totalInRound: number;
-  decidedCount: number;
-  needsRevisionCount: number;
-  pendingCount: number;
-};
-
 const SHEET_EXIT_ANIMATION_MS = 260;
 
 export const ReviewListPage = () => {
-  const [queueItems, setQueueItems] = useState<ReviewQueueItemDto[]>([]);
+  const [tasks, setTasks] = useState<ManualReviewTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isSheetClosing, setIsSheetClosing] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
-
-  const tasks = useMemo(
-    () => buildManualReviewTasks(queueItems),
-    [queueItems],
-  );
 
   useEffect(
     () => () => {
@@ -53,13 +41,13 @@ export const ReviewListPage = () => {
     let isMounted = true;
 
     setIsLoading(true);
-    listPendingReviews()
+    listPendingReviewTasks()
       .then((items) => {
         if (!isMounted) {
           return;
         }
 
-        setQueueItems(items);
+        setTasks(items.map(toManualReviewTask));
         setErrorMessage(null);
       })
       .catch((error) => {
@@ -67,7 +55,7 @@ export const ReviewListPage = () => {
           return;
         }
 
-        setQueueItems([]);
+        setTasks([]);
         setErrorMessage(error instanceof Error ? error.message : '人工审核任务加载失败。');
       })
       .finally(() => {
@@ -274,127 +262,17 @@ const CountCell = ({ tone, value }: { tone: 'blue'; value: number }) => (
   <strong className={`manual-review-count is-${tone}`}>{value.toLocaleString()}</strong>
 );
 
-function buildManualReviewRoundProgress(queueItems: ReviewQueueItemDto[]): ReadonlyMap<string, ManualReviewRoundProgress> {
-  const byScope = new Map<string, ManualReviewRoundProgress>();
-
-  for (const item of queueItems) {
-    const scope = reviewQueueItemScope(item.taskId, item.round);
-    if (item.totalInRound > 0) {
-      byScope.set(scope, {
-        totalInRound: item.totalInRound,
-        decidedCount: item.decidedCount,
-        needsRevisionCount: item.needsRevisionCount,
-        pendingCount: item.pendingCount,
-      });
-      continue;
-    }
-
-    const current = byScope.get(scope) ?? {
-      totalInRound: 0,
-      decidedCount: 0,
-      needsRevisionCount: 0,
-      pendingCount: 0,
-    };
-    const isDecisionMade = isReviewDecisionMade(item);
-
-    byScope.set(scope, {
-      totalInRound: current.totalInRound + 1,
-      decidedCount: current.decidedCount + (isDecisionMade ? 1 : 0),
-      needsRevisionCount: current.needsRevisionCount + (isReviewRejectedItem(item) ? 1 : 0),
-      pendingCount: current.pendingCount + (isDecisionMade ? 0 : 1),
-    });
-  }
-
-  return byScope;
-}
-
-function getLatestTaskRoundProgress(
-  taskId: string,
-  items: ReviewQueueItemDto[],
-  roundProgressByScope: ReadonlyMap<string, ManualReviewRoundProgress>,
-): ManualReviewRoundProgress {
-  let latestRound = -1;
-  let latestProgress: ManualReviewRoundProgress = {
-    totalInRound: 0,
-    decidedCount: 0,
-    needsRevisionCount: 0,
-    pendingCount: 0,
+function toManualReviewTask(item: ReviewTaskQueueDto): ManualReviewTask {
+  return {
+    taskId: item.taskId,
+    taskDisplayId: item.taskDisplayId,
+    taskName: item.taskTitle.trim() ? item.taskTitle : `人工审核任务 ${item.taskDisplayId}`,
+    pendingCount: item.pendingCount,
+    status: item.status,
+    createdAt: formatMinute(item.createdAt),
+    updatedAt: formatMinute(item.updatedAt),
+    deadline: formatMinute(item.deadline ?? ''),
   };
-
-  for (const item of items) {
-    if (item.round < latestRound) {
-      continue;
-    }
-
-    if (item.round > latestRound) {
-      latestRound = item.round;
-      latestProgress = roundProgressByScope.get(reviewQueueItemScope(taskId, item.round)) ?? latestProgress;
-    }
-  }
-
-  return latestProgress;
-}
-
-function resolveManualReviewTaskStatus(progress: ManualReviewRoundProgress): ManualReviewTaskStatus {
-  if (progress.pendingCount > 0) {
-    return '复审中';
-  }
-
-  if (progress.needsRevisionCount > 0) {
-    return '待复审';
-  }
-
-  return '已完成';
-}
-
-function isReviewDecisionSet(humanDecision: string | null): boolean {
-  return humanDecision === 'recheck_pass' || humanDecision === 'reject' || humanDecision === 'revise_pass';
-}
-
-function isReviewDecisionMade(item: ReviewQueueItemDto): boolean {
-  return isReviewDecisionSet(item.humanDecision) || item.status === 'FINAL_APPROVED' || item.status === 'NEEDS_REVISION';
-}
-
-function isReviewRejectedItem(item: ReviewQueueItemDto): boolean {
-  return item.humanDecision === 'reject' || item.status === 'NEEDS_REVISION';
-}
-
-function reviewQueueItemScope(taskId: string, round: number): string {
-  return `${taskId}::${round}`;
-}
-
-function buildManualReviewTasks(
-  queueItems: ReviewQueueItemDto[],
-): ManualReviewTask[] {
-  const groups = new Map<string, ReviewQueueItemDto[]>();
-  const roundProgressByScope = buildManualReviewRoundProgress(queueItems);
-
-  for (const item of queueItems) {
-    groups.set(item.taskId, [...(groups.get(item.taskId) ?? []), item]);
-  }
-
-  return [...groups.entries()]
-    .map(([taskId, items]) => {
-      const orderedItems = [...items].sort((first, second) => first.submittedAt.localeCompare(second.submittedAt));
-      const latestItem = orderedItems[orderedItems.length - 1] ?? items[0];
-      const createdAt = orderedItems[0]?.submittedAt ?? latestItem?.submittedAt ?? '';
-      const updatedAt = latestItem?.updatedAt ?? latestItem?.submittedAt ?? createdAt;
-      const taskDisplayId = latestItem?.taskDisplayId ?? taskId;
-      const latestRoundProgress = getLatestTaskRoundProgress(taskId, items, roundProgressByScope);
-      const status = resolveManualReviewTaskStatus(latestRoundProgress);
-
-      return {
-        taskId,
-        taskDisplayId,
-        taskName: latestItem?.taskTitle?.trim() ? latestItem.taskTitle : `人工审核任务 ${taskDisplayId}`,
-        pendingCount: latestRoundProgress.pendingCount,
-        status,
-        createdAt: formatMinute(createdAt),
-        updatedAt: formatMinute(updatedAt),
-        deadline: formatMinute(latestItem?.deadline ?? ''),
-      } satisfies ManualReviewTask;
-    })
-    .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
 }
 
 function statusTone(status: ManualReviewTask['status']): 'done' | 'final' | 'reviewing' {

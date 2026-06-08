@@ -170,7 +170,7 @@ export const ReviewTaskDetailContent = ({
     let isMounted = true;
 
     setIsLoading(true);
-    listPendingReviews()
+    listPendingReviews({ taskId })
       .then((items) => {
         if (!isMounted) {
           return;
@@ -386,7 +386,7 @@ export const ReviewTaskDetailContent = ({
         showStatusToast(`${selectedItem.subId} 已打回`);
       }
 
-      const latestItems = await listPendingReviews();
+      const latestItems = await listPendingReviews({ taskId });
       applyCurrentTaskQueueItems(latestItems, selectedItem.submissionId);
       setSelectedIds((current) => {
         const next = new Set(current);
@@ -422,7 +422,7 @@ export const ReviewTaskDetailContent = ({
               submissionIds: selectedSubmissionIds,
             });
       const processedCount = result.processedCount || selectedItems.length;
-      const latestItems = await listPendingReviews();
+      const latestItems = await listPendingReviews({ taskId });
       applyCurrentTaskQueueItems(latestItems, selectedItem?.submissionId ?? null);
       setSelectedIds((current) => {
         const next = new Set(current);
