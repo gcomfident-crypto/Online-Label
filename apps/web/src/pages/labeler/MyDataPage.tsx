@@ -33,6 +33,7 @@ const STATUS_OPTIONS: readonly {
 ];
 
 type WorkbenchNavigationState = {
+  assignmentId: string;
   source: 'my-data-table';
   taskDisplayId: string;
   taskTitle: string;
@@ -131,7 +132,7 @@ export const MyDataPage = () => {
   const navigateToWorkbench = useCallback(
     (assignment: LabelerAssignmentDto, taskDisplayId: string, taskTitle: string) => {
       navigate(workbenchHref(assignment), {
-        state: { source: 'my-data-table', taskDisplayId, taskTitle } as WorkbenchNavigationState,
+        state: { assignmentId: assignment.assignmentId, source: 'my-data-table', taskDisplayId, taskTitle } as WorkbenchNavigationState,
       });
     },
     [navigate],
@@ -362,7 +363,7 @@ const SortableMyDataHeader = ({
 type LabelerTaskGroup = LabelerAssignmentTaskDto;
 
 const workbenchHref = (assignment: LabelerAssignmentDto): string =>
-  `/labeler/tasks/${assignment.taskId}/items/${assignment.taskItemId}?assignmentId=${assignment.assignmentId}`;
+  `/labeler/tasks/${encodeURIComponent(assignment.taskDisplayId || assignment.taskId)}/items/${encodeURIComponent(assignment.externalId || assignment.taskItemId)}`;
 
 const DATASET_KIND_LABELS: Record<DatasetKind, string> = {
   qa_quality: '问答质量',

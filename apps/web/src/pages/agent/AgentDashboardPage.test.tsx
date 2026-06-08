@@ -195,7 +195,7 @@ const batches: AiReviewBatchDto[] = [
 
 function createDashboardFetchMock() {
   return vi.fn(async (input: RequestInfo | URL) => {
-    const path = String(input);
+    const path = String(input).replace(/^\/api/, '');
     if (path === '/ai-review/batches') {
       return jsonResponse({ data: batches });
     }

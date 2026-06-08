@@ -16,6 +16,7 @@ import { getLabelerStats, submitTask, type LabelerStatsDto, type TaskSubmissionD
 
 const LABELER_ID = 'user_labeler_li_lei';
 type WorkbenchNavigationState = {
+  assignmentId?: string;
   source?: 'my-data-table';
   taskDisplayId?: string;
   taskTitle?: string;
@@ -36,7 +37,8 @@ export const WorkbenchPage = () => {
   const location = useLocation();
   const { itemId } = useParams<{ itemId: string }>();
   const [searchParams] = useSearchParams();
-  const assignmentId = searchParams.get('assignmentId') ?? '';
+  const workbenchNavigationState = location.state as WorkbenchNavigationState | null;
+  const assignmentId = searchParams.get('assignmentId') ?? workbenchNavigationState?.assignmentId ?? '';
   const [workbench, setWorkbench] = useState<WorkbenchDto | null>(null);
   const [stats, setStats] = useState<LabelerStatsDto | null>(null);
   const [taskAssignments, setTaskAssignments] = useState<LabelerAssignmentDto[]>([]);
@@ -66,11 +68,6 @@ export const WorkbenchPage = () => {
   const workbenchCacheRef = useRef<Map<string, WorkbenchDto>>(new Map());
   const taskAssignmentsCacheRef = useRef<Map<string, LabelerAssignmentDto[]>>(new Map());
   const labelerStatsCacheRef = useRef<Map<string, LabelerStatsDto>>(new Map());
-  const workbenchNavigationState = useMemo(
-    () => (location.state as WorkbenchNavigationState | null),
-    [location.state],
-  );
-
   const localCacheKey = createLocalDraftCacheKey(assignmentId);
 
   const clearAiReviewPolling = useCallback(() => {
@@ -509,6 +506,7 @@ export const WorkbenchPage = () => {
       navigate(workbenchHref(assignment), {
         state: {
           ...(workbenchNavigationState?.source ? { source: workbenchNavigationState.source } : {}),
+          assignmentId: assignment.assignmentId,
           taskDisplayId: currentTaskDisplayId || assignment.taskDisplayId,
           taskTitle: currentTaskTitle || assignment.taskTitle,
         } satisfies WorkbenchNavigationState,
@@ -931,12 +929,9 @@ export const WorkbenchPage = () => {
         <main
           className="workbench-main-panel annotation-canvas-panel"
           aria-label="标注画布"
-          aria-busy={!isWorkbenchForCurrentRoute && isLoading ? true : undefined}
+          aria-busy={isLoading ? true : undefined}
         >
-          {!isWorkbenchForCurrentRoute ? (
-            <PageLoading title="正在加载题目" description="题目导航已切换，正在载入当前题目内容。" />
-          ) : (
-            <>
+          <>
           {aiReviewReport ? (
             <div className="annotation-canvas-tabs" role="tablist" aria-label="标注画布视图">
               <button
@@ -1025,8 +1020,7 @@ export const WorkbenchPage = () => {
               </button>
             </div>
           </div>
-            </>
-          )}
+          </>
         </main>
 
         <LabelerWorkbenchInfoPanel workbench={workbench} />
@@ -2229,7 +2223,7 @@ function compareLabelerAssignments(first: LabelerAssignmentDto, second: LabelerA
 }
 
 function workbenchHref(assignment: LabelerAssignmentDto): string {
-  return `/labeler/tasks/${assignment.taskId}/items/${assignment.taskItemId}?assignmentId=${assignment.assignmentId}`;
+  return `/labeler/tasks/${encodeURIComponent(assignment.taskDisplayId || assignment.taskId)}/items/${encodeURIComponent(assignment.externalId || assignment.taskItemId)}`;
 }
 
 function hasSubmittableTaskAssignments(

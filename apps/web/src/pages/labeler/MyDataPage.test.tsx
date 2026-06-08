@@ -120,10 +120,10 @@ describe('MyDataPage', () => {
 
     expect(screen.queryByLabelText('问答质量标注 已领取题目明细')).not.toBeInTheDocument();
     expect(screen.getByTestId('location-path')).toHaveTextContent(
-      '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
+      '/labeler/tasks/T-001/items/qa_2',
     );
     expect(screen.getByTestId('location-state')).toHaveTextContent(
-      JSON.stringify({ source: 'my-data-table', taskDisplayId: 'T-001', taskTitle: '问答质量标注' }),
+      JSON.stringify({ assignmentId: 'assignment_2', source: 'my-data-table', taskDisplayId: 'T-001', taskTitle: '问答质量标注' }),
     );
   });
 

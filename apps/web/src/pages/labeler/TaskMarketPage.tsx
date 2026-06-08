@@ -177,7 +177,9 @@ export const TaskMarketPage = () => {
         taskId: task.id,
         labelerId: LABELER_ID,
       });
-      const workbenchLink = `/labeler/tasks/${assignment.taskId}/items/${assignment.taskItemId}?assignmentId=${assignment.assignmentId}`;
+      const taskRouteId = /^T-\d+$/i.test(assignment.taskId) ? assignment.taskId : 'claimed-task';
+      const itemRouteId = assignment.taskItem.externalId || assignment.taskItemId;
+      const workbenchLink = `/labeler/tasks/${encodeURIComponent(taskRouteId)}/items/${encodeURIComponent(itemRouteId)}?assignmentId=${encodeURIComponent(assignment.assignmentId)}`;
       showStatusToast(
         `已领取任务「${task.title}」，`,
         {

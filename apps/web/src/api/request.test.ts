@@ -1,12 +1,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { requestApi } from './request';
+import { apiBaseUrl, requestApi } from './request';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.stubEnv('VITE_API_BASE_URL', '');
 });
 
 describe('requestApi', () => {
+  it('未显式配置 API base 时默认使用 /api', async () => {
+    vi.unstubAllEnvs();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ data: ['task-1'] })));
+
+    expect(apiBaseUrl()).toBe('/api');
+    await expect(requestApi<string[]>('/tasks', { method: 'GET' }, '任务接口请求失败。')).resolves.toEqual([
+      'task-1',
+    ]);
+    expect(fetch).toHaveBeenCalledWith('/api/tasks', expect.objectContaining({ method: 'GET' }));
+  });
+
   it('返回响应包裹中的 data', async () => {
     vi.stubGlobal(
       'fetch',
@@ -16,6 +28,7 @@ describe('requestApi', () => {
     await expect(requestApi<string[]>('/tasks', { method: 'GET' }, '任务接口请求失败。')).resolves.toEqual([
       'task-1',
     ]);
+    expect(fetch).toHaveBeenCalledWith('/tasks', expect.objectContaining({ method: 'GET' }));
   });
 
   it('空的错误响应不会抛出浏览器 JSON 解析异常', async () => {

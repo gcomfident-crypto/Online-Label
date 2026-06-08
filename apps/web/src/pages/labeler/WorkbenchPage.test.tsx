@@ -90,6 +90,7 @@ const taskAssignments = [
   {
     assignmentId: 'assignment_1',
     taskId: 'task_qa',
+    taskDisplayId: 'T-001',
     taskTitle: '问答质量标注',
     taskItemId: 'item_qa_1',
     taskItemSortOrder: 8,
@@ -106,6 +107,7 @@ const taskAssignments = [
   {
     assignmentId: 'assignment_2',
     taskId: 'task_qa',
+    taskDisplayId: 'T-001',
     taskTitle: '问答质量标注',
     taskItemId: 'item_qa_2',
     taskItemSortOrder: 9,
@@ -1209,7 +1211,7 @@ describe('WorkbenchPage', () => {
     await user.click(screen.getByRole('button', { name: /qa_2/ }));
     await waitFor(() => {
       expect(screen.getByTestId('location-path')).toHaveTextContent(
-        '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
+        '/labeler/tasks/T-001/items/qa_2',
       );
     });
 
@@ -1756,7 +1758,7 @@ describe('WorkbenchPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('location-path')).toHaveTextContent(
-        '/labeler/tasks/task_qa/items/item_qa_1?assignmentId=assignment_1',
+        '/labeler/tasks/T-001/items/P0001',
       );
     });
     expect(await screen.findByText('整体质量为必填项。')).toBeInTheDocument();
@@ -1996,14 +1998,45 @@ describe('WorkbenchPage', () => {
 
   it('支持保存、切题和报告快捷键', async () => {
     const user = userEvent.setup();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ data: { ...qaWorkbench, draft: { answers: { quality: 'pass' } } } }))
-      .mockResolvedValueOnce(jsonResponse({ data: { ...stats, totalAssignments: 2 } }))
-      .mockResolvedValueOnce(jsonResponse({ data: taskAssignments }))
-      .mockResolvedValueOnce(jsonResponse({ data: taskList }))
-      .mockResolvedValueOnce(
-        jsonResponse({
+    const secondWorkbench = {
+      ...qaWorkbench,
+      assignment: {
+        ...qaWorkbench.assignment,
+        id: 'assignment_2',
+        taskItemId: 'item_qa_2',
+        status: 'ASSIGNED',
+      },
+      taskItem: {
+        ...qaWorkbench.taskItem,
+        id: 'item_qa_2',
+        externalId: 'qa_2',
+        sortOrder: 9,
+      },
+      draft: { answers: { quality: 'pass' } },
+    };
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === '/assignments/assignment_1/workbench') {
+        return jsonResponse({ data: { ...qaWorkbench, draft: { answers: { quality: 'pass' } } } });
+      }
+
+      if (url === '/assignments/assignment_2/workbench') {
+        return jsonResponse({ data: secondWorkbench });
+      }
+
+      if (url.startsWith('/labeler/stats')) {
+        return jsonResponse({ data: { ...stats, totalAssignments: 2 } });
+      }
+
+      if (url.startsWith('/labeler/assignments')) {
+        return jsonResponse({ data: taskAssignments });
+      }
+
+      if (url === '/tasks') {
+        return jsonResponse({ data: taskList });
+      }
+
+      if (url === '/drafts/assignment_1' && init?.method === 'PUT') {
+        return jsonResponse({
           data: {
             id: 'draft_1',
             assignmentId: 'assignment_1',
@@ -2012,8 +2045,24 @@ describe('WorkbenchPage', () => {
             createdAt: '2026-05-21T00:00:00.000Z',
             updatedAt: '2026-05-21T08:04:00.000Z',
           },
-        }),
-      );
+        });
+      }
+
+      if (url.startsWith('/drafts/')) {
+        return jsonResponse({
+          data: {
+            id: 'draft_read',
+            assignmentId: url.split('/')[2] ?? 'assignment_1',
+            answers: { quality: 'pass' },
+            schemaVersion: 'r1',
+            createdAt: '2026-05-21T00:00:00.000Z',
+            updatedAt: '2026-05-21T08:04:00.000Z',
+          },
+        });
+      }
+
+      return jsonResponse({ data: null });
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     renderWorkbenchPage();
@@ -2032,22 +2081,22 @@ describe('WorkbenchPage', () => {
 
     await user.keyboard('{ArrowRight}');
     expect(screen.getByTestId('location-path')).toHaveTextContent(
-      '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
+      '/labeler/tasks/T-001/items/qa_2',
     );
 
     await user.keyboard('{ArrowLeft}');
     expect(screen.getByTestId('location-path')).toHaveTextContent(
-      '/labeler/tasks/task_qa/items/item_qa_1?assignmentId=assignment_1',
+      '/labeler/tasks/T-001/items/qa_1',
     );
 
     await user.keyboard('j');
     expect(screen.getByTestId('location-path')).toHaveTextContent(
-      '/labeler/tasks/task_qa/items/item_qa_2?assignmentId=assignment_2',
+      '/labeler/tasks/T-001/items/qa_2',
     );
 
     await user.keyboard('k');
     expect(screen.getByTestId('location-path')).toHaveTextContent(
-      '/labeler/tasks/task_qa/items/item_qa_1?assignmentId=assignment_1',
+      '/labeler/tasks/T-001/items/qa_1',
     );
 
     await user.keyboard('r');

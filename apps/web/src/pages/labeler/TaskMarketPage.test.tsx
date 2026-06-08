@@ -151,7 +151,7 @@ describe('TaskMarketPage', () => {
     const claimLink = screen.getByRole('link', { name: '现在去标注' });
     expect(claimLink).toHaveAttribute(
       'href',
-      '/labeler/tasks/task_qa/items/item_qa_1?assignmentId=assignment_1',
+      '/labeler/tasks/claimed-task/items/qa_1?assignmentId=assignment_1',
     );
     expect(claimLink.closest('.toast')).toHaveClass('toast--claim-task');
     expect(fetchMock).toHaveBeenCalledWith(

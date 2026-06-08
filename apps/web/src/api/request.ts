@@ -7,7 +7,7 @@ type ApiEnvelope<TData> = {
 
 export const apiBaseUrl = (): string =>
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ??
-  (import.meta.env.MODE === 'development' ? '/api' : '');
+  '/api';
 
 export async function requestApi<TData>(
   path: string,
