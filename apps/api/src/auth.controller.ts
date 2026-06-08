@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 
 type LoginBody = {
   account?: string;
+  password?: string;
   role?: string;
 };
 
@@ -56,6 +57,13 @@ export class AuthController {
       throw new BadRequestException({
         code: 'INVALID_LOGIN',
         message: '演示账号不存在，请选择有效角色登录。',
+      });
+    }
+
+    if (!body.password || body.password !== '123456') {
+      throw new BadRequestException({
+        code: 'INVALID_PASSWORD',
+        message: '密码错误，演示环境统一密码为 123456。',
       });
     }
 

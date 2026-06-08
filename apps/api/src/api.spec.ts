@@ -31,7 +31,7 @@ describe('LabelHub API shell', () => {
   it.each(USER_ROLES)('logs in a %s demo user', async (role) => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ role })
+      .send({ role, password: '123456' })
       .expect(201);
 
     expect(response.body).toEqual({
@@ -51,7 +51,7 @@ describe('LabelHub API shell', () => {
   it('logs in by demo account identifier', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ account: 'reviewer' })
+      .send({ account: 'reviewer', password: '123456' })
       .expect(201);
 
     expect(response.body.data.user.role).toBe('REVIEWER');
@@ -61,7 +61,7 @@ describe('LabelHub API shell', () => {
   it('logs in the second labeler demo account', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ account: 'labeler2' })
+      .send({ account: 'labeler2', password: '123456' })
       .expect(201);
 
     expect(response.body.data.user).toEqual({
@@ -75,7 +75,7 @@ describe('LabelHub API shell', () => {
   it('returns a simplified Chinese error envelope for invalid login', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ role: 'ADMIN' })
+      .send({ role: 'ADMIN', password: '123456' })
       .expect(400);
 
     expect(response.body).toEqual({
@@ -85,6 +85,30 @@ describe('LabelHub API shell', () => {
       },
       requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
     });
+  });
+
+  it('rejects login with wrong password', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ role: 'OWNER', password: 'wrong' })
+      .expect(400);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_PASSWORD',
+        message: '密码错误，演示环境统一密码为 123456。',
+      },
+      requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
+    });
+  });
+
+  it('rejects login with empty password', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ role: 'OWNER', password: '' })
+      .expect(400);
+
+    expect(response.body.error.code).toBe('INVALID_PASSWORD');
   });
 
   it('非对象请求体返回稳定参数错误', async () => {
@@ -129,7 +153,7 @@ describe('LabelHub API shell', () => {
   it('returns the current mock user for /me', async () => {
     const login = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ role: 'OWNER' satisfies UserRole })
+      .send({ role: 'OWNER' satisfies UserRole, password: '123456' })
       .expect(201);
 
     const response = await request(app.getHttpServer())

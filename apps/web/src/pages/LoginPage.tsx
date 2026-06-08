@@ -129,7 +129,7 @@ function LoginForm({
             aria-invalid={formError ? true : undefined}
             autoComplete="username"
             name="account"
-            placeholder="owner / labeler / labeler2 / agent / reviewer"
+            placeholder="请输入账号"
             value={account}
             onChange={(event) => onAccountChange(event.target.value)}
           />
