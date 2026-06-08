@@ -14813,7 +14813,11 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .labeler-task-workspace .my-data-status-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(112px, 1fr));
+}
+
+.labeler-task-workspace .my-data-status-grid .task-summary-card span {
+  white-space: nowrap;
 }
 
 .labeler-task-workspace .my-data-search-bar {
