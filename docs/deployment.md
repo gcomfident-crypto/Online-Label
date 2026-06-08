@@ -2,6 +2,17 @@
 
 本文说明本地 Docker Compose 依赖启动、应用启动顺序和云平台部署建议。文档只包含环境变量名和占位值，不包含真实密钥。
 
+## 目录
+
+- [运行组件](#运行组件)
+- [本地依赖启动](#本地依赖启动)
+- [环境变量](#环境变量)
+- [云平台部署建议](#云平台部署建议)
+- [登录、RBAC 与四端隔离](#登录rbac-与四端隔离)
+- [AI 模式](#ai-模式)
+- [演示账号](#演示账号)
+- [发布检查](#发布检查)
+
 ## 运行组件
 
 | 组件       | 路径或服务      | 职责                                                    |
@@ -66,8 +77,8 @@ pnpm dev
 | `JWT_SECRET`          | `replace_with_strong_secret`                                  | 登录 token 签名占位配置                 |
 | `BULLMQ_QUEUE_PREFIX` | `labelhub`                                                    | 队列名前缀                              |
 | `STORAGE_EXPORTS_DIR` | `storage/exports`                                             | 导出文件目录                            |
-| `LLM_PROVIDER`        | `mock` 或 `deepseek`                                        | AI provider，默认使用 `mock` 稳定演示 |
-| `LLM_MODEL`           | `mock-stable-reviewer` 或 `deepseek-chat`                   | 模型名称                                |
+| `LLM_PROVIDER`        | `deepseek`（或留空）                                         | AI provider；留空时尝试 DeepSeek，无 key 则预审失败 |
+| `LLM_MODEL`           | `deepseek-chat`                                              | 模型名称                                |
 | `DEEPSEEK_API_KEY`    | `replace_with_deepseek_api_key`                               | DeepSeek 密钥占位值，只允许写入私有环境 |
 
 `docs/labelhub-plan/deepseek-api-example.py` 是本机参考示例，`docs/labelhub-plan/env` 是本机密钥文件，不能提交、复制、截图或公开。
@@ -117,22 +128,27 @@ pnpm --filter @labelhub/web dev
 
 ## AI 模式
 
-稳定演示使用：
-
-```text
-LLM_PROVIDER=mock
-LLM_MODEL=mock-stable-reviewer
-```
-
-真实 DeepSeek 调用使用：
+真实 DeepSeek 调用：
 
 ```text
 LLM_PROVIDER=deepseek
 LLM_MODEL=deepseek-chat
-DEEPSEEK_API_KEY=replace_with_deepseek_api_key
+DEEPSEEK_API_KEY=your_real_api_key
 ```
 
-真实 key 只能写入本机 `.env`、云平台密钥管理或运行环境变量，不得写入代码、文档、测试快照、日志或提交记录。
+> ⚠️ 真实 key 只能写入本机 `.env`、云平台密钥管理或运行环境变量，不得写入代码、文档、测试快照、日志或提交记录。
+
+## 演示账号
+
+> 所有演示账号统一密码：`123456`
+
+| 账号 | 姓名 | 角色 | 默认首页 |
+| --- | --- | --- | --- |
+| `zhangman` | 张满 | Owner | `/owner/tasks` |
+| `lilei` | 李雷 | Labeler | `/labeler/market` |
+| `hanmeimei` | 韩梅梅 | Labeler | `/labeler/market` |
+| `agent` | 系统机审 | AI Agent | `/agent/dashboard` |
+| `wangfang` | 王芳 | Reviewer | `/reviewer/reviews` |
 
 ## 发布检查
 

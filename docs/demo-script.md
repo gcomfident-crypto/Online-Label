@@ -2,22 +2,43 @@
 
 建议时长：5 到 10 分钟。演示前运行 `pnpm demo:reset`，再执行 `pnpm dev`，从 `http://localhost:5173/login` 开始。
 
+## 目录
+
+- [开场说明](#开场说明)
+- [演示账号](#演示账号)
+- [主线一：qa_quality 完整闭环](#主线一qa_quality-完整闭环)
+  - [1. Owner 创建、导入并发布任务](#1-owner-创建导入并发布任务)
+  - [2. Owner 查看模板 Designer](#2-owner-查看模板-designer)
+  - [3. Labeler 领取、保存草稿并提交](#3-labeler-领取保存草稿并提交)
+  - [4. AI Agent 查看自动预审](#4-ai-agent-查看自动预审)
+  - [5. Reviewer 人工复审打回](#5-reviewer-人工复审打回)
+  - [6. Labeler 二次提交](#6-labeler-二次提交)
+  - [7. Reviewer 复审通过并终审](#7-reviewer-复审通过并终审)
+  - [8. Owner 导出终审通过数据](#8-owner-导出终审通过数据)
+- [主线二：preference_compare 模板与映射](#主线二preference_compare-模板与映射)
+  - [1. Owner 查看偏好对比模板](#1-owner-查看偏好对比模板)
+  - [2. Owner 导入偏好对比数据](#2-owner-导入偏好对比数据)
+  - [3. Owner 查看导出字段映射](#3-owner-查看导出字段映射)
+- [收尾说明](#收尾说明)
+
 ## 开场说明
 
 LabelHub 是 AI 数据标注与审核平台，演示重点有三点：
 
 1. 动态表单 Designer/Renderer 使用同一份 Schema。
 2. 任务、提交、审核、终审和导出都由状态机与审计日志约束。
-3. AI Agent 默认使用 mock provider，可稳定演示结构化预审、重试和人工兜底。
+3. AI Agent 异步预审队列支持结构化输出、重试和人工兜底。
 
 ## 演示账号
 
-| 角色 | 登录入口 | 默认页面 |
-| --- | --- | --- |
-| Owner | `/login` 选择 Owner 演示账号 | `/owner/tasks` |
-| Labeler | `/login` 选择 Labeler 演示账号 | `/labeler/market` |
-| AI Agent | `/login` 选择 AI Agent 演示账号 | `/agent/ai-review` |
-| Reviewer | `/login` 选择 Reviewer 演示账号 | `/reviewer/reviews` |
+> 所有演示账号统一密码：`123456`
+
+| 角色 | 账号 | 登录入口 | 默认页面 |
+| --- | --- | --- | --- |
+| Owner | `zhangman` | `/login` → 输入账号密码 | `/owner/tasks` |
+| Labeler | `lilei` | `/login` → 输入账号密码 | `/labeler/market` |
+| AI Agent | `agent` | `/login` → 输入账号密码 | `/agent/ai-review` |
+| Reviewer | `wangfang` | `/login` → 输入账号密码 | `/reviewer/reviews` |
 
 ## 主线一：`qa_quality` 完整闭环
 
@@ -67,7 +88,7 @@ LabelHub 是 AI 数据标注与审核平台，演示重点有三点：
 - 操作：
   1. 展示左侧异步队列、状态分组和重试入口。
   2. 展示右侧提交内容、JSON 字段、维度评分、AI 评语、Prompt 模板和处理日志，对齐视觉参考图 4。
-  3. 说明 mock provider 在本地稳定返回结构化结果，不依赖真实 API Key。
+  3. 说明 AI 预审流程：入队 → 构造 Prompt → 模型调用 → 结构化输出 → 评分结论。
 - 预期结果：
   - AI 任务有幂等键、attempts、provider、model 和日志。
   - 连续失败会转人工兜底，仍进入人工复审队列。
