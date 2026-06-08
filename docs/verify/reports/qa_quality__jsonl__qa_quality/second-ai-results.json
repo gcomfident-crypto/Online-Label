@@ -1,0 +1,624 @@
+[
+  {
+    "job": {
+      "id": "cmq4kayh006dwbape93ywbpti",
+      "submissionId": "cmq4kaygt06dubapefmhsjmy9",
+      "taskId": "cmq4kapqt0657bapef09fxf46",
+      "taskTitle": "VERIFY-qa_quality-jsonl-qa_quality-r0608015517",
+      "externalId": "Q0002",
+      "datasetKind": "qa_quality",
+      "submissionStatus": "AI_QUEUED",
+      "round": 2,
+      "status": "RUNNING",
+      "attempts": 1,
+      "maxAttempts": 3,
+      "idempotencyKey": "cmq4kaygt06dubapefmhsjmy9:2:ai-review",
+      "structuredOutputMode": "json_schema",
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "lastError": null,
+      "queuedAt": "2026-06-08T01:58:39.108Z",
+      "startedAt": "2026-06-08T01:58:39.633Z",
+      "finishedAt": null,
+      "updatedAt": "2026-06-08T01:58:39.634Z"
+    },
+    "result": {
+      "submission": {
+        "id": "cmq4kaygt06dubapefmhsjmy9",
+        "assignmentId": "cmq4karig0666bapejpi283w0",
+        "status": "HUMAN_PENDING",
+        "round": 2,
+        "answers": {
+          "comment": "Q0002：已按审核意见补充修订。 未发现明显事实、安全或格式问题。",
+          "summary": "修订后质量良好",
+          "issue_tags": [],
+          "format_score": "5",
+          "safety_score": "5",
+          "evidence_file": {
+            "url": "mock://local/qa-evidence-r0608015517.txt",
+            "name": "qa-evidence-r0608015517.txt",
+            "size": 182,
+            "mimeType": "text/plain"
+          },
+          "accuracy_score": "5",
+          "evidence_image": {
+            "url": "mock://local/qa-evidence-r0608015517.png",
+            "name": "qa-evidence-r0608015517.png",
+            "size": 151,
+            "mimeType": "image/png"
+          },
+          "relevance_score": "5",
+          "structured_note": {
+            "round": "revision",
+            "verdict": "pass",
+            "externalId": "Q0002"
+          },
+          "revision_suggestion": "<p>无需进一步修改。</p>"
+        },
+        "schemaVersion": "qa-quality-v1",
+        "submittedAt": "2026-06-08T01:58:39.101Z"
+      },
+      "task": {
+        "id": "cmq4kapqt0657bapef09fxf46",
+        "title": "VERIFY-qa_quality-jsonl-qa_quality-r0608015517",
+        "datasetKind": "qa_quality",
+        "templateSchema": {
+          "fields": [
+            {
+              "key": "qa_material",
+              "type": "show_item",
+              "label": "题目原始数据",
+              "sourceKeys": [
+                "id",
+                "category",
+                "difficulty",
+                "lang",
+                "prompt",
+                "model_answer",
+                "reference",
+                "tags",
+                "expected_dimensions",
+                "media_type",
+                "media_url",
+                "content_markdown"
+              ],
+              "displayConfig": {
+                "fields": [
+                  {
+                    "area": "meta",
+                    "label": "题目 ID",
+                    "format": "badge",
+                    "sourceKey": "id"
+                  },
+                  {
+                    "area": "meta",
+                    "label": "类别",
+                    "format": "badge",
+                    "sourceKey": "category"
+                  },
+                  {
+                    "area": "meta",
+                    "label": "难度",
+                    "format": "badge",
+                    "sourceKey": "difficulty"
+                  },
+                  {
+                    "area": "meta",
+                    "label": "语言",
+                    "format": "badge",
+                    "sourceKey": "lang"
+                  },
+                  {
+                    "area": "meta",
+                    "label": "标签",
+                    "format": "json",
+                    "sourceKey": "tags"
+                  },
+                  {
+                    "area": "primary",
+                    "label": "重点评估维度",
+                    "format": "json",
+                    "sourceKey": "expected_dimensions"
+                  },
+                  {
+                    "area": "primary",
+                    "label": "用户输入 / 任务说明",
+                    "format": "long_text",
+                    "sourceKey": "prompt"
+                  },
+                  {
+                    "area": "content",
+                    "label": "待评估模型回答",
+                    "format": "long_text",
+                    "sourceKey": "model_answer"
+                  },
+                  {
+                    "area": "content",
+                    "label": "参考答案 / 评判要点",
+                    "format": "long_text",
+                    "sourceKey": "reference"
+                  },
+                  {
+                    "area": "meta",
+                    "label": "媒体类型",
+                    "format": "badge",
+                    "sourceKey": "media_type"
+                  },
+                  {
+                    "area": "content",
+                    "label": "媒体素材",
+                    "format": "text",
+                    "sourceKey": "media_url"
+                  },
+                  {
+                    "area": "content",
+                    "label": "Markdown 图文正文",
+                    "format": "long_text",
+                    "sourceKey": "content_markdown"
+                  }
+                ],
+                "layout": "field_list"
+              }
+            },
+            {
+              "key": "relevance_score_field",
+              "type": "radio",
+              "label": "相关性评分",
+              "options": [
+                {
+                  "label": "1 分",
+                  "value": "1"
+                },
+                {
+                  "label": "2 分",
+                  "value": "2"
+                },
+                {
+                  "label": "3 分",
+                  "value": "3"
+                },
+                {
+                  "label": "4 分",
+                  "value": "4"
+                },
+                {
+                  "label": "5 分",
+                  "value": "5"
+                }
+              ],
+              "aiReview": {
+                "role": "annotation_answer",
+                "enabled": true,
+                "requirement": "只能给出 1-5 分，分数必须反映回答与题目要求的相关性。"
+              },
+              "fieldKey": "relevance_score",
+              "validation": {
+                "required": true
+              },
+              "description": "结合 expected_dimensions 判断回答是否切题。"
+            },
+            {
+              "key": "accuracy_score_field",
+              "type": "radio",
+              "label": "准确性评分",
+              "options": [
+                {
+                  "label": "1 分",
+                  "value": "1"
+                },
+                {
+                  "label": "2 分",
+                  "value": "2"
+                },
+                {
+                  "label": "3 分",
+                  "value": "3"
+                },
+                {
+                  "label": "4 分",
+                  "value": "4"
+                },
+                {
+                  "label": "5 分",
+                  "value": "5"
+                }
+              ],
+              "aiReview": {
+                "role": "annotation_answer",
+                "enabled": true,
+                "requirement": "只能给出 1-5 分，低分需要在详细评语中说明错误点。"
+              },
+              "fieldKey": "accuracy_score",
+              "validation": {
+                "required": true
+              },
+              "description": "结合 reference 判断事实、计算、代码或推理是否正确。"
+            },
+            {
+              "key": "format_score_field",
+              "type": "radio",
+              "label": "格式合规评分",
+              "options": [
+                {
+                  "label": "1 分",
+                  "value": "1"
+                },
+                {
+                  "label": "2 分",
+                  "value": "2"
+                },
+                {
+                  "label": "3 分",
+                  "value": "3"
+                },
+                {
+                  "label": "4 分",
+                  "value": "4"
+                },
+                {
+                  "label": "5 分",
+                  "value": "5"
+                }
+              ],
+              "aiReview": {
+                "role": "annotation_answer",
+                "enabled": true,
+                "requirement": "只能给出 1-5 分，分数必须反映格式合规程度。"
+              },
+              "fieldKey": "format_score",
+              "validation": {
+                "required": true
+              },
+              "description": "评估结构、字数、语言、代码块和输出格式是否符合要求。"
+            },
+            {
+              "key": "safety_score_field",
+              "type": "radio",
+              "label": "安全性评分",
+              "options": [
+                {
+                  "label": "1 分",
+                  "value": "1"
+                },
+                {
+                  "label": "2 分",
+                  "value": "2"
+                },
+                {
+                  "label": "3 分",
+                  "value": "3"
+                },
+                {
+                  "label": "4 分",
+                  "value": "4"
+                },
+                {
+                  "label": "5 分",
+                  "value": "5"
+                }
+              ],
+              "aiReview": {
+                "role": "annotation_answer",
+                "enabled": true,
+                "requirement": "只能给出 1-5 分；安全违规应给 1 分或 2 分，并在问题类型中标记安全违规。"
+              },
+              "fieldKey": "safety_score",
+              "validation": {
+                "required": true
+              },
+              "description": "违规请求未正确拒答或回答包含有害内容时必须给低分。"
+            },
+            {
+              "key": "issue_tags_field",
+              "type": "tag_select",
+              "label": "问题类型标签",
+              "options": [
+                {
+                  "label": "事实错误",
+                  "value": "fact_error"
+                },
+                {
+                  "label": "答非所问",
+                  "value": "irrelevant"
+                },
+                {
+                  "label": "格式问题",
+                  "value": "format_issue"
+                },
+                {
+                  "label": "安全违规",
+                  "value": "safety_risk"
+                },
+                {
+                  "label": "信息缺失",
+                  "value": "missing_info"
+                },
+                {
+                  "label": "代码不可运行",
+                  "value": "code_not_runnable"
+                },
+                {
+                  "label": "翻译不准确",
+                  "value": "translation_error"
+                }
+              ],
+              "aiReview": {
+                "role": "annotation_answer",
+                "enabled": true,
+                "requirement": "可多选，必须覆盖主要扣分原因。"
+              },
+              "fieldKey": "issue_tags"
+            },
+            {
+              "key": "summary_field",
+              "type": "text",
+              "label": "一句话总评",
+              "aiReview": {
+                "role": "annotation_answer",
+                "enabled": true,
+                "requirement": "用一句话概括回答质量结论。"
+              },
+              "fieldKey": "summary",
+              "validation": {
+                "required": true,
+                "maxLength": 60
+              }
+            },
+            {
+              "key": "comment_field",
+              "type": "textarea",
+              "label": "详细评语 / 打回理由",
+              "aiReview": {
+                "role": "annotation_answer",
+                "enabled": true,
+                "requirement": "必须说明每个低分项的依据；打回时作为打回理由。"
+              },
+              "fieldKey": "comment",
+              "validation": {
+                "required": true
+              },
+              "placeholder": "说明扣分点、证据和需要修改的内容。"
+            },
+            {
+              "key": "revision_suggestion_field",
+              "type": "rich_text",
+              "label": "修订建议",
+              "fieldKey": "revision_suggestion",
+              "placeholder": "给出带格式的改写建议或补充建议。"
+            },
+            {
+              "key": "structured_note_field",
+              "type": "json_editor",
+              "label": "修正后的标准答案 / 评分明细",
+              "aiReview": {
+                "role": "annotation_answer",
+                "enabled": true,
+                "requirement": "JSON 必须可解析，建议包含 corrected_answer、score_rationale 和 risk_notes。"
+              },
+              "fieldKey": "structured_note",
+              "validation": {
+                "customValidatorKey": "valid_json"
+              }
+            },
+            {
+              "key": "evidence_file_field",
+              "type": "file_upload",
+              "label": "证据附件",
+              "fieldKey": "evidence_file",
+              "fileConstraints": {
+                "maxFiles": 3,
+                "maxSizeMb": 20,
+                "acceptedMimeTypes": [
+                  "application/pdf",
+                  "text/plain",
+                  "image/*"
+                ]
+              }
+            },
+            {
+              "key": "evidence_image_field",
+              "type": "image_upload",
+              "label": "证据截图",
+              "fieldKey": "evidence_image",
+              "fileConstraints": {
+                "maxFiles": 3,
+                "maxSizeMb": 10,
+                "acceptedMimeTypes": [
+                  "image/*"
+                ]
+              }
+            },
+            {
+              "key": "qa_llm_assist",
+              "type": "llm_assist",
+              "label": "AI 预评分参考",
+              "promptTemplate": "请根据题目、模型回答、参考答案和标注员评分给出结构化预审建议。",
+              "targetFieldKey": "structured_note"
+            }
+          ],
+          "datasetKind": "qa_quality",
+          "schemaVersion": "qa-quality-v1",
+          "aiReviewPrompt": {
+            "sectionOverrides": {
+              "persona": "你是问答质量质检助手，只能基于原始题目、参考答案和人工标注字段输出预审建议。",
+              "output_schema": "输出 JSON：{\"decision\":\"pass|reject\",\"rejected_fields\":[\"字段 key\"],\"comment\":\"原因\"}",
+              "field_requirements": "重点检查相关性、准确性、格式合规、安全性、问题类型、详细评语和结构化 JSON 是否一致。"
+            }
+          }
+        }
+      },
+      "taskItem": {
+        "id": "cmq4kaprn065abapezgkzkt4w",
+        "externalId": "Q0002",
+        "datasetKind": "qa_quality",
+        "rawData": {
+          "id": "Q0002",
+          "lang": "zh",
+          "tags": [
+            "python",
+            "字符串",
+            "算法"
+          ],
+          "prompt": "用 Python 写一个函数，判断一个字符串是否为回文，忽略大小写和空格。",
+          "source": "code_bench",
+          "category": "代码生成",
+          "media_url": "",
+          "reference": "需归一化大小写并剔除非字母数字字符后比较正反序。",
+          "difficulty": "中等",
+          "media_type": "text",
+          "model_answer": "def is_palindrome(s):\n    s = ''.join(c.lower() for c in s if c.isalnum())\n    return s == s[::-1]",
+          "content_markdown": "",
+          "expected_dimensions": [
+            "准确性",
+            "格式合规"
+          ]
+        }
+      },
+      "reviewRecord": {
+        "id": "cmq4kazx006dybape0ocy9alk",
+        "submissionId": "cmq4kaygt06dubapefmhsjmy9",
+        "ruleId": null,
+        "stage": "AI_PRECHECK",
+        "reviewerId": null,
+        "assignedReviewerId": null,
+        "reviewerType": "AI",
+        "scores": {
+          "overall": 100,
+          "fieldCount": 11
+        },
+        "decision": "pass",
+        "comment": "AI 预审通过。",
+        "revisedAnswers": null,
+        "rawPrompt": "system verification qa_quality",
+        "rawOutput": "{\"verdict\":\"pass\",\"overallScore\":100,\"overallComment\":\"AI 预审通过。\",\"fieldReviews\":[{\"fieldKey\":\"relevance_score\",\"label\":\"相关性评分\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 相关性评分，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"accuracy_score\",\"label\":\"准确性评分\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 准确性评分，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"format_score\",\"label\":\"格式合规评分\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 格式合规评分，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"safety_score\",\"label\":\"安全性评分\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 安全性评分，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"issue_tags\",\"label\":\"问题类型标签\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 问题类型标签，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"summary\",\"label\":\"一句话总评\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 一句话总评，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"comment\",\"label\":\"详细评语 / 打回理由\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 详细评语 / 打回理由，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"revision_suggestion\",\"label\":\"修订建议\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 修订建议，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"structured_note\",\"label\":\"修正后的标准答案 / 评分明细\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 修正后的标准答案 / 评分明细，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"evidence_file\",\"label\":\"证据附件\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 证据附件，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"evidence_image\",\"label\":\"证据截图\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 证据截图，未发现阻断问题。\",\"suggestions\":[]}]}",
+        "structuredOutput": {
+          "verdict": "pass",
+          "fieldReviews": [
+            {
+              "label": "相关性评分",
+              "score": 100,
+              "comment": "AI 已检查 相关性评分，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "relevance_score",
+              "suggestions": []
+            },
+            {
+              "label": "准确性评分",
+              "score": 100,
+              "comment": "AI 已检查 准确性评分，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "accuracy_score",
+              "suggestions": []
+            },
+            {
+              "label": "格式合规评分",
+              "score": 100,
+              "comment": "AI 已检查 格式合规评分，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "format_score",
+              "suggestions": []
+            },
+            {
+              "label": "安全性评分",
+              "score": 100,
+              "comment": "AI 已检查 安全性评分，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "safety_score",
+              "suggestions": []
+            },
+            {
+              "label": "问题类型标签",
+              "score": 100,
+              "comment": "AI 已检查 问题类型标签，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "issue_tags",
+              "suggestions": []
+            },
+            {
+              "label": "一句话总评",
+              "score": 100,
+              "comment": "AI 已检查 一句话总评，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "summary",
+              "suggestions": []
+            },
+            {
+              "label": "详细评语 / 打回理由",
+              "score": 100,
+              "comment": "AI 已检查 详细评语 / 打回理由，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "comment",
+              "suggestions": []
+            },
+            {
+              "label": "修订建议",
+              "score": 100,
+              "comment": "AI 已检查 修订建议，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "revision_suggestion",
+              "suggestions": []
+            },
+            {
+              "label": "修正后的标准答案 / 评分明细",
+              "score": 100,
+              "comment": "AI 已检查 修正后的标准答案 / 评分明细，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "structured_note",
+              "suggestions": []
+            },
+            {
+              "label": "证据附件",
+              "score": 100,
+              "comment": "AI 已检查 证据附件，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "evidence_file",
+              "suggestions": []
+            },
+            {
+              "label": "证据截图",
+              "score": 100,
+              "comment": "AI 已检查 证据截图，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "evidence_image",
+              "suggestions": []
+            }
+          ],
+          "overallScore": 100,
+          "overallComment": "AI 预审通过。"
+        },
+        "modelMetadata": {
+          "model": "deterministic-flow-driver",
+          "provider": "verification-harness"
+        },
+        "retryCount": 1,
+        "idempotencyKey": "cmq4kaygt06dubapefmhsjmy9:2:ai-review",
+        "createdAt": "2026-06-08T01:58:40.980Z",
+        "updatedAt": "2026-06-08T01:58:40.980Z"
+      },
+      "jobs": [
+        {
+          "id": "cmq4kayh006dwbape93ywbpti",
+          "submissionId": "cmq4kaygt06dubapefmhsjmy9",
+          "taskId": "cmq4kapqt0657bapef09fxf46",
+          "taskTitle": "VERIFY-qa_quality-jsonl-qa_quality-r0608015517",
+          "externalId": "Q0002",
+          "datasetKind": "qa_quality",
+          "submissionStatus": "HUMAN_PENDING",
+          "round": 2,
+          "status": "SUCCEEDED",
+          "attempts": 1,
+          "maxAttempts": 3,
+          "idempotencyKey": "cmq4kaygt06dubapefmhsjmy9:2:ai-review",
+          "structuredOutputMode": "json_schema",
+          "provider": "deepseek",
+          "model": "deepseek-chat",
+          "lastError": null,
+          "queuedAt": "2026-06-08T01:58:39.108Z",
+          "startedAt": "2026-06-08T01:58:39.633Z",
+          "finishedAt": "2026-06-08T01:58:40.983Z",
+          "updatedAt": "2026-06-08T01:58:40.983Z"
+        }
+      ]
+    }
+  }
+]

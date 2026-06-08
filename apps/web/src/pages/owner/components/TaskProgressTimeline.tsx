@@ -316,7 +316,8 @@ const progressEventTime = (event: TaskWorkflowProgressEvent): number => {
 };
 
 const inferAssignedItemCount = (task: TaskDto): number => {
-  const totalCount = task.quota ?? task.itemCount ?? 0;
+  const actualItemCount = task.itemCount ?? 0;
+  const totalCount = actualItemCount > 0 ? actualItemCount : task.quota ?? 0;
   const remainingCount = Math.max(0, totalCount - (task.completedItemCount ?? 0));
 
   return task.completedItemCount > 0 ? Math.max(1, totalCount - remainingCount) : 0;

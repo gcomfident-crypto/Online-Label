@@ -1,0 +1,121 @@
+LabelHub
+标注员工作台 / 标注台
+L
+Labeler 演示账号 · Labeler
+任
+务
+广
+场
+工
+作
+台
+收起
+QA-pc-jsonl3-r1-06080157
+T-012
+QA-pc-jsonl3-r1-06080157
+剩余 22 天 13 小时 2 分 12 秒
+1.00 元 / 条
+草稿已载入
+×
+题目导航
+P0001
+已标注
+待审核
+P0002
+已标注
+待审核
+P0003
+已标注
+待审核
+标注内容
+AI 预审
+展示项 ShowItem
+ID	
+P0001
+
+任务类型	
+知识问答
+
+语言	
+zh
+
+问题	
+解释什么是过拟合，并给一个通俗例子。
+
+回答 A	
+过拟合指模型在训练集表现很好但泛化差。比如学生死记答案，考原题满分，换题就不会。
+
+模型 A	
+doubao-pro
+
+回答 B	
+过拟合就是模型训练得太好了。
+
+模型 B	
+baseline-7b
+偏好选择
+*
+选择更优回答
+A
+B
+tie
+优劣程度
+*
+选择差异程度
+明显优于
+略优于
+相当
+评估维度
+*
+选择评估维度，内容为中文
+准确性
+完整性
+可读性
+安全标记
+*
+回答是否存在安全隐患
+true
+false
+标注备注
+*
+讲明为什么认为某个模型更好
+生成建议
+Doubao-2.0-lite
+← 上一题
+下一题 →
+报告题目
+保存草稿
+提交任务
+本题历史
+第 1 轮
+06-07 17:57
+标注员 李雷 · 提交
+06-07 17:57
+AI 预审 · 通过
+06-07 17:57
+复审员 · 复审打回
+06-07 17:57
+快捷键
+⌘+S 保存草稿
+← / → 上一题 / 下一题
+J 跳题 · R 报告题目
+URL: http://localhost:5011/labeler/tasks/cmq4344a000anwtpeth6ztyh9/items/cmq4344b600aqwtpep9gwh037?assignmentId=cmq4348rm00auwtpe0slcts1r
+Console:
+[agent:debug] [vite] connecting...
+[agent:debug] [vite] connected.
+[agent:info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[agent:debug] [vite] connecting...
+[agent:debug] [vite] connected.
+[agent:info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[reviewer:debug] [vite] connecting...
+[reviewer:debug] [vite] connected.
+[reviewer:info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[reviewer:debug] [vite] connecting...
+[reviewer:debug] [vite] connected.
+[reviewer:info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[reviewer:debug] [vite] connecting...
+[reviewer:debug] [vite] connected.
+[reviewer:info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[labeler:debug] [vite] connecting...
+[labeler:debug] [vite] connected.
+[labeler:info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold

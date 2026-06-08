@@ -1,0 +1,362 @@
+[
+  {
+    "assignmentId": "cmq4k6pg004t3bape3sj6zl0k",
+    "taskId": "cmq4k6nqu04smbapefj42e5eq",
+    "taskTitle": "VERIFY-preference_compare-excel-preference_compare-r0608015517",
+    "taskItemId": "cmq4k6nry04spbapeo4ldmst2",
+    "taskItemSortOrder": 2,
+    "externalId": "P0002",
+    "datasetKind": "generic_json",
+    "status": "FINAL_APPROVED",
+    "claimedAt": "2026-06-08T01:55:20.784Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "FINAL_APPROVED",
+    "latestSubmittedAt": "2026-06-08T01:55:28.548Z",
+    "latestReviewStage": "RECHECK",
+    "latestReviewerType": "HUMAN",
+    "latestReviewDecision": "recheck_pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0002：已根据审核意见补充理由。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:27.806Z",
+    "round": 2
+  },
+  {
+    "assignmentId": "cmq4k6pg404t4bapeqrfbh9gc",
+    "taskId": "cmq4k6nqu04smbapefj42e5eq",
+    "taskTitle": "VERIFY-preference_compare-excel-preference_compare-r0608015517",
+    "taskItemId": "cmq4k6nry04sqbape8ltygjlu",
+    "taskItemSortOrder": 3,
+    "externalId": "P0003",
+    "datasetKind": "generic_json",
+    "status": "NEEDS_REVISION",
+    "claimedAt": "2026-06-08T01:55:20.788Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "NEEDS_REVISION",
+    "latestSubmittedAt": "2026-06-08T01:55:24.008Z",
+    "latestReviewStage": "RECHECK",
+    "latestReviewerType": "HUMAN",
+    "latestReviewDecision": "reject",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0003：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:23.190Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k6pfv04t2bapetmaz5746",
+    "taskId": "cmq4k6nqu04smbapefj42e5eq",
+    "taskTitle": "VERIFY-preference_compare-excel-preference_compare-r0608015517",
+    "taskItemId": "cmq4k6nry04sobapeapprpsot",
+    "taskItemSortOrder": 1,
+    "externalId": "P0001",
+    "datasetKind": "generic_json",
+    "status": "FINAL_APPROVED",
+    "claimedAt": "2026-06-08T01:55:20.779Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "FINAL_APPROVED",
+    "latestSubmittedAt": "2026-06-08T01:55:23.993Z",
+    "latestReviewStage": "RECHECK",
+    "latestReviewerType": "HUMAN",
+    "latestReviewDecision": "recheck_pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0001：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:23.174Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k6pg704t5bape5psmh2oe",
+    "taskId": "cmq4k6nqu04smbapefj42e5eq",
+    "taskTitle": "VERIFY-preference_compare-excel-preference_compare-r0608015517",
+    "taskItemId": "cmq4k6nry04srbapeawcoz2kd",
+    "taskItemSortOrder": 4,
+    "externalId": "P0004",
+    "datasetKind": "generic_json",
+    "status": "FINAL_APPROVED",
+    "claimedAt": "2026-06-08T01:55:20.791Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "FINAL_APPROVED",
+    "latestSubmittedAt": "2026-06-08T01:55:24.015Z",
+    "latestReviewStage": "RECHECK",
+    "latestReviewerType": "HUMAN",
+    "latestReviewDecision": "recheck_pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0004：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:23.197Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k6pga04t6bapex4izlkb6",
+    "taskId": "cmq4k6nqu04smbapefj42e5eq",
+    "taskTitle": "VERIFY-preference_compare-excel-preference_compare-r0608015517",
+    "taskItemId": "cmq4k6nry04ssbapelhhz31l8",
+    "taskItemSortOrder": 5,
+    "externalId": "P0005",
+    "datasetKind": "generic_json",
+    "status": "FINAL_APPROVED",
+    "claimedAt": "2026-06-08T01:55:20.794Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "FINAL_APPROVED",
+    "latestSubmittedAt": "2026-06-08T01:55:24.021Z",
+    "latestReviewStage": "RECHECK",
+    "latestReviewerType": "HUMAN",
+    "latestReviewDecision": "recheck_pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0005：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:23.204Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k6pgd04t7bape3jv0ir9i",
+    "taskId": "cmq4k6nqu04smbapefj42e5eq",
+    "taskTitle": "VERIFY-preference_compare-excel-preference_compare-r0608015517",
+    "taskItemId": "cmq4k6nry04stbapesi1t9zen",
+    "taskItemSortOrder": 6,
+    "externalId": "P0006",
+    "datasetKind": "generic_json",
+    "status": "FINAL_APPROVED",
+    "claimedAt": "2026-06-08T01:55:20.797Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "FINAL_APPROVED",
+    "latestSubmittedAt": "2026-06-08T01:55:24.027Z",
+    "latestReviewStage": "RECHECK",
+    "latestReviewerType": "HUMAN",
+    "latestReviewDecision": "recheck_pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0006：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:23.211Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k6pgg04t8bapez3ombi1i",
+    "taskId": "cmq4k6nqu04smbapefj42e5eq",
+    "taskTitle": "VERIFY-preference_compare-excel-preference_compare-r0608015517",
+    "taskItemId": "cmq4k6nry04subapekdfmgqqd",
+    "taskItemSortOrder": 7,
+    "externalId": "P0007",
+    "datasetKind": "generic_json",
+    "status": "FINAL_APPROVED",
+    "claimedAt": "2026-06-08T01:55:20.800Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "FINAL_APPROVED",
+    "latestSubmittedAt": "2026-06-08T01:55:24.032Z",
+    "latestReviewStage": "RECHECK",
+    "latestReviewerType": "HUMAN",
+    "latestReviewDecision": "recheck_pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0007：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:23.218Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k6pgi04t9bapeau5m3bs8",
+    "taskId": "cmq4k6nqu04smbapefj42e5eq",
+    "taskTitle": "VERIFY-preference_compare-excel-preference_compare-r0608015517",
+    "taskItemId": "cmq4k6nry04svbapeasv96bjm",
+    "taskItemSortOrder": 8,
+    "externalId": "P0008",
+    "datasetKind": "generic_json",
+    "status": "FINAL_APPROVED",
+    "claimedAt": "2026-06-08T01:55:20.802Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "FINAL_APPROVED",
+    "latestSubmittedAt": "2026-06-08T01:55:24.036Z",
+    "latestReviewStage": "RECHECK",
+    "latestReviewerType": "HUMAN",
+    "latestReviewDecision": "recheck_pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0008：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:23.224Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k6pgk04tabapezg3q6s9j",
+    "taskId": "cmq4k6nqu04smbapefj42e5eq",
+    "taskTitle": "VERIFY-preference_compare-excel-preference_compare-r0608015517",
+    "taskItemId": "cmq4k6nry04swbapew3xe5lhb",
+    "taskItemSortOrder": 9,
+    "externalId": "P0009",
+    "datasetKind": "generic_json",
+    "status": "FINAL_APPROVED",
+    "claimedAt": "2026-06-08T01:55:20.804Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "FINAL_APPROVED",
+    "latestSubmittedAt": "2026-06-08T01:55:24.040Z",
+    "latestReviewStage": "RECHECK",
+    "latestReviewerType": "HUMAN",
+    "latestReviewDecision": "recheck_pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0009：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:23.231Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k6pgm04tbbapez2kgh59s",
+    "taskId": "cmq4k6nqu04smbapefj42e5eq",
+    "taskTitle": "VERIFY-preference_compare-excel-preference_compare-r0608015517",
+    "taskItemId": "cmq4k6nry04sxbapevz9z7m9x",
+    "taskItemSortOrder": 10,
+    "externalId": "P0010",
+    "datasetKind": "generic_json",
+    "status": "FINAL_APPROVED",
+    "claimedAt": "2026-06-08T01:55:20.806Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "FINAL_APPROVED",
+    "latestSubmittedAt": "2026-06-08T01:55:24.044Z",
+    "latestReviewStage": "RECHECK",
+    "latestReviewerType": "HUMAN",
+    "latestReviewDecision": "recheck_pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0010：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:23.237Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k6pgn04tcbaper2yhk4sa",
+    "taskId": "cmq4k6nqu04smbapefj42e5eq",
+    "taskTitle": "VERIFY-preference_compare-excel-preference_compare-r0608015517",
+    "taskItemId": "cmq4k6nry04sybapedjluz1df",
+    "taskItemSortOrder": 11,
+    "externalId": "P0011",
+    "datasetKind": "generic_json",
+    "status": "FINAL_APPROVED",
+    "claimedAt": "2026-06-08T01:55:20.807Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "FINAL_APPROVED",
+    "latestSubmittedAt": "2026-06-08T01:55:24.048Z",
+    "latestReviewStage": "RECHECK",
+    "latestReviewerType": "HUMAN",
+    "latestReviewDecision": "recheck_pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0011：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:23.243Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k6pgp04tdbapetwokw7e2",
+    "taskId": "cmq4k6nqu04smbapefj42e5eq",
+    "taskTitle": "VERIFY-preference_compare-excel-preference_compare-r0608015517",
+    "taskItemId": "cmq4k6nry04szbape41jyf7dx",
+    "taskItemSortOrder": 12,
+    "externalId": "P0012",
+    "datasetKind": "generic_json",
+    "status": "FINAL_APPROVED",
+    "claimedAt": "2026-06-08T01:55:20.809Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "FINAL_APPROVED",
+    "latestSubmittedAt": "2026-06-08T01:55:24.051Z",
+    "latestReviewStage": "RECHECK",
+    "latestReviewerType": "HUMAN",
+    "latestReviewDecision": "recheck_pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0012：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:23.249Z",
+    "round": 1
+  }
+]

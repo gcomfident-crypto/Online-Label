@@ -364,9 +364,7 @@ export const WorkbenchPage = () => {
       workbench.task.title
     : workbenchNavigationState?.taskTitle?.trim() || '标注台';
   const deadlineCountdown = workbench
-    ? isCurrentQuestionCompleted
-      ? '已完成'
-      : formatDeadlineCountdown(workbench.task.deadline, currentTimeMs)
+    ? resolveTaskHeaderStatusLabel(workbench, orderedTaskAssignments, currentTimeMs)
     : '';
 
   useEffect(() => {
@@ -2031,6 +2029,38 @@ function resolveCurrentQuestionAnnotationStatusLabel(
   }
 
   return formatAnnotationProgressLabel(progress);
+}
+
+function resolveTaskHeaderStatusLabel(
+  workbench: WorkbenchDto,
+  assignments: readonly LabelerAssignmentDto[],
+  currentTimeMs: number,
+): string {
+  const taskAssignments = assignments.length > 0 ? assignments : [{
+    ...workbench.assignment,
+    assignmentId: workbench.assignment.id,
+    taskTitle: workbench.task.title,
+    taskItemId: workbench.taskItem.id,
+    taskItemSortOrder: workbench.taskItem.sortOrder,
+    externalId: workbench.taskItem.externalId,
+    datasetKind: workbench.taskItem.datasetKind,
+    templateName: workbench.task.templateName,
+    schemaVersion: workbench.task.schemaVersion,
+    latestSubmissionStatus: latestSubmissionByRound(workbench.submissionHistory)?.status ?? null,
+  } as LabelerAssignmentDto];
+
+  if (taskAssignments.some((assignment) => assignment.status === 'NEEDS_REVISION')) {
+    return '待修改';
+  }
+
+  if (taskAssignments.every((assignment) =>
+    assignment.status === 'FINAL_APPROVED' ||
+    COMPLETED_SUBMISSION_STATUSES.has(assignment.latestSubmissionStatus ?? ''),
+  )) {
+    return '已完成';
+  }
+
+  return formatDeadlineCountdown(workbench.task.deadline, currentTimeMs);
 }
 
 function resolveNavigationQuestionAnnotationStatusLabel(

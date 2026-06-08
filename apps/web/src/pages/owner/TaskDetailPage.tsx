@@ -137,7 +137,8 @@ const auditAction = (auditLog: TaskAuditLogDto): string => {
 };
 
 const formatTaskProgress = (task: TaskDto): string => {
-  const totalCount = task.quota ?? task.itemCount;
+  const actualItemCount = task.itemCount ?? 0;
+  const totalCount = actualItemCount > 0 ? actualItemCount : task.quota ?? 0;
 
   if (totalCount <= 0) {
     return '未设置题目数';

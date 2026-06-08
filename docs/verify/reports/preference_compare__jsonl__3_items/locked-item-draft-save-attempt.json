@@ -1,0 +1,11 @@
+{
+  "status": 400,
+  "ok": false,
+  "body": {
+    "error": {
+      "code": "ASSIGNMENT_NOT_EDITABLE",
+      "message": "当前领取记录状态为 FINAL_APPROVED，不能保存草稿。"
+    },
+    "requestId": "req_7e0493f8298a"
+  }
+}

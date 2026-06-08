@@ -198,6 +198,8 @@ const WORKBENCH_INCLUDE = {
   },
 } as const;
 
+const EDITABLE_ASSIGNMENT_STATUSES = new Set<AssignmentStatus>(['ASSIGNED', 'IN_PROGRESS', 'NEEDS_REVISION']);
+
 @Injectable()
 export class DraftsService {
   constructor(
@@ -233,6 +235,13 @@ export class DraftsService {
       throw new BadRequestException({
         code: 'ASSIGNMENT_CANCELLED',
         message: '已取消的领取记录不能保存草稿。',
+      });
+    }
+
+    if (!EDITABLE_ASSIGNMENT_STATUSES.has(assignment.status)) {
+      throw new BadRequestException({
+        code: 'ASSIGNMENT_NOT_EDITABLE',
+        message: `当前领取记录状态为 ${assignment.status}，不能保存草稿。`,
       });
     }
 

@@ -1,0 +1,37 @@
+{
+  "data": {
+    "assignmentId": "cmq4348rm00auwtpe0slcts1r",
+    "taskId": "cmq4344a000anwtpeth6ztyh9",
+    "taskItemId": "cmq4344b600aqwtpep9gwh037",
+    "labelerId": "user_labeler_li_lei",
+    "status": "ASSIGNED",
+    "claimedAt": "2026-06-07T17:57:32.386Z",
+    "claimedItemCount": 3,
+    "claimedCount": 3,
+    "taskItem": {
+      "id": "cmq4344b600aqwtpep9gwh037",
+      "externalId": "P0001",
+      "datasetKind": "generic_json",
+      "rawData": {
+        "id": "P0001",
+        "lang": "zh",
+        "margin": "明显优于",
+        "prompt": "解释什么是过拟合，并给一个通俗例子。",
+        "model_a": "doubao-pro",
+        "model_b": "baseline-7b",
+        "preferred": "A",
+        "task_type": "知识问答",
+        "dimensions": [
+          "准确性",
+          "完整性",
+          "可读性"
+        ],
+        "response_a": "过拟合指模型在训练集表现很好但泛化差。比如学生死记答案，考原题满分，换题就不会。",
+        "response_b": "过拟合就是模型训练得太好了。",
+        "safety_flag": false,
+        "annotator_note": "A 含定义+类比，B 过于笼统。"
+      }
+    }
+  },
+  "requestId": "req_efba43d3981a"
+}

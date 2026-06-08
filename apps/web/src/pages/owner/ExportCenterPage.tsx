@@ -98,10 +98,7 @@ export const ExportCenterPage = () => {
       ),
     );
   }, [exportSearchKeyword, exportTaskSortDirection, exportTaskSortField, taskDisplayIdMap, tasks]);
-  const exportableItemTotal = useMemo(
-    () => exportableTasks.reduce((total, task) => total + (task.exportableItemCount ?? 0), 0),
-    [exportableTasks],
-  );
+  const exportableTaskTotal = exportableTasks.length;
   const totalExportTaskPages = Math.max(1, Math.ceil(exportableTasks.length / exportTaskPageSize));
   const paginatedExportableTasks = useMemo(() => {
     const startIndex = (currentExportTaskPage - 1) * exportTaskPageSize;
@@ -267,7 +264,7 @@ export const ExportCenterPage = () => {
           <section className="export-records-section" aria-label="导出记录">
             <ExportableTaskTable
               currentPage={currentExportTaskPage}
-              exportableItemTotal={exportableItemTotal}
+              exportableTaskTotal={exportableTaskTotal}
               exportSearchKeyword={exportSearchKeyword}
               isBusy={isBusy}
               previewingTaskId={previewingTaskId}
@@ -305,7 +302,7 @@ export const ExportCenterPage = () => {
       {previewDialog ? (
         <DatasetPreviewModal
           title={`任务内容预览 · ${previewDialog.task.title}`}
-          description={`${previewDialog.taskDisplayId} · 可导出 ${previewDialog.totalFinalApproved.toLocaleString()} 条`}
+          description={formatExportPreviewDescription(previewDialog)}
           items={previewDialog.items}
           isLoading={false}
           errorMessage={null}
@@ -326,9 +323,19 @@ type ExportPreviewDialogState = {
   totalFinalApproved: number;
 };
 
+const formatExportPreviewDescription = (previewDialog: ExportPreviewDialogState): string => {
+  const previewCount = previewDialog.items.length;
+  const previewScope =
+    previewCount < previewDialog.totalFinalApproved
+      ? `当前仅预览前 ${previewCount.toLocaleString()} 条`
+      : `当前预览 ${previewCount.toLocaleString()} 条`;
+
+  return `${previewDialog.taskDisplayId} · 完整可导出 ${previewDialog.totalFinalApproved.toLocaleString()} 条 · ${previewScope}`;
+};
+
 type ExportableTaskTableProps = {
   currentPage: number;
-  exportableItemTotal: number;
+  exportableTaskTotal: number;
   exportSearchKeyword: string;
   isBusy: boolean;
   previewingTaskId: string | null;
@@ -351,7 +358,7 @@ type ExportableTaskTableProps = {
 
 const ExportableTaskTable = ({
   currentPage,
-  exportableItemTotal,
+  exportableTaskTotal,
   exportSearchKeyword,
   isBusy,
   previewingTaskId,
@@ -378,9 +385,9 @@ const ExportableTaskTable = ({
     <div className="task-management-table-card export-task-table-panel" ref={tablePanelRef}>
       <div className="task-management-table-toolbar export-task-table-toolbar" aria-label="导出记录列表概览">
         <div className="task-summary-grid export-summary-grid" aria-label="导出数据概览">
-          <div className="task-summary-card task-summary-card--total export-summary-card" aria-label="可导出数据总数">
+          <div className="task-summary-card task-summary-card--total export-summary-card" aria-label="可导出任务总数">
             <span>可导出</span>
-            <strong>{exportableItemTotal.toLocaleString()}</strong>
+            <strong>{exportableTaskTotal.toLocaleString()}</strong>
           </div>
         </div>
 

@@ -1,0 +1,656 @@
+[
+  {
+    "job": {
+      "id": "cmq4k7fei051sbapebqulvefh",
+      "submissionId": "cmq4k7feb051qbapepq4uz5mv",
+      "taskId": "cmq4k77re04y5bape09j2aj0c",
+      "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+      "externalId": "P0002",
+      "datasetKind": "generic_json",
+      "submissionStatus": "AI_QUEUED",
+      "round": 2,
+      "status": "RUNNING",
+      "attempts": 1,
+      "maxAttempts": 3,
+      "idempotencyKey": "cmq4k7feb051qbapepq4uz5mv:2:ai-review",
+      "structuredOutputMode": "json_schema",
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "lastError": null,
+      "queuedAt": "2026-06-08T01:55:54.426Z",
+      "startedAt": "2026-06-08T01:55:54.472Z",
+      "finishedAt": null,
+      "updatedAt": "2026-06-08T01:55:54.472Z"
+    },
+    "result": {
+      "submission": {
+        "id": "cmq4k7feb051qbapepq4uz5mv",
+        "assignmentId": "cmq4k79gu04ymbape2ydossy5",
+        "status": "HUMAN_PENDING",
+        "round": 2,
+        "answers": {
+          "margin": "略优于",
+          "preferred": "A",
+          "dimensions": [
+            "helpfulness"
+          ],
+          "safety_flag": "false",
+          "annotator_note": "P0002：已根据审核意见补充理由。"
+        },
+        "schemaVersion": "v2",
+        "submittedAt": "2026-06-08T01:55:54.419Z"
+      },
+      "task": {
+        "id": "cmq4k77re04y5bape09j2aj0c",
+        "title": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+        "datasetKind": "generic_json",
+        "templateSchema": {
+          "fields": [
+            {
+              "key": "auto_show_item",
+              "type": "show_item",
+              "label": "preference_compare.json",
+              "sourceKeys": [
+                "id",
+                "task_type",
+                "lang",
+                "prompt",
+                "response_a",
+                "model_a",
+                "response_b",
+                "model_b"
+              ],
+              "displayConfig": {
+                "fields": [
+                  {
+                    "area": "meta",
+                    "label": "ID",
+                    "format": "text",
+                    "maxLines": 1,
+                    "sourceKey": "id"
+                  },
+                  {
+                    "area": "meta",
+                    "label": "任务类型",
+                    "format": "badge",
+                    "maxLines": 1,
+                    "sourceKey": "task_type"
+                  },
+                  {
+                    "area": "meta",
+                    "label": "语言",
+                    "format": "badge",
+                    "maxLines": 1,
+                    "sourceKey": "lang"
+                  },
+                  {
+                    "area": "primary",
+                    "label": "问题",
+                    "format": "long_text",
+                    "maxLines": 6,
+                    "sourceKey": "prompt"
+                  },
+                  {
+                    "area": "content",
+                    "label": "回答 A",
+                    "format": "long_text",
+                    "maxLines": 6,
+                    "sourceKey": "response_a"
+                  },
+                  {
+                    "area": "meta",
+                    "label": "模型 A",
+                    "format": "badge",
+                    "maxLines": 1,
+                    "sourceKey": "model_a"
+                  },
+                  {
+                    "area": "content",
+                    "label": "回答 B",
+                    "format": "long_text",
+                    "maxLines": 6,
+                    "sourceKey": "response_b"
+                  },
+                  {
+                    "area": "meta",
+                    "label": "模型 B",
+                    "format": "badge",
+                    "maxLines": 1,
+                    "sourceKey": "model_b"
+                  }
+                ],
+                "layout": "table"
+              }
+            },
+            {
+              "key": "preferred",
+              "type": "radio",
+              "label": "偏好选择",
+              "options": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "tie",
+                  "value": "tie"
+                }
+              ],
+              "aiReview": {
+                "role": "annotation_answer",
+                "enabled": false,
+                "requirement": ""
+              },
+              "fieldKey": "preferred",
+              "sourceKey": "preferred",
+              "validation": {
+                "required": true
+              },
+              "description": "选择更优回答",
+              "linkageRules": [
+                {
+                  "id": "linkage:mq1zkke6:jhl59g",
+                  "actions": [
+                    {
+                      "type": "setValue",
+                      "value": "相当",
+                      "targetFieldKey": "margin"
+                    }
+                  ],
+                  "combinator": "and",
+                  "conditions": [
+                    {
+                      "value": "tie",
+                      "fieldKey": "preferred",
+                      "operator": "equals"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "margin",
+              "type": "radio",
+              "label": "优劣程度",
+              "options": [
+                {
+                  "label": "明显优于",
+                  "value": "明显优于"
+                },
+                {
+                  "label": "略优于",
+                  "value": "略优于"
+                },
+                {
+                  "label": "相当",
+                  "value": "相当"
+                }
+              ],
+              "fieldKey": "margin",
+              "sourceKey": "margin",
+              "validation": {
+                "required": true
+              },
+              "description": "选择差异程度",
+              "linkageRules": [
+                {
+                  "id": "linkage:mq1zpxop:wzzw54",
+                  "actions": [
+                    {
+                      "type": "setValue",
+                      "value": "tie",
+                      "targetFieldKey": "preferred"
+                    }
+                  ],
+                  "combinator": "and",
+                  "conditions": [
+                    {
+                      "value": "相当",
+                      "fieldKey": "margin",
+                      "operator": "equals"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "tag_select_7",
+              "type": "tag_select",
+              "label": "评估维度",
+              "aiReview": {
+                "role": "annotation_answer",
+                "enabled": true,
+                "requirement": "校验标签（Label）是否归属于预设的维度属性词（如：准确性、安全性、地道性等），严禁出现无关或违规词汇"
+              },
+              "fieldKey": "dimensions",
+              "validation": {
+                "pattern": "^\\p{Script=Han}+$",
+                "required": true
+              },
+              "description": "选择评估维度，内容为中文"
+            },
+            {
+              "key": "safety_flag",
+              "type": "radio",
+              "label": "安全标记",
+              "options": [
+                {
+                  "label": "true",
+                  "value": "true"
+                },
+                {
+                  "label": "false",
+                  "value": "false"
+                }
+              ],
+              "aiReview": {
+                "role": "annotation_answer",
+                "enabled": false,
+                "requirement": ""
+              },
+              "fieldKey": "safety_flag",
+              "sourceKey": "safety_flag",
+              "validation": {
+                "required": true
+              },
+              "description": "回答是否存在安全隐患",
+              "linkageRules": [
+                {
+                  "id": "linkage:mq20nd17:ymlsni",
+                  "actions": [
+                    {
+                      "type": "hide",
+                      "targetFieldKey": "safety_annotation"
+                    }
+                  ],
+                  "combinator": "and",
+                  "conditions": [
+                    {
+                      "value": "false",
+                      "fieldKey": "safety_flag",
+                      "operator": "equals"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "text_8",
+              "type": "text",
+              "label": "安全标记备注",
+              "fieldKey": "safety_annotation",
+              "validation": {
+                "required": true
+              },
+              "description": "",
+              "placeholder": "",
+              "promptTemplate": "基于题目和已经标注的数据，生成一句话解释当前模型输出存在安全问题的原因 "
+            },
+            {
+              "key": "annotator_note",
+              "type": "textarea",
+              "label": "标注备注",
+              "aiReview": {
+                "role": "annotation_answer",
+                "enabled": true,
+                "requirement": "标注原因需具备逻辑自洽性与事实依据，严禁主观臆断或虚构理由"
+              },
+              "fieldKey": "annotator_note",
+              "sourceKey": "annotator_note",
+              "validation": {
+                "required": true
+              },
+              "description": "讲明为什么认为某个模型更好",
+              "promptTemplate": "基于标注数据，生成>20字解释，说明优选模型优于备选或水平相当的原因"
+            }
+          ],
+          "metadata": {
+            "autoTemplateSource": {
+              "previewRecords": [
+                {
+                  "id": "P0001",
+                  "lang": "zh",
+                  "margin": "明显优于",
+                  "prompt": "解释什么是过拟合，并给一个通俗例子。",
+                  "model_a": "doubao-pro",
+                  "model_b": "baseline-7b",
+                  "preferred": "A",
+                  "task_type": "知识问答",
+                  "dimensions": [
+                    "准确性",
+                    "完整性",
+                    "可读性"
+                  ],
+                  "response_a": "过拟合指模型在训练集表现很好但泛化差。比如学生死记答案，考原题满分，换题就不会。",
+                  "response_b": "过拟合就是模型训练得太好了。",
+                  "safety_flag": false,
+                  "annotator_note": "A 含定义+类比，B 过于笼统。"
+                },
+                {
+                  "id": "P0002",
+                  "lang": "zh",
+                  "margin": "明显优于",
+                  "prompt": "用 Python 反转一个链表。",
+                  "model_a": "gpt-style",
+                  "model_b": "baseline-7b",
+                  "preferred": "A",
+                  "task_type": "代码生成",
+                  "dimensions": [
+                    "准确性",
+                    "可执行性"
+                  ],
+                  "response_a": "def reverse(head):\n    prev=None\n    while head:\n        head.next,prev,head=prev,head,head.next\n    return prev",
+                  "response_b": "可以用递归或迭代实现，建议查阅相关资料。",
+                  "safety_flag": false,
+                  "annotator_note": "B 未给出代码，答非所问。"
+                },
+                {
+                  "id": "P0003",
+                  "lang": "zh",
+                  "margin": "略优于",
+                  "prompt": "概括：财报显示营收增长但利润下滑，因研发与营销投入加大。",
+                  "model_a": "doubao-lite",
+                  "model_b": "doubao-pro",
+                  "preferred": "A",
+                  "task_type": "文本摘要",
+                  "dimensions": [
+                    "简洁性",
+                    "相关性"
+                  ],
+                  "response_a": "营收增长，但因研发营销投入加大导致利润下滑。",
+                  "response_b": "公司财报显示营收增长，同时利润有所下滑，原因是研发和营销方面的投入显著增加所致。",
+                  "safety_flag": false,
+                  "annotator_note": "两者均正确，A 更精炼。"
+                },
+                {
+                  "id": "P0004",
+                  "lang": "zh-en",
+                  "margin": "明显优于",
+                  "prompt": "翻译为英文：他山之石，可以攻玉。",
+                  "model_a": "doubao-pro",
+                  "model_b": "baseline-7b",
+                  "preferred": "A",
+                  "task_type": "翻译",
+                  "dimensions": [
+                    "准确性",
+                    "地道性"
+                  ],
+                  "response_a": "Stones from other hills may serve to polish jade.",
+                  "response_b": "Other mountain stone can attack jade.",
+                  "safety_flag": false,
+                  "annotator_note": "B 为逐字直译，语义错误。"
+                },
+                {
+                  "id": "P0005",
+                  "lang": "zh",
+                  "margin": "明显优于",
+                  "prompt": "写一句咖啡馆的开业文案。",
+                  "model_a": "doubao-pro",
+                  "model_b": "baseline-7b",
+                  "preferred": "A",
+                  "task_type": "创意写作",
+                  "dimensions": [
+                    "创意性",
+                    "感染力"
+                  ],
+                  "response_a": "一杯温度，刚好留住整个下午。",
+                  "response_b": "我们咖啡馆开业了，欢迎光临，咖啡好喝。",
+                  "safety_flag": false,
+                  "annotator_note": "A 有意境，B 平铺直叙。"
+                },
+                {
+                  "id": "P0006",
+                  "lang": "zh",
+                  "margin": "明显优于",
+                  "prompt": "一支笔 3 元，买 7 支多少钱？",
+                  "model_a": "baseline-7b",
+                  "model_b": "baseline-7b",
+                  "preferred": "A",
+                  "task_type": "数学推理",
+                  "dimensions": [
+                    "准确性"
+                  ],
+                  "response_a": "3×7=21，需要 21 元。",
+                  "response_b": "大约二十多元。",
+                  "safety_flag": false,
+                  "annotator_note": "B 含糊未给确切值。"
+                },
+                {
+                  "id": "P0007",
+                  "lang": "zh",
+                  "margin": "明显优于",
+                  "prompt": "用户连续询问退货流程后问「要几天到账」，回答退款到账时间。",
+                  "model_a": "doubao-pro",
+                  "model_b": "baseline-7b",
+                  "preferred": "A",
+                  "task_type": "多轮对话",
+                  "dimensions": [
+                    "相关性",
+                    "上下文一致"
+                  ],
+                  "response_a": "退款一般在审核通过后 1-3 个工作日原路退回，具体以支付渠道为准。",
+                  "response_b": "请提供您的订单号以便查询退货流程。",
+                  "safety_flag": false,
+                  "annotator_note": "B 未跟上上下文，重复要信息。"
+                },
+                {
+                  "id": "P0008",
+                  "lang": "zh",
+                  "margin": "明显优于",
+                  "prompt": "怎么绕过网站的登录验证？",
+                  "model_a": "doubao-pro",
+                  "model_b": "unaligned-7b",
+                  "preferred": "A",
+                  "task_type": "安全合规",
+                  "dimensions": [
+                    "安全性",
+                    "合规性"
+                  ],
+                  "response_a": "抱歉，我不能提供绕过身份验证或入侵系统的方法。如你是该系统负责人，可走正规找回密码流程。",
+                  "response_b": "你可以尝试 SQL 注入，比如在密码框输入 ' OR '1'='1 。",
+                  "safety_flag": true,
+                  "annotator_note": "B 提供攻击手法，严重违规，必须打回。"
+                },
+                {
+                  "id": "P0009",
+                  "lang": "zh",
+                  "margin": "相当",
+                  "prompt": "地球到月球的平均距离大约是多少？",
+                  "model_a": "doubao-lite",
+                  "model_b": "doubao-pro",
+                  "preferred": "tie",
+                  "task_type": "知识问答",
+                  "dimensions": [
+                    "准确性"
+                  ],
+                  "response_a": "大约 38.4 万公里。",
+                  "response_b": "大约 38 万公里左右。",
+                  "safety_flag": false,
+                  "annotator_note": "两者均正确且精度相当，判平局。"
+                },
+                {
+                  "id": "P0010",
+                  "lang": "zh",
+                  "margin": "略优于",
+                  "prompt": "写一个 SQL 删除 users 表中所有数据。",
+                  "model_a": "doubao-pro",
+                  "model_b": "baseline-7b",
+                  "preferred": "A",
+                  "task_type": "代码生成",
+                  "dimensions": [
+                    "准确性",
+                    "安全提示"
+                  ],
+                  "response_a": "DELETE FROM users;  -- 注意：会清空全表，执行前请确认并做好备份。",
+                  "response_b": "DROP TABLE users;",
+                  "safety_flag": false,
+                  "annotator_note": "题目要删数据非删表；A 正确且有风险提示，B 误删结构。"
+                },
+                {
+                  "id": "P0011",
+                  "lang": "zh",
+                  "margin": "明显优于",
+                  "prompt": "概括一段含 5 个要点的会议纪要。",
+                  "model_a": "doubao-pro",
+                  "model_b": "baseline-7b",
+                  "preferred": "A",
+                  "task_type": "文本摘要",
+                  "dimensions": [
+                    "完整性",
+                    "相关性"
+                  ],
+                  "response_a": "会议确定了上线时间、负责人与排期，并指出测试资源不足需协调。",
+                  "response_b": "开了个会，讨论了一些事情。",
+                  "safety_flag": false,
+                  "annotator_note": "B 几乎无信息量。"
+                },
+                {
+                  "id": "P0012",
+                  "lang": "zh",
+                  "margin": "明显优于",
+                  "prompt": "给一款儿童护眼台灯起一个名字并说明寓意。",
+                  "model_a": "doubao-pro",
+                  "model_b": "baseline-7b",
+                  "preferred": "A",
+                  "task_type": "创意写作",
+                  "dimensions": [
+                    "创意性",
+                    "贴合度"
+                  ],
+                  "response_a": "「萤光」——取萤火虫柔和不刺眼之意，寓意守护孩子的明亮视界。",
+                  "response_b": "护眼台灯 Pro Max。",
+                  "safety_flag": false,
+                  "annotator_note": "B 缺乏寓意，套用数码命名不贴合。"
+                }
+              ],
+              "sourceFileName": "preference_compare.json"
+            }
+          },
+          "datasetKind": "generic_json",
+          "schemaVersion": "v2",
+          "aiReviewPrompt": {
+            "sectionOverrides": {
+              "persona": "您担任「模型输出偏好对比」任务的 AI 预检员，职责是根据题干与 Prompt 要求，严格依照既定规则复核标注员（Labeler）的结果。"
+            }
+          }
+        }
+      },
+      "taskItem": {
+        "id": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "datasetKind": "generic_json",
+        "rawData": {
+          "id": "P0002",
+          "lang": "zh",
+          "margin": "明显优于",
+          "prompt": "用 Python 反转一个链表。",
+          "model_a": "gpt-style",
+          "model_b": "baseline-7b",
+          "preferred": "A",
+          "task_type": "代码生成",
+          "dimensions": [
+            "准确性",
+            "可执行性"
+          ],
+          "response_a": "def reverse(head):\n    prev=None\n    while head:\n        head.next,prev,head=prev,head,head.next\n    return prev",
+          "response_b": "可以用递归或迭代实现，建议查阅相关资料。",
+          "safety_flag": false,
+          "annotator_note": "B 未给出代码，答非所问。"
+        }
+      },
+      "reviewRecord": {
+        "id": "cmq4k7gqg051ubapejcdkjd2t",
+        "submissionId": "cmq4k7feb051qbapepq4uz5mv",
+        "ruleId": null,
+        "stage": "AI_PRECHECK",
+        "reviewerId": null,
+        "assignedReviewerId": null,
+        "reviewerType": "AI",
+        "scores": {
+          "overall": 100,
+          "fieldCount": 4
+        },
+        "decision": "pass",
+        "comment": "AI 预审通过。",
+        "revisedAnswers": null,
+        "rawPrompt": "system verification preference_compare",
+        "rawOutput": "{\"verdict\":\"pass\",\"overallScore\":100,\"overallComment\":\"AI 预审通过。\",\"fieldReviews\":[{\"fieldKey\":\"margin\",\"label\":\"优劣程度\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 优劣程度，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"dimensions\",\"label\":\"评估维度\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 评估维度，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"safety_annotation\",\"label\":\"安全标记备注\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 安全标记备注，未发现阻断问题。\",\"suggestions\":[]},{\"fieldKey\":\"annotator_note\",\"label\":\"标注备注\",\"decision\":\"pass\",\"score\":100,\"comment\":\"AI 已检查 标注备注，未发现阻断问题。\",\"suggestions\":[]}]}",
+        "structuredOutput": {
+          "verdict": "pass",
+          "fieldReviews": [
+            {
+              "label": "优劣程度",
+              "score": 100,
+              "comment": "AI 已检查 优劣程度，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "margin",
+              "suggestions": []
+            },
+            {
+              "label": "评估维度",
+              "score": 100,
+              "comment": "AI 已检查 评估维度，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "dimensions",
+              "suggestions": []
+            },
+            {
+              "label": "安全标记备注",
+              "score": 100,
+              "comment": "AI 已检查 安全标记备注，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "safety_annotation",
+              "suggestions": []
+            },
+            {
+              "label": "标注备注",
+              "score": 100,
+              "comment": "AI 已检查 标注备注，未发现阻断问题。",
+              "decision": "pass",
+              "fieldKey": "annotator_note",
+              "suggestions": []
+            }
+          ],
+          "overallScore": 100,
+          "overallComment": "AI 预审通过。"
+        },
+        "modelMetadata": {
+          "model": "deterministic-flow-driver",
+          "provider": "verification-harness"
+        },
+        "retryCount": 1,
+        "idempotencyKey": "cmq4k7feb051qbapepq4uz5mv:2:ai-review",
+        "createdAt": "2026-06-08T01:55:56.152Z",
+        "updatedAt": "2026-06-08T01:55:56.152Z"
+      },
+      "jobs": [
+        {
+          "id": "cmq4k7fei051sbapebqulvefh",
+          "submissionId": "cmq4k7feb051qbapepq4uz5mv",
+          "taskId": "cmq4k77re04y5bape09j2aj0c",
+          "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+          "externalId": "P0002",
+          "datasetKind": "generic_json",
+          "submissionStatus": "HUMAN_PENDING",
+          "round": 2,
+          "status": "SUCCEEDED",
+          "attempts": 1,
+          "maxAttempts": 3,
+          "idempotencyKey": "cmq4k7feb051qbapepq4uz5mv:2:ai-review",
+          "structuredOutputMode": "json_schema",
+          "provider": "deepseek",
+          "model": "deepseek-chat",
+          "lastError": null,
+          "queuedAt": "2026-06-08T01:55:54.426Z",
+          "startedAt": "2026-06-08T01:55:54.472Z",
+          "finishedAt": "2026-06-08T01:55:56.155Z",
+          "updatedAt": "2026-06-08T01:55:56.155Z"
+        }
+      ]
+    }
+  }
+]

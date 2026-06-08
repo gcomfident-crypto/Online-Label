@@ -401,7 +401,8 @@ const TaskActionIcon = ({ icon }: { icon: 'delete' | 'end' | 'pause' | 'publish'
 };
 
 const TaskProgressCell = ({ task }: { task: TaskDto }) => {
-  const totalCount = task.quota ?? task.itemCount ?? 0;
+  const actualItemCount = task.itemCount ?? 0;
+  const totalCount = actualItemCount > 0 ? actualItemCount : task.quota ?? 0;
 
   if (totalCount <= 0) {
     return <span className="task-progress-empty">—</span>;

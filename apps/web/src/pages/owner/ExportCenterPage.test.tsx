@@ -63,10 +63,38 @@ const previewWithReview = {
     { source: 'review.ai_overall', target: 'ai_overall', enabled: true },
     { source: 'review.human_verdict', target: 'human_verdict', enabled: true },
   ],
-  totalFinalApproved: 1,
+  totalFinalApproved: 30,
   rows: [
     {
       id: 'qa_final',
+      prompt: '如何判断回答质量？',
+      comment: '覆盖关键点。',
+      ai_overall: 92,
+      human_verdict: 'recheck_pass',
+    },
+    {
+      id: 'qa_final_2',
+      prompt: '如何判断回答质量？',
+      comment: '覆盖关键点。',
+      ai_overall: 92,
+      human_verdict: 'recheck_pass',
+    },
+    {
+      id: 'qa_final_3',
+      prompt: '如何判断回答质量？',
+      comment: '覆盖关键点。',
+      ai_overall: 92,
+      human_verdict: 'recheck_pass',
+    },
+    {
+      id: 'qa_final_4',
+      prompt: '如何判断回答质量？',
+      comment: '覆盖关键点。',
+      ai_overall: 92,
+      human_verdict: 'recheck_pass',
+    },
+    {
+      id: 'qa_final_5',
       prompt: '如何判断回答质量？',
       comment: '覆盖关键点。',
       ai_overall: 92,
@@ -159,8 +187,8 @@ describe('ExportCenterPage', () => {
     expect(exportPanel).not.toBeNull();
     expect(exportPanel).toHaveClass('task-management-table-card');
     expect(within(exportPanel as HTMLElement).queryByText(pageDescription.textContent ?? '')).not.toBeInTheDocument();
-    const exportableTotal = within(exportPanel as HTMLElement).getByLabelText('可导出数据总数');
-    expect(exportableTotal).toHaveTextContent('可导出6');
+    const exportableTotal = within(exportPanel as HTMLElement).getByLabelText('可导出任务总数');
+    expect(exportableTotal).toHaveTextContent('可导出2');
     expect(exportableTotal).toHaveClass('task-summary-card', 'task-summary-card--total');
     expect(screen.getByPlaceholderText('搜索任务名 / ID / 模板')).toBeInTheDocument();
     expect(within(exportPanel as HTMLElement).queryByRole('heading', { name: '导出记录' })).not.toBeInTheDocument();
@@ -216,7 +244,7 @@ describe('ExportCenterPage', () => {
     expect(previewOverlay).toHaveClass('task-dataset-preview-overlay--drawer');
     expect(previewOverlay).toHaveClass('task-dataset-preview-overlay--entering');
     expect(previewDialog).toHaveClass('task-dataset-preview-modal--entering');
-    expect(previewDialog).toHaveTextContent('T-001 · 可导出 1 条');
+    expect(previewDialog).toHaveTextContent('T-001 · 完整可导出 30 条 · 当前仅预览前 5 条');
     const previewTable = within(previewDialog).getByRole('table', { name: '任务内容预览表格' });
     expect(previewTable).toHaveClass('task-dataset-preview-table');
     expect(previewDialog.querySelector('.export-preview-table')).toBeNull();
@@ -224,8 +252,8 @@ describe('ExportCenterPage', () => {
     expect(within(previewTable).getByRole('columnheader', { name: 'prompt' })).toBeInTheDocument();
     expect(within(previewTable).getByRole('columnheader', { name: 'comment' })).toBeInTheDocument();
     expect(within(previewTable).queryByRole('columnheader', { name: '状态' })).not.toBeInTheDocument();
-    expect(within(previewDialog).getByText('如何判断回答质量？')).toBeInTheDocument();
-    expect(within(previewDialog).getByText('覆盖关键点。')).toBeInTheDocument();
+    expect(within(previewDialog).getAllByText('如何判断回答质量？')).toHaveLength(5);
+    expect(within(previewDialog).getAllByText('覆盖关键点。')).toHaveLength(5);
     await user.click(within(previewDialog).getByRole('button', { name: '关闭预览' }));
     expect(previewOverlay).toHaveClass('task-dataset-preview-overlay--closing');
     expect(previewDialog).toHaveClass('task-dataset-preview-modal--closing');

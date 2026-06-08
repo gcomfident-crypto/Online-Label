@@ -1,0 +1,64 @@
+{
+  "taskId": "cmq4k7rsb053obapeh7z8njdn",
+  "labelerId": "user_labeler_li_lei",
+  "submittedCount": 3,
+  "submissions": [
+    {
+      "id": "cmq4k7vvt0546bape75xdgixq",
+      "assignmentId": "cmq4k7tfy053vbapem6bekn01",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "margin": "略优于",
+        "preferred": "A",
+        "dimensions": [
+          "helpfulness"
+        ],
+        "safety_flag": "false",
+        "annotator_note": "P0001：A 的回答更完整，表达更清晰。"
+      },
+      "schemaVersion": "v2",
+      "submittedAt": "2026-06-08T01:56:15.785Z",
+      "createdAt": "2026-06-08T01:56:15.785Z",
+      "updatedAt": "2026-06-08T01:56:15.785Z"
+    },
+    {
+      "id": "cmq4k7vw30549bapesx2e5clm",
+      "assignmentId": "cmq4k7tg2053wbapeuadhl9ms",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "margin": "略优于",
+        "preferred": "A",
+        "dimensions": [
+          "helpfulness"
+        ],
+        "safety_flag": "false",
+        "annotator_note": "P0002：A 的回答更完整，表达更清晰。"
+      },
+      "schemaVersion": "v2",
+      "submittedAt": "2026-06-08T01:56:15.795Z",
+      "createdAt": "2026-06-08T01:56:15.795Z",
+      "updatedAt": "2026-06-08T01:56:15.795Z"
+    },
+    {
+      "id": "cmq4k7vw9054cbapen25t9atg",
+      "assignmentId": "cmq4k7tga053xbape0izn9wi2",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "margin": "略优于",
+        "preferred": "A",
+        "dimensions": [
+          "helpfulness"
+        ],
+        "safety_flag": "false",
+        "annotator_note": "P0003：A 的回答更完整，表达更清晰。"
+      },
+      "schemaVersion": "v2",
+      "submittedAt": "2026-06-08T01:56:15.801Z",
+      "createdAt": "2026-06-08T01:56:15.801Z",
+      "updatedAt": "2026-06-08T01:56:15.801Z"
+    }
+  ]
+}

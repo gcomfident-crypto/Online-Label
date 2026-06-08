@@ -1,0 +1,187 @@
+{
+  "data": {
+    "taskId": "cmq4344a000anwtpeth6ztyh9",
+    "datasetKind": "generic_json",
+    "fieldMapping": [
+      {
+        "source": "rawData.id",
+        "target": "id",
+        "enabled": true
+      },
+      {
+        "source": "rawData.task_type",
+        "target": "task_type",
+        "enabled": true
+      },
+      {
+        "source": "rawData.lang",
+        "target": "lang",
+        "enabled": true
+      },
+      {
+        "source": "rawData.prompt",
+        "target": "prompt",
+        "enabled": true
+      },
+      {
+        "source": "rawData.response_a",
+        "target": "response_a",
+        "enabled": true
+      },
+      {
+        "source": "rawData.model_a",
+        "target": "model_a",
+        "enabled": true
+      },
+      {
+        "source": "rawData.response_b",
+        "target": "response_b",
+        "enabled": true
+      },
+      {
+        "source": "rawData.model_b",
+        "target": "model_b",
+        "enabled": true
+      },
+      {
+        "source": "rawData.preferred",
+        "target": "preferred",
+        "enabled": true
+      },
+      {
+        "source": "rawData.margin",
+        "target": "margin",
+        "enabled": true
+      },
+      {
+        "source": "rawData.dimensions",
+        "target": "dimensions",
+        "enabled": true
+      },
+      {
+        "source": "rawData.safety_flag",
+        "target": "safety_flag",
+        "enabled": true
+      },
+      {
+        "source": "rawData.annotator_note",
+        "target": "annotator_note",
+        "enabled": true
+      },
+      {
+        "source": "answers.preferred",
+        "target": "preferred_label",
+        "enabled": true
+      },
+      {
+        "source": "answers.margin",
+        "target": "margin_label",
+        "enabled": true
+      },
+      {
+        "source": "answers.dimensions",
+        "target": "dimensions_label",
+        "enabled": true
+      },
+      {
+        "source": "answers.safety_flag",
+        "target": "safety_flag_label",
+        "enabled": true
+      },
+      {
+        "source": "answers.safety_annotation",
+        "target": "safety_annotation",
+        "enabled": true
+      },
+      {
+        "source": "answers.annotator_note",
+        "target": "annotator_note_label",
+        "enabled": true
+      }
+    ],
+    "rows": [
+      {
+        "id": "P0002",
+        "task_type": "代码生成",
+        "lang": "zh",
+        "prompt": "用 Python 反转一个链表。",
+        "response_a": "def reverse(head):\n    prev=None\n    while head:\n        head.next,prev,head=prev,head,head.next\n    return prev",
+        "model_a": "gpt-style",
+        "response_b": "可以用递归或迭代实现，建议查阅相关资料。",
+        "model_b": "baseline-7b",
+        "preferred": "A",
+        "margin": "明显优于",
+        "dimensions": [
+          "准确性",
+          "可执行性"
+        ],
+        "safety_flag": false,
+        "annotator_note": "B 未给出代码，答非所问。",
+        "preferred_label": "A",
+        "margin_label": "明显优于",
+        "dimensions_label": [
+          "准确性",
+          "可执行性"
+        ],
+        "safety_flag_label": "false",
+        "annotator_note_label": "B 未给出代码，答非所问。"
+      },
+      {
+        "id": "P0003",
+        "task_type": "文本摘要",
+        "lang": "zh",
+        "prompt": "概括：财报显示营收增长但利润下滑，因研发与营销投入加大。",
+        "response_a": "营收增长，但因研发营销投入加大导致利润下滑。",
+        "model_a": "doubao-lite",
+        "response_b": "公司财报显示营收增长，同时利润有所下滑，原因是研发和营销方面的投入显著增加所致。",
+        "model_b": "doubao-pro",
+        "preferred": "A",
+        "margin": "略优于",
+        "dimensions": [
+          "简洁性",
+          "相关性"
+        ],
+        "safety_flag": false,
+        "annotator_note": "两者均正确，A 更精炼。",
+        "preferred_label": "A",
+        "margin_label": "略优于",
+        "dimensions_label": [
+          "简洁性",
+          "相关性"
+        ],
+        "safety_flag_label": "false",
+        "annotator_note_label": "两者均正确，A 更精炼。"
+      },
+      {
+        "id": "P0001",
+        "task_type": "知识问答",
+        "lang": "zh",
+        "prompt": "解释什么是过拟合，并给一个通俗例子。",
+        "response_a": "过拟合指模型在训练集表现很好但泛化差。比如学生死记答案，考原题满分，换题就不会。",
+        "model_a": "doubao-pro",
+        "response_b": "过拟合就是模型训练得太好了。",
+        "model_b": "baseline-7b",
+        "preferred": "A",
+        "margin": "明显优于",
+        "dimensions": [
+          "准确性",
+          "完整性",
+          "可读性"
+        ],
+        "safety_flag": false,
+        "annotator_note": "A 含定义+类比，B 过于笼统。",
+        "preferred_label": "A",
+        "margin_label": "明显优于",
+        "dimensions_label": [
+          "准确性",
+          "完整性",
+          "可读性"
+        ],
+        "safety_flag_label": "false",
+        "annotator_note_label": "第 1 次返工补充：题目是“解释什么是过拟合，并给一个通俗例子。”。我选择 A，因为回答 A 的核心内容是“过拟合指模型在训练集表现很好但泛化差。比如学生死记答案，考原题满分，换题就不会。”，更符合评估维度 准确性、完整性、可读性。回答 B 的主要问题是“过拟合就是模型训练得太好了。”，相较之下存在准确性、完整性或表达质量不足。安全判断：原始数据未标记安全风险，安全标记保持 false。 该结论与原始 preferred=A、margin=明显优于 保持一致。"
+      }
+    ],
+    "totalFinalApproved": 3
+  },
+  "requestId": "req_91b295a04bdb"
+}

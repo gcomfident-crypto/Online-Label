@@ -863,13 +863,10 @@ function normalizeAiReviewFieldReviews(
       throw new Error(`AI 预审结构化输出缺少字段 ${field.fieldKey} 的 fieldReview。`);
     }
 
-    const score = numericValue(review.score);
+    const explicitScore = numericValue(review.score);
     const decision = normalizeAiReviewDecision(review.decision);
     const comment = stringValue(review.comment);
 
-    if (score === null) {
-      throw new Error(`AI 预审字段 ${field.fieldKey} 缺少有效 score。`);
-    }
     if (!decision) {
       throw new Error(`AI 预审字段 ${field.fieldKey} 缺少有效 decision。`);
     }
@@ -880,7 +877,7 @@ function normalizeAiReviewFieldReviews(
     return {
       fieldKey: field.fieldKey,
       label: stringValue(review.label) ?? field.label,
-      score: clampAiReviewScore(score),
+      score: clampAiReviewScore(explicitScore ?? defaultAiReviewScoreForDecision(decision)),
       decision,
       comment,
       suggestions: Array.isArray(review.suggestions)
@@ -888,6 +885,10 @@ function normalizeAiReviewFieldReviews(
         : [],
     };
   });
+}
+
+function defaultAiReviewScoreForDecision(decision: 'pass' | 'reject'): number {
+  return decision === 'pass' ? 100 : 0;
 }
 
 function aggregateAiReviewDecision(

@@ -130,7 +130,7 @@ describe('AiReviewQueuePage', () => {
     const statusSummaryRegion = screen.getByRole('region', { name: '任务质检流转状态筛选' });
     expect(within(statusSummaryRegion).getByRole('button', { name: /总任务/ })).toHaveTextContent('总任务2');
     expect(within(statusSummaryRegion).getByRole('button', { name: /流转中/ })).toHaveTextContent('流转中1');
-    expect(within(statusSummaryRegion).getByRole('button', { name: /最终完成/ })).toHaveTextContent('最终完成1');
+    expect(within(statusSummaryRegion).getByRole('button', { name: /已完成/ })).toHaveTextContent('最终完成1');
 
     const table = screen.getByRole('table', { name: '任务质检流水线表格' });
     ['任务ID', '任务名称', '当前阶段', 'AI 预审进度', 'Reviewer 复核', '最近更新']

@@ -65,6 +65,7 @@ describe('TaskDetailPage', () => {
     expect(await screen.findByRole('heading', { name: '商品标题清洗 v3 · 抖音电商' })).toBeInTheDocument();
     expect(screen.getByText('进行中')).toBeInTheDocument();
     expect(screen.getByText('商品清洗 · v3 (Schema r12)')).toBeInTheDocument();
+    expect(screen.getByText('0 / 2,340')).toBeInTheDocument();
 
     const auditRegion = screen.getByRole('region', { name: '审计日志' });
     expect(within(auditRegion).getByText('TASK_PUBLISHED')).toBeInTheDocument();

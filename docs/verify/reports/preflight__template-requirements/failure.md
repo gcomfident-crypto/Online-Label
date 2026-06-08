@@ -1,0 +1,138 @@
+# Preflight Failure: Missing Dataset Templates
+
+Current UI/API exposes no published qa_quality or preference_compare datasetKind template. This blocks checklist execution for datasets/qa_quality and strict preference_compare validation.
+
+## UI body excerpt
+
+```text
+LabelHub
+任务负责人后台 / 任务管理
+张
+张满 · Owner
+任
+务
+管
+理
+评
+测
+模
+板
+导
+出
+中
+心
+收起
+任务管理
+
+展示数据标注任务的创建、状态、进度、负责人和截止时间，支持任务从发布到交付的全流程管理
+
+总任务
+3
+草稿
+1
+进行中
+1
+已暂停
+0
+已完成
+1
+新建任务
+任务ID
+⇅
+	任务名	状态	创建人	进度	
+创建时间
+⇅
+	
+截止时间
+⇅
+	操作
+T-003	
+模型对比 json
+	
+进行中
+	
+张满
+	
+12 / 12 题
+100%
+	
+2026-06-06
+07:51
+	
+2026-06-14
+15:00
+	
+
+T-002	
+模版对比 草稿
+	
+草稿
+	
+张满
+	
+—
+	
+2026-06-06
+05:59
+	
+—
+	
+
+T-001	
+模型对比 xlsx
+	
+已完成
+	
+张满
+	
+12 / 12 题
+100%
+	
+2026-06-04
+15:50
+	
+2026-06-20
+15:00
+	
+上一页
+第 1 / 1 页
+下一页
+URL: http://localhost:5011/owner/tasks
+Console:
+debug: [vite] connecting...
+debug: [vite] connected.
+info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+任务标题
+*
+标签
++
+题目数据导入
+*
+点击上传文件
+支持 JSON / JSONL / XLSX
+单条奖励
+*
+元
+截止时间
+*
+选择截止时间
+请选择日期与整点
+关联模板
+*
+M-001
+模型对比模版
+v2
+M-002
+模型对比--自动解析模板
+v9
+启用AI预审
+当前进度
+草稿
+已发布
+存为草稿
+立即发布 →
+```
+
+## Screenshot
+
+![Template options](./screenshots/06__owner__template-options-visible.png)

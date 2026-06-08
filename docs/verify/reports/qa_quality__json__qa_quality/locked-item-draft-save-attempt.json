@@ -1,0 +1,12 @@
+{
+  "ok": false,
+  "status": 400,
+  "payload": {
+    "error": {
+      "code": "ASSIGNMENT_NOT_EDITABLE",
+      "message": "当前领取记录状态为 SUBMITTED，不能保存草稿。"
+    },
+    "requestId": "req_2419f75fc460"
+  },
+  "raw": "{\"error\":{\"code\":\"ASSIGNMENT_NOT_EDITABLE\",\"message\":\"当前领取记录状态为 SUBMITTED，不能保存草稿。\"},\"requestId\":\"req_2419f75fc460\"}"
+}

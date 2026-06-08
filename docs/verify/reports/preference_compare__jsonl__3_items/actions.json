@@ -1,0 +1,313 @@
+[
+  {
+    "at": "2026-06-07T17:57:26.642Z",
+    "action": "api:owner_create_import_publish",
+    "taskId": "cmq4344a000anwtpeth6ztyh9",
+    "importedCount": 3
+  },
+  {
+    "at": "2026-06-07T17:57:26.823Z",
+    "action": "goto:owner_login"
+  },
+  {
+    "at": "2026-06-07T17:57:27.079Z",
+    "action": "screenshot:owner_login_page",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3000__pc_jsonl_3__owner_login_page.png"
+  },
+  {
+    "at": "2026-06-07T17:57:27.089Z",
+    "action": "input:owner_username",
+    "value": "owner"
+  },
+  {
+    "at": "2026-06-07T17:57:27.304Z",
+    "action": "screenshot:owner_after_input_username",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3001__pc_jsonl_3__owner_after_input_username.png"
+  },
+  {
+    "at": "2026-06-07T17:57:27.316Z",
+    "action": "input:owner_password",
+    "value": "password"
+  },
+  {
+    "at": "2026-06-07T17:57:27.530Z",
+    "action": "screenshot:owner_after_input_password",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3002__pc_jsonl_3__owner_after_input_password.png"
+  },
+  {
+    "at": "2026-06-07T17:57:27.553Z",
+    "action": "click:owner_login_submit"
+  },
+  {
+    "at": "2026-06-07T17:57:28.526Z",
+    "action": "screenshot:owner_after_login_submit",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3003__pc_jsonl_3__owner_after_login_submit.png"
+  },
+  {
+    "at": "2026-06-07T17:57:29.165Z",
+    "action": "goto:owner_tasks"
+  },
+  {
+    "at": "2026-06-07T17:57:29.224Z",
+    "action": "screenshot:owner_tasks_after_publish",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3004__pc_jsonl_3__owner_tasks_after_publish.png"
+  },
+  {
+    "at": "2026-06-07T17:57:29.264Z",
+    "action": "screenshot:owner_task_visible",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3005__pc_jsonl_3__owner_task_visible.png"
+  },
+  {
+    "at": "2026-06-07T17:57:29.886Z",
+    "action": "screenshot:owner_task_detail_after_publish",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3006__pc_jsonl_3__owner_task_detail_after_publish.png"
+  },
+  {
+    "at": "2026-06-07T17:57:30.053Z",
+    "action": "goto:labeler_login"
+  },
+  {
+    "at": "2026-06-07T17:57:30.301Z",
+    "action": "screenshot:labeler_login_page",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3007__pc_jsonl_3__labeler_login_page.png"
+  },
+  {
+    "at": "2026-06-07T17:57:30.305Z",
+    "action": "input:labeler_username",
+    "value": "labeler"
+  },
+  {
+    "at": "2026-06-07T17:57:30.519Z",
+    "action": "screenshot:labeler_after_input_username",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3008__pc_jsonl_3__labeler_after_input_username.png"
+  },
+  {
+    "at": "2026-06-07T17:57:30.534Z",
+    "action": "input:labeler_password",
+    "value": "password"
+  },
+  {
+    "at": "2026-06-07T17:57:30.743Z",
+    "action": "screenshot:labeler_after_input_password",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3009__pc_jsonl_3__labeler_after_input_password.png"
+  },
+  {
+    "at": "2026-06-07T17:57:30.759Z",
+    "action": "click:labeler_login_submit"
+  },
+  {
+    "at": "2026-06-07T17:57:31.716Z",
+    "action": "screenshot:labeler_after_login_submit",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3010__pc_jsonl_3__labeler_after_login_submit.png"
+  },
+  {
+    "at": "2026-06-07T17:57:32.306Z",
+    "action": "goto:labeler_market"
+  },
+  {
+    "at": "2026-06-07T17:57:32.347Z",
+    "action": "screenshot:labeler_market",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3011__pc_jsonl_3__labeler_market.png"
+  },
+  {
+    "at": "2026-06-07T17:57:32.376Z",
+    "action": "screenshot:labeler_market_task_visible",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3012__pc_jsonl_3__labeler_market_task_visible.png"
+  },
+  {
+    "at": "2026-06-07T17:57:32.396Z",
+    "action": "api:claim_task",
+    "claimedItemCount": 3
+  },
+  {
+    "at": "2026-06-07T17:57:33.001Z",
+    "action": "screenshot:labeler_market_after_claim",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3013__pc_jsonl_3__labeler_market_after_claim.png"
+  },
+  {
+    "at": "2026-06-07T17:57:33.626Z",
+    "action": "goto:first_workbench_after_claim"
+  },
+  {
+    "at": "2026-06-07T17:57:33.691Z",
+    "action": "screenshot:first_workbench_after_claim",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3014__pc_jsonl_3__first_workbench_after_claim.png"
+  },
+  {
+    "at": "2026-06-07T17:57:33.733Z",
+    "action": "api:save_all_drafts",
+    "count": 3
+  },
+  {
+    "at": "2026-06-07T17:57:34.377Z",
+    "action": "screenshot:first_workbench_after_drafts",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3015__pc_jsonl_3__first_workbench_after_drafts.png"
+  },
+  {
+    "at": "2026-06-07T17:57:34.414Z",
+    "action": "api:labeler_submit_initial"
+  },
+  {
+    "at": "2026-06-07T17:57:35.046Z",
+    "action": "screenshot:first_workbench_after_submit",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3016__pc_jsonl_3__first_workbench_after_submit.png"
+  },
+  {
+    "at": "2026-06-07T17:57:42.393Z",
+    "action": "goto:agent_login"
+  },
+  {
+    "at": "2026-06-07T17:57:42.634Z",
+    "action": "screenshot:agent_login_page",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3017__pc_jsonl_3__agent_login_page.png"
+  },
+  {
+    "at": "2026-06-07T17:57:42.639Z",
+    "action": "input:agent_username",
+    "value": "agent"
+  },
+  {
+    "at": "2026-06-07T17:57:42.843Z",
+    "action": "screenshot:agent_after_input_username",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3018__pc_jsonl_3__agent_after_input_username.png"
+  },
+  {
+    "at": "2026-06-07T17:57:42.855Z",
+    "action": "input:agent_password",
+    "value": "password"
+  },
+  {
+    "at": "2026-06-07T17:57:43.061Z",
+    "action": "screenshot:agent_after_input_password",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3019__pc_jsonl_3__agent_after_input_password.png"
+  },
+  {
+    "at": "2026-06-07T17:57:43.087Z",
+    "action": "click:agent_login_submit"
+  },
+  {
+    "at": "2026-06-07T17:57:44.046Z",
+    "action": "screenshot:agent_after_login_submit",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3020__pc_jsonl_3__agent_after_login_submit.png"
+  },
+  {
+    "at": "2026-06-07T17:57:44.828Z",
+    "action": "screenshot:agent_detail_after_ai",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3021__pc_jsonl_3__agent_detail_after_ai.png"
+  },
+  {
+    "at": "2026-06-07T17:57:45.029Z",
+    "action": "goto:reviewer_login"
+  },
+  {
+    "at": "2026-06-07T17:57:45.299Z",
+    "action": "screenshot:reviewer_login_page",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3022__pc_jsonl_3__reviewer_login_page.png"
+  },
+  {
+    "at": "2026-06-07T17:57:45.304Z",
+    "action": "input:reviewer_username",
+    "value": "reviewer"
+  },
+  {
+    "at": "2026-06-07T17:57:45.531Z",
+    "action": "screenshot:reviewer_after_input_username",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3023__pc_jsonl_3__reviewer_after_input_username.png"
+  },
+  {
+    "at": "2026-06-07T17:57:45.547Z",
+    "action": "input:reviewer_password",
+    "value": "password"
+  },
+  {
+    "at": "2026-06-07T17:57:45.769Z",
+    "action": "screenshot:reviewer_after_input_password",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3024__pc_jsonl_3__reviewer_after_input_password.png"
+  },
+  {
+    "at": "2026-06-07T17:57:45.790Z",
+    "action": "click:reviewer_login_submit"
+  },
+  {
+    "at": "2026-06-07T17:57:46.733Z",
+    "action": "screenshot:reviewer_after_login_submit",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3025__pc_jsonl_3__reviewer_after_login_submit.png"
+  },
+  {
+    "at": "2026-06-07T17:57:47.425Z",
+    "action": "screenshot:reviewer_detail_before_single_reject",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3026__pc_jsonl_3__reviewer_detail_before_single_reject.png"
+  },
+  {
+    "at": "2026-06-07T17:57:47.482Z",
+    "action": "api:reviewer_single_reject",
+    "externalId": "P0001"
+  },
+  {
+    "at": "2026-06-07T17:57:48.146Z",
+    "action": "screenshot:reviewer_after_single_reject",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3027__pc_jsonl_3__reviewer_after_single_reject.png"
+  },
+  {
+    "at": "2026-06-07T17:57:48.832Z",
+    "action": "screenshot:labeler_after_single_reject_no_leak",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3028__pc_jsonl_3__labeler_after_single_reject_no_leak.png"
+  },
+  {
+    "at": "2026-06-07T17:57:48.920Z",
+    "action": "api:reviewer_batch_pass_remaining",
+    "count": 2
+  },
+  {
+    "at": "2026-06-07T17:57:49.587Z",
+    "action": "screenshot:reviewer_after_full_review",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3029__pc_jsonl_3__reviewer_after_full_review.png"
+  },
+  {
+    "at": "2026-06-07T17:57:50.256Z",
+    "action": "screenshot:labeler_rejected_item_after_full_review",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3030__pc_jsonl_3__labeler_rejected_item_after_full_review.png"
+  },
+  {
+    "at": "2026-06-07T17:57:50.284Z",
+    "action": "api:labeler_revision_submit",
+    "revisionRound": 1
+  },
+  {
+    "at": "2026-06-07T17:57:50.940Z",
+    "action": "screenshot:labeler_after_revision_submit_round_1",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3031__pc_jsonl_3__labeler_after_revision_submit_round_1.png"
+  },
+  {
+    "at": "2026-06-07T17:57:53.751Z",
+    "action": "screenshot:agent_after_ai_recheck_round_1",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3032__pc_jsonl_3__agent_after_ai_recheck_round_1.png"
+  },
+  {
+    "at": "2026-06-07T17:57:53.785Z",
+    "action": "api:reviewer_final_pass",
+    "externalId": "P0001",
+    "revisionRound": 1
+  },
+  {
+    "at": "2026-06-07T17:57:54.450Z",
+    "action": "screenshot:reviewer_after_final_pass",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3033__pc_jsonl_3__reviewer_after_final_pass.png"
+  },
+  {
+    "at": "2026-06-07T17:57:55.223Z",
+    "action": "screenshot:agent_final_flow",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3034__pc_jsonl_3__agent_final_flow.png"
+  },
+  {
+    "at": "2026-06-07T17:57:55.298Z",
+    "action": "assert:export_valid",
+    "rows": 3,
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/exports/preference_compare-jsonl-3-export.json"
+  },
+  {
+    "at": "2026-06-07T17:57:55.971Z",
+    "action": "screenshot:owner_after_final_export",
+    "file": "/Users/zzx/workspace/LH/docs/verify/reports/preference_compare__jsonl__3_items/screenshots/3035__pc_jsonl_3__owner_after_final_export.png"
+  }
+]

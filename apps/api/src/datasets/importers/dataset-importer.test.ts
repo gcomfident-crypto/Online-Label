@@ -175,6 +175,24 @@ describe('Dataset importers', () => {
       '.~qa_quality.xlsx',
     ]);
   });
+
+  it('单文件导入 Excel 临时锁文件时跳过且返回明确错误', async () => {
+    const result = await parseDatasetImport({
+      datasetKind: 'qa_quality',
+      format: 'xlsx',
+      fileName: '.~qa_quality.xlsx',
+      content: Buffer.from(''),
+    });
+
+    expect(result.records).toEqual([]);
+    expect(result.skippedFiles).toEqual(['.~qa_quality.xlsx']);
+    expect(result.errors).toEqual([
+      {
+        fileName: '.~qa_quality.xlsx',
+        message: '文件 .~qa_quality.xlsx 是系统或应用生成的临时文件，已跳过导入。',
+      },
+    ]);
+  });
 });
 
 function createQaQualityRecords() {

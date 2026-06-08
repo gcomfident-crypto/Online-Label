@@ -14,7 +14,7 @@ const marketTask = {
   tags: ['问答', '官方数据'],
   rewardRule: '0.30 元 / 条',
   perUserLimit: 5,
-  quota: 30,
+  quota: 100,
   deadline: '2026-06-01T15:59:00.000Z',
   datasetKind: 'qa_quality',
   templateId: 'template_qa',

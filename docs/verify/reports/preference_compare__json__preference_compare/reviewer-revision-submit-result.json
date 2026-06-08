@@ -1,0 +1,26 @@
+{
+  "taskId": "cmq4k77re04y5bape09j2aj0c",
+  "labelerId": "user_labeler_li_lei",
+  "submittedCount": 1,
+  "submissions": [
+    {
+      "id": "cmq4k7lhu053abapea98h1unv",
+      "assignmentId": "cmq4k79gy04ynbapexw22q550",
+      "status": "AI_QUEUED",
+      "round": 2,
+      "answers": {
+        "margin": "略优于",
+        "preferred": "A",
+        "dimensions": [
+          "helpfulness"
+        ],
+        "safety_flag": "false",
+        "annotator_note": "P0003：已根据审核意见补充理由。"
+      },
+      "schemaVersion": "v2",
+      "submittedAt": "2026-06-08T01:56:02.322Z",
+      "createdAt": "2026-06-08T01:56:02.322Z",
+      "updatedAt": "2026-06-08T01:56:02.322Z"
+    }
+  ]
+}

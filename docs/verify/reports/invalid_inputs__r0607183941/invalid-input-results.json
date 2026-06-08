@@ -1,0 +1,138 @@
+[
+  {
+    "invalidInput": "/Users/zzx/workspace/LH/datasets/.DS_Store",
+    "status": 400,
+    "ok": false,
+    "payload": {
+      "error": {
+        "code": "TASK_DATASET_KIND_MISMATCH",
+        "message": "导入数据集类型与任务模板类型不一致。"
+      },
+      "requestId": "req_0525ed9c0e41"
+    },
+    "itemCount": 0
+  },
+  {
+    "invalidInput": "/Users/zzx/workspace/LH/datasets/preference_compare/.DS_Store",
+    "status": 400,
+    "ok": false,
+    "payload": {
+      "error": {
+        "code": "TASK_DATASET_KIND_MISMATCH",
+        "message": "导入数据集类型与任务模板类型不一致。"
+      },
+      "requestId": "req_a6bc202f427b"
+    },
+    "itemCount": 0
+  },
+  {
+    "invalidInput": "/Users/zzx/workspace/LH/datasets/qa_quality/.DS_Store",
+    "status": 201,
+    "ok": true,
+    "payload": {
+      "taskId": "cmq44qsj401oubapevdt3fx3s",
+      "datasetKind": "qa_quality",
+      "importedCount": 0,
+      "errorCount": 1,
+      "skippedFiles": [
+        ".DS_Store"
+      ],
+      "fields": [],
+      "errors": [
+        {
+          "fileName": ".DS_Store",
+          "message": "文件 .DS_Store 是系统或应用生成的临时文件，已跳过导入。"
+        }
+      ],
+      "preview": [],
+      "files": [
+        {
+          "datasetKind": "qa_quality",
+          "format": "json",
+          "fileName": ".DS_Store",
+          "fields": [],
+          "importedCount": 0,
+          "errorCount": 1
+        }
+      ]
+    },
+    "itemCount": 0
+  },
+  {
+    "invalidInput": "/Users/zzx/workspace/LH/datasets/qa_quality/excel/.~qa_quality.xlsx",
+    "status": 201,
+    "ok": true,
+    "payload": {
+      "taskId": "cmq44qt1u01owbapenfoygxg7",
+      "datasetKind": "qa_quality",
+      "importedCount": 0,
+      "errorCount": 1,
+      "skippedFiles": [
+        ".~qa_quality.xlsx"
+      ],
+      "fields": [],
+      "errors": [
+        {
+          "fileName": ".~qa_quality.xlsx",
+          "message": "文件 .~qa_quality.xlsx 是系统或应用生成的临时文件，已跳过导入。"
+        }
+      ],
+      "preview": [],
+      "files": [
+        {
+          "datasetKind": "qa_quality",
+          "format": "xlsx",
+          "fileName": ".~qa_quality.xlsx",
+          "fields": [],
+          "importedCount": 0,
+          "errorCount": 1
+        }
+      ]
+    },
+    "itemCount": 0
+  },
+  {
+    "invalidInput": "/Users/zzx/workspace/LH/datasets/preference_compare/标注要求.md",
+    "status": 400,
+    "ok": false,
+    "payload": {
+      "error": {
+        "code": "TASK_DATASET_KIND_MISMATCH",
+        "message": "导入数据集类型与任务模板类型不一致。"
+      },
+      "requestId": "req_d0a89634bccb"
+    },
+    "itemCount": 0
+  },
+  {
+    "invalidInput": "/Users/zzx/workspace/LH/datasets/qa_quality/标注要求.md",
+    "status": 201,
+    "ok": true,
+    "payload": {
+      "taskId": "cmq44qu3l01p0bape09wvvr1v",
+      "datasetKind": "qa_quality",
+      "importedCount": 0,
+      "errorCount": 1,
+      "skippedFiles": [],
+      "fields": [],
+      "errors": [
+        {
+          "fileName": "标注要求.md",
+          "message": "JSON 内容解析失败。"
+        }
+      ],
+      "preview": [],
+      "files": [
+        {
+          "datasetKind": "qa_quality",
+          "format": "json",
+          "fileName": "标注要求.md",
+          "fields": [],
+          "importedCount": 0,
+          "errorCount": 1
+        }
+      ]
+    },
+    "itemCount": 0
+  }
+]

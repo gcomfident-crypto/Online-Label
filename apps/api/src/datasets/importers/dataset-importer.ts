@@ -61,6 +61,23 @@ type RawRecordWithLocation = {
 };
 
 export async function parseDatasetImport(input: DatasetImportInput): Promise<DatasetImportResult> {
+  if (shouldSkipImportFile(input.fileName)) {
+    return {
+      datasetKind: input.datasetKind,
+      format: input.format,
+      fileName: input.fileName,
+      records: [],
+      errors: [
+        {
+          fileName: input.fileName,
+          message: `文件 ${input.fileName} 是系统或应用生成的临时文件，已跳过导入。`,
+        },
+      ],
+      skippedFiles: [input.fileName],
+      fields: [],
+    };
+  }
+
   const profile = getDatasetProfile(input.datasetKind);
   const parsed = await parseRawRecords(input, profile);
   const normalized = normalizeRecords(input, profile, parsed.records);

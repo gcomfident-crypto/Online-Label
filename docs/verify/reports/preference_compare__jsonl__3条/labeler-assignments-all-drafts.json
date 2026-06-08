@@ -1,0 +1,92 @@
+[
+  {
+    "assignmentId": "cmq4k7tfy053vbapem6bekn01",
+    "taskId": "cmq4k7rsb053obapeh7z8njdn",
+    "taskTitle": "VERIFY-preference_compare-jsonl-3条-r0608015517",
+    "taskItemId": "cmq4k7rta053qbape4z1rwttx",
+    "taskItemSortOrder": 1,
+    "externalId": "P0001",
+    "datasetKind": "generic_json",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:56:12.622Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0001：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:56:15.013Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k7tg2053wbapeuadhl9ms",
+    "taskId": "cmq4k7rsb053obapeh7z8njdn",
+    "taskTitle": "VERIFY-preference_compare-jsonl-3条-r0608015517",
+    "taskItemId": "cmq4k7rta053rbape8gag0brb",
+    "taskItemSortOrder": 2,
+    "externalId": "P0002",
+    "datasetKind": "generic_json",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:56:12.626Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0002：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:56:15.023Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k7tga053xbape0izn9wi2",
+    "taskId": "cmq4k7rsb053obapeh7z8njdn",
+    "taskTitle": "VERIFY-preference_compare-jsonl-3条-r0608015517",
+    "taskItemId": "cmq4k7rta053sbapefhf0mmk0",
+    "taskItemSortOrder": 3,
+    "externalId": "P0003",
+    "datasetKind": "generic_json",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:56:12.634Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0003：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:56:15.032Z",
+    "round": 0
+  }
+]

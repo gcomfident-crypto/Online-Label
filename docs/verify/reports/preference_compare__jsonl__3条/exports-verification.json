@@ -1,0 +1,558 @@
+[
+  {
+    "format": "json",
+    "job": {
+      "id": "cmq4k89wg055lbape4t071tph",
+      "taskId": "cmq4k7rsb053obapeh7z8njdn",
+      "requestedById": "user_owner_zhang_man",
+      "status": "SUCCEEDED",
+      "format": "json",
+      "idempotencyKey": "cmq4k7rsb053obapeh7z8njdn-json-1780883793933",
+      "fieldMapping": [
+        {
+          "source": "rawData.id",
+          "target": "id",
+          "enabled": true
+        },
+        {
+          "source": "rawData.task_type",
+          "target": "task_type",
+          "enabled": true
+        },
+        {
+          "source": "rawData.lang",
+          "target": "lang",
+          "enabled": true
+        },
+        {
+          "source": "rawData.prompt",
+          "target": "prompt",
+          "enabled": true
+        },
+        {
+          "source": "rawData.response_a",
+          "target": "response_a",
+          "enabled": true
+        },
+        {
+          "source": "rawData.model_a",
+          "target": "model_a",
+          "enabled": true
+        },
+        {
+          "source": "rawData.response_b",
+          "target": "response_b",
+          "enabled": true
+        },
+        {
+          "source": "rawData.model_b",
+          "target": "model_b",
+          "enabled": true
+        },
+        {
+          "source": "rawData.preferred",
+          "target": "preferred",
+          "enabled": true
+        },
+        {
+          "source": "rawData.margin",
+          "target": "margin",
+          "enabled": true
+        },
+        {
+          "source": "rawData.dimensions",
+          "target": "dimensions",
+          "enabled": true
+        },
+        {
+          "source": "rawData.safety_flag",
+          "target": "safety_flag",
+          "enabled": true
+        },
+        {
+          "source": "rawData.annotator_note",
+          "target": "annotator_note",
+          "enabled": true
+        },
+        {
+          "source": "answers.preferred",
+          "target": "preferred_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.margin",
+          "target": "margin_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.dimensions",
+          "target": "dimensions_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.safety_flag",
+          "target": "safety_flag_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.safety_annotation",
+          "target": "safety_annotation",
+          "enabled": true
+        },
+        {
+          "source": "answers.annotator_note",
+          "target": "annotator_note_label",
+          "enabled": true
+        }
+      ],
+      "includeReviews": true,
+      "filters": null,
+      "filePath": "storage/exports/cmq4k89wg055lbape4t071tph.json",
+      "resultUrl": "/exports/cmq4k89wg055lbape4t071tph/download",
+      "errorMessage": null,
+      "finishedAt": "2026-06-08T01:56:33.962Z",
+      "createdAt": "2026-06-08T01:56:33.952Z",
+      "updatedAt": "2026-06-08T01:56:33.962Z"
+    },
+    "copiedPath": "/Users/zzx/workspace/LH/docs/verify/reports/_exports/cmq4k7rsb053obapeh7z8njdn.json",
+    "rowCount": 3,
+    "headers": [
+      "id",
+      "task_type",
+      "lang",
+      "prompt",
+      "response_a",
+      "model_a",
+      "response_b",
+      "model_b",
+      "preferred",
+      "margin",
+      "dimensions",
+      "safety_flag",
+      "annotator_note",
+      "preferred_label",
+      "margin_label",
+      "dimensions_label",
+      "safety_flag_label",
+      "safety_annotation",
+      "annotator_note_label"
+    ]
+  },
+  {
+    "format": "jsonl",
+    "job": {
+      "id": "cmq4k89wz055mbape3wqywkl1",
+      "taskId": "cmq4k7rsb053obapeh7z8njdn",
+      "requestedById": "user_owner_zhang_man",
+      "status": "SUCCEEDED",
+      "format": "jsonl",
+      "idempotencyKey": "cmq4k7rsb053obapeh7z8njdn-jsonl-1780883793965",
+      "fieldMapping": [
+        {
+          "source": "rawData.id",
+          "target": "id",
+          "enabled": true
+        },
+        {
+          "source": "rawData.task_type",
+          "target": "task_type",
+          "enabled": true
+        },
+        {
+          "source": "rawData.lang",
+          "target": "lang",
+          "enabled": true
+        },
+        {
+          "source": "rawData.prompt",
+          "target": "prompt",
+          "enabled": true
+        },
+        {
+          "source": "rawData.response_a",
+          "target": "response_a",
+          "enabled": true
+        },
+        {
+          "source": "rawData.model_a",
+          "target": "model_a",
+          "enabled": true
+        },
+        {
+          "source": "rawData.response_b",
+          "target": "response_b",
+          "enabled": true
+        },
+        {
+          "source": "rawData.model_b",
+          "target": "model_b",
+          "enabled": true
+        },
+        {
+          "source": "rawData.preferred",
+          "target": "preferred",
+          "enabled": true
+        },
+        {
+          "source": "rawData.margin",
+          "target": "margin",
+          "enabled": true
+        },
+        {
+          "source": "rawData.dimensions",
+          "target": "dimensions",
+          "enabled": true
+        },
+        {
+          "source": "rawData.safety_flag",
+          "target": "safety_flag",
+          "enabled": true
+        },
+        {
+          "source": "rawData.annotator_note",
+          "target": "annotator_note",
+          "enabled": true
+        },
+        {
+          "source": "answers.preferred",
+          "target": "preferred_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.margin",
+          "target": "margin_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.dimensions",
+          "target": "dimensions_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.safety_flag",
+          "target": "safety_flag_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.safety_annotation",
+          "target": "safety_annotation",
+          "enabled": true
+        },
+        {
+          "source": "answers.annotator_note",
+          "target": "annotator_note_label",
+          "enabled": true
+        }
+      ],
+      "includeReviews": true,
+      "filters": null,
+      "filePath": "storage/exports/cmq4k89wz055mbape3wqywkl1.jsonl",
+      "resultUrl": "/exports/cmq4k89wz055mbape3wqywkl1/download",
+      "errorMessage": null,
+      "finishedAt": "2026-06-08T01:56:33.977Z",
+      "createdAt": "2026-06-08T01:56:33.971Z",
+      "updatedAt": "2026-06-08T01:56:33.977Z"
+    },
+    "copiedPath": "/Users/zzx/workspace/LH/docs/verify/reports/_exports/cmq4k7rsb053obapeh7z8njdn.jsonl",
+    "rowCount": 3,
+    "headers": [
+      "id",
+      "task_type",
+      "lang",
+      "prompt",
+      "response_a",
+      "model_a",
+      "response_b",
+      "model_b",
+      "preferred",
+      "margin",
+      "dimensions",
+      "safety_flag",
+      "annotator_note",
+      "preferred_label",
+      "margin_label",
+      "dimensions_label",
+      "safety_flag_label",
+      "safety_annotation",
+      "annotator_note_label"
+    ]
+  },
+  {
+    "format": "csv",
+    "job": {
+      "id": "cmq4k89xe055nbapeu3676nh5",
+      "taskId": "cmq4k7rsb053obapeh7z8njdn",
+      "requestedById": "user_owner_zhang_man",
+      "status": "SUCCEEDED",
+      "format": "csv",
+      "idempotencyKey": "cmq4k7rsb053obapeh7z8njdn-csv-1780883793980",
+      "fieldMapping": [
+        {
+          "source": "rawData.id",
+          "target": "id",
+          "enabled": true
+        },
+        {
+          "source": "rawData.task_type",
+          "target": "task_type",
+          "enabled": true
+        },
+        {
+          "source": "rawData.lang",
+          "target": "lang",
+          "enabled": true
+        },
+        {
+          "source": "rawData.prompt",
+          "target": "prompt",
+          "enabled": true
+        },
+        {
+          "source": "rawData.response_a",
+          "target": "response_a",
+          "enabled": true
+        },
+        {
+          "source": "rawData.model_a",
+          "target": "model_a",
+          "enabled": true
+        },
+        {
+          "source": "rawData.response_b",
+          "target": "response_b",
+          "enabled": true
+        },
+        {
+          "source": "rawData.model_b",
+          "target": "model_b",
+          "enabled": true
+        },
+        {
+          "source": "rawData.preferred",
+          "target": "preferred",
+          "enabled": true
+        },
+        {
+          "source": "rawData.margin",
+          "target": "margin",
+          "enabled": true
+        },
+        {
+          "source": "rawData.dimensions",
+          "target": "dimensions",
+          "enabled": true
+        },
+        {
+          "source": "rawData.safety_flag",
+          "target": "safety_flag",
+          "enabled": true
+        },
+        {
+          "source": "rawData.annotator_note",
+          "target": "annotator_note",
+          "enabled": true
+        },
+        {
+          "source": "answers.preferred",
+          "target": "preferred_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.margin",
+          "target": "margin_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.dimensions",
+          "target": "dimensions_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.safety_flag",
+          "target": "safety_flag_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.safety_annotation",
+          "target": "safety_annotation",
+          "enabled": true
+        },
+        {
+          "source": "answers.annotator_note",
+          "target": "annotator_note_label",
+          "enabled": true
+        }
+      ],
+      "includeReviews": true,
+      "filters": null,
+      "filePath": "storage/exports/cmq4k89xe055nbapeu3676nh5.csv",
+      "resultUrl": "/exports/cmq4k89xe055nbapeu3676nh5/download",
+      "errorMessage": null,
+      "finishedAt": "2026-06-08T01:56:33.993Z",
+      "createdAt": "2026-06-08T01:56:33.986Z",
+      "updatedAt": "2026-06-08T01:56:33.993Z"
+    },
+    "copiedPath": "/Users/zzx/workspace/LH/docs/verify/reports/_exports/cmq4k7rsb053obapeh7z8njdn.csv",
+    "rowCount": 3,
+    "headers": [
+      "id",
+      "task_type",
+      "lang",
+      "prompt",
+      "response_a",
+      "model_a",
+      "response_b",
+      "model_b",
+      "preferred",
+      "margin",
+      "dimensions",
+      "safety_flag",
+      "annotator_note",
+      "preferred_label",
+      "margin_label",
+      "dimensions_label",
+      "safety_flag_label",
+      "safety_annotation",
+      "annotator_note_label"
+    ]
+  },
+  {
+    "format": "xlsx",
+    "job": {
+      "id": "cmq4k89xt055obapem6nnyo7y",
+      "taskId": "cmq4k7rsb053obapeh7z8njdn",
+      "requestedById": "user_owner_zhang_man",
+      "status": "SUCCEEDED",
+      "format": "xlsx",
+      "idempotencyKey": "cmq4k7rsb053obapeh7z8njdn-xlsx-1780883793995",
+      "fieldMapping": [
+        {
+          "source": "rawData.id",
+          "target": "id",
+          "enabled": true
+        },
+        {
+          "source": "rawData.task_type",
+          "target": "task_type",
+          "enabled": true
+        },
+        {
+          "source": "rawData.lang",
+          "target": "lang",
+          "enabled": true
+        },
+        {
+          "source": "rawData.prompt",
+          "target": "prompt",
+          "enabled": true
+        },
+        {
+          "source": "rawData.response_a",
+          "target": "response_a",
+          "enabled": true
+        },
+        {
+          "source": "rawData.model_a",
+          "target": "model_a",
+          "enabled": true
+        },
+        {
+          "source": "rawData.response_b",
+          "target": "response_b",
+          "enabled": true
+        },
+        {
+          "source": "rawData.model_b",
+          "target": "model_b",
+          "enabled": true
+        },
+        {
+          "source": "rawData.preferred",
+          "target": "preferred",
+          "enabled": true
+        },
+        {
+          "source": "rawData.margin",
+          "target": "margin",
+          "enabled": true
+        },
+        {
+          "source": "rawData.dimensions",
+          "target": "dimensions",
+          "enabled": true
+        },
+        {
+          "source": "rawData.safety_flag",
+          "target": "safety_flag",
+          "enabled": true
+        },
+        {
+          "source": "rawData.annotator_note",
+          "target": "annotator_note",
+          "enabled": true
+        },
+        {
+          "source": "answers.preferred",
+          "target": "preferred_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.margin",
+          "target": "margin_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.dimensions",
+          "target": "dimensions_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.safety_flag",
+          "target": "safety_flag_label",
+          "enabled": true
+        },
+        {
+          "source": "answers.safety_annotation",
+          "target": "safety_annotation",
+          "enabled": true
+        },
+        {
+          "source": "answers.annotator_note",
+          "target": "annotator_note_label",
+          "enabled": true
+        }
+      ],
+      "includeReviews": true,
+      "filters": null,
+      "filePath": "storage/exports/cmq4k89xt055obapem6nnyo7y.xlsx",
+      "resultUrl": "/exports/cmq4k89xt055obapem6nnyo7y/download",
+      "errorMessage": null,
+      "finishedAt": "2026-06-08T01:56:34.012Z",
+      "createdAt": "2026-06-08T01:56:34.001Z",
+      "updatedAt": "2026-06-08T01:56:34.013Z"
+    },
+    "copiedPath": "/Users/zzx/workspace/LH/docs/verify/reports/_exports/cmq4k7rsb053obapeh7z8njdn.xlsx",
+    "rowCount": 3,
+    "headers": [
+      "id",
+      "task_type",
+      "lang",
+      "prompt",
+      "response_a",
+      "model_a",
+      "response_b",
+      "model_b",
+      "preferred",
+      "margin",
+      "dimensions",
+      "safety_flag",
+      "annotator_note",
+      "preferred_label",
+      "margin_label",
+      "dimensions_label",
+      "safety_flag_label",
+      "safety_annotation",
+      "annotator_note_label"
+    ]
+  }
+]

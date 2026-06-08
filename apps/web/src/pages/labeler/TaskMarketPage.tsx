@@ -405,7 +405,8 @@ const claimButtonText = (task: MarketTaskDto, claimingTaskId: string | null): st
 };
 
 const progressPercent = (task: MarketTaskDto): number => {
-  const total = task.quota ?? task.itemCount;
+  const actualItemCount = task.itemCount ?? 0;
+  const total = actualItemCount > 0 ? actualItemCount : task.quota ?? 0;
   if (total <= 0) {
     return 0;
   }
@@ -713,7 +714,8 @@ const ClaimStatusTag = ({ status }: { status: MarketClaimStatus }) => (
 );
 
 const MarketTaskProgressCell = ({ task }: { task: MarketTaskDto }) => {
-  const total = task.quota ?? task.itemCount;
+  const actualItemCount = task.itemCount ?? 0;
+  const total = actualItemCount > 0 ? actualItemCount : task.quota ?? 0;
 
   if (total <= 0) {
     return <span className="task-progress-empty">—</span>;

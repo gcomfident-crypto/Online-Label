@@ -1,0 +1,1264 @@
+[
+  {
+    "id": "cmq4ka38h05smbape2kbbh1xf:owner-published",
+    "taskId": "cmq4ka38h05smbape2kbbh1xf",
+    "round": 1,
+    "eventType": "OWNER_PUBLISHED",
+    "actorRole": "OWNER",
+    "actorName": "张满",
+    "occurredAt": "2026-06-08T01:57:58.695Z",
+    "message": "Owner 发布了任务。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4ka39b05sobape5hqogm7a",
+        "externalId": "Q0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4ka39b05sqbapeewcms1be",
+        "externalId": "Q0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4ka39b05srbapefppx040j",
+        "externalId": "Q0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4ka39b05ssbaperrhgt0e4",
+        "externalId": "Q0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4ka39b05stbape3f3xc1hs",
+        "externalId": "Q0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4ka39b05subape6v5vpcwo",
+        "externalId": "Q0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4ka39b05svbape2cuj9iiw",
+        "externalId": "Q0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4ka39b05swbaper63vido4",
+        "externalId": "Q0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4ka39b05sxbapehx1hagks",
+        "externalId": "Q0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4ka39b05sybapei18j7fnq",
+        "externalId": "Q0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4ka39c05szbapexwdrgbf8",
+        "externalId": "Q0012",
+        "index": 12
+      },
+      {
+        "itemId": "cmq4ka39c05t0bapea7pfyt0b",
+        "externalId": "Q0013",
+        "index": 13
+      },
+      {
+        "itemId": "cmq4ka39c05t1bape2sqs4g07",
+        "externalId": "Q0014",
+        "index": 14
+      },
+      {
+        "itemId": "cmq4ka39c05t2bapehbyr130p",
+        "externalId": "Q0015",
+        "index": 15
+      },
+      {
+        "itemId": "cmq4ka39c05t3bape3m77zqnw",
+        "externalId": "Q0016",
+        "index": 16
+      },
+      {
+        "itemId": "cmq4ka39c05t4bape27unkt1f",
+        "externalId": "Q0017",
+        "index": 17
+      },
+      {
+        "itemId": "cmq4ka39c05t5bapefwgjcpdf",
+        "externalId": "Q0018",
+        "index": 18
+      },
+      {
+        "itemId": "cmq4ka39c05t6bape699dhhjk",
+        "externalId": "Q0019",
+        "index": 19
+      },
+      {
+        "itemId": "cmq4ka39c05t7bape9qg4wnl9",
+        "externalId": "Q0020",
+        "index": 20
+      },
+      {
+        "itemId": "cmq4ka39c05t8bapevpvxq92y",
+        "externalId": "V0001",
+        "index": 21
+      },
+      {
+        "itemId": "cmq4ka39c05t9bapeqrjv7jm9",
+        "externalId": "V0002",
+        "index": 22
+      },
+      {
+        "itemId": "cmq4ka39c05tabapea1k5jyum",
+        "externalId": "V0003",
+        "index": 23
+      },
+      {
+        "itemId": "cmq4ka39c05tbbapevxpzcko7",
+        "externalId": "I0001",
+        "index": 24
+      },
+      {
+        "itemId": "cmq4ka39c05tcbapevo71d0lq",
+        "externalId": "I0002",
+        "index": 25
+      },
+      {
+        "itemId": "cmq4ka39c05tdbape6ij2xshd",
+        "externalId": "I0003",
+        "index": 26
+      },
+      {
+        "itemId": "cmq4ka39c05tebapeld0w74dh",
+        "externalId": "I0004",
+        "index": 27
+      },
+      {
+        "itemId": "cmq4ka39c05tfbaper502ld47",
+        "externalId": "M0001",
+        "index": 28
+      },
+      {
+        "itemId": "cmq4ka39c05tgbapeh338si1h",
+        "externalId": "M0002",
+        "index": 29
+      },
+      {
+        "itemId": "cmq4ka39c05thbapeqc6ol5iy",
+        "externalId": "M0003",
+        "index": 30
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4ka38h05smbape2kbbh1xf:labeler-claimed:user_labeler_li_lei",
+    "taskId": "cmq4ka38h05smbape2kbbh1xf",
+    "round": 1,
+    "eventType": "LABELER_CLAIMED",
+    "actorRole": "LABELER",
+    "actorName": "李雷",
+    "occurredAt": "2026-06-08T01:58:00.894Z",
+    "message": "李雷 领取了任务。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4ka39b05sobape5hqogm7a",
+        "externalId": "Q0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4ka39b05sqbapeewcms1be",
+        "externalId": "Q0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4ka39b05srbapefppx040j",
+        "externalId": "Q0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4ka39b05ssbaperrhgt0e4",
+        "externalId": "Q0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4ka39b05stbape3f3xc1hs",
+        "externalId": "Q0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4ka39b05subape6v5vpcwo",
+        "externalId": "Q0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4ka39b05svbape2cuj9iiw",
+        "externalId": "Q0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4ka39b05swbaper63vido4",
+        "externalId": "Q0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4ka39b05sxbapehx1hagks",
+        "externalId": "Q0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4ka39b05sybapei18j7fnq",
+        "externalId": "Q0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4ka39c05szbapexwdrgbf8",
+        "externalId": "Q0012",
+        "index": 12
+      },
+      {
+        "itemId": "cmq4ka39c05t0bapea7pfyt0b",
+        "externalId": "Q0013",
+        "index": 13
+      },
+      {
+        "itemId": "cmq4ka39c05t1bape2sqs4g07",
+        "externalId": "Q0014",
+        "index": 14
+      },
+      {
+        "itemId": "cmq4ka39c05t2bapehbyr130p",
+        "externalId": "Q0015",
+        "index": 15
+      },
+      {
+        "itemId": "cmq4ka39c05t3bape3m77zqnw",
+        "externalId": "Q0016",
+        "index": 16
+      },
+      {
+        "itemId": "cmq4ka39c05t4bape27unkt1f",
+        "externalId": "Q0017",
+        "index": 17
+      },
+      {
+        "itemId": "cmq4ka39c05t5bapefwgjcpdf",
+        "externalId": "Q0018",
+        "index": 18
+      },
+      {
+        "itemId": "cmq4ka39c05t6bape699dhhjk",
+        "externalId": "Q0019",
+        "index": 19
+      },
+      {
+        "itemId": "cmq4ka39c05t7bape9qg4wnl9",
+        "externalId": "Q0020",
+        "index": 20
+      },
+      {
+        "itemId": "cmq4ka39c05t8bapevpvxq92y",
+        "externalId": "V0001",
+        "index": 21
+      },
+      {
+        "itemId": "cmq4ka39c05t9bapeqrjv7jm9",
+        "externalId": "V0002",
+        "index": 22
+      },
+      {
+        "itemId": "cmq4ka39c05tabapea1k5jyum",
+        "externalId": "V0003",
+        "index": 23
+      },
+      {
+        "itemId": "cmq4ka39c05tbbapevxpzcko7",
+        "externalId": "I0001",
+        "index": 24
+      },
+      {
+        "itemId": "cmq4ka39c05tcbapevo71d0lq",
+        "externalId": "I0002",
+        "index": 25
+      },
+      {
+        "itemId": "cmq4ka39c05tdbape6ij2xshd",
+        "externalId": "I0003",
+        "index": 26
+      },
+      {
+        "itemId": "cmq4ka39c05tebapeld0w74dh",
+        "externalId": "I0004",
+        "index": 27
+      },
+      {
+        "itemId": "cmq4ka39c05tfbaper502ld47",
+        "externalId": "M0001",
+        "index": 28
+      },
+      {
+        "itemId": "cmq4ka39c05tgbapeh338si1h",
+        "externalId": "M0002",
+        "index": 29
+      },
+      {
+        "itemId": "cmq4ka39c05thbapeqc6ol5iy",
+        "externalId": "M0003",
+        "index": 30
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4ka38h05smbape2kbbh1xf:labeler-submitted:user_labeler_li_lei:1",
+    "taskId": "cmq4ka38h05smbape2kbbh1xf",
+    "round": 1,
+    "eventType": "LABELER_SUBMITTED",
+    "actorRole": "LABELER",
+    "actorName": "李雷",
+    "occurredAt": "2026-06-08T01:58:04.735Z",
+    "message": "李雷 提交了整个任务的标注结果。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4ka39b05sobape5hqogm7a",
+        "externalId": "Q0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4ka39b05sqbapeewcms1be",
+        "externalId": "Q0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4ka39b05srbapefppx040j",
+        "externalId": "Q0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4ka39b05ssbaperrhgt0e4",
+        "externalId": "Q0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4ka39b05stbape3f3xc1hs",
+        "externalId": "Q0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4ka39b05subape6v5vpcwo",
+        "externalId": "Q0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4ka39b05svbape2cuj9iiw",
+        "externalId": "Q0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4ka39b05swbaper63vido4",
+        "externalId": "Q0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4ka39b05sxbapehx1hagks",
+        "externalId": "Q0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4ka39b05sybapei18j7fnq",
+        "externalId": "Q0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4ka39c05szbapexwdrgbf8",
+        "externalId": "Q0012",
+        "index": 12
+      },
+      {
+        "itemId": "cmq4ka39c05t0bapea7pfyt0b",
+        "externalId": "Q0013",
+        "index": 13
+      },
+      {
+        "itemId": "cmq4ka39c05t1bape2sqs4g07",
+        "externalId": "Q0014",
+        "index": 14
+      },
+      {
+        "itemId": "cmq4ka39c05t2bapehbyr130p",
+        "externalId": "Q0015",
+        "index": 15
+      },
+      {
+        "itemId": "cmq4ka39c05t3bape3m77zqnw",
+        "externalId": "Q0016",
+        "index": 16
+      },
+      {
+        "itemId": "cmq4ka39c05t4bape27unkt1f",
+        "externalId": "Q0017",
+        "index": 17
+      },
+      {
+        "itemId": "cmq4ka39c05t5bapefwgjcpdf",
+        "externalId": "Q0018",
+        "index": 18
+      },
+      {
+        "itemId": "cmq4ka39c05t6bape699dhhjk",
+        "externalId": "Q0019",
+        "index": 19
+      },
+      {
+        "itemId": "cmq4ka39c05t7bape9qg4wnl9",
+        "externalId": "Q0020",
+        "index": 20
+      },
+      {
+        "itemId": "cmq4ka39c05t8bapevpvxq92y",
+        "externalId": "V0001",
+        "index": 21
+      },
+      {
+        "itemId": "cmq4ka39c05t9bapeqrjv7jm9",
+        "externalId": "V0002",
+        "index": 22
+      },
+      {
+        "itemId": "cmq4ka39c05tabapea1k5jyum",
+        "externalId": "V0003",
+        "index": 23
+      },
+      {
+        "itemId": "cmq4ka39c05tbbapevxpzcko7",
+        "externalId": "I0001",
+        "index": 24
+      },
+      {
+        "itemId": "cmq4ka39c05tcbapevo71d0lq",
+        "externalId": "I0002",
+        "index": 25
+      },
+      {
+        "itemId": "cmq4ka39c05tdbape6ij2xshd",
+        "externalId": "I0003",
+        "index": 26
+      },
+      {
+        "itemId": "cmq4ka39c05tebapeld0w74dh",
+        "externalId": "I0004",
+        "index": 27
+      },
+      {
+        "itemId": "cmq4ka39c05tfbaper502ld47",
+        "externalId": "M0001",
+        "index": 28
+      },
+      {
+        "itemId": "cmq4ka39c05tgbapeh338si1h",
+        "externalId": "M0002",
+        "index": 29
+      },
+      {
+        "itemId": "cmq4ka39c05thbapeqc6ol5iy",
+        "externalId": "M0003",
+        "index": 30
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4ka38h05smbape2kbbh1xf:ai-started:1",
+    "taskId": "cmq4ka38h05smbape2kbbh1xf",
+    "round": 1,
+    "eventType": "AI_PRECHECK_STARTED",
+    "actorRole": "AI_AGENT",
+    "actorName": "AI Agent",
+    "occurredAt": "2026-06-08T01:58:06.574Z",
+    "message": "AI Agent 开始本轮预审。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4ka39b05sobape5hqogm7a",
+        "externalId": "Q0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4ka39b05sqbapeewcms1be",
+        "externalId": "Q0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4ka39b05srbapefppx040j",
+        "externalId": "Q0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4ka39b05ssbaperrhgt0e4",
+        "externalId": "Q0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4ka39b05stbape3f3xc1hs",
+        "externalId": "Q0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4ka39b05subape6v5vpcwo",
+        "externalId": "Q0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4ka39b05svbape2cuj9iiw",
+        "externalId": "Q0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4ka39b05swbaper63vido4",
+        "externalId": "Q0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4ka39b05sxbapehx1hagks",
+        "externalId": "Q0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4ka39b05sybapei18j7fnq",
+        "externalId": "Q0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4ka39c05szbapexwdrgbf8",
+        "externalId": "Q0012",
+        "index": 12
+      },
+      {
+        "itemId": "cmq4ka39c05t0bapea7pfyt0b",
+        "externalId": "Q0013",
+        "index": 13
+      },
+      {
+        "itemId": "cmq4ka39c05t1bape2sqs4g07",
+        "externalId": "Q0014",
+        "index": 14
+      },
+      {
+        "itemId": "cmq4ka39c05t2bapehbyr130p",
+        "externalId": "Q0015",
+        "index": 15
+      },
+      {
+        "itemId": "cmq4ka39c05t3bape3m77zqnw",
+        "externalId": "Q0016",
+        "index": 16
+      },
+      {
+        "itemId": "cmq4ka39c05t4bape27unkt1f",
+        "externalId": "Q0017",
+        "index": 17
+      },
+      {
+        "itemId": "cmq4ka39c05t5bapefwgjcpdf",
+        "externalId": "Q0018",
+        "index": 18
+      },
+      {
+        "itemId": "cmq4ka39c05t6bape699dhhjk",
+        "externalId": "Q0019",
+        "index": 19
+      },
+      {
+        "itemId": "cmq4ka39c05t7bape9qg4wnl9",
+        "externalId": "Q0020",
+        "index": 20
+      },
+      {
+        "itemId": "cmq4ka39c05t8bapevpvxq92y",
+        "externalId": "V0001",
+        "index": 21
+      },
+      {
+        "itemId": "cmq4ka39c05t9bapeqrjv7jm9",
+        "externalId": "V0002",
+        "index": 22
+      },
+      {
+        "itemId": "cmq4ka39c05tabapea1k5jyum",
+        "externalId": "V0003",
+        "index": 23
+      },
+      {
+        "itemId": "cmq4ka39c05tbbapevxpzcko7",
+        "externalId": "I0001",
+        "index": 24
+      },
+      {
+        "itemId": "cmq4ka39c05tcbapevo71d0lq",
+        "externalId": "I0002",
+        "index": 25
+      },
+      {
+        "itemId": "cmq4ka39c05tdbape6ij2xshd",
+        "externalId": "I0003",
+        "index": 26
+      },
+      {
+        "itemId": "cmq4ka39c05tebapeld0w74dh",
+        "externalId": "I0004",
+        "index": 27
+      },
+      {
+        "itemId": "cmq4ka39c05tfbaper502ld47",
+        "externalId": "M0001",
+        "index": 28
+      },
+      {
+        "itemId": "cmq4ka39c05tgbapeh338si1h",
+        "externalId": "M0002",
+        "index": 29
+      },
+      {
+        "itemId": "cmq4ka39c05thbapeqc6ol5iy",
+        "externalId": "M0003",
+        "index": 30
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4ka38h05smbape2kbbh1xf:ai-completed:1",
+    "taskId": "cmq4ka38h05smbape2kbbh1xf",
+    "round": 1,
+    "eventType": "AI_PRECHECK_COMPLETED",
+    "actorRole": "AI_AGENT",
+    "actorName": "AI Agent",
+    "occurredAt": "2026-06-08T01:58:07.358Z",
+    "message": "AI Agent 完成本轮预审，存在建议打回题目。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4ka39b05sobape5hqogm7a",
+        "externalId": "Q0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4ka39b05sqbapeewcms1be",
+        "externalId": "Q0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4ka39b05srbapefppx040j",
+        "externalId": "Q0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4ka39b05ssbaperrhgt0e4",
+        "externalId": "Q0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4ka39b05stbape3f3xc1hs",
+        "externalId": "Q0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4ka39b05subape6v5vpcwo",
+        "externalId": "Q0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4ka39b05svbape2cuj9iiw",
+        "externalId": "Q0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4ka39b05swbaper63vido4",
+        "externalId": "Q0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4ka39b05sxbapehx1hagks",
+        "externalId": "Q0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4ka39b05sybapei18j7fnq",
+        "externalId": "Q0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4ka39c05szbapexwdrgbf8",
+        "externalId": "Q0012",
+        "index": 12
+      },
+      {
+        "itemId": "cmq4ka39c05t0bapea7pfyt0b",
+        "externalId": "Q0013",
+        "index": 13
+      },
+      {
+        "itemId": "cmq4ka39c05t1bape2sqs4g07",
+        "externalId": "Q0014",
+        "index": 14
+      },
+      {
+        "itemId": "cmq4ka39c05t2bapehbyr130p",
+        "externalId": "Q0015",
+        "index": 15
+      },
+      {
+        "itemId": "cmq4ka39c05t3bape3m77zqnw",
+        "externalId": "Q0016",
+        "index": 16
+      },
+      {
+        "itemId": "cmq4ka39c05t4bape27unkt1f",
+        "externalId": "Q0017",
+        "index": 17
+      },
+      {
+        "itemId": "cmq4ka39c05t5bapefwgjcpdf",
+        "externalId": "Q0018",
+        "index": 18
+      },
+      {
+        "itemId": "cmq4ka39c05t6bape699dhhjk",
+        "externalId": "Q0019",
+        "index": 19
+      },
+      {
+        "itemId": "cmq4ka39c05t7bape9qg4wnl9",
+        "externalId": "Q0020",
+        "index": 20
+      },
+      {
+        "itemId": "cmq4ka39c05t8bapevpvxq92y",
+        "externalId": "V0001",
+        "index": 21
+      },
+      {
+        "itemId": "cmq4ka39c05t9bapeqrjv7jm9",
+        "externalId": "V0002",
+        "index": 22
+      },
+      {
+        "itemId": "cmq4ka39c05tabapea1k5jyum",
+        "externalId": "V0003",
+        "index": 23
+      },
+      {
+        "itemId": "cmq4ka39c05tbbapevxpzcko7",
+        "externalId": "I0001",
+        "index": 24
+      },
+      {
+        "itemId": "cmq4ka39c05tcbapevo71d0lq",
+        "externalId": "I0002",
+        "index": 25
+      },
+      {
+        "itemId": "cmq4ka39c05tdbape6ij2xshd",
+        "externalId": "I0003",
+        "index": 26
+      },
+      {
+        "itemId": "cmq4ka39c05tebapeld0w74dh",
+        "externalId": "I0004",
+        "index": 27
+      },
+      {
+        "itemId": "cmq4ka39c05tfbaper502ld47",
+        "externalId": "M0001",
+        "index": 28
+      },
+      {
+        "itemId": "cmq4ka39c05tgbapeh338si1h",
+        "externalId": "M0002",
+        "index": 29
+      },
+      {
+        "itemId": "cmq4ka39c05thbapeqc6ol5iy",
+        "externalId": "M0003",
+        "index": 30
+      }
+    ],
+    "rejectedItemRefs": [
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      }
+    ]
+  },
+  {
+    "id": "cmq4ka38h05smbape2kbbh1xf:ai-started:2",
+    "taskId": "cmq4ka38h05smbape2kbbh1xf",
+    "round": 2,
+    "eventType": "AI_RECHECK_STARTED",
+    "actorRole": "AI_AGENT",
+    "actorName": "AI Agent",
+    "occurredAt": "2026-06-08T01:58:11.707Z",
+    "message": "AI Agent 开始复审 Labeler 重新提交的内容。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4ka39b05sqbapeewcms1be",
+        "externalId": "Q0003",
+        "index": 3
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4ka38h05smbape2kbbh1xf:reviewer-received:2",
+    "taskId": "cmq4ka38h05smbape2kbbh1xf",
+    "round": 2,
+    "eventType": "REVIEWER_RECEIVED",
+    "actorRole": "REVIEWER",
+    "actorName": null,
+    "occurredAt": "2026-06-08T01:58:11.724Z",
+    "message": "任务再次流转到 Reviewer 复审。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4ka39b05sqbapeewcms1be",
+        "externalId": "Q0003",
+        "index": 3
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4ka38h05smbape2kbbh1xf:reviewer-received:1",
+    "taskId": "cmq4ka38h05smbape2kbbh1xf",
+    "round": 1,
+    "eventType": "REVIEWER_RECEIVED",
+    "actorRole": "REVIEWER",
+    "actorName": null,
+    "occurredAt": "2026-06-08T01:58:11.731Z",
+    "message": "任务流转到 Reviewer 检查。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4ka39b05sobape5hqogm7a",
+        "externalId": "Q0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4ka39b05sqbapeewcms1be",
+        "externalId": "Q0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4ka39b05srbapefppx040j",
+        "externalId": "Q0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4ka39b05ssbaperrhgt0e4",
+        "externalId": "Q0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4ka39b05stbape3f3xc1hs",
+        "externalId": "Q0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4ka39b05subape6v5vpcwo",
+        "externalId": "Q0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4ka39b05svbape2cuj9iiw",
+        "externalId": "Q0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4ka39b05swbaper63vido4",
+        "externalId": "Q0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4ka39b05sxbapehx1hagks",
+        "externalId": "Q0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4ka39b05sybapei18j7fnq",
+        "externalId": "Q0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4ka39c05szbapexwdrgbf8",
+        "externalId": "Q0012",
+        "index": 12
+      },
+      {
+        "itemId": "cmq4ka39c05t0bapea7pfyt0b",
+        "externalId": "Q0013",
+        "index": 13
+      },
+      {
+        "itemId": "cmq4ka39c05t1bape2sqs4g07",
+        "externalId": "Q0014",
+        "index": 14
+      },
+      {
+        "itemId": "cmq4ka39c05t2bapehbyr130p",
+        "externalId": "Q0015",
+        "index": 15
+      },
+      {
+        "itemId": "cmq4ka39c05t3bape3m77zqnw",
+        "externalId": "Q0016",
+        "index": 16
+      },
+      {
+        "itemId": "cmq4ka39c05t4bape27unkt1f",
+        "externalId": "Q0017",
+        "index": 17
+      },
+      {
+        "itemId": "cmq4ka39c05t5bapefwgjcpdf",
+        "externalId": "Q0018",
+        "index": 18
+      },
+      {
+        "itemId": "cmq4ka39c05t6bape699dhhjk",
+        "externalId": "Q0019",
+        "index": 19
+      },
+      {
+        "itemId": "cmq4ka39c05t7bape9qg4wnl9",
+        "externalId": "Q0020",
+        "index": 20
+      },
+      {
+        "itemId": "cmq4ka39c05t8bapevpvxq92y",
+        "externalId": "V0001",
+        "index": 21
+      },
+      {
+        "itemId": "cmq4ka39c05t9bapeqrjv7jm9",
+        "externalId": "V0002",
+        "index": 22
+      },
+      {
+        "itemId": "cmq4ka39c05tabapea1k5jyum",
+        "externalId": "V0003",
+        "index": 23
+      },
+      {
+        "itemId": "cmq4ka39c05tbbapevxpzcko7",
+        "externalId": "I0001",
+        "index": 24
+      },
+      {
+        "itemId": "cmq4ka39c05tcbapevo71d0lq",
+        "externalId": "I0002",
+        "index": 25
+      },
+      {
+        "itemId": "cmq4ka39c05tdbape6ij2xshd",
+        "externalId": "I0003",
+        "index": 26
+      },
+      {
+        "itemId": "cmq4ka39c05tebapeld0w74dh",
+        "externalId": "I0004",
+        "index": 27
+      },
+      {
+        "itemId": "cmq4ka39c05tfbaper502ld47",
+        "externalId": "M0001",
+        "index": 28
+      },
+      {
+        "itemId": "cmq4ka39c05tgbapeh338si1h",
+        "externalId": "M0002",
+        "index": 29
+      },
+      {
+        "itemId": "cmq4ka39c05thbapeqc6ol5iy",
+        "externalId": "M0003",
+        "index": 30
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4ka38h05smbape2kbbh1xf:labeler-submitted:user_labeler_li_lei:2",
+    "taskId": "cmq4ka38h05smbape2kbbh1xf",
+    "round": 2,
+    "eventType": "LABELER_RESUBMITTED",
+    "actorRole": "LABELER",
+    "actorName": "李雷",
+    "occurredAt": "2026-06-08T01:58:18.947Z",
+    "message": "李雷 重新提交修复后的标注结果。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4ka39b05sqbapeewcms1be",
+        "externalId": "Q0003",
+        "index": 3
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4ka38h05smbape2kbbh1xf:ai-completed:2",
+    "taskId": "cmq4ka38h05smbape2kbbh1xf",
+    "round": 2,
+    "eventType": "AI_RECHECK_COMPLETED",
+    "actorRole": "AI_AGENT",
+    "actorName": "AI Agent",
+    "occurredAt": "2026-06-08T01:58:20.779Z",
+    "message": "AI Agent 完成本轮预审，未发现需要打回的题目。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4ka39b05sqbapeewcms1be",
+        "externalId": "Q0003",
+        "index": 3
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4ka38h05smbape2kbbh1xf:reviewer-completed:2",
+    "taskId": "cmq4ka38h05smbape2kbbh1xf",
+    "round": 2,
+    "eventType": "REVIEWER_CHECK_COMPLETED",
+    "actorRole": "REVIEWER",
+    "actorName": "王芳",
+    "occurredAt": "2026-06-08T01:58:22.831Z",
+    "message": "Reviewer 完成本轮检查，本轮检查通过。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4ka39b05sqbapeewcms1be",
+        "externalId": "Q0003",
+        "index": 3
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4ka38h05smbape2kbbh1xf:completed",
+    "taskId": "cmq4ka38h05smbape2kbbh1xf",
+    "round": 2,
+    "eventType": "TASK_COMPLETED",
+    "actorRole": "REVIEWER",
+    "actorName": "王芳",
+    "occurredAt": "2026-06-08T01:58:22.831Z",
+    "message": "整个任务通过最终 Reviewer 检查，任务完成。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4ka39b05sobape5hqogm7a",
+        "externalId": "Q0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4ka39b05spbape40cx0if4",
+        "externalId": "Q0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4ka39b05sqbapeewcms1be",
+        "externalId": "Q0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4ka39b05srbapefppx040j",
+        "externalId": "Q0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4ka39b05ssbaperrhgt0e4",
+        "externalId": "Q0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4ka39b05stbape3f3xc1hs",
+        "externalId": "Q0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4ka39b05subape6v5vpcwo",
+        "externalId": "Q0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4ka39b05svbape2cuj9iiw",
+        "externalId": "Q0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4ka39b05swbaper63vido4",
+        "externalId": "Q0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4ka39b05sxbapehx1hagks",
+        "externalId": "Q0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4ka39b05sybapei18j7fnq",
+        "externalId": "Q0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4ka39c05szbapexwdrgbf8",
+        "externalId": "Q0012",
+        "index": 12
+      },
+      {
+        "itemId": "cmq4ka39c05t0bapea7pfyt0b",
+        "externalId": "Q0013",
+        "index": 13
+      },
+      {
+        "itemId": "cmq4ka39c05t1bape2sqs4g07",
+        "externalId": "Q0014",
+        "index": 14
+      },
+      {
+        "itemId": "cmq4ka39c05t2bapehbyr130p",
+        "externalId": "Q0015",
+        "index": 15
+      },
+      {
+        "itemId": "cmq4ka39c05t3bape3m77zqnw",
+        "externalId": "Q0016",
+        "index": 16
+      },
+      {
+        "itemId": "cmq4ka39c05t4bape27unkt1f",
+        "externalId": "Q0017",
+        "index": 17
+      },
+      {
+        "itemId": "cmq4ka39c05t5bapefwgjcpdf",
+        "externalId": "Q0018",
+        "index": 18
+      },
+      {
+        "itemId": "cmq4ka39c05t6bape699dhhjk",
+        "externalId": "Q0019",
+        "index": 19
+      },
+      {
+        "itemId": "cmq4ka39c05t7bape9qg4wnl9",
+        "externalId": "Q0020",
+        "index": 20
+      },
+      {
+        "itemId": "cmq4ka39c05t8bapevpvxq92y",
+        "externalId": "V0001",
+        "index": 21
+      },
+      {
+        "itemId": "cmq4ka39c05t9bapeqrjv7jm9",
+        "externalId": "V0002",
+        "index": 22
+      },
+      {
+        "itemId": "cmq4ka39c05tabapea1k5jyum",
+        "externalId": "V0003",
+        "index": 23
+      },
+      {
+        "itemId": "cmq4ka39c05tbbapevxpzcko7",
+        "externalId": "I0001",
+        "index": 24
+      },
+      {
+        "itemId": "cmq4ka39c05tcbapevo71d0lq",
+        "externalId": "I0002",
+        "index": 25
+      },
+      {
+        "itemId": "cmq4ka39c05tdbape6ij2xshd",
+        "externalId": "I0003",
+        "index": 26
+      },
+      {
+        "itemId": "cmq4ka39c05tebapeld0w74dh",
+        "externalId": "I0004",
+        "index": 27
+      },
+      {
+        "itemId": "cmq4ka39c05tfbaper502ld47",
+        "externalId": "M0001",
+        "index": 28
+      },
+      {
+        "itemId": "cmq4ka39c05tgbapeh338si1h",
+        "externalId": "M0002",
+        "index": 29
+      },
+      {
+        "itemId": "cmq4ka39c05thbapeqc6ol5iy",
+        "externalId": "M0003",
+        "index": 30
+      }
+    ],
+    "rejectedItemRefs": []
+  }
+]

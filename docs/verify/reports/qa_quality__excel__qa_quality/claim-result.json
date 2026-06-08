@@ -1,0 +1,36 @@
+{
+  "assignmentId": "cmq4k8x5z05bmbapem9ldtfcv",
+  "taskId": "cmq4k8vg805b8bape6facg2nk",
+  "taskItemId": "cmq4k8vh905babape11c0yxu8",
+  "labelerId": "user_labeler_li_lei",
+  "status": "ASSIGNED",
+  "claimedAt": "2026-06-08T01:57:04.103Z",
+  "claimedItemCount": 10,
+  "claimedCount": 10,
+  "taskItem": {
+    "id": "cmq4k8vh905babape11c0yxu8",
+    "externalId": "V0001",
+    "datasetKind": "qa_quality",
+    "rawData": {
+      "id": "V0001",
+      "lang": "zh",
+      "tags": [
+        "视频",
+        "内容审核",
+        "海洋"
+      ],
+      "prompt": "请观看视频，判断是否包含违规或不适画面，并简述视频主题。",
+      "source": "media_seed",
+      "category": "视频审核",
+      "media_url": "http://vjs.zencdn.net/v/oceans.mp4",
+      "reference": "海洋题材纪录短片，安全合规。",
+      "difficulty": "中等",
+      "media_type": "video",
+      "model_answer": "视频为海洋/海底生物的高清纪录画面，主题为海洋生态，未发现违规或不适内容。",
+      "expected_dimensions": [
+        "安全性",
+        "相关性"
+      ]
+    }
+  }
+}

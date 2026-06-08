@@ -649,15 +649,6 @@ export class AiReviewService {
         },
       });
 
-      if (nextStatus === 'FAILED_FINAL') {
-        await moveFailedAiJobToRevision(client, submission, {
-          actorId: input.actorId,
-          currentAttempt,
-          job,
-          reason: aiFailureRevisionReason(message),
-        });
-      }
-
       return this.getSubmissionReviewFromClient(client, submission.id);
     });
   }
@@ -804,77 +795,6 @@ async function moveSubmissionToRevision(
   });
 }
 
-async function moveFailedAiJobToRevision(
-  client: AiReviewPrismaClient,
-  submission: SubmissionReviewRecord,
-  input: {
-    actorId?: string;
-    currentAttempt: number;
-    job: AiReviewJobRecord;
-    reason: string;
-  },
-): Promise<void> {
-  let currentStatus = submission.status as SubmissionStatus;
-  if (!['AI_QUEUED', 'AI_REVIEWING'].includes(currentStatus)) {
-    return;
-  }
-
-  if (currentStatus === 'AI_QUEUED') {
-    assertSubmissionTransition('AI_QUEUED', 'AI_REVIEWING');
-    await client.submission.update({
-      where: { id: submission.id },
-      data: { status: 'AI_REVIEWING' },
-    });
-    await writeAiReviewAudit(client, submission, {
-      actorId: input.actorId,
-      fromStatus: 'AI_QUEUED',
-      toStatus: 'AI_REVIEWING',
-      metadata: { action: 'AI_REVIEW_STARTED', jobId: input.job.id },
-    });
-    currentStatus = 'AI_REVIEWING';
-  }
-
-  assertSubmissionTransition(currentStatus, 'AI_REJECTED');
-  await client.reviewRecord.create({
-    data: {
-      submissionId: submission.id,
-      stage: 'AI_PRECHECK',
-      reviewerType: 'AI',
-      scores: scoresWithReason({ overall: 0 }, 'reject', input.reason),
-      decision: 'reject',
-      comment: input.reason,
-      rawPrompt: null,
-      rawOutput: null,
-      structuredOutput: aiFailureStructuredOutput(input.reason),
-      modelMetadata: {
-        provider: input.job.provider,
-        model: input.job.model,
-        error: true,
-      },
-      retryCount: input.currentAttempt,
-      idempotencyKey: null,
-    },
-  });
-  await client.submission.update({
-    where: { id: submission.id },
-    data: { status: 'AI_REJECTED' },
-  });
-  await writeAiReviewAudit(client, submission, {
-    actorId: input.actorId,
-    fromStatus: currentStatus,
-    toStatus: 'AI_REJECTED',
-    reason: input.reason,
-    metadata: { action: 'AI_REVIEW_FAILED', jobId: input.job.id },
-  });
-  await moveSubmissionToRevision(client, submission, {
-    action: 'AI_REVIEW_FAILED_TO_REVISION',
-    actorId: input.actorId,
-    fromStatus: 'AI_REJECTED',
-    jobId: input.job.id,
-    reason: input.reason,
-  });
-}
-
 async function promoteTaskIfAllCurrentAiReviewsPassed(
   client: AiReviewPrismaClient,
   taskId: string,
@@ -990,19 +910,6 @@ function defaultAiComment(decision: CompleteAiReviewJobInput['decision']): strin
   }
 
   return 'AI 预审打回，标注员需要修改。';
-}
-
-function aiFailureRevisionReason(message: string): string {
-  return `AI 预审未能完成，已退回标注员重新提交。原因：${message}`;
-}
-
-function aiFailureStructuredOutput(comment: string): Record<string, unknown> {
-  return {
-    verdict: 'reject',
-    overallScore: 0,
-    overallComment: comment,
-    fieldReviews: [],
-  };
 }
 
 function scoresWithReason(

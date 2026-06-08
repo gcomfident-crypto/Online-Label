@@ -1,0 +1,13 @@
+{
+  "accept-ranges": "bytes",
+  "cache-control": "public, max-age=0",
+  "connection": "keep-alive",
+  "content-disposition": "attachment; filename=\"QA-pc-jsonl3-r1-06080157 ??????.json\"; filename*=UTF-8''QA-pc-jsonl3-r1-06080157%20%E4%BB%BB%E5%8A%A1%E5%AF%BC%E5%87%BA%E7%BB%93%E6%9E%9C.json",
+  "content-length": "3172",
+  "content-type": "application/json; charset=utf-8",
+  "date": "Sun, 07 Jun 2026 17:57:55 GMT",
+  "etag": "W/\"c64-19ea33bf1ce\"",
+  "keep-alive": "timeout=5",
+  "last-modified": "Sun, 07 Jun 2026 17:57:55 GMT",
+  "x-powered-by": "Express"
+}

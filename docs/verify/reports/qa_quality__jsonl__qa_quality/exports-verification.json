@@ -1,0 +1,678 @@
+[
+  {
+    "format": "json",
+    "job": {
+      "id": "cmq4kbaxq06hobapez2rgjs9g",
+      "taskId": "cmq4kapqt0657bapef09fxf46",
+      "requestedById": "user_owner_zhang_man",
+      "status": "SUCCEEDED",
+      "format": "json",
+      "idempotencyKey": "cmq4kapqt0657bapef09fxf46-json-1780883935239",
+      "fieldMapping": [
+        {
+          "source": "rawData.id",
+          "target": "id",
+          "enabled": true
+        },
+        {
+          "source": "rawData.category",
+          "target": "category",
+          "enabled": true
+        },
+        {
+          "source": "rawData.difficulty",
+          "target": "difficulty",
+          "enabled": true
+        },
+        {
+          "source": "rawData.lang",
+          "target": "lang",
+          "enabled": true
+        },
+        {
+          "source": "rawData.media_type",
+          "target": "media_type",
+          "enabled": true
+        },
+        {
+          "source": "rawData.media_url",
+          "target": "media_url",
+          "enabled": true
+        },
+        {
+          "source": "rawData.content_markdown",
+          "target": "content_markdown",
+          "enabled": true
+        },
+        {
+          "source": "rawData.prompt",
+          "target": "prompt",
+          "enabled": true
+        },
+        {
+          "source": "rawData.model_answer",
+          "target": "model_answer",
+          "enabled": true
+        },
+        {
+          "source": "rawData.reference",
+          "target": "reference",
+          "enabled": true
+        },
+        {
+          "source": "rawData.tags",
+          "target": "tags",
+          "enabled": true
+        },
+        {
+          "source": "rawData.source",
+          "target": "source",
+          "enabled": true
+        },
+        {
+          "source": "rawData.expected_dimensions",
+          "target": "expected_dimensions",
+          "enabled": true
+        },
+        {
+          "source": "answers.relevance_score",
+          "target": "relevance_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.accuracy_score",
+          "target": "accuracy_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.format_score",
+          "target": "format_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.safety_score",
+          "target": "safety_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.issue_tags",
+          "target": "issue_tags",
+          "enabled": true
+        },
+        {
+          "source": "answers.summary",
+          "target": "summary",
+          "enabled": true
+        },
+        {
+          "source": "answers.comment",
+          "target": "comment",
+          "enabled": true
+        },
+        {
+          "source": "answers.revision_suggestion",
+          "target": "revision_suggestion",
+          "enabled": true
+        },
+        {
+          "source": "answers.structured_note",
+          "target": "structured_note",
+          "enabled": true
+        },
+        {
+          "source": "answers.evidence_file",
+          "target": "evidence_file",
+          "enabled": true
+        },
+        {
+          "source": "answers.evidence_image",
+          "target": "evidence_image",
+          "enabled": true
+        }
+      ],
+      "includeReviews": true,
+      "filters": null,
+      "filePath": "storage/exports/cmq4kbaxq06hobapez2rgjs9g.json",
+      "resultUrl": "/exports/cmq4kbaxq06hobapez2rgjs9g/download",
+      "errorMessage": null,
+      "finishedAt": "2026-06-08T01:58:55.274Z",
+      "createdAt": "2026-06-08T01:58:55.262Z",
+      "updatedAt": "2026-06-08T01:58:55.274Z"
+    },
+    "copiedPath": "/Users/zzx/workspace/LH/docs/verify/reports/_exports/cmq4kapqt0657bapef09fxf46.json",
+    "rowCount": 30,
+    "headers": [
+      "id",
+      "category",
+      "difficulty",
+      "lang",
+      "media_type",
+      "media_url",
+      "content_markdown",
+      "prompt",
+      "model_answer",
+      "reference",
+      "tags",
+      "source",
+      "expected_dimensions",
+      "relevance_score",
+      "accuracy_score",
+      "format_score",
+      "safety_score",
+      "issue_tags",
+      "summary",
+      "comment",
+      "revision_suggestion",
+      "structured_note",
+      "evidence_file",
+      "evidence_image"
+    ]
+  },
+  {
+    "format": "jsonl",
+    "job": {
+      "id": "cmq4kbayf06hpbapeedfulg6z",
+      "taskId": "cmq4kapqt0657bapef09fxf46",
+      "requestedById": "user_owner_zhang_man",
+      "status": "SUCCEEDED",
+      "format": "jsonl",
+      "idempotencyKey": "cmq4kapqt0657bapef09fxf46-jsonl-1780883935277",
+      "fieldMapping": [
+        {
+          "source": "rawData.id",
+          "target": "id",
+          "enabled": true
+        },
+        {
+          "source": "rawData.category",
+          "target": "category",
+          "enabled": true
+        },
+        {
+          "source": "rawData.difficulty",
+          "target": "difficulty",
+          "enabled": true
+        },
+        {
+          "source": "rawData.lang",
+          "target": "lang",
+          "enabled": true
+        },
+        {
+          "source": "rawData.media_type",
+          "target": "media_type",
+          "enabled": true
+        },
+        {
+          "source": "rawData.media_url",
+          "target": "media_url",
+          "enabled": true
+        },
+        {
+          "source": "rawData.content_markdown",
+          "target": "content_markdown",
+          "enabled": true
+        },
+        {
+          "source": "rawData.prompt",
+          "target": "prompt",
+          "enabled": true
+        },
+        {
+          "source": "rawData.model_answer",
+          "target": "model_answer",
+          "enabled": true
+        },
+        {
+          "source": "rawData.reference",
+          "target": "reference",
+          "enabled": true
+        },
+        {
+          "source": "rawData.tags",
+          "target": "tags",
+          "enabled": true
+        },
+        {
+          "source": "rawData.source",
+          "target": "source",
+          "enabled": true
+        },
+        {
+          "source": "rawData.expected_dimensions",
+          "target": "expected_dimensions",
+          "enabled": true
+        },
+        {
+          "source": "answers.relevance_score",
+          "target": "relevance_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.accuracy_score",
+          "target": "accuracy_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.format_score",
+          "target": "format_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.safety_score",
+          "target": "safety_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.issue_tags",
+          "target": "issue_tags",
+          "enabled": true
+        },
+        {
+          "source": "answers.summary",
+          "target": "summary",
+          "enabled": true
+        },
+        {
+          "source": "answers.comment",
+          "target": "comment",
+          "enabled": true
+        },
+        {
+          "source": "answers.revision_suggestion",
+          "target": "revision_suggestion",
+          "enabled": true
+        },
+        {
+          "source": "answers.structured_note",
+          "target": "structured_note",
+          "enabled": true
+        },
+        {
+          "source": "answers.evidence_file",
+          "target": "evidence_file",
+          "enabled": true
+        },
+        {
+          "source": "answers.evidence_image",
+          "target": "evidence_image",
+          "enabled": true
+        }
+      ],
+      "includeReviews": true,
+      "filters": null,
+      "filePath": "storage/exports/cmq4kbayf06hpbapeedfulg6z.jsonl",
+      "resultUrl": "/exports/cmq4kbayf06hpbapeedfulg6z/download",
+      "errorMessage": null,
+      "finishedAt": "2026-06-08T01:58:55.296Z",
+      "createdAt": "2026-06-08T01:58:55.287Z",
+      "updatedAt": "2026-06-08T01:58:55.296Z"
+    },
+    "copiedPath": "/Users/zzx/workspace/LH/docs/verify/reports/_exports/cmq4kapqt0657bapef09fxf46.jsonl",
+    "rowCount": 30,
+    "headers": [
+      "id",
+      "category",
+      "difficulty",
+      "lang",
+      "media_type",
+      "media_url",
+      "content_markdown",
+      "prompt",
+      "model_answer",
+      "reference",
+      "tags",
+      "source",
+      "expected_dimensions",
+      "relevance_score",
+      "accuracy_score",
+      "format_score",
+      "safety_score",
+      "issue_tags",
+      "summary",
+      "comment",
+      "revision_suggestion",
+      "structured_note",
+      "evidence_file",
+      "evidence_image"
+    ]
+  },
+  {
+    "format": "csv",
+    "job": {
+      "id": "cmq4kbayx06hqbapeqyvts2sf",
+      "taskId": "cmq4kapqt0657bapef09fxf46",
+      "requestedById": "user_owner_zhang_man",
+      "status": "SUCCEEDED",
+      "format": "csv",
+      "idempotencyKey": "cmq4kapqt0657bapef09fxf46-csv-1780883935298",
+      "fieldMapping": [
+        {
+          "source": "rawData.id",
+          "target": "id",
+          "enabled": true
+        },
+        {
+          "source": "rawData.category",
+          "target": "category",
+          "enabled": true
+        },
+        {
+          "source": "rawData.difficulty",
+          "target": "difficulty",
+          "enabled": true
+        },
+        {
+          "source": "rawData.lang",
+          "target": "lang",
+          "enabled": true
+        },
+        {
+          "source": "rawData.media_type",
+          "target": "media_type",
+          "enabled": true
+        },
+        {
+          "source": "rawData.media_url",
+          "target": "media_url",
+          "enabled": true
+        },
+        {
+          "source": "rawData.content_markdown",
+          "target": "content_markdown",
+          "enabled": true
+        },
+        {
+          "source": "rawData.prompt",
+          "target": "prompt",
+          "enabled": true
+        },
+        {
+          "source": "rawData.model_answer",
+          "target": "model_answer",
+          "enabled": true
+        },
+        {
+          "source": "rawData.reference",
+          "target": "reference",
+          "enabled": true
+        },
+        {
+          "source": "rawData.tags",
+          "target": "tags",
+          "enabled": true
+        },
+        {
+          "source": "rawData.source",
+          "target": "source",
+          "enabled": true
+        },
+        {
+          "source": "rawData.expected_dimensions",
+          "target": "expected_dimensions",
+          "enabled": true
+        },
+        {
+          "source": "answers.relevance_score",
+          "target": "relevance_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.accuracy_score",
+          "target": "accuracy_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.format_score",
+          "target": "format_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.safety_score",
+          "target": "safety_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.issue_tags",
+          "target": "issue_tags",
+          "enabled": true
+        },
+        {
+          "source": "answers.summary",
+          "target": "summary",
+          "enabled": true
+        },
+        {
+          "source": "answers.comment",
+          "target": "comment",
+          "enabled": true
+        },
+        {
+          "source": "answers.revision_suggestion",
+          "target": "revision_suggestion",
+          "enabled": true
+        },
+        {
+          "source": "answers.structured_note",
+          "target": "structured_note",
+          "enabled": true
+        },
+        {
+          "source": "answers.evidence_file",
+          "target": "evidence_file",
+          "enabled": true
+        },
+        {
+          "source": "answers.evidence_image",
+          "target": "evidence_image",
+          "enabled": true
+        }
+      ],
+      "includeReviews": true,
+      "filters": null,
+      "filePath": "storage/exports/cmq4kbayx06hqbapeqyvts2sf.csv",
+      "resultUrl": "/exports/cmq4kbayx06hqbapeqyvts2sf/download",
+      "errorMessage": null,
+      "finishedAt": "2026-06-08T01:58:55.312Z",
+      "createdAt": "2026-06-08T01:58:55.306Z",
+      "updatedAt": "2026-06-08T01:58:55.313Z"
+    },
+    "copiedPath": "/Users/zzx/workspace/LH/docs/verify/reports/_exports/cmq4kapqt0657bapef09fxf46.csv",
+    "rowCount": 30,
+    "headers": [
+      "id",
+      "category",
+      "difficulty",
+      "lang",
+      "media_type",
+      "media_url",
+      "content_markdown",
+      "prompt",
+      "model_answer",
+      "reference",
+      "tags",
+      "source",
+      "expected_dimensions",
+      "relevance_score",
+      "accuracy_score",
+      "format_score",
+      "safety_score",
+      "issue_tags",
+      "summary",
+      "comment",
+      "revision_suggestion",
+      "structured_note",
+      "evidence_file",
+      "evidence_image"
+    ]
+  },
+  {
+    "format": "xlsx",
+    "job": {
+      "id": "cmq4kbazd06hrbapewya8z1u7",
+      "taskId": "cmq4kapqt0657bapef09fxf46",
+      "requestedById": "user_owner_zhang_man",
+      "status": "SUCCEEDED",
+      "format": "xlsx",
+      "idempotencyKey": "cmq4kapqt0657bapef09fxf46-xlsx-1780883935315",
+      "fieldMapping": [
+        {
+          "source": "rawData.id",
+          "target": "id",
+          "enabled": true
+        },
+        {
+          "source": "rawData.category",
+          "target": "category",
+          "enabled": true
+        },
+        {
+          "source": "rawData.difficulty",
+          "target": "difficulty",
+          "enabled": true
+        },
+        {
+          "source": "rawData.lang",
+          "target": "lang",
+          "enabled": true
+        },
+        {
+          "source": "rawData.media_type",
+          "target": "media_type",
+          "enabled": true
+        },
+        {
+          "source": "rawData.media_url",
+          "target": "media_url",
+          "enabled": true
+        },
+        {
+          "source": "rawData.content_markdown",
+          "target": "content_markdown",
+          "enabled": true
+        },
+        {
+          "source": "rawData.prompt",
+          "target": "prompt",
+          "enabled": true
+        },
+        {
+          "source": "rawData.model_answer",
+          "target": "model_answer",
+          "enabled": true
+        },
+        {
+          "source": "rawData.reference",
+          "target": "reference",
+          "enabled": true
+        },
+        {
+          "source": "rawData.tags",
+          "target": "tags",
+          "enabled": true
+        },
+        {
+          "source": "rawData.source",
+          "target": "source",
+          "enabled": true
+        },
+        {
+          "source": "rawData.expected_dimensions",
+          "target": "expected_dimensions",
+          "enabled": true
+        },
+        {
+          "source": "answers.relevance_score",
+          "target": "relevance_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.accuracy_score",
+          "target": "accuracy_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.format_score",
+          "target": "format_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.safety_score",
+          "target": "safety_score",
+          "enabled": true
+        },
+        {
+          "source": "answers.issue_tags",
+          "target": "issue_tags",
+          "enabled": true
+        },
+        {
+          "source": "answers.summary",
+          "target": "summary",
+          "enabled": true
+        },
+        {
+          "source": "answers.comment",
+          "target": "comment",
+          "enabled": true
+        },
+        {
+          "source": "answers.revision_suggestion",
+          "target": "revision_suggestion",
+          "enabled": true
+        },
+        {
+          "source": "answers.structured_note",
+          "target": "structured_note",
+          "enabled": true
+        },
+        {
+          "source": "answers.evidence_file",
+          "target": "evidence_file",
+          "enabled": true
+        },
+        {
+          "source": "answers.evidence_image",
+          "target": "evidence_image",
+          "enabled": true
+        }
+      ],
+      "includeReviews": true,
+      "filters": null,
+      "filePath": "storage/exports/cmq4kbazd06hrbapewya8z1u7.xlsx",
+      "resultUrl": "/exports/cmq4kbazd06hrbapewya8z1u7/download",
+      "errorMessage": null,
+      "finishedAt": "2026-06-08T01:58:55.336Z",
+      "createdAt": "2026-06-08T01:58:55.321Z",
+      "updatedAt": "2026-06-08T01:58:55.336Z"
+    },
+    "copiedPath": "/Users/zzx/workspace/LH/docs/verify/reports/_exports/cmq4kapqt0657bapef09fxf46.xlsx",
+    "rowCount": 30,
+    "headers": [
+      "id",
+      "category",
+      "difficulty",
+      "lang",
+      "media_type",
+      "media_url",
+      "content_markdown",
+      "prompt",
+      "model_answer",
+      "reference",
+      "tags",
+      "source",
+      "expected_dimensions",
+      "relevance_score",
+      "accuracy_score",
+      "format_score",
+      "safety_score",
+      "issue_tags",
+      "summary",
+      "comment",
+      "revision_suggestion",
+      "structured_note",
+      "evidence_file",
+      "evidence_image"
+    ]
+  }
+]

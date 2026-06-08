@@ -166,6 +166,39 @@ describe('TaskFlowsService', () => {
     expect(detail.lifecycleSteps.slice(1).every((step) => step.occurredAt === null)).toBe(true);
   });
 
+  it('AI 预审任务失败时停留在 AI 预审阶段，不流转到 Labeler 修改或 Reviewer 检查', async () => {
+    const task = createTask({
+      items: [
+        createAiFailedItem(1),
+      ],
+    });
+    const service = createService([task]);
+
+    const detail = await service.getTaskFlow('task_model_compare_json');
+
+    expect(detail.currentStage).toBe('AI_PRECHECK');
+    expect(detail.aiSummary).toMatchObject({
+      failed: 1,
+      completed: 0,
+    });
+    expect(detail.reviewerSummary).toMatchObject({
+      pending: 0,
+      decided: 0,
+    });
+    expect(detail.labelerRevisionSummary).toMatchObject({
+      editable: 0,
+      locked: 0,
+    });
+    expect(detail.items[0]).toMatchObject({
+      aiStatus: 'FAILED',
+      reviewerStatus: 'NOT_STARTED',
+      labelerStatus: 'NOT_REQUIRED',
+    });
+    expect(detail.lifecycleSteps.find((step) => step.key === 'AI_PRECHECK')).toMatchObject({
+      status: 'ACTION_REQUIRED',
+    });
+  });
+
   it('不展示 Owner 未发布的草稿任务', async () => {
     const publishedTask = createTask({ id: 'task_published', status: 'PUBLISHED' });
     const draftTask = createTask({ id: 'task_draft', status: 'DRAFT', title: '模版对比 草稿' });
@@ -252,6 +285,59 @@ function createUnsubmittedItem(index: number) {
           name: '李雷',
         },
         submissions: [],
+      },
+    ],
+  };
+}
+
+function createAiFailedItem(index: number) {
+  const submittedAt = new Date(baseTime.getTime() + 1000 + index);
+
+  return {
+    id: `item_failed_${index}`,
+    externalId: `P${index.toString().padStart(4, '0')}`,
+    datasetKind: 'generic_json',
+    rawData: { prompt: `题目 ${index}` },
+    status: 'ASSIGNED',
+    sortOrder: index,
+    assignments: [
+      {
+        id: `assignment_failed_${index}`,
+        assigneeId: 'user_labeler',
+        status: 'SUBMITTED',
+        claimedAt: new Date(baseTime.getTime() + index),
+        updatedAt: new Date(baseTime.getTime() + index),
+        assignee: {
+          id: 'user_labeler',
+          name: '李雷',
+        },
+        submissions: [
+          {
+            id: `submission_failed_${index}`,
+            status: 'AI_QUEUED',
+            round: 1,
+            answers: { winner: 'A' },
+            schemaVersion: 'v2',
+            submittedAt,
+            reviewRecords: [],
+            auditLogs: [],
+            aiReviewJobs: [
+              {
+                id: `job_failed_${index}`,
+                status: 'FAILED_FINAL',
+                attempts: 3,
+                maxAttempts: 3,
+                provider: 'deepseek',
+                model: 'deepseek-chat',
+                lastError: 'AI 预审模型未配置。',
+                queuedAt: submittedAt,
+                startedAt: new Date(submittedAt.getTime() + 1),
+                finishedAt: new Date(submittedAt.getTime() + 2),
+                updatedAt: new Date(submittedAt.getTime() + 2),
+              },
+            ],
+          },
+        ],
       },
     ],
   };

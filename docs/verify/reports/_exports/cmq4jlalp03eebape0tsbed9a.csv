@@ -1,0 +1,8 @@
+﻿id,task_type,lang,prompt,response_a,model_a,response_b,model_b,preferred,margin,dimensions,safety_flag,annotator_note,preferred_label,margin_label,dimensions_label,safety_flag_label,safety_annotation,annotator_note_label
+P0001,知识问答,zh,解释什么是过拟合，并给一个通俗例子。,过拟合指模型在训练集表现很好但泛化差。比如学生死记答案，考原题满分，换题就不会。,doubao-pro,过拟合就是模型训练得太好了。,baseline-7b,A,明显优于,准确性｜完整性｜可读性,false,A 含定义+类比，B 过于笼统。,A,略优于,helpfulness,false,,P0001：A 的回答更完整，表达更清晰。
+P0002,代码生成,zh,用 Python 反转一个链表。,"def reverse(head):
+    prev=None
+    while head:
+        head.next,prev,head=prev,head,head.next
+    return prev",gpt-style,可以用递归或迭代实现，建议查阅相关资料。,baseline-7b,A,明显优于,准确性｜可执行性,false,B 未给出代码，答非所问。,A,略优于,helpfulness,false,,P0002：已根据审核意见补充理由。
+P0003,文本摘要,zh,概括：财报显示营收增长但利润下滑，因研发与营销投入加大。,营收增长，但因研发营销投入加大导致利润下滑。,doubao-lite,公司财报显示营收增长，同时利润有所下滑，原因是研发和营销方面的投入显著增加所致。,doubao-pro,A,略优于,简洁性｜相关性,false,两者均正确，A 更精炼。,A,略优于,helpfulness,false,,P0003：已根据审核意见补充理由。

@@ -42,7 +42,7 @@ const FLOW_SUMMARY_FILTERS: Array<{
 }> = [
   { label: '总任务', summaryKey: 'total', value: 'ALL' },
   { label: '流转中', summaryKey: 'active', value: 'ACTIVE' },
-  { label: '最终完成', summaryKey: 'finalCompleted', value: 'FINAL_COMPLETED' },
+  { label: '已完成', summaryKey: 'finalCompleted', value: 'FINAL_COMPLETED' },
 ];
 
 const ITEM_STATUS_TABS: Array<{ label: string; value: ItemStatusBucket }> = [

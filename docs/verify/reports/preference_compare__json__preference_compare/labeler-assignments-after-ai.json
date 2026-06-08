@@ -1,0 +1,362 @@
+[
+  {
+    "assignmentId": "cmq4k79ho04ywbapehcba24n1",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+    "taskItemId": "cmq4k77sd04yibapek7g9qq25",
+    "taskItemSortOrder": 12,
+    "externalId": "P0012",
+    "datasetKind": "generic_json",
+    "status": "SUBMITTED",
+    "claimedAt": "2026-06-08T01:55:46.764Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "AI_PASSED",
+    "latestSubmittedAt": "2026-06-08T01:55:49.976Z",
+    "latestReviewStage": "AI_PRECHECK",
+    "latestReviewerType": "AI",
+    "latestReviewDecision": "pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0012：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:49.173Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k79gp04ylbapemjt2z9x0",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+    "taskItemId": "cmq4k77sc04y7bapem13s72nd",
+    "taskItemSortOrder": 1,
+    "externalId": "P0001",
+    "datasetKind": "generic_json",
+    "status": "SUBMITTED",
+    "claimedAt": "2026-06-08T01:55:46.729Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "AI_PASSED",
+    "latestSubmittedAt": "2026-06-08T01:55:49.921Z",
+    "latestReviewStage": "AI_PRECHECK",
+    "latestReviewerType": "AI",
+    "latestReviewDecision": "pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0001：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:49.087Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k79gy04ynbapexw22q550",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+    "taskItemId": "cmq4k77sd04y9bapefsmtepye",
+    "taskItemSortOrder": 3,
+    "externalId": "P0003",
+    "datasetKind": "generic_json",
+    "status": "SUBMITTED",
+    "claimedAt": "2026-06-08T01:55:46.738Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "AI_PASSED",
+    "latestSubmittedAt": "2026-06-08T01:55:49.936Z",
+    "latestReviewStage": "AI_PRECHECK",
+    "latestReviewerType": "AI",
+    "latestReviewDecision": "pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0003：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:49.102Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k79h104yobapewrqd0d5b",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+    "taskItemId": "cmq4k77sd04yabapexlpmbact",
+    "taskItemSortOrder": 4,
+    "externalId": "P0004",
+    "datasetKind": "generic_json",
+    "status": "SUBMITTED",
+    "claimedAt": "2026-06-08T01:55:46.741Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "AI_PASSED",
+    "latestSubmittedAt": "2026-06-08T01:55:49.942Z",
+    "latestReviewStage": "AI_PRECHECK",
+    "latestReviewerType": "AI",
+    "latestReviewDecision": "pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0004：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:49.109Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k79h504ypbapem0yng6yk",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+    "taskItemId": "cmq4k77sd04ybbapecqg0epkn",
+    "taskItemSortOrder": 5,
+    "externalId": "P0005",
+    "datasetKind": "generic_json",
+    "status": "SUBMITTED",
+    "claimedAt": "2026-06-08T01:55:46.745Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "AI_PASSED",
+    "latestSubmittedAt": "2026-06-08T01:55:49.948Z",
+    "latestReviewStage": "AI_PRECHECK",
+    "latestReviewerType": "AI",
+    "latestReviewDecision": "pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0005：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:49.117Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k79h904yqbapetovc1ydv",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+    "taskItemId": "cmq4k77sd04ycbape5qjcvxsu",
+    "taskItemSortOrder": 6,
+    "externalId": "P0006",
+    "datasetKind": "generic_json",
+    "status": "SUBMITTED",
+    "claimedAt": "2026-06-08T01:55:46.749Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "AI_PASSED",
+    "latestSubmittedAt": "2026-06-08T01:55:49.953Z",
+    "latestReviewStage": "AI_PRECHECK",
+    "latestReviewerType": "AI",
+    "latestReviewDecision": "pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0006：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:49.124Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k79hb04yrbapew467zlh6",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+    "taskItemId": "cmq4k77sd04ydbapei3hjwp3j",
+    "taskItemSortOrder": 7,
+    "externalId": "P0007",
+    "datasetKind": "generic_json",
+    "status": "SUBMITTED",
+    "claimedAt": "2026-06-08T01:55:46.751Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "AI_PASSED",
+    "latestSubmittedAt": "2026-06-08T01:55:49.958Z",
+    "latestReviewStage": "AI_PRECHECK",
+    "latestReviewerType": "AI",
+    "latestReviewDecision": "pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0007：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:49.134Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k79hd04ysbapesfape2r6",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+    "taskItemId": "cmq4k77sd04yebapexpr78dfz",
+    "taskItemSortOrder": 8,
+    "externalId": "P0008",
+    "datasetKind": "generic_json",
+    "status": "SUBMITTED",
+    "claimedAt": "2026-06-08T01:55:46.753Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "AI_PASSED",
+    "latestSubmittedAt": "2026-06-08T01:55:49.962Z",
+    "latestReviewStage": "AI_PRECHECK",
+    "latestReviewerType": "AI",
+    "latestReviewDecision": "pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0008：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:49.143Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k79hg04ytbape68br9mkw",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+    "taskItemId": "cmq4k77sd04yfbapevgev6aky",
+    "taskItemSortOrder": 9,
+    "externalId": "P0009",
+    "datasetKind": "generic_json",
+    "status": "SUBMITTED",
+    "claimedAt": "2026-06-08T01:55:46.756Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "AI_PASSED",
+    "latestSubmittedAt": "2026-06-08T01:55:49.966Z",
+    "latestReviewStage": "AI_PRECHECK",
+    "latestReviewerType": "AI",
+    "latestReviewDecision": "pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0009：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:49.152Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k79hj04yubapefu05w7ad",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+    "taskItemId": "cmq4k77sd04ygbape83uvktuu",
+    "taskItemSortOrder": 10,
+    "externalId": "P0010",
+    "datasetKind": "generic_json",
+    "status": "SUBMITTED",
+    "claimedAt": "2026-06-08T01:55:46.759Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "AI_PASSED",
+    "latestSubmittedAt": "2026-06-08T01:55:49.970Z",
+    "latestReviewStage": "AI_PRECHECK",
+    "latestReviewerType": "AI",
+    "latestReviewDecision": "pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0010：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:49.159Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k79hl04yvbape91coypen",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+    "taskItemId": "cmq4k77sd04yhbapeua9sxjba",
+    "taskItemSortOrder": 11,
+    "externalId": "P0011",
+    "datasetKind": "generic_json",
+    "status": "SUBMITTED",
+    "claimedAt": "2026-06-08T01:55:46.761Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "AI_PASSED",
+    "latestSubmittedAt": "2026-06-08T01:55:49.973Z",
+    "latestReviewStage": "AI_PRECHECK",
+    "latestReviewerType": "AI",
+    "latestReviewDecision": "pass",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0011：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:49.166Z",
+    "round": 1
+  },
+  {
+    "assignmentId": "cmq4k79gu04ymbape2ydossy5",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "taskTitle": "VERIFY-preference_compare-json-preference_compare-r0608015517",
+    "taskItemId": "cmq4k77sc04y8bapecotpj6e2",
+    "taskItemSortOrder": 2,
+    "externalId": "P0002",
+    "datasetKind": "generic_json",
+    "status": "NEEDS_REVISION",
+    "claimedAt": "2026-06-08T01:55:46.734Z",
+    "templateName": "模型对比模版",
+    "schemaVersion": "v2",
+    "latestSubmissionStatus": "NEEDS_REVISION",
+    "latestSubmittedAt": "2026-06-08T01:55:49.929Z",
+    "latestReviewStage": "AI_PRECHECK",
+    "latestReviewerType": "AI",
+    "latestReviewDecision": "reject",
+    "draftAnswers": {
+      "margin": "略优于",
+      "preferred": "A",
+      "dimensions": [
+        "helpfulness"
+      ],
+      "safety_flag": "false",
+      "annotator_note": "P0002：A 的回答更完整，表达更清晰。",
+      "safety_annotation": "无安全风险"
+    },
+    "draftUpdatedAt": "2026-06-08T01:55:49.095Z",
+    "round": 1
+  }
+]

@@ -1,0 +1,44 @@
+{
+  "taskId": "cmq4k8vg805b8bape6facg2nk",
+  "labelerId": "user_labeler_li_lei",
+  "submittedCount": 1,
+  "submissions": [
+    {
+      "id": "cmq4k9aew05fnbape7v0pgmd8",
+      "assignmentId": "cmq4k8x6605bobape7jz567wf",
+      "status": "AI_QUEUED",
+      "round": 2,
+      "answers": {
+        "comment": "V0003：已按审核意见补充修订。 未发现明显事实、安全或格式问题。",
+        "summary": "修订后质量良好",
+        "issue_tags": [],
+        "format_score": "5",
+        "safety_score": "5",
+        "evidence_file": {
+          "url": "mock://local/qa-evidence-r0608015517.txt",
+          "name": "qa-evidence-r0608015517.txt",
+          "size": 181,
+          "mimeType": "text/plain"
+        },
+        "accuracy_score": "5",
+        "evidence_image": {
+          "url": "mock://local/qa-evidence-r0608015517.png",
+          "name": "qa-evidence-r0608015517.png",
+          "size": 151,
+          "mimeType": "image/png"
+        },
+        "relevance_score": "5",
+        "structured_note": {
+          "round": "revision",
+          "verdict": "pass",
+          "externalId": "V0003"
+        },
+        "revision_suggestion": "<p>无需进一步修改。</p>"
+      },
+      "schemaVersion": "qa-quality-v1",
+      "submittedAt": "2026-06-08T01:57:21.272Z",
+      "createdAt": "2026-06-08T01:57:21.272Z",
+      "updatedAt": "2026-06-08T01:57:21.272Z"
+    }
+  ]
+}

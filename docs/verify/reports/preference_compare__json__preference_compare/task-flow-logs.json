@@ -1,0 +1,634 @@
+[
+  {
+    "id": "cmq4k77re04y5bape09j2aj0c:owner-published",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "round": 1,
+    "eventType": "OWNER_PUBLISHED",
+    "actorRole": "OWNER",
+    "actorName": "张满",
+    "occurredAt": "2026-06-08T01:55:44.611Z",
+    "message": "Owner 发布了任务。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4k77sc04y7bapem13s72nd",
+        "externalId": "P0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4k77sd04y9bapefsmtepye",
+        "externalId": "P0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4k77sd04yabapexlpmbact",
+        "externalId": "P0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4k77sd04ybbapecqg0epkn",
+        "externalId": "P0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4k77sd04ycbape5qjcvxsu",
+        "externalId": "P0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4k77sd04ydbapei3hjwp3j",
+        "externalId": "P0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4k77sd04yebapexpr78dfz",
+        "externalId": "P0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4k77sd04yfbapevgev6aky",
+        "externalId": "P0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4k77sd04ygbape83uvktuu",
+        "externalId": "P0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4k77sd04yhbapeua9sxjba",
+        "externalId": "P0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4k77sd04yibapek7g9qq25",
+        "externalId": "P0012",
+        "index": 12
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4k77re04y5bape09j2aj0c:labeler-claimed:user_labeler_li_lei",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "round": 1,
+    "eventType": "LABELER_CLAIMED",
+    "actorRole": "LABELER",
+    "actorName": "李雷",
+    "occurredAt": "2026-06-08T01:55:46.729Z",
+    "message": "李雷 领取了任务。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4k77sc04y7bapem13s72nd",
+        "externalId": "P0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4k77sd04y9bapefsmtepye",
+        "externalId": "P0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4k77sd04yabapexlpmbact",
+        "externalId": "P0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4k77sd04ybbapecqg0epkn",
+        "externalId": "P0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4k77sd04ycbape5qjcvxsu",
+        "externalId": "P0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4k77sd04ydbapei3hjwp3j",
+        "externalId": "P0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4k77sd04yebapexpr78dfz",
+        "externalId": "P0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4k77sd04yfbapevgev6aky",
+        "externalId": "P0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4k77sd04ygbape83uvktuu",
+        "externalId": "P0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4k77sd04yhbapeua9sxjba",
+        "externalId": "P0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4k77sd04yibapek7g9qq25",
+        "externalId": "P0012",
+        "index": 12
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4k77re04y5bape09j2aj0c:labeler-submitted:user_labeler_li_lei:1",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "round": 1,
+    "eventType": "LABELER_SUBMITTED",
+    "actorRole": "LABELER",
+    "actorName": "李雷",
+    "occurredAt": "2026-06-08T01:55:49.976Z",
+    "message": "李雷 提交了整个任务的标注结果。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4k77sc04y7bapem13s72nd",
+        "externalId": "P0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4k77sd04y9bapefsmtepye",
+        "externalId": "P0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4k77sd04yabapexlpmbact",
+        "externalId": "P0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4k77sd04ybbapecqg0epkn",
+        "externalId": "P0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4k77sd04ycbape5qjcvxsu",
+        "externalId": "P0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4k77sd04ydbapei3hjwp3j",
+        "externalId": "P0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4k77sd04yebapexpr78dfz",
+        "externalId": "P0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4k77sd04yfbapevgev6aky",
+        "externalId": "P0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4k77sd04ygbape83uvktuu",
+        "externalId": "P0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4k77sd04yhbapeua9sxjba",
+        "externalId": "P0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4k77sd04yibapek7g9qq25",
+        "externalId": "P0012",
+        "index": 12
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4k77re04y5bape09j2aj0c:ai-started:1",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "round": 1,
+    "eventType": "AI_PRECHECK_STARTED",
+    "actorRole": "AI_AGENT",
+    "actorName": "AI Agent",
+    "occurredAt": "2026-06-08T01:55:51.470Z",
+    "message": "AI Agent 开始本轮预审。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4k77sc04y7bapem13s72nd",
+        "externalId": "P0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4k77sd04y9bapefsmtepye",
+        "externalId": "P0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4k77sd04yabapexlpmbact",
+        "externalId": "P0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4k77sd04ybbapecqg0epkn",
+        "externalId": "P0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4k77sd04ycbape5qjcvxsu",
+        "externalId": "P0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4k77sd04ydbapei3hjwp3j",
+        "externalId": "P0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4k77sd04yebapexpr78dfz",
+        "externalId": "P0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4k77sd04yfbapevgev6aky",
+        "externalId": "P0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4k77sd04ygbape83uvktuu",
+        "externalId": "P0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4k77sd04yhbapeua9sxjba",
+        "externalId": "P0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4k77sd04yibapek7g9qq25",
+        "externalId": "P0012",
+        "index": 12
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4k77re04y5bape09j2aj0c:ai-completed:1",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "round": 1,
+    "eventType": "AI_PRECHECK_COMPLETED",
+    "actorRole": "AI_AGENT",
+    "actorName": "AI Agent",
+    "occurredAt": "2026-06-08T01:55:52.024Z",
+    "message": "AI Agent 完成本轮预审，存在建议打回题目。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4k77sc04y7bapem13s72nd",
+        "externalId": "P0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4k77sd04y9bapefsmtepye",
+        "externalId": "P0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4k77sd04yabapexlpmbact",
+        "externalId": "P0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4k77sd04ybbapecqg0epkn",
+        "externalId": "P0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4k77sd04ycbape5qjcvxsu",
+        "externalId": "P0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4k77sd04ydbapei3hjwp3j",
+        "externalId": "P0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4k77sd04yebapexpr78dfz",
+        "externalId": "P0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4k77sd04yfbapevgev6aky",
+        "externalId": "P0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4k77sd04ygbape83uvktuu",
+        "externalId": "P0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4k77sd04yhbapeua9sxjba",
+        "externalId": "P0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4k77sd04yibapek7g9qq25",
+        "externalId": "P0012",
+        "index": 12
+      }
+    ],
+    "rejectedItemRefs": [
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      }
+    ]
+  },
+  {
+    "id": "cmq4k77re04y5bape09j2aj0c:ai-started:2",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "round": 2,
+    "eventType": "AI_RECHECK_STARTED",
+    "actorRole": "AI_AGENT",
+    "actorName": "AI Agent",
+    "occurredAt": "2026-06-08T01:55:54.472Z",
+    "message": "AI Agent 开始复审 Labeler 重新提交的内容。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4k77sd04y9bapefsmtepye",
+        "externalId": "P0003",
+        "index": 3
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4k77re04y5bape09j2aj0c:reviewer-received:2",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "round": 2,
+    "eventType": "REVIEWER_RECEIVED",
+    "actorRole": "REVIEWER",
+    "actorName": null,
+    "occurredAt": "2026-06-08T01:55:56.172Z",
+    "message": "任务再次流转到 Reviewer 复审。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4k77sd04y9bapefsmtepye",
+        "externalId": "P0003",
+        "index": 3
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4k77re04y5bape09j2aj0c:reviewer-received:1",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "round": 1,
+    "eventType": "REVIEWER_RECEIVED",
+    "actorRole": "REVIEWER",
+    "actorName": null,
+    "occurredAt": "2026-06-08T01:55:56.181Z",
+    "message": "任务流转到 Reviewer 检查。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4k77sc04y7bapem13s72nd",
+        "externalId": "P0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4k77sd04y9bapefsmtepye",
+        "externalId": "P0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4k77sd04yabapexlpmbact",
+        "externalId": "P0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4k77sd04ybbapecqg0epkn",
+        "externalId": "P0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4k77sd04ycbape5qjcvxsu",
+        "externalId": "P0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4k77sd04ydbapei3hjwp3j",
+        "externalId": "P0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4k77sd04yebapexpr78dfz",
+        "externalId": "P0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4k77sd04yfbapevgev6aky",
+        "externalId": "P0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4k77sd04ygbape83uvktuu",
+        "externalId": "P0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4k77sd04yhbapeua9sxjba",
+        "externalId": "P0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4k77sd04yibapek7g9qq25",
+        "externalId": "P0012",
+        "index": 12
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4k77re04y5bape09j2aj0c:labeler-submitted:user_labeler_li_lei:2",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "round": 2,
+    "eventType": "LABELER_RESUBMITTED",
+    "actorRole": "LABELER",
+    "actorName": "李雷",
+    "occurredAt": "2026-06-08T01:56:02.322Z",
+    "message": "李雷 重新提交修复后的标注结果。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4k77sd04y9bapefsmtepye",
+        "externalId": "P0003",
+        "index": 3
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4k77re04y5bape09j2aj0c:ai-completed:2",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "round": 2,
+    "eventType": "AI_RECHECK_COMPLETED",
+    "actorRole": "AI_AGENT",
+    "actorName": "AI Agent",
+    "occurredAt": "2026-06-08T01:56:04.063Z",
+    "message": "AI Agent 完成本轮预审，未发现需要打回的题目。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4k77sd04y9bapefsmtepye",
+        "externalId": "P0003",
+        "index": 3
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4k77re04y5bape09j2aj0c:reviewer-completed:2",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "round": 2,
+    "eventType": "REVIEWER_CHECK_COMPLETED",
+    "actorRole": "REVIEWER",
+    "actorName": "王芳",
+    "occurredAt": "2026-06-08T01:56:05.912Z",
+    "message": "Reviewer 完成本轮检查，本轮检查通过。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4k77sd04y9bapefsmtepye",
+        "externalId": "P0003",
+        "index": 3
+      }
+    ],
+    "rejectedItemRefs": []
+  },
+  {
+    "id": "cmq4k77re04y5bape09j2aj0c:completed",
+    "taskId": "cmq4k77re04y5bape09j2aj0c",
+    "round": 2,
+    "eventType": "TASK_COMPLETED",
+    "actorRole": "REVIEWER",
+    "actorName": "王芳",
+    "occurredAt": "2026-06-08T01:56:05.912Z",
+    "message": "整个任务通过最终 Reviewer 检查，任务完成。",
+    "itemRefs": [
+      {
+        "itemId": "cmq4k77sc04y7bapem13s72nd",
+        "externalId": "P0001",
+        "index": 1
+      },
+      {
+        "itemId": "cmq4k77sc04y8bapecotpj6e2",
+        "externalId": "P0002",
+        "index": 2
+      },
+      {
+        "itemId": "cmq4k77sd04y9bapefsmtepye",
+        "externalId": "P0003",
+        "index": 3
+      },
+      {
+        "itemId": "cmq4k77sd04yabapexlpmbact",
+        "externalId": "P0004",
+        "index": 4
+      },
+      {
+        "itemId": "cmq4k77sd04ybbapecqg0epkn",
+        "externalId": "P0005",
+        "index": 5
+      },
+      {
+        "itemId": "cmq4k77sd04ycbape5qjcvxsu",
+        "externalId": "P0006",
+        "index": 6
+      },
+      {
+        "itemId": "cmq4k77sd04ydbapei3hjwp3j",
+        "externalId": "P0007",
+        "index": 7
+      },
+      {
+        "itemId": "cmq4k77sd04yebapexpr78dfz",
+        "externalId": "P0008",
+        "index": 8
+      },
+      {
+        "itemId": "cmq4k77sd04yfbapevgev6aky",
+        "externalId": "P0009",
+        "index": 9
+      },
+      {
+        "itemId": "cmq4k77sd04ygbape83uvktuu",
+        "externalId": "P0010",
+        "index": 10
+      },
+      {
+        "itemId": "cmq4k77sd04yhbapeua9sxjba",
+        "externalId": "P0011",
+        "index": 11
+      },
+      {
+        "itemId": "cmq4k77sd04yibapek7g9qq25",
+        "externalId": "P0012",
+        "index": 12
+      }
+    ],
+    "rejectedItemRefs": []
+  }
+]

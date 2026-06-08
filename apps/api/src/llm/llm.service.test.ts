@@ -272,6 +272,86 @@ describe('LlmService template field classifier', () => {
     expect(requestBody.messages.map((message) => message.content).join('\n')).toContain('请对 comment 输出字段级 AI 预审结果。');
   });
 
+  it('字段级 AI 预审允许非评分标签字段缺少 score 并按 decision 归一化', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
+    process.env.LLM_MODEL = 'deepseek-chat';
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'chatcmpl_ai_review_tag_field',
+          usage: {
+            prompt_tokens: 180,
+            completion_tokens: 64,
+            total_tokens: 244,
+          },
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  verdict: 'pass',
+                  overallScore: 100,
+                  overallComment: '未发现需要打回的问题标签。',
+                  fieldReviews: [
+                    {
+                      fieldKey: 'issue_tags',
+                      label: '问题标签',
+                      decision: 'pass',
+                      comment: '当前样本未发现明显质量问题标签。',
+                      suggestions: [],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await new LlmService().reviewSubmission({
+      answers: {
+        issue_tags: [],
+      },
+      datasetKind: 'qa_quality',
+      fieldRequirements: [
+        {
+          fieldKey: 'issue_tags',
+          label: '问题标签',
+          type: 'tag_select',
+          required: false,
+          requirement: '如发现回答质量问题，请选择对应标签。',
+        },
+      ],
+      model: 'deepseek-chat',
+      passThreshold: 70,
+      provider: 'deepseek',
+      rawData: {
+        prompt: '如何判断回答质量？',
+        model_answer: '检查事实性、完整性和表达清晰度。',
+      },
+      rawPrompt: '请对 issue_tags 输出字段级 AI 预审结果。',
+      structuredOutputMode: 'function_calling',
+      temperature: 0,
+    });
+
+    expect(result.structuredOutput).toEqual(
+      expect.objectContaining({
+        fieldReviews: [
+          expect.objectContaining({
+            fieldKey: 'issue_tags',
+            decision: 'pass',
+            score: 100,
+            comment: '当前样本未发现明显质量问题标签。',
+          }),
+        ],
+      }),
+    );
+  });
+
   it('没有显式 LLM_PROVIDER 但配置 DeepSeek key 时按 DeepSeek OpenAI 兼容接口分类字段', async () => {
     delete process.env.LLM_PROVIDER;
     process.env.NODE_ENV = 'development';

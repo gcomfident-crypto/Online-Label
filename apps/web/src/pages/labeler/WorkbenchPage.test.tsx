@@ -1316,11 +1316,11 @@ describe('WorkbenchPage', () => {
         .mockResolvedValueOnce(jsonResponse({ data: { ...stats, submittedCount: 1, approvedCount: 1 } }))
         .mockResolvedValueOnce(
           jsonResponse({
-            data: taskAssignments.map((assignment) =>
-              assignment.assignmentId === 'assignment_1'
-                ? { ...assignment, status: 'FINAL_APPROVED', latestSubmissionStatus: 'FINAL_APPROVED' }
-                : assignment,
-            ),
+            data: taskAssignments.map((assignment) => ({
+              ...assignment,
+              status: 'FINAL_APPROVED',
+              latestSubmissionStatus: 'FINAL_APPROVED',
+            })),
           }),
         )
         .mockResolvedValueOnce(jsonResponse({ data: taskList })),
@@ -1343,6 +1343,31 @@ describe('WorkbenchPage', () => {
     expect(history).toHaveTextContent('复审员 王芳 · 复审通过');
     expect(history).not.toHaveTextContent('当前');
     expect(history).not.toHaveTextContent('标注员 李雷 · 已完成');
+  });
+
+  it('当前题已完成但同任务仍有返工题时，顶部任务状态显示待修改而不是已完成', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse({ data: finalApprovedWorkbench }))
+        .mockResolvedValueOnce(jsonResponse({ data: { ...stats, submittedCount: 2, approvedCount: 1, needsRevisionCount: 1 } }))
+        .mockResolvedValueOnce(
+          jsonResponse({
+            data: [
+              { ...taskAssignments[0], status: 'FINAL_APPROVED', latestSubmissionStatus: 'FINAL_APPROVED' },
+              { ...taskAssignments[1], status: 'NEEDS_REVISION', latestSubmissionStatus: 'NEEDS_REVISION' },
+            ],
+          }),
+        )
+        .mockResolvedValueOnce(jsonResponse({ data: taskList })),
+    );
+
+    renderWorkbenchPage();
+
+    const workbenchSummary = await screen.findByLabelText('任务状态');
+    expect(within(workbenchSummary).getByText('待修改')).toHaveClass('workbench-deadline-countdown');
+    expect(within(workbenchSummary).queryByText('已完成')).not.toBeInTheDocument();
   });
 
   it('未启用 AI 预审时提交后直接提示进入人工复审且不启动 AI 轮询', async () => {

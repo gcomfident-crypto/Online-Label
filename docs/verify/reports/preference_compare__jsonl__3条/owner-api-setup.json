@@ -1,0 +1,646 @@
+{
+  "task": {
+    "id": "cmq4k7rsb053obapeh7z8njdn",
+    "title": "VERIFY-preference_compare-jsonl-3条-r0608015517",
+    "description": "系统验收输入：/Users/zzx/workspace/LH/datasets/preference_compare/jsonl/3条.jsonl",
+    "richTextInstruction": null,
+    "tags": [
+      "system-verification",
+      "preference_compare",
+      "jsonl",
+      "r0608015517"
+    ],
+    "rewardRule": "1.00 元 / 条",
+    "rewardPerItem": 1,
+    "perUserLimit": 100,
+    "quota": 3,
+    "deadline": "2026-06-30T07:00:00.000Z",
+    "distributionStrategy": "FIRST_COME_FIRST_SERVE",
+    "aiPreReviewEnabled": true,
+    "aiRuleName": "系统验收 AI 预审",
+    "reviewStageConfig": [
+      "RECHECK"
+    ],
+    "datasetImportSummary": {
+      "files": [
+        {
+          "fields": [
+            "id",
+            "task_type",
+            "lang",
+            "prompt",
+            "response_a",
+            "model_a",
+            "response_b",
+            "model_b",
+            "preferred",
+            "margin",
+            "dimensions",
+            "safety_flag",
+            "annotator_note"
+          ],
+          "format": "jsonl",
+          "fileName": "3条.jsonl",
+          "errorCount": 0,
+          "datasetKind": "generic_json",
+          "importedCount": 3
+        }
+      ],
+      "errors": [],
+      "fields": [
+        "id",
+        "task_type",
+        "lang",
+        "prompt",
+        "response_a",
+        "model_a",
+        "response_b",
+        "model_b",
+        "preferred",
+        "margin",
+        "dimensions",
+        "safety_flag",
+        "annotator_note"
+      ],
+      "taskId": "cmq4k7rsb053obapeh7z8njdn",
+      "preview": [
+        {
+          "id": "cmq4k7rta053qbape4z1rwttx",
+          "status": "UNASSIGNED",
+          "taskId": "cmq4k7rsb053obapeh7z8njdn",
+          "rawData": {
+            "id": "P0001",
+            "lang": "zh",
+            "margin": "明显优于",
+            "prompt": "解释什么是过拟合，并给一个通俗例子。",
+            "model_a": "doubao-pro",
+            "model_b": "baseline-7b",
+            "preferred": "A",
+            "task_type": "知识问答",
+            "dimensions": [
+              "准确性",
+              "完整性",
+              "可读性"
+            ],
+            "response_a": "过拟合指模型在训练集表现很好但泛化差。比如学生死记答案，考原题满分，换题就不会。",
+            "response_b": "过拟合就是模型训练得太好了。",
+            "safety_flag": false,
+            "annotator_note": "A 含定义+类比，B 过于笼统。"
+          },
+          "createdAt": "2026-06-08T01:56:10.510Z",
+          "sortOrder": 1,
+          "updatedAt": "2026-06-08T01:56:10.510Z",
+          "externalId": "P0001",
+          "datasetKind": "generic_json"
+        },
+        {
+          "id": "cmq4k7rta053rbape8gag0brb",
+          "status": "UNASSIGNED",
+          "taskId": "cmq4k7rsb053obapeh7z8njdn",
+          "rawData": {
+            "id": "P0002",
+            "lang": "zh",
+            "margin": "明显优于",
+            "prompt": "用 Python 反转一个链表。",
+            "model_a": "gpt-style",
+            "model_b": "baseline-7b",
+            "preferred": "A",
+            "task_type": "代码生成",
+            "dimensions": [
+              "准确性",
+              "可执行性"
+            ],
+            "response_a": "def reverse(head):\n    prev=None\n    while head:\n        head.next,prev,head=prev,head,head.next\n    return prev",
+            "response_b": "可以用递归或迭代实现，建议查阅相关资料。",
+            "safety_flag": false,
+            "annotator_note": "B 未给出代码，答非所问。"
+          },
+          "createdAt": "2026-06-08T01:56:10.510Z",
+          "sortOrder": 2,
+          "updatedAt": "2026-06-08T01:56:10.510Z",
+          "externalId": "P0002",
+          "datasetKind": "generic_json"
+        },
+        {
+          "id": "cmq4k7rta053sbapefhf0mmk0",
+          "status": "UNASSIGNED",
+          "taskId": "cmq4k7rsb053obapeh7z8njdn",
+          "rawData": {
+            "id": "P0003",
+            "lang": "zh",
+            "margin": "略优于",
+            "prompt": "概括：财报显示营收增长但利润下滑，因研发与营销投入加大。",
+            "model_a": "doubao-lite",
+            "model_b": "doubao-pro",
+            "preferred": "A",
+            "task_type": "文本摘要",
+            "dimensions": [
+              "简洁性",
+              "相关性"
+            ],
+            "response_a": "营收增长，但因研发营销投入加大导致利润下滑。",
+            "response_b": "公司财报显示营收增长，同时利润有所下滑，原因是研发和营销方面的投入显著增加所致。",
+            "safety_flag": false,
+            "annotator_note": "两者均正确，A 更精炼。"
+          },
+          "createdAt": "2026-06-08T01:56:10.510Z",
+          "sortOrder": 3,
+          "updatedAt": "2026-06-08T01:56:10.510Z",
+          "externalId": "P0003",
+          "datasetKind": "generic_json"
+        }
+      ],
+      "errorCount": 0,
+      "datasetKind": "generic_json",
+      "skippedFiles": [],
+      "importedCount": 3
+    },
+    "status": "PUBLISHED",
+    "templateId": "cmq23jrct003aovpeb2btcc31",
+    "template": {
+      "id": "cmq23jrct003aovpeb2btcc31",
+      "name": "模型对比模版",
+      "datasetKind": "generic_json",
+      "schemaVersion": "v2",
+      "status": "PUBLISHED"
+    },
+    "createdById": "user_owner_zhang_man",
+    "itemCount": 3,
+    "assignedItemCount": 0,
+    "submittedItemCount": 0,
+    "completedItemCount": 0,
+    "exportableItemCount": 0,
+    "workflowProgress": [
+      {
+        "id": "cmq4k7rsb053obapeh7z8njdn:published",
+        "type": "published",
+        "createdAt": "2026-06-08T01:56:10.475Z",
+        "status": "completed"
+      },
+      {
+        "id": "cmq4k7rsb053obapeh7z8njdn:pending:claimed",
+        "type": "claimed",
+        "createdAt": "2026-06-08T01:56:10.475Z",
+        "status": "pending"
+      },
+      {
+        "id": "cmq4k7rsb053obapeh7z8njdn:pending:ai_review_submitted",
+        "type": "ai_review_submitted",
+        "createdAt": "2026-06-08T01:56:10.475Z",
+        "status": "pending"
+      },
+      {
+        "id": "cmq4k7rsb053obapeh7z8njdn:pending:ai_review_passed",
+        "type": "ai_review_passed",
+        "createdAt": "2026-06-08T01:56:10.475Z",
+        "status": "pending"
+      },
+      {
+        "id": "cmq4k7rsb053obapeh7z8njdn:pending:reviewer_final",
+        "type": "reviewer_final",
+        "createdAt": "2026-06-08T01:56:10.475Z",
+        "status": "pending"
+      }
+    ],
+    "createdAt": "2026-06-08T01:56:10.475Z",
+    "updatedAt": "2026-06-08T01:56:10.544Z"
+  },
+  "createdTask": {
+    "id": "cmq4k7rsb053obapeh7z8njdn",
+    "title": "VERIFY-preference_compare-jsonl-3条-r0608015517",
+    "description": "系统验收输入：/Users/zzx/workspace/LH/datasets/preference_compare/jsonl/3条.jsonl",
+    "richTextInstruction": null,
+    "tags": [
+      "system-verification",
+      "preference_compare",
+      "jsonl",
+      "r0608015517"
+    ],
+    "rewardRule": "1.00 元 / 条",
+    "rewardPerItem": 1,
+    "perUserLimit": 100,
+    "quota": null,
+    "deadline": "2026-06-30T07:00:00.000Z",
+    "distributionStrategy": "FIRST_COME_FIRST_SERVE",
+    "aiPreReviewEnabled": true,
+    "aiRuleName": "系统验收 AI 预审",
+    "reviewStageConfig": [
+      "RECHECK"
+    ],
+    "datasetImportSummary": null,
+    "status": "DRAFT",
+    "templateId": "cmq23jrct003aovpeb2btcc31",
+    "template": {
+      "id": "cmq23jrct003aovpeb2btcc31",
+      "name": "模型对比模版",
+      "datasetKind": "generic_json",
+      "schemaVersion": "v2",
+      "status": "PUBLISHED"
+    },
+    "createdById": "user_owner_zhang_man",
+    "itemCount": 0,
+    "assignedItemCount": 0,
+    "submittedItemCount": 0,
+    "completedItemCount": 0,
+    "exportableItemCount": 0,
+    "workflowProgress": [],
+    "createdAt": "2026-06-08T01:56:10.475Z",
+    "updatedAt": "2026-06-08T01:56:10.475Z"
+  },
+  "quotaTask": {
+    "id": "cmq4k7rsb053obapeh7z8njdn",
+    "title": "VERIFY-preference_compare-jsonl-3条-r0608015517",
+    "description": "系统验收输入：/Users/zzx/workspace/LH/datasets/preference_compare/jsonl/3条.jsonl",
+    "richTextInstruction": null,
+    "tags": [
+      "system-verification",
+      "preference_compare",
+      "jsonl",
+      "r0608015517"
+    ],
+    "rewardRule": "1.00 元 / 条",
+    "rewardPerItem": 1,
+    "perUserLimit": 100,
+    "quota": 3,
+    "deadline": "2026-06-30T07:00:00.000Z",
+    "distributionStrategy": "FIRST_COME_FIRST_SERVE",
+    "aiPreReviewEnabled": true,
+    "aiRuleName": "系统验收 AI 预审",
+    "reviewStageConfig": [
+      "RECHECK"
+    ],
+    "datasetImportSummary": {
+      "files": [
+        {
+          "fields": [
+            "id",
+            "task_type",
+            "lang",
+            "prompt",
+            "response_a",
+            "model_a",
+            "response_b",
+            "model_b",
+            "preferred",
+            "margin",
+            "dimensions",
+            "safety_flag",
+            "annotator_note"
+          ],
+          "format": "jsonl",
+          "fileName": "3条.jsonl",
+          "errorCount": 0,
+          "datasetKind": "generic_json",
+          "importedCount": 3
+        }
+      ],
+      "errors": [],
+      "fields": [
+        "id",
+        "task_type",
+        "lang",
+        "prompt",
+        "response_a",
+        "model_a",
+        "response_b",
+        "model_b",
+        "preferred",
+        "margin",
+        "dimensions",
+        "safety_flag",
+        "annotator_note"
+      ],
+      "taskId": "cmq4k7rsb053obapeh7z8njdn",
+      "preview": [
+        {
+          "id": "cmq4k7rta053qbape4z1rwttx",
+          "status": "UNASSIGNED",
+          "taskId": "cmq4k7rsb053obapeh7z8njdn",
+          "rawData": {
+            "id": "P0001",
+            "lang": "zh",
+            "margin": "明显优于",
+            "prompt": "解释什么是过拟合，并给一个通俗例子。",
+            "model_a": "doubao-pro",
+            "model_b": "baseline-7b",
+            "preferred": "A",
+            "task_type": "知识问答",
+            "dimensions": [
+              "准确性",
+              "完整性",
+              "可读性"
+            ],
+            "response_a": "过拟合指模型在训练集表现很好但泛化差。比如学生死记答案，考原题满分，换题就不会。",
+            "response_b": "过拟合就是模型训练得太好了。",
+            "safety_flag": false,
+            "annotator_note": "A 含定义+类比，B 过于笼统。"
+          },
+          "createdAt": "2026-06-08T01:56:10.510Z",
+          "sortOrder": 1,
+          "updatedAt": "2026-06-08T01:56:10.510Z",
+          "externalId": "P0001",
+          "datasetKind": "generic_json"
+        },
+        {
+          "id": "cmq4k7rta053rbape8gag0brb",
+          "status": "UNASSIGNED",
+          "taskId": "cmq4k7rsb053obapeh7z8njdn",
+          "rawData": {
+            "id": "P0002",
+            "lang": "zh",
+            "margin": "明显优于",
+            "prompt": "用 Python 反转一个链表。",
+            "model_a": "gpt-style",
+            "model_b": "baseline-7b",
+            "preferred": "A",
+            "task_type": "代码生成",
+            "dimensions": [
+              "准确性",
+              "可执行性"
+            ],
+            "response_a": "def reverse(head):\n    prev=None\n    while head:\n        head.next,prev,head=prev,head,head.next\n    return prev",
+            "response_b": "可以用递归或迭代实现，建议查阅相关资料。",
+            "safety_flag": false,
+            "annotator_note": "B 未给出代码，答非所问。"
+          },
+          "createdAt": "2026-06-08T01:56:10.510Z",
+          "sortOrder": 2,
+          "updatedAt": "2026-06-08T01:56:10.510Z",
+          "externalId": "P0002",
+          "datasetKind": "generic_json"
+        },
+        {
+          "id": "cmq4k7rta053sbapefhf0mmk0",
+          "status": "UNASSIGNED",
+          "taskId": "cmq4k7rsb053obapeh7z8njdn",
+          "rawData": {
+            "id": "P0003",
+            "lang": "zh",
+            "margin": "略优于",
+            "prompt": "概括：财报显示营收增长但利润下滑，因研发与营销投入加大。",
+            "model_a": "doubao-lite",
+            "model_b": "doubao-pro",
+            "preferred": "A",
+            "task_type": "文本摘要",
+            "dimensions": [
+              "简洁性",
+              "相关性"
+            ],
+            "response_a": "营收增长，但因研发营销投入加大导致利润下滑。",
+            "response_b": "公司财报显示营收增长，同时利润有所下滑，原因是研发和营销方面的投入显著增加所致。",
+            "safety_flag": false,
+            "annotator_note": "两者均正确，A 更精炼。"
+          },
+          "createdAt": "2026-06-08T01:56:10.510Z",
+          "sortOrder": 3,
+          "updatedAt": "2026-06-08T01:56:10.510Z",
+          "externalId": "P0003",
+          "datasetKind": "generic_json"
+        }
+      ],
+      "errorCount": 0,
+      "datasetKind": "generic_json",
+      "skippedFiles": [],
+      "importedCount": 3
+    },
+    "status": "DRAFT",
+    "templateId": "cmq23jrct003aovpeb2btcc31",
+    "template": {
+      "id": "cmq23jrct003aovpeb2btcc31",
+      "name": "模型对比模版",
+      "datasetKind": "generic_json",
+      "schemaVersion": "v2",
+      "status": "PUBLISHED"
+    },
+    "createdById": "user_owner_zhang_man",
+    "itemCount": 3,
+    "assignedItemCount": 0,
+    "submittedItemCount": 0,
+    "completedItemCount": 0,
+    "exportableItemCount": 0,
+    "workflowProgress": [],
+    "createdAt": "2026-06-08T01:56:10.475Z",
+    "updatedAt": "2026-06-08T01:56:10.528Z"
+  },
+  "importSummary": {
+    "taskId": "cmq4k7rsb053obapeh7z8njdn",
+    "datasetKind": "generic_json",
+    "importedCount": 3,
+    "errorCount": 0,
+    "skippedFiles": [],
+    "fields": [
+      "id",
+      "task_type",
+      "lang",
+      "prompt",
+      "response_a",
+      "model_a",
+      "response_b",
+      "model_b",
+      "preferred",
+      "margin",
+      "dimensions",
+      "safety_flag",
+      "annotator_note"
+    ],
+    "errors": [],
+    "preview": [
+      {
+        "id": "cmq4k7rta053qbape4z1rwttx",
+        "taskId": "cmq4k7rsb053obapeh7z8njdn",
+        "externalId": "P0001",
+        "datasetKind": "generic_json",
+        "rawData": {
+          "id": "P0001",
+          "lang": "zh",
+          "margin": "明显优于",
+          "prompt": "解释什么是过拟合，并给一个通俗例子。",
+          "model_a": "doubao-pro",
+          "model_b": "baseline-7b",
+          "preferred": "A",
+          "task_type": "知识问答",
+          "dimensions": [
+            "准确性",
+            "完整性",
+            "可读性"
+          ],
+          "response_a": "过拟合指模型在训练集表现很好但泛化差。比如学生死记答案，考原题满分，换题就不会。",
+          "response_b": "过拟合就是模型训练得太好了。",
+          "safety_flag": false,
+          "annotator_note": "A 含定义+类比，B 过于笼统。"
+        },
+        "status": "UNASSIGNED",
+        "sortOrder": 1,
+        "createdAt": "2026-06-08T01:56:10.510Z",
+        "updatedAt": "2026-06-08T01:56:10.510Z"
+      },
+      {
+        "id": "cmq4k7rta053rbape8gag0brb",
+        "taskId": "cmq4k7rsb053obapeh7z8njdn",
+        "externalId": "P0002",
+        "datasetKind": "generic_json",
+        "rawData": {
+          "id": "P0002",
+          "lang": "zh",
+          "margin": "明显优于",
+          "prompt": "用 Python 反转一个链表。",
+          "model_a": "gpt-style",
+          "model_b": "baseline-7b",
+          "preferred": "A",
+          "task_type": "代码生成",
+          "dimensions": [
+            "准确性",
+            "可执行性"
+          ],
+          "response_a": "def reverse(head):\n    prev=None\n    while head:\n        head.next,prev,head=prev,head,head.next\n    return prev",
+          "response_b": "可以用递归或迭代实现，建议查阅相关资料。",
+          "safety_flag": false,
+          "annotator_note": "B 未给出代码，答非所问。"
+        },
+        "status": "UNASSIGNED",
+        "sortOrder": 2,
+        "createdAt": "2026-06-08T01:56:10.510Z",
+        "updatedAt": "2026-06-08T01:56:10.510Z"
+      },
+      {
+        "id": "cmq4k7rta053sbapefhf0mmk0",
+        "taskId": "cmq4k7rsb053obapeh7z8njdn",
+        "externalId": "P0003",
+        "datasetKind": "generic_json",
+        "rawData": {
+          "id": "P0003",
+          "lang": "zh",
+          "margin": "略优于",
+          "prompt": "概括：财报显示营收增长但利润下滑，因研发与营销投入加大。",
+          "model_a": "doubao-lite",
+          "model_b": "doubao-pro",
+          "preferred": "A",
+          "task_type": "文本摘要",
+          "dimensions": [
+            "简洁性",
+            "相关性"
+          ],
+          "response_a": "营收增长，但因研发营销投入加大导致利润下滑。",
+          "response_b": "公司财报显示营收增长，同时利润有所下滑，原因是研发和营销方面的投入显著增加所致。",
+          "safety_flag": false,
+          "annotator_note": "两者均正确，A 更精炼。"
+        },
+        "status": "UNASSIGNED",
+        "sortOrder": 3,
+        "createdAt": "2026-06-08T01:56:10.510Z",
+        "updatedAt": "2026-06-08T01:56:10.510Z"
+      }
+    ],
+    "files": [
+      {
+        "datasetKind": "generic_json",
+        "format": "jsonl",
+        "fileName": "3条.jsonl",
+        "fields": [
+          "id",
+          "task_type",
+          "lang",
+          "prompt",
+          "response_a",
+          "model_a",
+          "response_b",
+          "model_b",
+          "preferred",
+          "margin",
+          "dimensions",
+          "safety_flag",
+          "annotator_note"
+        ],
+        "importedCount": 3,
+        "errorCount": 0
+      }
+    ]
+  },
+  "items": [
+    {
+      "id": "cmq4k7rta053qbape4z1rwttx",
+      "taskId": "cmq4k7rsb053obapeh7z8njdn",
+      "externalId": "P0001",
+      "datasetKind": "generic_json",
+      "rawData": {
+        "id": "P0001",
+        "lang": "zh",
+        "margin": "明显优于",
+        "prompt": "解释什么是过拟合，并给一个通俗例子。",
+        "model_a": "doubao-pro",
+        "model_b": "baseline-7b",
+        "preferred": "A",
+        "task_type": "知识问答",
+        "dimensions": [
+          "准确性",
+          "完整性",
+          "可读性"
+        ],
+        "response_a": "过拟合指模型在训练集表现很好但泛化差。比如学生死记答案，考原题满分，换题就不会。",
+        "response_b": "过拟合就是模型训练得太好了。",
+        "safety_flag": false,
+        "annotator_note": "A 含定义+类比，B 过于笼统。"
+      },
+      "status": "UNASSIGNED",
+      "sortOrder": 1,
+      "createdAt": "2026-06-08T01:56:10.510Z",
+      "updatedAt": "2026-06-08T01:56:10.510Z"
+    },
+    {
+      "id": "cmq4k7rta053rbape8gag0brb",
+      "taskId": "cmq4k7rsb053obapeh7z8njdn",
+      "externalId": "P0002",
+      "datasetKind": "generic_json",
+      "rawData": {
+        "id": "P0002",
+        "lang": "zh",
+        "margin": "明显优于",
+        "prompt": "用 Python 反转一个链表。",
+        "model_a": "gpt-style",
+        "model_b": "baseline-7b",
+        "preferred": "A",
+        "task_type": "代码生成",
+        "dimensions": [
+          "准确性",
+          "可执行性"
+        ],
+        "response_a": "def reverse(head):\n    prev=None\n    while head:\n        head.next,prev,head=prev,head,head.next\n    return prev",
+        "response_b": "可以用递归或迭代实现，建议查阅相关资料。",
+        "safety_flag": false,
+        "annotator_note": "B 未给出代码，答非所问。"
+      },
+      "status": "UNASSIGNED",
+      "sortOrder": 2,
+      "createdAt": "2026-06-08T01:56:10.510Z",
+      "updatedAt": "2026-06-08T01:56:10.510Z"
+    },
+    {
+      "id": "cmq4k7rta053sbapefhf0mmk0",
+      "taskId": "cmq4k7rsb053obapeh7z8njdn",
+      "externalId": "P0003",
+      "datasetKind": "generic_json",
+      "rawData": {
+        "id": "P0003",
+        "lang": "zh",
+        "margin": "略优于",
+        "prompt": "概括：财报显示营收增长但利润下滑，因研发与营销投入加大。",
+        "model_a": "doubao-lite",
+        "model_b": "doubao-pro",
+        "preferred": "A",
+        "task_type": "文本摘要",
+        "dimensions": [
+          "简洁性",
+          "相关性"
+        ],
+        "response_a": "营收增长，但因研发营销投入加大导致利润下滑。",
+        "response_b": "公司财报显示营收增长，同时利润有所下滑，原因是研发和营销方面的投入显著增加所致。",
+        "safety_flag": false,
+        "annotator_note": "两者均正确，A 更精炼。"
+      },
+      "status": "UNASSIGNED",
+      "sortOrder": 3,
+      "createdAt": "2026-06-08T01:56:10.510Z",
+      "updatedAt": "2026-06-08T01:56:10.510Z"
+    }
+  ]
+}

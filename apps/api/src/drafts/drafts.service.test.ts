@@ -268,6 +268,33 @@ describe('DraftsService', () => {
       service.saveDraft('assignment_1', { answers: [] as unknown as Record<string, unknown> }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('保存草稿时拒绝已经提交、复审中或最终通过的锁定 assignment', async () => {
+    const lockedStatuses: AssignmentStatus[] = ['SUBMITTED', 'UNDER_RECHECK', 'FINAL_PENDING', 'FINAL_APPROVED'];
+    const { service, drafts, auditLogs, assignments } = createService({
+      assignments: lockedStatuses.map((status) => ({
+        id: `assignment_${status.toLowerCase()}`,
+        status,
+      })),
+    });
+
+    for (const status of lockedStatuses) {
+      await expect(
+        service.saveDraft(`assignment_${status.toLowerCase()}`, {
+          actorId: 'user_labeler_li_lei',
+          answers: { quality: 'mutated_after_lock' },
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'ASSIGNMENT_NOT_EDITABLE',
+        }),
+      });
+    }
+
+    expect(drafts).toHaveLength(0);
+    expect(auditLogs).toHaveLength(0);
+    expect(assignments.slice(1).map((assignment) => assignment.status)).toEqual(lockedStatuses);
+  });
 });
 
 function createService(

@@ -1,0 +1,12 @@
+{
+  "ok": false,
+  "status": 400,
+  "payload": {
+    "error": {
+      "code": "TASK_SUBMISSION_DRAFT_MISSING",
+      "message": "题目 V0002 尚未保存草稿，不能提交整个任务。"
+    },
+    "requestId": "req_735d308f4579"
+  },
+  "raw": "{\"error\":{\"code\":\"TASK_SUBMISSION_DRAFT_MISSING\",\"message\":\"题目 V0002 尚未保存草稿，不能提交整个任务。\"},\"requestId\":\"req_735d308f4579\"}"
+}

@@ -1,0 +1,377 @@
+{
+  "taskId": "cmq4k8vg805b8bape6facg2nk",
+  "labelerId": "user_labeler_li_lei",
+  "submittedCount": 10,
+  "submissions": [
+    {
+      "id": "cmq4k90f805ckbape57vzn96h",
+      "assignmentId": "cmq4k8x5z05bmbapem9ldtfcv",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "comment": "V0001：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+        "summary": "整体质量良好",
+        "issue_tags": [],
+        "format_score": "5",
+        "safety_score": "5",
+        "evidence_file": {
+          "url": "mock://local/qa-evidence-r0608015517.txt",
+          "name": "qa-evidence-r0608015517.txt",
+          "size": 181,
+          "mimeType": "text/plain"
+        },
+        "accuracy_score": "5",
+        "evidence_image": {
+          "url": "mock://local/qa-evidence-r0608015517.png",
+          "name": "qa-evidence-r0608015517.png",
+          "size": 151,
+          "mimeType": "image/png"
+        },
+        "relevance_score": "5",
+        "structured_note": {
+          "round": "initial",
+          "verdict": "pass",
+          "externalId": "V0001"
+        },
+        "revision_suggestion": "<p>无需进一步修改。</p>"
+      },
+      "schemaVersion": "qa-quality-v1",
+      "submittedAt": "2026-06-08T01:57:08.324Z",
+      "createdAt": "2026-06-08T01:57:08.324Z",
+      "updatedAt": "2026-06-08T01:57:08.324Z"
+    },
+    {
+      "id": "cmq4k90fh05cnbapednag4hk1",
+      "assignmentId": "cmq4k8x6305bnbape86030ka5",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "comment": "V0002：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+        "summary": "整体质量良好",
+        "issue_tags": [],
+        "format_score": "5",
+        "safety_score": "5",
+        "evidence_file": {
+          "url": "mock://local/qa-evidence-r0608015517.txt",
+          "name": "qa-evidence-r0608015517.txt",
+          "size": 181,
+          "mimeType": "text/plain"
+        },
+        "accuracy_score": "5",
+        "evidence_image": {
+          "url": "mock://local/qa-evidence-r0608015517.png",
+          "name": "qa-evidence-r0608015517.png",
+          "size": 151,
+          "mimeType": "image/png"
+        },
+        "relevance_score": "5",
+        "structured_note": {
+          "round": "initial",
+          "verdict": "pass",
+          "externalId": "V0002"
+        },
+        "revision_suggestion": "<p>无需进一步修改。</p>"
+      },
+      "schemaVersion": "qa-quality-v1",
+      "submittedAt": "2026-06-08T01:57:08.333Z",
+      "createdAt": "2026-06-08T01:57:08.333Z",
+      "updatedAt": "2026-06-08T01:57:08.333Z"
+    },
+    {
+      "id": "cmq4k90fn05cqbape6b0n0yum",
+      "assignmentId": "cmq4k8x6605bobape7jz567wf",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "comment": "V0003：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+        "summary": "整体质量良好",
+        "issue_tags": [],
+        "format_score": "5",
+        "safety_score": "5",
+        "evidence_file": {
+          "url": "mock://local/qa-evidence-r0608015517.txt",
+          "name": "qa-evidence-r0608015517.txt",
+          "size": 181,
+          "mimeType": "text/plain"
+        },
+        "accuracy_score": "5",
+        "evidence_image": {
+          "url": "mock://local/qa-evidence-r0608015517.png",
+          "name": "qa-evidence-r0608015517.png",
+          "size": 151,
+          "mimeType": "image/png"
+        },
+        "relevance_score": "5",
+        "structured_note": {
+          "round": "initial",
+          "verdict": "pass",
+          "externalId": "V0003"
+        },
+        "revision_suggestion": "<p>无需进一步修改。</p>"
+      },
+      "schemaVersion": "qa-quality-v1",
+      "submittedAt": "2026-06-08T01:57:08.339Z",
+      "createdAt": "2026-06-08T01:57:08.339Z",
+      "updatedAt": "2026-06-08T01:57:08.339Z"
+    },
+    {
+      "id": "cmq4k90fs05ctbape9cvn0f97",
+      "assignmentId": "cmq4k8x6905bpbapenitj4k1s",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "comment": "I0001：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+        "summary": "整体质量良好",
+        "issue_tags": [],
+        "format_score": "5",
+        "safety_score": "5",
+        "evidence_file": {
+          "url": "mock://local/qa-evidence-r0608015517.txt",
+          "name": "qa-evidence-r0608015517.txt",
+          "size": 181,
+          "mimeType": "text/plain"
+        },
+        "accuracy_score": "5",
+        "evidence_image": {
+          "url": "mock://local/qa-evidence-r0608015517.png",
+          "name": "qa-evidence-r0608015517.png",
+          "size": 151,
+          "mimeType": "image/png"
+        },
+        "relevance_score": "5",
+        "structured_note": {
+          "round": "initial",
+          "verdict": "pass",
+          "externalId": "I0001"
+        },
+        "revision_suggestion": "<p>无需进一步修改。</p>"
+      },
+      "schemaVersion": "qa-quality-v1",
+      "submittedAt": "2026-06-08T01:57:08.344Z",
+      "createdAt": "2026-06-08T01:57:08.344Z",
+      "updatedAt": "2026-06-08T01:57:08.344Z"
+    },
+    {
+      "id": "cmq4k90fx05cwbapezpgrgx90",
+      "assignmentId": "cmq4k8x6d05bqbape1dpb9lvf",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "comment": "I0002：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+        "summary": "整体质量良好",
+        "issue_tags": [],
+        "format_score": "5",
+        "safety_score": "5",
+        "evidence_file": {
+          "url": "mock://local/qa-evidence-r0608015517.txt",
+          "name": "qa-evidence-r0608015517.txt",
+          "size": 181,
+          "mimeType": "text/plain"
+        },
+        "accuracy_score": "5",
+        "evidence_image": {
+          "url": "mock://local/qa-evidence-r0608015517.png",
+          "name": "qa-evidence-r0608015517.png",
+          "size": 151,
+          "mimeType": "image/png"
+        },
+        "relevance_score": "5",
+        "structured_note": {
+          "round": "initial",
+          "verdict": "pass",
+          "externalId": "I0002"
+        },
+        "revision_suggestion": "<p>无需进一步修改。</p>"
+      },
+      "schemaVersion": "qa-quality-v1",
+      "submittedAt": "2026-06-08T01:57:08.349Z",
+      "createdAt": "2026-06-08T01:57:08.349Z",
+      "updatedAt": "2026-06-08T01:57:08.349Z"
+    },
+    {
+      "id": "cmq4k90g105czbape5qz8mu6l",
+      "assignmentId": "cmq4k8x6f05brbape8zgu9x0q",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "comment": "I0003：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+        "summary": "整体质量良好",
+        "issue_tags": [],
+        "format_score": "5",
+        "safety_score": "5",
+        "evidence_file": {
+          "url": "mock://local/qa-evidence-r0608015517.txt",
+          "name": "qa-evidence-r0608015517.txt",
+          "size": 181,
+          "mimeType": "text/plain"
+        },
+        "accuracy_score": "5",
+        "evidence_image": {
+          "url": "mock://local/qa-evidence-r0608015517.png",
+          "name": "qa-evidence-r0608015517.png",
+          "size": 151,
+          "mimeType": "image/png"
+        },
+        "relevance_score": "5",
+        "structured_note": {
+          "round": "initial",
+          "verdict": "pass",
+          "externalId": "I0003"
+        },
+        "revision_suggestion": "<p>无需进一步修改。</p>"
+      },
+      "schemaVersion": "qa-quality-v1",
+      "submittedAt": "2026-06-08T01:57:08.353Z",
+      "createdAt": "2026-06-08T01:57:08.353Z",
+      "updatedAt": "2026-06-08T01:57:08.353Z"
+    },
+    {
+      "id": "cmq4k90g605d2bapewig0vrol",
+      "assignmentId": "cmq4k8x6i05bsbape6lhpzf8n",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "comment": "I0004：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+        "summary": "整体质量良好",
+        "issue_tags": [],
+        "format_score": "5",
+        "safety_score": "5",
+        "evidence_file": {
+          "url": "mock://local/qa-evidence-r0608015517.txt",
+          "name": "qa-evidence-r0608015517.txt",
+          "size": 181,
+          "mimeType": "text/plain"
+        },
+        "accuracy_score": "5",
+        "evidence_image": {
+          "url": "mock://local/qa-evidence-r0608015517.png",
+          "name": "qa-evidence-r0608015517.png",
+          "size": 151,
+          "mimeType": "image/png"
+        },
+        "relevance_score": "5",
+        "structured_note": {
+          "round": "initial",
+          "verdict": "pass",
+          "externalId": "I0004"
+        },
+        "revision_suggestion": "<p>无需进一步修改。</p>"
+      },
+      "schemaVersion": "qa-quality-v1",
+      "submittedAt": "2026-06-08T01:57:08.358Z",
+      "createdAt": "2026-06-08T01:57:08.358Z",
+      "updatedAt": "2026-06-08T01:57:08.358Z"
+    },
+    {
+      "id": "cmq4k90g905d5bapeuu6m9bql",
+      "assignmentId": "cmq4k8x6l05btbape6lelgo9f",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "comment": "M0001：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+        "summary": "整体质量良好",
+        "issue_tags": [],
+        "format_score": "5",
+        "safety_score": "5",
+        "evidence_file": {
+          "url": "mock://local/qa-evidence-r0608015517.txt",
+          "name": "qa-evidence-r0608015517.txt",
+          "size": 181,
+          "mimeType": "text/plain"
+        },
+        "accuracy_score": "5",
+        "evidence_image": {
+          "url": "mock://local/qa-evidence-r0608015517.png",
+          "name": "qa-evidence-r0608015517.png",
+          "size": 151,
+          "mimeType": "image/png"
+        },
+        "relevance_score": "5",
+        "structured_note": {
+          "round": "initial",
+          "verdict": "pass",
+          "externalId": "M0001"
+        },
+        "revision_suggestion": "<p>无需进一步修改。</p>"
+      },
+      "schemaVersion": "qa-quality-v1",
+      "submittedAt": "2026-06-08T01:57:08.361Z",
+      "createdAt": "2026-06-08T01:57:08.361Z",
+      "updatedAt": "2026-06-08T01:57:08.361Z"
+    },
+    {
+      "id": "cmq4k90gc05d8bapeao954m0d",
+      "assignmentId": "cmq4k8x6n05bubapepdit0s0o",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "comment": "M0002：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+        "summary": "整体质量良好",
+        "issue_tags": [],
+        "format_score": "5",
+        "safety_score": "5",
+        "evidence_file": {
+          "url": "mock://local/qa-evidence-r0608015517.txt",
+          "name": "qa-evidence-r0608015517.txt",
+          "size": 181,
+          "mimeType": "text/plain"
+        },
+        "accuracy_score": "5",
+        "evidence_image": {
+          "url": "mock://local/qa-evidence-r0608015517.png",
+          "name": "qa-evidence-r0608015517.png",
+          "size": 151,
+          "mimeType": "image/png"
+        },
+        "relevance_score": "5",
+        "structured_note": {
+          "round": "initial",
+          "verdict": "pass",
+          "externalId": "M0002"
+        },
+        "revision_suggestion": "<p>无需进一步修改。</p>"
+      },
+      "schemaVersion": "qa-quality-v1",
+      "submittedAt": "2026-06-08T01:57:08.364Z",
+      "createdAt": "2026-06-08T01:57:08.364Z",
+      "updatedAt": "2026-06-08T01:57:08.364Z"
+    },
+    {
+      "id": "cmq4k90gf05dbbapep58gzv7f",
+      "assignmentId": "cmq4k8x6p05bvbape4i8ukedv",
+      "status": "AI_QUEUED",
+      "round": 1,
+      "answers": {
+        "comment": "M0003：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+        "summary": "整体质量良好",
+        "issue_tags": [],
+        "format_score": "5",
+        "safety_score": "5",
+        "evidence_file": {
+          "url": "mock://local/qa-evidence-r0608015517.txt",
+          "name": "qa-evidence-r0608015517.txt",
+          "size": 181,
+          "mimeType": "text/plain"
+        },
+        "accuracy_score": "5",
+        "evidence_image": {
+          "url": "mock://local/qa-evidence-r0608015517.png",
+          "name": "qa-evidence-r0608015517.png",
+          "size": 151,
+          "mimeType": "image/png"
+        },
+        "relevance_score": "5",
+        "structured_note": {
+          "round": "initial",
+          "verdict": "pass",
+          "externalId": "M0003"
+        },
+        "revision_suggestion": "<p>无需进一步修改。</p>"
+      },
+      "schemaVersion": "qa-quality-v1",
+      "submittedAt": "2026-06-08T01:57:08.367Z",
+      "createdAt": "2026-06-08T01:57:08.367Z",
+      "updatedAt": "2026-06-08T01:57:08.367Z"
+    }
+  ]
+}

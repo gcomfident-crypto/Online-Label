@@ -481,7 +481,7 @@ describe('AiReviewProcessorService', () => {
     );
   });
 
-  it('AI 预审达到最大失败次数后退回标注员并留下可见失败原因', async () => {
+  it('AI 预审达到最大失败次数后停在失败态，不伪装成打回给标注员', async () => {
     const errorMessage = 'AI 预审模型未配置，请检查 DEEPSEEK_API_KEY、OPENAI_API_KEY、LLM_API_KEY 或 LLM_PROVIDER。';
     const llmService = {
       reviewSubmission: vi.fn(async () => {
@@ -511,48 +511,19 @@ describe('AiReviewProcessorService', () => {
       attempts: 3,
       lastError: errorMessage,
     });
-    expect(submissions[0].status).toBe('NEEDS_REVISION');
-    expect(assignments[0].status).toBe('NEEDS_REVISION');
-    expect(reviewRecords.at(-1)).toEqual(
-      expect.objectContaining({
-        stage: 'AI_PRECHECK',
-        reviewerType: 'AI',
-        decision: 'reject',
-        comment: expect.stringContaining(errorMessage),
-        structuredOutput: expect.objectContaining({
-          verdict: 'reject',
-          overallComment: expect.stringContaining(errorMessage),
+    expect(submissions[0].status).toBe('AI_QUEUED');
+    expect(assignments[0].status).toBe('SUBMITTED');
+    expect(reviewRecords).toHaveLength(0);
+    expect(auditLogs).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          toStatus: 'NEEDS_REVISION',
+          metadata: expect.objectContaining({
+            action: 'AI_REVIEW_FAILED_TO_REVISION',
+          }),
         }),
-      }),
+      ]),
     );
-    expect(auditLogs.slice(-3)).toEqual([
-      expect.objectContaining({
-        fromStatus: 'AI_QUEUED',
-        toStatus: 'AI_REVIEWING',
-        metadata: expect.objectContaining({
-          action: 'AI_REVIEW_STARTED',
-          jobId: 'job_1',
-        }),
-      }),
-      expect.objectContaining({
-        fromStatus: 'AI_REVIEWING',
-        toStatus: 'AI_REJECTED',
-        reason: expect.stringContaining(errorMessage),
-        metadata: expect.objectContaining({
-          action: 'AI_REVIEW_FAILED',
-          jobId: 'job_1',
-        }),
-      }),
-      expect.objectContaining({
-        fromStatus: 'AI_REJECTED',
-        toStatus: 'NEEDS_REVISION',
-        reason: expect.stringContaining(errorMessage),
-        metadata: expect.objectContaining({
-          action: 'AI_REVIEW_FAILED_TO_REVISION',
-          jobId: 'job_1',
-        }),
-      }),
-    ]);
   });
 
   it('另一个处理器已领取同一 AI 预审任务时跳过且不记失败', async () => {

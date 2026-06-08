@@ -716,11 +716,15 @@ function currentStageForItems(
     return 'FINAL_COMPLETED';
   }
 
+  const aiSummary = summarizeAi(items);
+  if (aiPreReviewEnabled && aiSummary.failed > 0) {
+    return 'AI_PRECHECK';
+  }
+
   if (items.some((item) => item.labelerStatus === 'NEEDS_REVISION')) {
     return 'LABELER_REVISION';
   }
 
-  const aiSummary = summarizeAi(items);
   if (
     aiPreReviewEnabled &&
     (aiSummary.queued > 0 ||

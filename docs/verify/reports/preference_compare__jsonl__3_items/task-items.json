@@ -1,0 +1,87 @@
+[
+  {
+    "id": "cmq4344b600aqwtpep9gwh037",
+    "taskId": "cmq4344a000anwtpeth6ztyh9",
+    "externalId": "P0001",
+    "datasetKind": "generic_json",
+    "rawData": {
+      "id": "P0001",
+      "lang": "zh",
+      "margin": "明显优于",
+      "prompt": "解释什么是过拟合，并给一个通俗例子。",
+      "model_a": "doubao-pro",
+      "model_b": "baseline-7b",
+      "preferred": "A",
+      "task_type": "知识问答",
+      "dimensions": [
+        "准确性",
+        "完整性",
+        "可读性"
+      ],
+      "response_a": "过拟合指模型在训练集表现很好但泛化差。比如学生死记答案，考原题满分，换题就不会。",
+      "response_b": "过拟合就是模型训练得太好了。",
+      "safety_flag": false,
+      "annotator_note": "A 含定义+类比，B 过于笼统。"
+    },
+    "status": "ASSIGNED",
+    "sortOrder": 1,
+    "createdAt": "2026-06-07T17:57:26.610Z",
+    "updatedAt": "2026-06-07T17:57:32.384Z"
+  },
+  {
+    "id": "cmq4344b600arwtperejlobzg",
+    "taskId": "cmq4344a000anwtpeth6ztyh9",
+    "externalId": "P0002",
+    "datasetKind": "generic_json",
+    "rawData": {
+      "id": "P0002",
+      "lang": "zh",
+      "margin": "明显优于",
+      "prompt": "用 Python 反转一个链表。",
+      "model_a": "gpt-style",
+      "model_b": "baseline-7b",
+      "preferred": "A",
+      "task_type": "代码生成",
+      "dimensions": [
+        "准确性",
+        "可执行性"
+      ],
+      "response_a": "def reverse(head):\n    prev=None\n    while head:\n        head.next,prev,head=prev,head,head.next\n    return prev",
+      "response_b": "可以用递归或迭代实现，建议查阅相关资料。",
+      "safety_flag": false,
+      "annotator_note": "B 未给出代码，答非所问。"
+    },
+    "status": "ASSIGNED",
+    "sortOrder": 2,
+    "createdAt": "2026-06-07T17:57:26.610Z",
+    "updatedAt": "2026-06-07T17:57:32.388Z"
+  },
+  {
+    "id": "cmq4344b600aswtpegzabwc5a",
+    "taskId": "cmq4344a000anwtpeth6ztyh9",
+    "externalId": "P0003",
+    "datasetKind": "generic_json",
+    "rawData": {
+      "id": "P0003",
+      "lang": "zh",
+      "margin": "略优于",
+      "prompt": "概括：财报显示营收增长但利润下滑，因研发与营销投入加大。",
+      "model_a": "doubao-lite",
+      "model_b": "doubao-pro",
+      "preferred": "A",
+      "task_type": "文本摘要",
+      "dimensions": [
+        "简洁性",
+        "相关性"
+      ],
+      "response_a": "营收增长，但因研发营销投入加大导致利润下滑。",
+      "response_b": "公司财报显示营收增长，同时利润有所下滑，原因是研发和营销方面的投入显著增加所致。",
+      "safety_flag": false,
+      "annotator_note": "两者均正确，A 更精炼。"
+    },
+    "status": "ASSIGNED",
+    "sortOrder": 3,
+    "createdAt": "2026-06-07T17:57:26.610Z",
+    "updatedAt": "2026-06-07T17:57:32.391Z"
+  }
+]

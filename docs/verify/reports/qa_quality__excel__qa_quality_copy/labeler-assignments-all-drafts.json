@@ -1,0 +1,1412 @@
+[
+  {
+    "assignmentId": "cmq4k9ioh05h6bapewlu84ra0",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gabapezkioj4c5",
+    "taskItemSortOrder": 8,
+    "externalId": "Q0008",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.985Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0008：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0008"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.666Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ioj05h7bape7xl6f7re",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gbbapeviut6run",
+    "taskItemSortOrder": 9,
+    "externalId": "Q0009",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.987Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0009：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0009"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.675Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9iol05h8bapexkthlka4",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gcbapeia3s1zch",
+    "taskItemSortOrder": 10,
+    "externalId": "Q0010",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.989Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0010：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0010"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.684Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ioo05h9bapenf2ekg1i",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gdbapem6nv89i1",
+    "taskItemSortOrder": 11,
+    "externalId": "Q0011",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.992Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0011：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0011"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.691Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ioq05habape7idou8ue",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gebapeg38kh9eb",
+    "taskItemSortOrder": 12,
+    "externalId": "Q0012",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.994Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0012：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0012"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.702Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ioe05h5bapex1kktp43",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05g9bapeuly64hwc",
+    "taskItemSortOrder": 7,
+    "externalId": "Q0007",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.982Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0007：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0007"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.656Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ios05hbbape3h0a0x9o",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gfbapeauz9y6ax",
+    "taskItemSortOrder": 13,
+    "externalId": "Q0013",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.996Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0013：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0013"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.708Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9iou05hcbapecamqtpnp",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05ggbape1fec5lan",
+    "taskItemSortOrder": 14,
+    "externalId": "Q0014",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.998Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0014：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0014"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.713Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9iox05hdbape1cwdnjzy",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05ghbaper6yybxpe",
+    "taskItemSortOrder": 15,
+    "externalId": "Q0015",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.001Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0015：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0015"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.719Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ioz05hebape31atmqxd",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gibapeimuhmoqg",
+    "taskItemSortOrder": 16,
+    "externalId": "Q0016",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.003Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0016：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0016"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.725Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ip105hfbapewj0glhra",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gjbapewwruzxwv",
+    "taskItemSortOrder": 17,
+    "externalId": "Q0017",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.005Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0017：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0017"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.731Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ip305hgbapem41bprlo",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gkbape3esm9v8v",
+    "taskItemSortOrder": 18,
+    "externalId": "Q0018",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.007Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0018：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0018"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.736Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ip405hhbapepv7t0nf0",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05glbapehq89jjwu",
+    "taskItemSortOrder": 19,
+    "externalId": "Q0019",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.008Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0019：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0019"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.741Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ip605hibapecg6f4o6c",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gmbapeask0en8y",
+    "taskItemSortOrder": 20,
+    "externalId": "Q0020",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.010Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0020：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0020"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.746Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ip805hjbapeq7btmjx4",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gnbaperl0ew3ba",
+    "taskItemSortOrder": 21,
+    "externalId": "V0001",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.012Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "V0001：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "V0001"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.754Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ipa05hkbapembj5ebr0",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gobapet2sgvf0s",
+    "taskItemSortOrder": 22,
+    "externalId": "V0002",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.014Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "V0002：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "V0002"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.759Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ipc05hlbapelfteb9kk",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gpbapepguz38o7",
+    "taskItemSortOrder": 23,
+    "externalId": "V0003",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.016Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "V0003：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "V0003"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.764Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ipd05hmbapeij4nm7wi",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gqbapes9nc2fse",
+    "taskItemSortOrder": 24,
+    "externalId": "I0001",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.017Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "I0001：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "I0001"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.769Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ipf05hnbape0flgle7w",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05grbapej84eihjo",
+    "taskItemSortOrder": 25,
+    "externalId": "I0002",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.019Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "I0002：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "I0002"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.773Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9iph05hobapeu08f9m6r",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gsbapelwwyioce",
+    "taskItemSortOrder": 26,
+    "externalId": "I0003",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.021Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "I0003：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "I0003"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.778Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ipj05hpbapen2409apa",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gtbapeowbiybli",
+    "taskItemSortOrder": 27,
+    "externalId": "I0004",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.023Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "I0004：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "I0004"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.784Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ipl05hqbaper0dwv5hg",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05gubapefkd25w3j",
+    "taskItemSortOrder": 28,
+    "externalId": "M0001",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.025Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "M0001：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "M0001"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.788Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ipn05hrbapezvfoe6uq",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxy05gvbape9rk43gvk",
+    "taskItemSortOrder": 29,
+    "externalId": "M0002",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.027Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "M0002：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "M0002"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.793Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ipp05hsbapef8hc4uzi",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxy05gwbapes7booy7a",
+    "taskItemSortOrder": 30,
+    "externalId": "M0003",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:32.029Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "M0003：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "M0003"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.798Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9inu05gzbapeu27izsn0",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05g3bapeiw05zcl0",
+    "taskItemSortOrder": 1,
+    "externalId": "Q0001",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.963Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0001：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0001"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.802Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9iny05h0bape8a8nl82u",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05g4bapelcfuw25e",
+    "taskItemSortOrder": 2,
+    "externalId": "Q0002",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.966Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0002：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0002"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.807Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9io205h1bapeo3ha6xgl",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05g5bapehg56jgkt",
+    "taskItemSortOrder": 3,
+    "externalId": "Q0003",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.970Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0003：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0003"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.812Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9io605h2bapefw9u5md0",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05g6bapec8hhm85l",
+    "taskItemSortOrder": 4,
+    "externalId": "Q0004",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.974Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0004：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0004"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.818Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9io905h3bapefkuer1np",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05g7bapejo9qy4iv",
+    "taskItemSortOrder": 5,
+    "externalId": "Q0005",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.977Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0005：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0005"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.822Z",
+    "round": 0
+  },
+  {
+    "assignmentId": "cmq4k9ioc05h4bapexltawo36",
+    "taskId": "cmq4k9gx205g1bape4udf1b57",
+    "taskTitle": "VERIFY-qa_quality-excel-qa_quality copy-r0608015517",
+    "taskItemId": "cmq4k9gxx05g8bape90qx0hoa",
+    "taskItemSortOrder": 6,
+    "externalId": "Q0006",
+    "datasetKind": "qa_quality",
+    "status": "IN_PROGRESS",
+    "claimedAt": "2026-06-08T01:57:31.980Z",
+    "templateName": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1",
+    "latestSubmissionStatus": null,
+    "latestSubmittedAt": null,
+    "latestReviewStage": null,
+    "latestReviewerType": null,
+    "latestReviewDecision": null,
+    "draftAnswers": {
+      "comment": "Q0006：回答基本满足要求。 未发现明显事实、安全或格式问题。",
+      "summary": "整体质量良好",
+      "issue_tags": [],
+      "format_score": "5",
+      "safety_score": "5",
+      "evidence_file": {
+        "url": "mock://local/qa-evidence-r0608015517.txt",
+        "name": "qa-evidence-r0608015517.txt",
+        "size": 186,
+        "mimeType": "text/plain"
+      },
+      "accuracy_score": "5",
+      "evidence_image": {
+        "url": "mock://local/qa-evidence-r0608015517.png",
+        "name": "qa-evidence-r0608015517.png",
+        "size": 151,
+        "mimeType": "image/png"
+      },
+      "relevance_score": "5",
+      "structured_note": {
+        "round": "initial",
+        "verdict": "pass",
+        "externalId": "Q0006"
+      },
+      "revision_suggestion": "<p>无需进一步修改。</p>"
+    },
+    "draftUpdatedAt": "2026-06-08T01:57:34.827Z",
+    "round": 0
+  }
+]

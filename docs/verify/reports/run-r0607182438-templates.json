@@ -1,0 +1,12 @@
+{
+  "preferenceTemplate": {
+    "id": "cmq23jrct003aovpeb2btcc31",
+    "name": "模型对比模版",
+    "schemaVersion": "v2"
+  },
+  "qaTemplate": {
+    "id": "cmq3zm3mn00002qpe0y4k7ico",
+    "name": "问答质量官方模板",
+    "schemaVersion": "qa-quality-v1"
+  }
+}
