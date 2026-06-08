@@ -18,14 +18,10 @@ const LOGIN_ROLE_OPTIONS: Array<{ label: string; role: UserRole }> = [
 
 const ACCOUNT_ROLE_ALIASES: Record<string, UserRole> = {
   zhangman: USER_ROLE.OWNER,
-  owner: USER_ROLE.OWNER,
   lilei: USER_ROLE.LABELER,
-  labeler: USER_ROLE.LABELER,
   hanmeimei: USER_ROLE.LABELER,
-  labeler2: USER_ROLE.LABELER,
   agent: USER_ROLE.AI_AGENT,
   wangfang: USER_ROLE.REVIEWER,
-  reviewer: USER_ROLE.REVIEWER,
 };
 
 const resolveRoleFromAccount = (account: string, selectedRole: UserRole) => {

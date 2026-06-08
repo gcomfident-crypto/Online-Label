@@ -41,13 +41,7 @@ const DEMO_USERS: Record<UserRole, SessionUser> = {
 
 const DEMO_ACCOUNT_USERS: Record<string, SessionUser> = {
   zhangman: DEMO_USERS[USER_ROLE.OWNER],
-  owner: DEMO_USERS[USER_ROLE.OWNER],
   lilei: {
-    id: 'demo-labeler-li-lei',
-    name: '李雷',
-    role: USER_ROLE.LABELER,
-  },
-  labeler: {
     id: 'demo-labeler-li-lei',
     name: '李雷',
     role: USER_ROLE.LABELER,
@@ -57,14 +51,8 @@ const DEMO_ACCOUNT_USERS: Record<string, SessionUser> = {
     name: '韩梅梅',
     role: USER_ROLE.LABELER,
   },
-  labeler2: {
-    id: 'demo-labeler-han-mei-mei',
-    name: '韩梅梅',
-    role: USER_ROLE.LABELER,
-  },
   agent: DEMO_USERS[USER_ROLE.AI_AGENT],
   wangfang: DEMO_USERS[USER_ROLE.REVIEWER],
-  reviewer: DEMO_USERS[USER_ROLE.REVIEWER],
 };
 
 const subscribers = new Set<() => void>();

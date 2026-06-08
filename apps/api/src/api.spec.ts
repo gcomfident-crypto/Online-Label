@@ -51,7 +51,7 @@ describe('LabelHub API shell', () => {
   it('logs in by demo account identifier', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ account: 'reviewer', password: '123456' })
+      .send({ account: 'wangfang', password: '123456' })
       .expect(201);
 
     expect(response.body.data.user.role).toBe('REVIEWER');

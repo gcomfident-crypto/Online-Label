@@ -115,22 +115,22 @@ pnpm --filter @labelhub/worker dev
 
 ## 演示账号
 
-登录页可直接选择演示账号，无需密码。
+登录页输入账号和统一密码 `123456` 即可登录。
 
-| 账号 | 角色 | API role | 默认首页 |
+| 账号 | 姓名 | 角色 | 默认首页 |
 | --- | --- | --- | --- |
-| `owner` | 任务负责人 | `OWNER` | `/owner/tasks` |
-| `labeler` / `labeler1` | 标注员李雷 | `LABELER` | `/labeler/market` |
-| `labeler2` | 标注员韩梅梅 | `LABELER` | `/labeler/market` |
-| `agent` / `ai_agent` | AI Agent | `AI_AGENT` | `/agent/ai-review` |
-| `reviewer` | 人工审核员 | `REVIEWER` | `/reviewer/reviews` |
+| `zhangman` | 张满 | OWNER 任务负责人 | `/owner/tasks` |
+| `lilei` | 李雷 | LABELER 标注员 | `/labeler/market` |
+| `hanmeimei` | 韩梅梅 | LABELER 标注员 | `/labeler/market` |
+| `agent` | 系统机审账号 | AI_AGENT 质检 | `/agent/dashboard` |
+| `wangfang` | 王芳 | REVIEWER 审核员 | `/reviewer/reviews` |
 
 API 登录示例：
 
 ```bash
 curl -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"role":"OWNER"}'
+  -d '{"account":"zhangman","password":"123456"}'
 ```
 
 ## 常用命令
