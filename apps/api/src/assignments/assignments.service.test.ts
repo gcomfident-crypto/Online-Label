@@ -192,7 +192,7 @@ describe('AssignmentsService', () => {
     const { service } = createService({
       tasks: [
         { id: 'task_qa', quota: 1 },
-        { id: 'task_preference', deadline: new Date('2026-05-20T00:00:00.000Z') },
+        { id: 'task_preference', deadline: new Date('2000-01-01T00:00:00.000Z') },
         { id: 'task_draft', status: 'DRAFT' },
       ],
     });
@@ -438,7 +438,7 @@ function createTaskDefaults(now: Date): TaskRecord[] {
       rewardRule: '0.30 元 / 条',
       perUserLimit: 5,
       quota: 10,
-      deadline: new Date('2026-06-01T15:59:00.000Z'),
+      deadline: new Date('2026-08-01T15:59:00.000Z'),
       status: 'PUBLISHED',
       template: {
         id: 'template_qa',
@@ -463,7 +463,7 @@ function createTaskDefaults(now: Date): TaskRecord[] {
       rewardRule: '0.45 元 / 条',
       perUserLimit: 2,
       quota: 5,
-      deadline: new Date('2026-06-05T15:59:00.000Z'),
+      deadline: new Date('2026-08-05T15:59:00.000Z'),
       status: 'PUBLISHED',
       template: {
         id: 'template_preference',
@@ -494,7 +494,7 @@ function createTaskDefaults(now: Date): TaskRecord[] {
       rewardRule: null,
       perUserLimit: 1,
       quota: 3,
-      deadline: new Date('2026-06-10T15:59:00.000Z'),
+      deadline: new Date('2026-08-10T15:59:00.000Z'),
       status: 'DRAFT',
       template: {
         id: 'template_qa',

@@ -278,7 +278,7 @@ describe('TaskListPage', () => {
     expect(rows[1]).toHaveTextContent('直播话术安全审核');
     expect(rows[2]).toHaveTextContent('短视频脚本对齐评测');
     expect(within(table).getAllByText('张满').length).toBeGreaterThan(0);
-    expect(within(table).getAllByText('120 / 5,000 题')[0]).toHaveClass('task-progress-cell__count');
+    expect(within(table).getAllByText('120 / 2,340 题')[0]).toHaveClass('task-progress-cell__count');
     expect(table.querySelectorAll('.task-date-cell').length).toBeGreaterThan(0);
     expect(table.querySelectorAll('.task-date-cell__date').length).toBeGreaterThan(0);
     expect(table.querySelectorAll('.task-date-cell__time').length).toBeGreaterThan(0);
@@ -1447,9 +1447,10 @@ describe('TaskListPage', () => {
     await user.click(screen.getByRole('button', { name: '查看 M-002 · 问答质量模板 · v1 模板配置' }));
 
     const dialog = await screen.findByRole('dialog', { name: '模板配置' });
-    await user.click(within(dialog).getByRole('button', { name: '选择 题目' }));
-    fireEvent.change(screen.getByLabelText('标题'), {
-      target: { value: '题目修改' },
+    const canvas = within(dialog).getByRole('main', { name: '模板编辑区域' });
+    await user.click(within(canvas).getByRole('button', { name: '编辑模板名称' }));
+    fireEvent.change(within(canvas).getByRole('textbox', { name: '模板名称' }), {
+      target: { value: '问答质量模板修改' },
     });
     await user.click(screen.getByTestId('template-designer-backdrop'));
 
