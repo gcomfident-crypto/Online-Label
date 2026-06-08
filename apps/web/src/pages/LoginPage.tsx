@@ -24,9 +24,9 @@ const ACCOUNT_ROLE_ALIASES: Record<string, UserRole> = {
   wangfang: USER_ROLE.REVIEWER,
 };
 
-const resolveRoleFromAccount = (account: string, selectedRole: UserRole) => {
+const resolveRoleFromAccount = (account: string): UserRole | null => {
   const normalizedAccount = account.trim().toLowerCase().split('@')[0];
-  return ACCOUNT_ROLE_ALIASES[normalizedAccount] ?? selectedRole;
+  return ACCOUNT_ROLE_ALIASES[normalizedAccount] ?? null;
 };
 
 export const LoginPage = () => {
@@ -45,7 +45,13 @@ export const LoginPage = () => {
       return;
     }
 
-    const role = resolveRoleFromAccount(account, selectedRole);
+    const role = resolveRoleFromAccount(account);
+
+    if (!role) {
+      setFormError('账号不存在，请输入有效的演示账号。');
+      return;
+    }
+
     const nextSession = sessionStore.loginAs(role, { account, remember: rememberSession });
 
     void navigate(getRoleHomePath(nextSession.user.role), { replace: true });
