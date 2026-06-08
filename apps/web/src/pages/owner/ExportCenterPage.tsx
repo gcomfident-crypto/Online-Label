@@ -10,7 +10,7 @@ import {
   type ExportPreviewDto,
 } from '../../api/exports';
 import type { TaskItemDto } from '../../api/datasets';
-import { listTasks, type TaskDto } from '../../api/tasks';
+import { listTaskSummaries, type TaskDto } from '../../api/tasks';
 import exportIcon from '../../assets/export.svg';
 import eyeIcon from '../../assets/eye.svg';
 import { PageLoading } from '../../components/PageLoading';
@@ -129,7 +129,7 @@ export const ExportCenterPage = () => {
   const loadInitialData = async () => {
     setIsLoading((current) => current && tasks.length === 0);
     try {
-      const nextTasks = await listTasks();
+      const nextTasks = await listTaskSummaries();
       writePageDataCache(OWNER_EXPORT_TASKS_CACHE_KEY, nextTasks);
       setTasks(nextTasks);
     } catch {

@@ -11,7 +11,8 @@ import {
 import {
   createTask,
   deleteTask,
-  listTasks,
+  getTask,
+  listTaskSummaries,
   updateTask,
   updateTaskStatus,
   type TaskDto,
@@ -176,7 +177,7 @@ export const TaskListPage = () => {
   const loadTasks = async () => {
     setIsLoading((current) => current && tasks.length === 0);
     try {
-      const nextTasks = await listTasks({ ownerId: OWNER_ID });
+      const nextTasks = await listTaskSummaries({ ownerId: OWNER_ID });
       writePageDataCache(OWNER_TASKS_CACHE_KEY, nextTasks);
       setTasks(nextTasks);
     } catch (error) {
@@ -263,6 +264,24 @@ export const TaskListPage = () => {
   }, [totalTaskPages]);
 
   const openPublishDrawer = (task: TaskDto) => {
+    openPublishDrawerWithTask(task);
+
+    if (task.id === 'new-task-draft') {
+      return;
+    }
+
+    void getTask(task.id)
+      .then((fullTask) => {
+        const mergedTask = mergeTaskClientState(fullTask, task);
+        replaceTask(mergedTask);
+        openPublishDrawerWithTask(mergedTask);
+      })
+      .catch((error) => {
+        showErrorToast(error instanceof Error ? error.message : '任务详情加载失败。');
+      });
+  };
+
+  const openPublishDrawerWithTask = (task: TaskDto) => {
     clearDrawerCloseTimer();
     clearTemplateReturnAnimationTimer();
     setIsReturningFromTemplate(false);

@@ -7,6 +7,7 @@ describe('TasksController', () => {
     const service = {
       create: vi.fn().mockResolvedValue({ id: 'task_1', status: 'DRAFT' }),
       list: vi.fn().mockResolvedValue([{ id: 'task_1' }]),
+      listSummaries: vi.fn().mockResolvedValue([{ id: 'task_summary_1' }]),
       get: vi.fn().mockResolvedValue({ id: 'task_1' }),
       update: vi.fn().mockResolvedValue({ id: 'task_1', title: '新版任务' }),
       updateStatus: vi.fn().mockResolvedValue({ id: 'task_1', status: 'PUBLISHED' }),
@@ -32,6 +33,7 @@ describe('TasksController', () => {
 
     await expect(controller.create(legacyCreateBody)).resolves.toEqual({ id: 'task_1', status: 'DRAFT' });
     await expect(controller.list('user_owner_001', 'PUBLISHED')).resolves.toEqual([{ id: 'task_1' }]);
+    await expect(controller.listSummaries('user_owner_001', 'PUBLISHED')).resolves.toEqual([{ id: 'task_summary_1' }]);
     await expect(controller.get('task_1')).resolves.toEqual({ id: 'task_1' });
     await expect(controller.update('task_1', { title: '新版任务' })).resolves.toEqual({
       id: 'task_1',

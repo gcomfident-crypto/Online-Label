@@ -320,7 +320,7 @@ describe('ExportCenterPage', () => {
         const path = input.toString();
         const method = init?.method ?? 'GET';
 
-        if (path === '/tasks' && method === 'GET') {
+        if (path === '/tasks/summaries' && method === 'GET') {
           return jsonResponse({
             data: [
               {
@@ -366,7 +366,7 @@ describe('ExportCenterPage', () => {
         const path = input.toString();
         const method = init?.method ?? 'GET';
 
-        if (path === '/tasks' && method === 'GET') {
+        if (path === '/tasks/summaries' && method === 'GET') {
           return jsonResponse({
             data: [
               {
@@ -461,7 +461,7 @@ describe('ExportCenterPage', () => {
         const path = input.toString();
         const method = init?.method ?? 'GET';
 
-        if (path === '/tasks' && method === 'GET') {
+        if (path === '/tasks/summaries' && method === 'GET') {
           return jsonResponse({ data: [{ ...task, id: 'task_draft', status: 'PUBLISHED', exportableItemCount: 0 }] });
         }
 
@@ -519,7 +519,7 @@ function createFetchMock() {
     const path = input.toString();
     const method = init?.method ?? 'GET';
 
-    if (path === '/tasks' && method === 'GET') {
+    if (path === '/tasks/summaries' && method === 'GET') {
       return jsonResponse({ data: [task, secondTask] });
     }
     if (path === '/exports' && method === 'GET') {

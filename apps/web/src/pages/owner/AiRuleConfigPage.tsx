@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { listTasks, type TaskDto } from '../../api/tasks';
+import { listTaskSummaries, type TaskDto } from '../../api/tasks';
 import {
   getReviewRule,
   saveReviewRule,
@@ -50,7 +50,7 @@ export const AiRuleConfigPage = () => {
   const loadInitialRule = async () => {
     setIsLoading(true);
     try {
-      const nextTasks = await listTasks({ ownerId: OWNER_ID });
+      const nextTasks = await listTaskSummaries({ ownerId: OWNER_ID });
       const firstTask = nextTasks[0] ?? null;
       setTasks(nextTasks);
       setSelectedTaskId(firstTask?.id ?? '');

@@ -40,7 +40,7 @@ type MarketTaskRecord = {
   template: TaskTemplateSummary;
   createdById: string | null;
   createdBy: TaskCreatorSummary | null;
-  items: TaskItemRecord[];
+  items: MarketTaskItemRecord[];
   assignments: Array<{ id: string; assigneeId: string; status: AssignmentStatus }>;
   createdAt: Date;
   updatedAt: Date;
@@ -65,6 +65,8 @@ type TaskItemRecord = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+type MarketTaskItemRecord = Pick<TaskItemRecord, 'id' | 'externalId' | 'status'>;
 
 type AssignmentRecord = {
   id: string;
@@ -201,13 +203,7 @@ const MARKET_TASK_INCLUDE = {
     select: {
       id: true,
       externalId: true,
-      datasetKind: true,
-      rawData: true,
       status: true,
-      sortOrder: true,
-      taskId: true,
-      createdAt: true,
-      updatedAt: true,
     },
   },
   assignments: {
@@ -351,14 +347,6 @@ function toMarketTaskDto(task: MarketTaskRecord, labelerId?: string): MarketTask
   const quotaRemaining = task.quota === null ? unassignedCount : Math.max(0, task.quota - assignedCount);
   const remainingCount = Math.max(0, Math.min(unassignedCount, quotaRemaining));
   const claimedByMe = claimedByMeCount > 0;
-  const previewItems = task.items
-    .slice(0, 3)
-    .map((item) => ({
-      id: item.id,
-      externalId: item.externalId,
-      rawData: item.rawData,
-    }));
-
   return {
     id: task.id,
     title: task.title,
@@ -383,7 +371,7 @@ function toMarketTaskDto(task: MarketTaskRecord, labelerId?: string): MarketTask
       remainingCount,
       deadline: task.deadline,
     }),
-    previewItems,
+    previewItems: [],
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
   };

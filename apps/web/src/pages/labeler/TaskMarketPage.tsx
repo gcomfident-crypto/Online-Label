@@ -5,6 +5,7 @@ import {
   type MarketClaimStatus,
   type MarketTaskDto,
 } from '../../api/assignments';
+import { listTaskItems, type TaskItemDto } from '../../api/datasets';
 import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
@@ -58,6 +59,8 @@ export const TaskMarketPage = () => {
   const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [previewTask, setPreviewTask] = useState<MarketTaskDto | null>(null);
+  const [previewItems, setPreviewItems] = useState<MarketTaskDto['previewItems']>([]);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const { dismissToast, messages, showErrorToast, showStatusToast } = useToastController();
   const { containerRef: marketTableContainerRef, pageSize: marketPageSize } = useAdaptiveTablePageSize({
     fallbackPageSize: TASK_MARKET_FALLBACK_PAGE_SIZE,
@@ -201,6 +204,29 @@ export const TaskMarketPage = () => {
     setSortDirection('asc');
   };
 
+  const handlePreviewTask = (task: MarketTaskDto) => {
+    setPreviewTask(task);
+    setPreviewItems(task.previewItems ?? []);
+    setIsPreviewLoading((task.previewItems ?? []).length === 0);
+
+    if ((task.previewItems ?? []).length > 0) {
+      return;
+    }
+
+    void listTaskItems(task.id)
+      .then((items) => {
+        setPreviewItems(toMarketPreviewItems(items));
+      })
+      .catch((error) => {
+        setPreviewTask(null);
+        setPreviewItems([]);
+        showErrorToast(error instanceof Error ? error.message : '任务内容预览加载失败。');
+      })
+      .finally(() => {
+        setIsPreviewLoading(false);
+      });
+  };
+
   return (
     <section className="task-market-page" aria-labelledby="labeler-market-title">
       <ToastViewport messages={messages} onDismiss={dismissToast} />
@@ -327,7 +353,7 @@ export const TaskMarketPage = () => {
                             className="task-table-action task-table-action--icon task-market-table__preview-button"
                             type="button"
                             aria-label={`预览 ${task.title}`}
-                            onClick={() => setPreviewTask(task)}
+                            onClick={() => handlePreviewTask(task)}
                           >
                             <img className="task-market-table__preview-icon" src={eyeIcon} alt="" aria-hidden="true" />
                           </button>
@@ -382,7 +408,16 @@ export const TaskMarketPage = () => {
       </div>
 
       {previewTask ? (
-        <TaskPreviewDialog task={previewTask} onClose={() => setPreviewTask(null)} />
+        <TaskPreviewDialog
+          isLoading={isPreviewLoading}
+          previewItems={previewItems}
+          task={previewTask}
+          onClose={() => {
+            setPreviewTask(null);
+            setPreviewItems([]);
+            setIsPreviewLoading(false);
+          }}
+        />
       ) : null}
     </section>
   );
@@ -572,13 +607,16 @@ const ClaimStatusFilterCard = ({
 );
 
 const TaskPreviewDialog = ({
+  isLoading,
+  previewItems,
   task,
   onClose,
 }: {
+  isLoading: boolean;
+  previewItems: MarketTaskDto['previewItems'];
   task: MarketTaskDto;
   onClose: () => void;
 }) => {
-  const previewItems = task.previewItems ?? [];
   const fields = collectTaskPreviewFields(previewItems);
 
   return (
@@ -610,7 +648,9 @@ const TaskPreviewDialog = ({
           </button>
         </header>
         <div className="task-dataset-preview-modal__body">
-          {previewItems.length > 0 ? (
+          {isLoading ? (
+            <div className="task-dataset-preview-empty">正在加载预览数据</div>
+          ) : previewItems.length > 0 ? (
             <div className="task-dataset-preview-table-scroll">
               <table className="task-dataset-preview-table" aria-label="任务内容预览表格">
                 <thead>
@@ -659,6 +699,13 @@ const collectTaskPreviewFields = (items: MarketTaskDto['previewItems']): string[
 
   return Array.from(fields);
 };
+
+const toMarketPreviewItems = (items: readonly TaskItemDto[]): MarketTaskDto['previewItems'] =>
+  items.slice(0, 3).map((item) => ({
+    id: item.id,
+    externalId: item.externalId,
+    rawData: item.rawData,
+  }));
 
 const formatPreviewValue = (value: unknown): string => {
   if (value === null || value === undefined || value === '') {

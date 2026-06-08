@@ -1,6 +1,6 @@
 import type { AiReviewBatchDetailDto, AiReviewBatchDto, AiReviewJobDto } from '../../api/aiReview';
 import { getAiReviewBatch, listAiReviewBatches, listAiReviewJobs } from '../../api/aiReview';
-import { listTasks, type TaskDto } from '../../api/tasks';
+import { listTaskSummaries, type TaskDto } from '../../api/tasks';
 
 export type DashboardRange = '7d' | '30d';
 
@@ -104,7 +104,7 @@ export async function loadAgentDashboardData(
   const [batches, jobs, tasks] = await Promise.all([
     listAiReviewBatches(),
     listAiReviewJobs(),
-    listTasks(),
+    listTaskSummaries(),
   ]);
   const selectedBatchIds = new Set(filterBatchesByRange(batches, range, now).map((batch) => batch.batchId));
   const abnormalBatches = batches

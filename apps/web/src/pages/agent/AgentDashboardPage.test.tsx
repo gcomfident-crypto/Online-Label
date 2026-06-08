@@ -33,7 +33,7 @@ describe('AgentDashboardPage', () => {
     await screen.findByText('今日预审批次');
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/ai-review/batches', expect.objectContaining({ method: 'GET' })));
     expect(fetchMock).toHaveBeenCalledWith('/ai-review/jobs', expect.objectContaining({ method: 'GET' }));
-    expect(fetchMock).toHaveBeenCalledWith('/tasks', expect.objectContaining({ method: 'GET' }));
+    expect(fetchMock).toHaveBeenCalledWith('/tasks/summaries', expect.objectContaining({ method: 'GET' }));
 
     const metrics = within(page).getByRole('list', { name: '核心 KPI' });
     ['今日预审批次', '今日处理题目数', '通过率', '打回率', '平均处理时长'].forEach((label) => {
@@ -210,7 +210,7 @@ function createDashboardFetchMock() {
     if (path === '/ai-review/jobs') {
       return jsonResponse({ data: jobs });
     }
-    if (path === '/tasks') {
+    if (path === '/tasks/summaries') {
       return jsonResponse({ data: tasks });
     }
     if (path === '/ai-review/batches/batch_city') {

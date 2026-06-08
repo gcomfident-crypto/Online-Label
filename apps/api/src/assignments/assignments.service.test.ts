@@ -110,18 +110,7 @@ describe('AssignmentsService', () => {
         remainingCount: 1,
         claimStatus: 'available',
         claimedByMe: false,
-        previewItems: [
-          {
-            id: 'item_qa_1',
-            externalId: 'qa_1',
-            rawData: { prompt: '如何判断回答质量？' },
-          },
-          {
-            id: 'item_qa_2',
-            externalId: 'qa_2',
-            rawData: { prompt: '如何检查事实性？' },
-          },
-        ],
+        previewItems: [],
       }),
     ]);
     await expect(service.listMarketTasks({ tag: '偏好', claimStatus: 'claimed', labelerId: 'user_labeler_1' })).resolves.toEqual([

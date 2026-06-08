@@ -1039,7 +1039,7 @@ describe('TaskListPage', () => {
     const fetchMock = vi.fn((url: RequestInfo | URL) => {
       const path = String(url);
 
-      if (path.startsWith('/tasks?')) {
+      if (path.startsWith('/tasks/summaries?')) {
         return Promise.resolve(jsonResponse({ data: [draftTask] }));
       }
 
@@ -1498,7 +1498,7 @@ describe('TaskListPage', () => {
       const path = String(input);
       const method = init?.method ?? 'GET';
 
-      if (path === '/tasks' && method === 'GET') {
+      if (path === '/tasks/summaries' && method === 'GET') {
         return Promise.resolve(jsonResponse({ data: [{ ...baseTask, status: 'DRAFT' }] }));
       }
 

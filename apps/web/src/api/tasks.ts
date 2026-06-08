@@ -85,6 +85,14 @@ export type DeleteTaskResult = {
 };
 
 export async function listTasks(params: { ownerId?: string; status?: TaskStatus } = {}): Promise<TaskDto[]> {
+  return requestTaskList('/tasks', params);
+}
+
+export async function listTaskSummaries(params: { ownerId?: string; status?: TaskStatus } = {}): Promise<TaskDto[]> {
+  return requestTaskList('/tasks/summaries', params);
+}
+
+function requestTaskList(path: string, params: { ownerId?: string; status?: TaskStatus } = {}): Promise<TaskDto[]> {
   const searchParams = new URLSearchParams();
 
   if (params.ownerId) {
@@ -97,7 +105,7 @@ export async function listTasks(params: { ownerId?: string; status?: TaskStatus 
 
   const suffix = searchParams.size > 0 ? `?${searchParams.toString()}` : '';
 
-  return requestTaskApi<TaskDto[]>(`/tasks${suffix}`, { method: 'GET' });
+  return requestTaskApi<TaskDto[]>(`${path}${suffix}`, { method: 'GET' });
 }
 
 export async function getTask(taskId: string): Promise<TaskDto> {

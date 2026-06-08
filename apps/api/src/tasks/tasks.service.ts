@@ -90,6 +90,44 @@ type TaskRecord = {
   _count: { items: number };
 };
 
+type TaskSummarySubmissionRecord = {
+  id: string;
+  status: string;
+  round: number;
+  submittedAt: Date;
+};
+
+type TaskSummaryAssignmentRecord = {
+  id: string;
+  status: string;
+  claimedAt: Date;
+  submissions: TaskSummarySubmissionRecord[];
+};
+
+type TaskSummaryRecord = {
+  id: string;
+  title: string;
+  description: string | null;
+  tags: string[];
+  rewardRule: string | null;
+  rewardPerItem: number | null;
+  perUserLimit: number | null;
+  quota: number | null;
+  deadline: Date | null;
+  distributionStrategy: DistributionStrategy;
+  aiPreReviewEnabled: boolean;
+  aiRuleName: string | null;
+  status: TaskStatus;
+  templateId: string | null;
+  createdById: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  template: TaskTemplateSummary | null;
+  items: Array<{ status: TaskItemStatus }>;
+  assignments: TaskSummaryAssignmentRecord[];
+  _count: { items: number };
+};
+
 export type TaskWorkflowProgressEventType =
   | 'published'
   | 'claimed'
@@ -159,7 +197,7 @@ export type UpdateReviewStageConfigInput = {
 type TasksPrismaClient = {
   task: {
     create: (args: { data: Record<string, unknown>; include?: unknown }) => Promise<TaskRecord>;
-    findMany: (args?: { where?: Record<string, unknown>; orderBy?: { updatedAt: 'desc' | 'asc' }; include?: unknown }) => Promise<TaskRecord[]>;
+    findMany: (args?: { where?: Record<string, unknown>; orderBy?: { updatedAt: 'desc' | 'asc' }; include?: unknown; select?: unknown }) => Promise<TaskRecord[]>;
     findUnique: (args: { where: { id: string }; include?: unknown }) => Promise<TaskRecord | null>;
     update: (args: { where: { id: string }; data: Record<string, unknown>; include?: unknown }) => Promise<TaskRecord>;
     delete: (args: { where: { id: string } }) => Promise<TaskRecord>;
@@ -237,6 +275,56 @@ const TASK_INCLUDE = {
   _count: { select: { items: true } },
 } as const;
 
+const TASK_SUMMARY_SELECT = {
+  id: true,
+  title: true,
+  description: true,
+  tags: true,
+  rewardRule: true,
+  rewardPerItem: true,
+  perUserLimit: true,
+  quota: true,
+  deadline: true,
+  distributionStrategy: true,
+  aiPreReviewEnabled: true,
+  aiRuleName: true,
+  status: true,
+  templateId: true,
+  createdById: true,
+  createdAt: true,
+  updatedAt: true,
+  template: {
+    select: {
+      id: true,
+      name: true,
+      datasetKind: true,
+      schemaVersion: true,
+      status: true,
+    },
+  },
+  items: {
+    select: {
+      status: true,
+    },
+  },
+  assignments: {
+    select: {
+      id: true,
+      status: true,
+      claimedAt: true,
+      submissions: {
+        select: {
+          id: true,
+          status: true,
+          round: true,
+          submittedAt: true,
+        },
+      },
+    },
+  },
+  _count: { select: { items: true } },
+} as const;
+
 const UNCONFIGURED_TASK_TEMPLATE: TaskTemplateSummary = {
   id: '',
   name: '',
@@ -306,6 +394,19 @@ export class TasksService {
     });
 
     return tasks.map(toTaskDto);
+  }
+
+  async listSummaries(query: TaskQueryInput = {}): Promise<TaskDto[]> {
+    const tasks = await this.prisma.task.findMany({
+      where: {
+        ...(query.ownerId ? { createdById: query.ownerId } : {}),
+        ...(query.status ? { status: query.status } : {}),
+      },
+      orderBy: { updatedAt: 'desc' },
+      select: TASK_SUMMARY_SELECT,
+    }) as unknown as TaskSummaryRecord[];
+
+    return tasks.map(toTaskSummaryDto);
   }
 
   async get(taskId: string): Promise<TaskDto> {
@@ -550,6 +651,45 @@ const toTaskDto = (task: TaskRecord): TaskDto => {
     completedItemCount,
     exportableItemCount,
     workflowProgress: buildTaskWorkflowProgress(task),
+    createdAt: task.createdAt.toISOString(),
+    updatedAt: task.updatedAt.toISOString(),
+  };
+};
+
+const toTaskSummaryDto = (task: TaskSummaryRecord): TaskDto => {
+  const activeAssignments = task.assignments.filter((assignment) => assignment.status !== 'CANCELLED');
+  const submissions = activeAssignments.flatMap((assignment) => assignment.submissions);
+  const itemCount = task._count.items;
+  const completedItemCount = task.items.filter((item) => item.status === 'COMPLETED').length;
+  const exportableItemCount = submissions.filter((submission) => submission.status === 'FINAL_APPROVED').length;
+  const status = resolveTaskDtoStatus(task.status, itemCount, completedItemCount, exportableItemCount);
+
+  return {
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    richTextInstruction: null,
+    tags: task.tags,
+    rewardRule: formatRewardRule(task.rewardPerItem, task.rewardRule),
+    rewardPerItem: task.rewardPerItem,
+    perUserLimit: task.perUserLimit,
+    quota: task.quota,
+    deadline: task.deadline ? task.deadline.toISOString() : null,
+    distributionStrategy: task.distributionStrategy,
+    aiPreReviewEnabled: task.aiPreReviewEnabled,
+    aiRuleName: task.aiRuleName,
+    reviewStageConfig: [],
+    datasetImportSummary: null,
+    status,
+    templateId: task.templateId ?? '',
+    template: task.template ?? UNCONFIGURED_TASK_TEMPLATE,
+    createdById: task.createdById,
+    itemCount,
+    assignedItemCount: activeAssignments.length,
+    submittedItemCount: submissions.length,
+    completedItemCount,
+    exportableItemCount,
+    workflowProgress: [],
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
   };

@@ -30,6 +30,7 @@ export class TasksController {
       TasksService,
       | 'create'
       | 'list'
+      | 'listSummaries'
       | 'get'
       | 'update'
       | 'updateStatus'
@@ -47,6 +48,14 @@ export class TasksController {
   @Get()
   list(@Query('ownerId') ownerId?: string, @Query('status') status?: string): Promise<TaskDto[]> {
     return this.tasksService.list({
+      ...(typeof ownerId === 'string' && ownerId.trim() ? { ownerId: ownerId.trim() } : {}),
+      ...(isTaskStatus(status) ? { status } : {}),
+    });
+  }
+
+  @Get('summaries')
+  listSummaries(@Query('ownerId') ownerId?: string, @Query('status') status?: string): Promise<TaskDto[]> {
+    return this.tasksService.listSummaries({
       ...(typeof ownerId === 'string' && ownerId.trim() ? { ownerId: ownerId.trim() } : {}),
       ...(isTaskStatus(status) ? { status } : {}),
     });
