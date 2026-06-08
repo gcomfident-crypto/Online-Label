@@ -13,8 +13,6 @@ import { RejectNotice } from '../../features/labeler/RejectNotice';
 import { listLabelerAssignments, type AssignmentStatus, type LabelerAssignmentDto } from '../../api/assignments';
 import { getAssignmentWorkbench, saveDraft, type WorkbenchDto } from '../../api/drafts';
 import { getLabelerStats, submitTask, type LabelerStatsDto, type TaskSubmissionDto } from '../../api/submissions';
-import { listTasks, type TaskDto } from '../../api/tasks';
-import { createTaskDisplayIdMap } from '../owner/taskDisplayId';
 
 const LABELER_ID = 'user_labeler_li_lei';
 type WorkbenchNavigationState = {
@@ -65,6 +63,9 @@ export const WorkbenchPage = () => {
   const loadWorkbenchRequestRef = useRef(0);
   const taskSubmitInFlightRef = useRef(false);
   const validationFocusTimerRef = useRef<number | null>(null);
+  const workbenchCacheRef = useRef<Map<string, WorkbenchDto>>(new Map());
+  const taskAssignmentsCacheRef = useRef<Map<string, LabelerAssignmentDto[]>>(new Map());
+  const labelerStatsCacheRef = useRef<Map<string, LabelerStatsDto>>(new Map());
   const workbenchNavigationState = useMemo(
     () => (location.state as WorkbenchNavigationState | null),
     [location.state],
@@ -90,33 +91,14 @@ export const WorkbenchPage = () => {
     [],
   );
 
-  useEffect(() => {
-    if (!assignmentId) {
-      setFatalErrorMessage('缺少领取记录 ID，无法进入标注台。');
-      setIsLoading(false);
-      return;
-    }
-
-    void loadWorkbench(assignmentId);
-  }, [assignmentId]);
-
-  const loadWorkbench = async (id: string) => {
-    const requestId = loadWorkbenchRequestRef.current + 1;
-    loadWorkbenchRequestRef.current = requestId;
-    setIsLoading(true);
-    try {
-      const nextWorkbench = await getAssignmentWorkbench(id);
-      const [nextStats, nextTaskAssignments, tasksForIdentity] = await Promise.all([
-        getLabelerStats({ labelerId: LABELER_ID, taskId: nextWorkbench.assignment.taskId }),
-        listLabelerAssignments({ labelerId: LABELER_ID, taskId: nextWorkbench.assignment.taskId }),
-        listTasks(),
-      ]);
-
-      if (requestId !== loadWorkbenchRequestRef.current) {
-        return;
-      }
-
-      const nextLocalCacheKey = createLocalDraftCacheKey(id);
+  const applyWorkbenchSnapshot = useCallback(
+    (
+      nextWorkbench: WorkbenchDto,
+      nextStats: LabelerStatsDto,
+      nextTaskAssignments: LabelerAssignmentDto[],
+    ) => {
+      const sortedTaskAssignments = [...nextTaskAssignments].sort(compareLabelerAssignments);
+      const nextLocalCacheKey = createLocalDraftCacheKey(nextWorkbench.assignment.id);
       const cachedAnswers = readLocalDraft(nextLocalCacheKey);
       const initialAnswers = cachedAnswers ?? nextWorkbench.draft?.answers ?? {};
       const flattenedFields = getFlattenedSchemaFields(nextWorkbench.task.schema.fields);
@@ -125,11 +107,10 @@ export const WorkbenchPage = () => {
 
       setWorkbench(nextWorkbench);
       setStats(nextStats);
-      setTaskAssignments(nextTaskAssignments.sort(compareLabelerAssignments));
+      setTaskAssignments(sortedTaskAssignments);
       setTaskIdentity(resolveWorkbenchTaskIdentity(
         nextWorkbench,
-        nextTaskAssignments,
-        Array.isArray(tasksForIdentity) ? tasksForIdentity : [],
+        sortedTaskAssignments,
         workbenchNavigationState,
       ));
       setAnswers(initialAnswers);
@@ -147,6 +128,102 @@ export const WorkbenchPage = () => {
         cachedAnswers ? '检测到本地未同步草稿，已恢复到当前表单。' : '草稿已载入',
       );
       setFatalErrorMessage(null);
+    },
+    [workbenchNavigationState],
+  );
+
+  const loadTaskContextSnapshot = useCallback(async (taskId: string) => {
+    const cachedAssignments = taskAssignmentsCacheRef.current.get(taskId);
+    const cachedStats = labelerStatsCacheRef.current.get(taskId);
+
+    if (cachedAssignments && cachedStats) {
+      return {
+        nextStats: cachedStats,
+        nextTaskAssignments: cachedAssignments,
+      };
+    }
+
+    const [nextStats, nextTaskAssignments] = await Promise.all([
+      getLabelerStats({ labelerId: LABELER_ID, taskId }),
+      listLabelerAssignments({ labelerId: LABELER_ID, taskId }),
+    ]);
+    const sortedTaskAssignments = [...nextTaskAssignments].sort(compareLabelerAssignments);
+
+    labelerStatsCacheRef.current.set(taskId, nextStats);
+    taskAssignmentsCacheRef.current.set(taskId, sortedTaskAssignments);
+
+    return {
+      nextStats,
+      nextTaskAssignments: sortedTaskAssignments,
+    };
+  }, []);
+
+  const preloadAdjacentWorkbenches = useCallback(
+    (currentAssignmentId: string, assignments: readonly LabelerAssignmentDto[]) => {
+      const currentIndex = assignments.findIndex((assignment) => assignment.assignmentId === currentAssignmentId);
+      if (currentIndex < 0) {
+        return;
+      }
+
+      for (const nextIndex of [currentIndex - 1, currentIndex + 1]) {
+        const nextAssignment = assignments[nextIndex];
+        if (!nextAssignment || workbenchCacheRef.current.has(nextAssignment.assignmentId)) {
+          continue;
+        }
+
+        void getAssignmentWorkbench(nextAssignment.assignmentId)
+          .then((nextWorkbench) => {
+            workbenchCacheRef.current.set(nextAssignment.assignmentId, nextWorkbench);
+          })
+          .catch((error) => {
+            showErrorToast(error instanceof Error
+              ? `相邻题预加载失败：${error.message}`
+              : '相邻题预加载失败。');
+          });
+      }
+    },
+    [showErrorToast],
+  );
+
+  useEffect(() => {
+    if (!assignmentId) {
+      setFatalErrorMessage('缺少领取记录 ID，无法进入标注台。');
+      setIsLoading(false);
+      return;
+    }
+
+    void loadWorkbench(assignmentId);
+  }, [assignmentId]);
+
+  const loadWorkbench = async (id: string) => {
+    const requestId = loadWorkbenchRequestRef.current + 1;
+    loadWorkbenchRequestRef.current = requestId;
+    const cachedWorkbench = workbenchCacheRef.current.get(id);
+    const cachedTaskContext = cachedWorkbench
+      ? {
+          stats: labelerStatsCacheRef.current.get(cachedWorkbench.assignment.taskId),
+          assignments: taskAssignmentsCacheRef.current.get(cachedWorkbench.assignment.taskId),
+        }
+      : null;
+
+    setIsLoading(true);
+
+    if (cachedWorkbench && cachedTaskContext?.stats && cachedTaskContext.assignments) {
+      applyWorkbenchSnapshot(cachedWorkbench, cachedTaskContext.stats, cachedTaskContext.assignments);
+      setIsLoading(false);
+    }
+
+    try {
+      const nextWorkbench = await getAssignmentWorkbench(id);
+      workbenchCacheRef.current.set(id, nextWorkbench);
+      const { nextStats, nextTaskAssignments } = await loadTaskContextSnapshot(nextWorkbench.assignment.taskId);
+
+      if (requestId !== loadWorkbenchRequestRef.current) {
+        return;
+      }
+
+      applyWorkbenchSnapshot(nextWorkbench, nextStats, nextTaskAssignments);
+      preloadAdjacentWorkbenches(nextWorkbench.assignment.id, nextTaskAssignments);
     } catch (error) {
       if (requestId !== loadWorkbenchRequestRef.current) {
         return;
@@ -162,28 +239,14 @@ export const WorkbenchPage = () => {
   const refreshWorkbenchSnapshot = useCallback(
     async (id: string): Promise<WorkbenchDto> => {
       const nextWorkbench = await getAssignmentWorkbench(id);
-      const [nextStats, nextTaskAssignments] = await Promise.all([
-        getLabelerStats({ labelerId: LABELER_ID, taskId: nextWorkbench.assignment.taskId }),
-        listLabelerAssignments({ labelerId: LABELER_ID, taskId: nextWorkbench.assignment.taskId }),
-      ]);
-      const flattenedFields = getFlattenedSchemaFields(nextWorkbench.task.schema.fields);
-      const answerFields = getAnswerFields(flattenedFields);
-      const defaultActiveField = answerFields[0] ?? flattenedFields[0] ?? null;
+      workbenchCacheRef.current.set(id, nextWorkbench);
+      const { nextStats, nextTaskAssignments } = await loadTaskContextSnapshot(nextWorkbench.assignment.taskId);
 
-      setWorkbench(nextWorkbench);
-      setStats(nextStats);
-      setTaskAssignments(nextTaskAssignments.sort(compareLabelerAssignments));
-      setEditedRejectedFieldKeys(new Set());
-      setActiveFieldKey((current) =>
-        current && answerFields.some((field) => getSchemaFieldKey(field) === current)
-          ? current
-          : defaultActiveField
-            ? getSchemaFieldKey(defaultActiveField)
-            : null,
-      );
+      applyWorkbenchSnapshot(nextWorkbench, nextStats, nextTaskAssignments);
+      preloadAdjacentWorkbenches(nextWorkbench.assignment.id, nextTaskAssignments);
       return nextWorkbench;
     },
-    [],
+    [applyWorkbenchSnapshot, loadTaskContextSnapshot, preloadAdjacentWorkbenches],
   );
 
   const startAiReviewPolling = useCallback(
@@ -315,8 +378,8 @@ export const WorkbenchPage = () => {
     workbench &&
       (workbench.assignment.id === assignmentId || workbench.taskItem.id === itemId),
   );
-  const navigationAssignmentId = workbench && !isWorkbenchForCurrentRoute ? workbench.assignment.id : assignmentId;
-  const navigationItemId = workbench && !isWorkbenchForCurrentRoute ? workbench.taskItem.id : itemId;
+  const navigationAssignmentId = assignmentId || workbench?.assignment.id || '';
+  const navigationItemId = itemId || workbench?.taskItem.id || '';
   const routeAssignmentIndex = useMemo(() => {
     const index = orderedTaskAssignments.findIndex((assignment) =>
       assignment.assignmentId === assignmentId ||
@@ -566,7 +629,7 @@ export const WorkbenchPage = () => {
       const currentSubmission = submissionsByAssignmentId.get(workbench.assignment.id);
       setWorkbench((current) =>
         current
-          ? {
+          ? cacheWorkbenchSnapshot({
               ...current,
               assignment: { ...current.assignment, status: 'SUBMITTED' },
               submissionHistory: currentSubmission
@@ -583,7 +646,7 @@ export const WorkbenchPage = () => {
                     ...current.submissionHistory,
                   ]
                 : current.submissionHistory,
-            }
+            }, workbenchCacheRef.current)
           : current,
       );
       showStatusToast(formatTaskSubmissionStatusMessage(taskSubmission));
@@ -592,8 +655,8 @@ export const WorkbenchPage = () => {
           ? `提交前草稿已同步 ${formatTime(currentSubmission.submittedAt)}`
           : '提交前草稿已同步。',
       );
-      setTaskAssignments((current) =>
-        current.map((assignment) => {
+      setTaskAssignments((current) => {
+        const nextAssignments = current.map((assignment) => {
           const submission = submissionsByAssignmentId.get(assignment.assignmentId);
 
           return submission
@@ -605,9 +668,13 @@ export const WorkbenchPage = () => {
                 round: submission.round,
               }
             : assignment;
-        }),
-      );
-      setStats(await getLabelerStats({ labelerId: LABELER_ID, taskId: workbench.assignment.taskId }));
+        });
+        taskAssignmentsCacheRef.current.set(workbench.assignment.taskId, nextAssignments);
+        return nextAssignments;
+      });
+      const nextStats = await getLabelerStats({ labelerId: LABELER_ID, taskId: workbench.assignment.taskId });
+      labelerStatsCacheRef.current.set(workbench.assignment.taskId, nextStats);
+      setStats(nextStats);
       if (currentSubmission && AI_REVIEW_PENDING_STATUSES.has(currentSubmission.status)) {
         startAiReviewPolling(currentSubmission.id);
       }
@@ -854,14 +921,22 @@ export const WorkbenchPage = () => {
         <aside className="annotation-navigation-panel" aria-label="题目导航">
           <QuestionNavigator
             workbench={workbench}
-            currentIndex={currentQuestionIndex}
+            currentIndex={routeQuestionIndex}
             totalCount={totalCount}
             items={navigatorItems}
             onJump={handleJump}
           />
         </aside>
 
-        <main className="workbench-main-panel annotation-canvas-panel" aria-label="标注画布">
+        <main
+          className="workbench-main-panel annotation-canvas-panel"
+          aria-label="标注画布"
+          aria-busy={!isWorkbenchForCurrentRoute && isLoading ? true : undefined}
+        >
+          {!isWorkbenchForCurrentRoute ? (
+            <PageLoading title="正在加载题目" description="题目导航已切换，正在载入当前题目内容。" />
+          ) : (
+            <>
           {aiReviewReport ? (
             <div className="annotation-canvas-tabs" role="tablist" aria-label="标注画布视图">
               <button
@@ -950,6 +1025,8 @@ export const WorkbenchPage = () => {
               </button>
             </div>
           </div>
+            </>
+          )}
         </main>
 
         <LabelerWorkbenchInfoPanel workbench={workbench} />
@@ -2191,26 +2268,29 @@ function createTaskSubmissionIdempotencyKey(
 function resolveWorkbenchTaskIdentity(
   workbench: WorkbenchDto,
   taskAssignments: LabelerAssignmentDto[],
-  tasks: TaskDto[],
   navigationState: WorkbenchNavigationState | null,
 ): WorkbenchTaskIdentity {
-  const taskDisplayIdByTaskId = createTaskDisplayIdMap(tasks);
-  const taskFromList = tasks.find((task) => task.id === workbench.assignment.taskId);
   const assignmentTaskTitle = taskAssignments.find(
     (assignment) => assignment.taskId === workbench.assignment.taskId,
   )?.taskTitle;
 
   return {
     displayId:
-      taskDisplayIdByTaskId.get(workbench.assignment.taskId) ??
       navigationState?.taskDisplayId?.trim() ??
       workbench.assignment.taskId,
     title:
-      taskFromList?.title.trim() ||
       assignmentTaskTitle?.trim() ||
       navigationState?.taskTitle?.trim() ||
       workbench.task.title,
   };
+}
+
+function cacheWorkbenchSnapshot<TWorkbench extends WorkbenchDto>(
+  workbench: TWorkbench,
+  cache: Map<string, WorkbenchDto>,
+): TWorkbench {
+  cache.set(workbench.assignment.id, workbench);
+  return workbench;
 }
 
 function readLocalDraft(key: string): Record<string, unknown> | null {
