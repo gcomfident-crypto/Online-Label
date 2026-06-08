@@ -398,7 +398,7 @@ describe('Web 路由守卫', () => {
     });
   });
 
-  it('勾选记住登录状态时使用跨窗口本地会话', async () => {
+  it('勾选记住登录状态时当前标签页仍使用独立会话，并保存跨窗口恢复会话', async () => {
     const user = userEvent.setup();
     renderRoute('/login');
 
@@ -413,8 +413,11 @@ describe('Web 路由守卫', () => {
     await user.click(screen.getByRole('button', { name: '登录平台' }));
 
     expect(await screen.findByRole('navigation', { name: 'Labeler 端导航' })).toBeInTheDocument();
-    expect(window.sessionStorage.getItem('labelhub.session.v1')).toBeNull();
-    expect(JSON.parse(window.localStorage.getItem('labelhub.session.v1') ?? '{}')).toMatchObject({
+    expect(JSON.parse(window.sessionStorage.getItem('labelhub.session.v1') ?? '{}')).toMatchObject({
+      user: { role: 'LABELER' },
+    });
+    expect(window.localStorage.getItem('labelhub.session.v1')).toBeNull();
+    expect(JSON.parse(window.localStorage.getItem('labelhub.rememberedSession.v1') ?? '{}')).toMatchObject({
       user: { role: 'LABELER' },
     });
   });

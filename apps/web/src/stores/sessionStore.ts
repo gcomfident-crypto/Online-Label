@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { USER_ROLE, isUserRole, type UserRole } from '@labelhub/shared';
 
 const STORAGE_KEY = 'labelhub.session.v1';
+const REMEMBERED_STORAGE_KEY = 'labelhub.rememberedSession.v1';
 type SessionStorageScope = 'local' | 'session';
 
 export type SessionUser = {
@@ -69,13 +70,13 @@ const getStorage = (scope: SessionStorageScope): Storage | null => {
   }
 };
 
-const readStoredSessionFrom = (scope: SessionStorageScope): SessionState | null => {
+const readStoredSessionFrom = (scope: SessionStorageScope, key = STORAGE_KEY): SessionState | null => {
   const storage = getStorage(scope);
   if (!storage) {
     return null;
   }
 
-  const rawSession = storage.getItem(STORAGE_KEY);
+  const rawSession = storage.getItem(key);
   if (!rawSession) {
     return null;
   }
@@ -83,7 +84,7 @@ const readStoredSessionFrom = (scope: SessionStorageScope): SessionState | null 
   try {
     const parsed = JSON.parse(rawSession) as Partial<SessionState>;
     if (!isStoredSession(parsed)) {
-      storage.removeItem(STORAGE_KEY);
+      storage.removeItem(key);
       return null;
     }
 
@@ -96,7 +97,7 @@ const readStoredSessionFrom = (scope: SessionStorageScope): SessionState | null 
       },
     };
   } catch {
-    storage.removeItem(STORAGE_KEY);
+    storage.removeItem(key);
     return null;
   }
 };
@@ -105,6 +106,11 @@ const readStoredSession = (): { session: SessionState; scope: SessionStorageScop
   const sessionScopedSession = readStoredSessionFrom('session');
   if (sessionScopedSession) {
     return { session: sessionScopedSession, scope: 'session' };
+  }
+
+  const rememberedScopedSession = readStoredSessionFrom('local', REMEMBERED_STORAGE_KEY);
+  if (rememberedScopedSession) {
+    return { session: rememberedScopedSession, scope: 'local' };
   }
 
   const localScopedSession = readStoredSessionFrom('local');
@@ -130,14 +136,18 @@ const persist = (session: SessionState | null, scope: SessionStorageScope | null
   const localStorage = getStorage('local');
   const sessionStorage = getStorage('session');
 
-  if (session && scope === 'local') {
-    localStorage?.setItem(STORAGE_KEY, JSON.stringify(session));
-    sessionStorage?.removeItem(STORAGE_KEY);
-  } else if (session && scope === 'session') {
+  if (session) {
     sessionStorage?.setItem(STORAGE_KEY, JSON.stringify(session));
     localStorage?.removeItem(STORAGE_KEY);
+
+    if (scope === 'local') {
+      localStorage?.setItem(REMEMBERED_STORAGE_KEY, JSON.stringify(session));
+    } else {
+      localStorage?.removeItem(REMEMBERED_STORAGE_KEY);
+    }
   } else {
     localStorage?.removeItem(STORAGE_KEY);
+    localStorage?.removeItem(REMEMBERED_STORAGE_KEY);
     sessionStorage?.removeItem(STORAGE_KEY);
   }
 
