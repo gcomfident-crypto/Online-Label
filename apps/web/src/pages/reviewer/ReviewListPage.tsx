@@ -3,8 +3,6 @@ import { createPortal } from 'react-dom';
 
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { listPendingReviews, type ReviewQueueItemDto } from '../../api/reviews';
-import { listTasks } from '../../api/tasks';
-import { createTaskDisplayIdMap } from '../owner/taskDisplayId';
 import { ReviewTaskDetailContent } from './ReviewDetailPage';
 
 type ManualReviewTaskStatus = '复审中' | '待复审' | '已完成';
@@ -31,7 +29,6 @@ const SHEET_EXIT_ANIMATION_MS = 260;
 
 export const ReviewListPage = () => {
   const [queueItems, setQueueItems] = useState<ReviewQueueItemDto[]>([]);
-  const [taskDisplayIdByTaskId, setTaskDisplayIdByTaskId] = useState<Map<string, string>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -39,8 +36,8 @@ export const ReviewListPage = () => {
   const closeTimerRef = useRef<number | null>(null);
 
   const tasks = useMemo(
-    () => buildManualReviewTasks(queueItems, taskDisplayIdByTaskId),
-    [queueItems, taskDisplayIdByTaskId],
+    () => buildManualReviewTasks(queueItems),
+    [queueItems],
   );
 
   useEffect(
@@ -56,17 +53,13 @@ export const ReviewListPage = () => {
     let isMounted = true;
 
     setIsLoading(true);
-    Promise.all([
-      listPendingReviews(),
-      listTasks().catch(() => []),
-    ])
-      .then(([items, taskItems]) => {
+    listPendingReviews()
+      .then((items) => {
         if (!isMounted) {
           return;
         }
 
         setQueueItems(items);
-        setTaskDisplayIdByTaskId(createTaskDisplayIdMap(taskItems));
         setErrorMessage(null);
       })
       .catch((error) => {
@@ -372,7 +365,6 @@ function reviewQueueItemScope(taskId: string, round: number): string {
 
 function buildManualReviewTasks(
   queueItems: ReviewQueueItemDto[],
-  taskDisplayIdByTaskId: ReadonlyMap<string, string>,
 ): ManualReviewTask[] {
   const groups = new Map<string, ReviewQueueItemDto[]>();
   const roundProgressByScope = buildManualReviewRoundProgress(queueItems);
@@ -387,7 +379,7 @@ function buildManualReviewTasks(
       const latestItem = orderedItems[orderedItems.length - 1] ?? items[0];
       const createdAt = orderedItems[0]?.submittedAt ?? latestItem?.submittedAt ?? '';
       const updatedAt = latestItem?.updatedAt ?? latestItem?.submittedAt ?? createdAt;
-      const taskDisplayId = taskDisplayIdByTaskId.get(taskId) ?? taskId;
+      const taskDisplayId = taskId;
       const latestRoundProgress = getLatestTaskRoundProgress(taskId, items, roundProgressByScope);
       const status = resolveManualReviewTaskStatus(latestRoundProgress);
 

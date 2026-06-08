@@ -7,12 +7,10 @@ import {
   type AssignmentStatus,
   type LabelerAssignmentDto,
 } from '../../api/assignments';
-import { listTasks } from '../../api/tasks';
 import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
-import { createTaskDisplayIdMap } from '../owner/taskDisplayId';
 
 const LABELER_ID = 'user_labeler_li_lei';
 const MY_DATA_FALLBACK_PAGE_SIZE = 7;
@@ -45,7 +43,6 @@ type WorkbenchNavigationState = {
 export const MyDataPage = () => {
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<LabelerAssignmentDto[]>([]);
-  const [taskDisplayIdByTaskId, setTaskDisplayIdByTaskId] = useState<Map<string, string>>(new Map());
   const [statusFilter, setStatusFilter] = useState<LabelerStatusFilter>('');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [sortField, setSortField] = useState<MyDataSortField | null>(null);
@@ -63,8 +60,8 @@ export const MyDataPage = () => {
   }, []);
 
   const allTaskGroups = useMemo(
-    () => groupAssignmentsByTask(assignments, taskDisplayIdByTaskId),
-    [assignments, taskDisplayIdByTaskId],
+    () => groupAssignmentsByTask(assignments),
+    [assignments],
   );
   const filteredTaskGroups = useMemo(() => {
     const keyword = searchKeyword.trim();
@@ -128,12 +125,8 @@ export const MyDataPage = () => {
   const loadMyData = async () => {
     setIsLoading(true);
     try {
-      const [nextAssignments, tasks] = await Promise.all([
-        listLabelerAssignments({ labelerId: LABELER_ID }),
-        listTasks(),
-      ]);
+      const nextAssignments = await listLabelerAssignments({ labelerId: LABELER_ID });
       setAssignments(nextAssignments);
-      setTaskDisplayIdByTaskId(createTaskDisplayIdMap(tasks));
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : '工作台加载失败。');
     } finally {
@@ -397,7 +390,6 @@ const formatDateTime = (value: string): string => value.slice(0, 16).replace('T'
 
 const groupAssignmentsByTask = (
   assignments: LabelerAssignmentDto[],
-  taskDisplayIdByTaskId: ReadonlyMap<string, string>,
 ): LabelerTaskGroup[] => {
   const groupMap = new Map<string, LabelerAssignmentDto[]>();
 
@@ -414,7 +406,7 @@ const groupAssignmentsByTask = (
 
       return {
         taskId: firstAssignment.taskId,
-        taskDisplayId: taskDisplayIdByTaskId.get(firstAssignment.taskId) ?? firstAssignment.taskId,
+        taskDisplayId: firstAssignment.taskId,
         taskTitle: firstAssignment.taskTitle,
         datasetKind: firstAssignment.datasetKind,
         templateName: firstAssignment.templateName,

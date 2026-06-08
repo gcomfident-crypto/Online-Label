@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import exportIcon from '../assets/export.svg';
 import modelIcon from '../assets/model.svg';
@@ -7,7 +7,11 @@ import { DemoDataBanner } from '../components/DemoDataBanner';
 import { PortalPageTransitionOutlet } from './PortalPageTransitionOutlet';
 import { PortalSidebar } from './PortalSidebar';
 import { PortalTopbar } from './PortalTopbar';
-import { prefetchOwnerPortalRoutes } from '../utils/ownerRoutePreload';
+import {
+  loadExportCenterPage,
+  loadOwnerTasksPage,
+  loadTemplateDesignerPage,
+} from '../utils/ownerRoutePreload';
 
 const OWNER_NAV_ITEMS = [
   {
@@ -16,6 +20,7 @@ const OWNER_NAV_ITEMS = [
     parts: ['任', '务', '管', '理'],
     icon: 'tasks',
     iconAsset: taskIcon,
+    preload: loadOwnerTasksPage,
   },
   {
     to: '/owner/templates',
@@ -23,6 +28,7 @@ const OWNER_NAV_ITEMS = [
     parts: ['评', '测', '模', '板'],
     icon: 'templates',
     iconAsset: modelIcon,
+    preload: loadTemplateDesignerPage,
   },
   {
     to: '/owner/exports',
@@ -30,17 +36,12 @@ const OWNER_NAV_ITEMS = [
     parts: ['导', '出', '中', '心'],
     icon: 'exports',
     iconAsset: exportIcon,
+    preload: loadExportCenterPage,
   },
 ];
 
 export const OwnerPortalLayout = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  useEffect(() => {
-    const prefetchTimer = window.setTimeout(prefetchOwnerPortalRoutes, 80);
-
-    return () => window.clearTimeout(prefetchTimer);
-  }, []);
 
   return (
     <div

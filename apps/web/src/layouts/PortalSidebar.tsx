@@ -9,6 +9,7 @@ export type PortalSidebarItem = {
   parts: string[];
   to: string;
   isActive?: (pathname: string) => boolean;
+  preload?: () => void;
 };
 
 type PortalSidebarProps = {
@@ -46,6 +47,8 @@ export const PortalSidebar = ({
               aria-label={item.label}
               title={item.label}
               className={({ isActive }) => (isActive || isItemActive ? 'active' : undefined)}
+              onFocus={item.preload}
+              onMouseEnter={item.preload}
             >
               <span className={iconClassName} style={iconStyle} aria-hidden="true" />
               <span className={`portal-nav__label${hiddenLabelClass}`} aria-hidden="true">
