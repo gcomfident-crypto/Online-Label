@@ -72,5 +72,28 @@ export const resolvePagePathTitle = (pathname: string): string => {
 export const resolvePageTabTitle = (pathname: string): string => {
   const fullTitle = resolvePagePathTitle(pathname);
   const parts = fullTitle.split(' / ');
-  return parts[parts.length - 1] ?? fullTitle;
+  const pageTitle = parts[parts.length - 1] ?? fullTitle;
+  const roleTitle = resolvePageTabRole(parts[0]);
+
+  return roleTitle ? `${roleTitle}·${pageTitle}` : pageTitle;
 };
+
+function resolvePageTabRole(sectionTitle: string | undefined): string | null {
+  if (sectionTitle === '任务负责人后台') {
+    return 'Owner';
+  }
+
+  if (sectionTitle === '标注员工作台') {
+    return 'Labeler';
+  }
+
+  if (sectionTitle === 'AI Agent 后台') {
+    return 'AI Agent';
+  }
+
+  if (sectionTitle === '审核与质检') {
+    return 'Reviewer';
+  }
+
+  return null;
+}

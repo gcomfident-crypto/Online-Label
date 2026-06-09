@@ -136,21 +136,21 @@ describe('Web 壳 smoke test', () => {
       sessionStore.loginAs(USER_ROLE.OWNER);
     });
     renderRoute('/owner/templates');
-    await waitFor(() => expect(document.title).toBe('评测模板'));
+    await waitFor(() => expect(document.title).toBe('Owner·评测模板'));
     cleanup();
 
     act(() => {
       sessionStore.loginAs(USER_ROLE.LABELER);
     });
     renderRoute('/labeler/my-data');
-    await waitFor(() => expect(document.title).toBe('工作台'));
+    await waitFor(() => expect(document.title).toBe('Labeler·工作台'));
     cleanup();
 
     act(() => {
       sessionStore.loginAs(USER_ROLE.AI_AGENT);
     });
     renderRoute('/agent/dashboard');
-    await waitFor(() => expect(document.title).toBe('数据看板'));
+    await waitFor(() => expect(document.title).toBe('AI Agent·数据看板'));
   });
 
   it('四端 Portal Layout 各自渲染对应导航', async () => {
