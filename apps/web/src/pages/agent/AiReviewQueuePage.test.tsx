@@ -130,26 +130,27 @@ describe('AiReviewQueuePage', () => {
     const statusSummaryRegion = screen.getByRole('region', { name: '任务质检流转状态筛选' });
     expect(within(statusSummaryRegion).getByRole('button', { name: /总任务/ })).toHaveTextContent('总任务2');
     expect(within(statusSummaryRegion).getByRole('button', { name: /流转中/ })).toHaveTextContent('流转中1');
-    expect(within(statusSummaryRegion).getByRole('button', { name: /已完成/ })).toHaveTextContent('最终完成1');
+    expect(within(statusSummaryRegion).getByRole('button', { name: /已完成/ })).toHaveTextContent('已完成1');
 
     const table = screen.getByRole('table', { name: '任务质检流水线表格' });
     ['任务ID', '任务名称', '当前阶段', 'AI 预审进度', 'Reviewer 复核', '最近更新']
       .forEach((header) => expect(within(table).getByText(header)).toBeInTheDocument());
     expect(within(table).getByText('模型对比 json')).toBeInTheDocument();
     expect(within(table).getByText('Reviewer 复审中')).toBeInTheDocument();
-    expect(within(table).getByText('10 / 10 AI 预审完成')).toBeInTheDocument();
+    expect(within(table).getByText('10 / 10 预审完成')).toBeInTheDocument();
     expect(within(table).getByText('通过 2 · 打回 8')).toBeInTheDocument();
-    expect(within(table).getByText('待复核 10 / 10')).toBeInTheDocument();
-    expect(within(table).getByText('已决策 0 · 最终完成 0')).toBeInTheDocument();
+    expect(within(table).getByText('待审 10 / 10')).toBeInTheDocument();
+    expect(within(table).getByText('已决策 0 · 完成 0')).toBeInTheDocument();
 
     await user.click(within(table).getByRole('row', { name: /模型对比 json/ }));
 
     const dialog = await screen.findByRole('dialog', { name: /模型对比 json/ });
     expect(dialog).toHaveClass('agent-review-batch-sheet');
     expect(within(dialog).getByLabelText('任务内题目流转列表')).toHaveTextContent('10 题');
+    expect(within(dialog).queryByLabelText('题目分组筛选')).not.toBeInTheDocument();
     expect(within(dialog).getByText('P0001')).toBeInTheDocument();
     expect(within(dialog).getByText('P0010')).toBeInTheDocument();
-    expect(within(dialog).getAllByText('待审核').length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText('待复审').length).toBeGreaterThan(0);
     expect(within(dialog).getByText('本题历史')).toBeInTheDocument();
     expect(within(dialog).getByText('预审记录')).toBeInTheDocument();
     expect(within(dialog).getByText('综合分')).toBeInTheDocument();

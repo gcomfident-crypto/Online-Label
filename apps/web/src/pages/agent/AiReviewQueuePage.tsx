@@ -48,14 +48,6 @@ const FLOW_SUMMARY_FILTERS: Array<{
   { label: '已完成', summaryKey: 'finalCompleted', value: 'FINAL_COMPLETED' },
 ];
 
-const ITEM_STATUS_TABS: Array<{ label: string; value: ItemStatusBucket }> = [
-  { label: '待标注', value: 'labelerProcessing' },
-  { label: 'AI处理中', value: 'aiProcessing' },
-  { label: '待审核', value: 'reviewerPending' },
-  { label: '已完成', value: 'finalApproved' },
-  { label: '异常', value: 'failed' },
-];
-
 const STAGE_LABELS: Record<TaskFlowStage, string> = {
   LABELING: 'Labeler 标注中',
   AI_PRECHECK: 'AI 预审中',
@@ -756,40 +748,8 @@ const QuestionList = ({
   onSelect: (index: number) => void;
   selectedIndex: number;
 }) => {
-  const selectedBucket = itemBucket(items[selectedIndex] ?? null);
-  const counts = ITEM_STATUS_TABS.reduce<Record<ItemStatusBucket, number>>(
-    (nextCounts, tab) => ({
-      ...nextCounts,
-      [tab.value]: items.filter((item) => itemBucket(item) === tab.value).length,
-    }),
-    { aiProcessing: 0, failed: 0, finalApproved: 0, labelerProcessing: 0, reviewerPending: 0 },
-  );
-  const visibleTabs = ITEM_STATUS_TABS.filter((tab) => counts[tab.value] > 0);
-
-  const handleBucketClick = (bucket: ItemStatusBucket) => {
-    const nextIndex = items.findIndex((item) => itemBucket(item) === bucket);
-    if (nextIndex >= 0) {
-      onSelect(nextIndex);
-    }
-  };
-
   return (
     <aside className="agent-review-question-list" aria-label="任务内题目流转列表">
-      <div className="agent-review-question-status-tabs" role="tablist" aria-label="题目分组筛选">
-        {visibleTabs.map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            className={`${selectedBucket === tab.value ? 'is-active ' : ''}is-${bucketTone(tab.value)}`}
-            role="tab"
-            aria-selected={selectedBucket === tab.value}
-            onClick={() => handleBucketClick(tab.value)}
-          >
-            {tab.label}
-            <span>{counts[tab.value].toLocaleString()}</span>
-          </button>
-        ))}
-      </div>
       <div className="agent-review-question-list__header">
         <strong>全部题目</strong>
         <span>{items.length.toLocaleString()} 题</span>
@@ -1130,7 +1090,7 @@ const TaskFlowLogDialog = ({
   </aside>
 );
 
-type StatusTone = 'pass' | 'reject' | 'pending' | 'failed';
+type StatusTone = 'pass' | 'reject' | 'pending' | 'pendingReview' | 'failed';
 
 const DecisionPill = ({ label, tone }: { label: string; tone: StatusTone }) => (
   <span className={`agent-review-decision-pill is-${tone}`}>
@@ -1533,6 +1493,9 @@ function itemTone(item: TaskFlowItemDto): StatusTone {
   if (item.finalStatus === 'FINAL_APPROVED') {
     return 'pass';
   }
+  if (item.reviewerStatus === 'PENDING' || item.aiStatus === 'PASSED' || item.aiStatus === 'SUCCEEDED') {
+    return 'pendingReview';
+  }
   if (item.labelerStatus === 'NEEDS_REVISION' || item.reviewerStatus === 'REJECTED' || item.aiStatus === 'REJECTED') {
     return 'reject';
   }
@@ -1561,23 +1524,13 @@ function itemBucket(item: TaskFlowItemDto | null): ItemStatusBucket {
   return 'aiProcessing';
 }
 
-function bucketTone(bucket: ItemStatusBucket): StatusTone {
-  if (bucket === 'finalApproved') {
-    return 'pass';
-  }
-  if (bucket === 'failed') {
-    return 'reject';
-  }
-  return 'pending';
-}
-
 function shortItemStatusLabel(item: TaskFlowItemDto): string {
   const labels: Record<ItemStatusBucket, string> = {
     aiProcessing: 'AI处理中',
     failed: '异常',
     finalApproved: '已完成',
-    labelerProcessing: '待标注',
-    reviewerPending: '待审核',
+    labelerProcessing: '待修改',
+    reviewerPending: '待复审',
   };
 
   return labels[itemBucket(item)];

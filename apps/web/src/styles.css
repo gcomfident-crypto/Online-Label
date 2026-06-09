@@ -18954,6 +18954,10 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   background: #94a3b8;
 }
 
+.agent-review-question-list__dot.is-pendingReview {
+  background: #f97316;
+}
+
 .agent-review-question-list__text {
   min-width: 0;
   display: grid;
@@ -18995,6 +18999,13 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-review-question-list__items button:hover em.is-reject,
 .agent-review-question-list__items button:focus-visible em.is-reject {
   color: #dc2626;
+}
+
+.agent-review-question-list__items em.is-pendingReview,
+.agent-review-question-list__items button.is-active em.is-pendingReview,
+.agent-review-question-list__items button:hover em.is-pendingReview,
+.agent-review-question-list__items button:focus-visible em.is-pendingReview {
+  color: #ea580c;
 }
 
 .agent-review-sheet-main {
@@ -19641,6 +19652,11 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-review-field-decision.is-pending {
   color: #64748b;
   background: #f1f5f9;
+}
+
+.agent-review-field-decision.is-pendingReview {
+  color: #c2410c;
+  background: #ffedd5;
 }
 
 .agent-review-empty-text {
