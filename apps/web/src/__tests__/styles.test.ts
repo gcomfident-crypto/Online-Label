@@ -689,7 +689,7 @@ describe('global styles', () => {
     expect(loginPageRule).toContain('background-position: center;');
   });
 
-  it('登录页顶部品牌使用轻量横向文字 Logo', () => {
+  it('登录页顶部品牌使用指定 PNG Logo', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const lockupRule = styles.match(/\.login-brand-lockup\s*\{[^}]+\}/)?.[0] ?? '';
     const logoRule = styles.match(/\.login-brand-lockup__mark\s*\{[^}]+\}/)?.[0] ?? '';
@@ -698,9 +698,9 @@ describe('global styles', () => {
     expect(lockupRule).toContain('width: 100%;');
     expect(lockupRule).not.toContain('width: fit-content;');
     expect(logoRule).toContain('width: min(470px, 100%);');
-    expect(logoRule).toContain('display: inline-flex;');
-    expect(logoRule).toContain('font-size: clamp(52px, 8vw, 92px);');
-    expect(logoRule).not.toContain('object-fit: contain;');
+    expect(logoRule).toContain('display: block;');
+    expect(logoRule).toContain('object-fit: contain;');
+    expect(logoRule).not.toContain('font-size: clamp(52px, 8vw, 92px);');
     expect(logoRule).not.toContain('width: 34px;');
     expect(logoRule).not.toContain('height: 34px;');
   });

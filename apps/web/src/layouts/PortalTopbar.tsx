@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
+import labelHubLogo from '../assets/LabelHub_logo_closer_transparent.png';
 import { sessionStore, useSession } from '../stores/sessionStore';
 import { resolvePagePathTitle } from '../utils/routePathTitle';
 
@@ -64,10 +65,7 @@ export const PortalTopbar = ({
     <header className="platform-topbar" aria-label="平台顶栏">
       <div className="platform-topbar__left">
         <div className="platform-brand" aria-label="LabelHub">
-          <span className="platform-brand__mark" aria-hidden="true">
-            LH
-          </span>
-          <strong>LabelHub</strong>
+          <img className="platform-brand__mark" src={labelHubLogo} alt="" aria-hidden="true" />
         </div>
         <span className="platform-current-path" aria-label="当前路径">
           {currentPathParts.prefix ? (

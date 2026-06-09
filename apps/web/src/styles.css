@@ -175,26 +175,11 @@ button:disabled {
 }
 
 .login-brand-lockup__mark {
+  display: block;
   width: min(470px, 100%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #0578FE;
-  font-family: "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif;
-  font-size: clamp(52px, 8vw, 92px);
-  font-weight: 900;
-  letter-spacing: -0.08em;
-  line-height: 0.9;
-  text-shadow: 0 18px 30px rgba(48, 109, 248, 0.16);
-}
-
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .login-brand-lockup__mark {
-    background: linear-gradient(45deg, #0578FE 0%, #17F7DE 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 30px rgba(48, 109, 248, 0.16));
 }
 
 .login-form-heading {
@@ -771,50 +756,22 @@ p {
 
 .platform-brand {
   flex: 0 0 auto;
-  gap: 6px;
   padding-left: var(--platform-topbar-brand-start-padding);
-  color: #306DFA;
-  font-size: var(--platform-topbar-brand-font-size);
   transition:
-    padding-left 180ms ease,
-    font-size 180ms ease;
+    padding-left 180ms ease;
 }
 
 .platform-brand__mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   flex: 0 0 auto;
-  width: var(--platform-topbar-brand-mark-size);
+  width: calc(var(--platform-topbar-brand-mark-size) * 2.64);
   height: var(--platform-topbar-brand-mark-size);
-  border-radius: 12px;
-  background: linear-gradient(135deg, #0578FE 0%, #17F7DE 100%);
-  color: #ffffff;
-  font-size: calc(var(--platform-topbar-brand-mark-size) * 0.32);
-  font-weight: 900;
-  letter-spacing: -0.04em;
-  box-shadow: 0 10px 22px rgba(5, 120, 254, 0.18);
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 10px 22px rgba(5, 120, 254, 0.12));
   transition:
     width 180ms ease,
-    height 180ms ease,
-    border-radius 180ms ease,
-    font-size 180ms ease;
-}
-
-.platform-brand strong {
-  color: #0578FE;
-  font-family: "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif;
-  font-weight: 900;
-}
-
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .platform-brand strong {
-    background: linear-gradient(45deg, #0578FE 0%, #17F7DE 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-  }
+    height 180ms ease;
 }
 
 .platform-current-path {

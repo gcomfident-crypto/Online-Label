@@ -12,10 +12,10 @@ describe('Vite 开发代理', () => {
     expect(configSource).toContain("path.replace(/^\\/api/, '')");
   });
 
-  it('浏览器标签页使用轻量 SVG favicon', () => {
+  it('浏览器标签页使用指定 PNG favicon', () => {
     const indexSource = readFileSync(join(process.cwd(), 'index.html'), 'utf8');
 
-    expect(indexSource).toContain('<link rel="icon" type="image/svg+xml" href="/src/assets/favicon.svg" />');
-    expect(existsSync(join(process.cwd(), 'src/assets/favicon.svg'))).toBe(true);
+    expect(indexSource).toContain('<link rel="icon" type="image/png" href="/src/assets/favicon.png" />');
+    expect(existsSync(join(process.cwd(), 'src/assets/favicon.png'))).toBe(true);
   });
 });

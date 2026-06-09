@@ -52,8 +52,11 @@ describe('Web 壳 smoke test', () => {
 
     const logo = await screen.findByLabelText('LabelHub');
     expect(logo).toBeInTheDocument();
-    expect(logo.querySelector('.login-brand-lockup__mark')).toHaveTextContent('LabelHub');
-    expect(logo.querySelector('img')).toBeNull();
+    expect(logo.querySelector('.login-brand-lockup__mark')).toHaveAttribute(
+      'src',
+      expect.stringContaining('LabelHub_logo_closer_transparent.png'),
+    );
+    expect(logo.querySelector('img')).toBeInTheDocument();
     expect(screen.queryByText('登录 LabelHub')).not.toBeInTheDocument();
     expect(screen.queryByText('智能标注工作台')).not.toBeInTheDocument();
     expect(screen.queryByText('进入 LabelHub 多角色工作台，集中处理项目任务。')).not.toBeInTheDocument();

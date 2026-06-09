@@ -6,6 +6,7 @@ import {
   getRoleHomePath,
   type UserRole,
 } from '@labelhub/shared';
+import labelHubLogo from '../assets/LabelHub_logo_closer_transparent.png';
 import { sessionStore } from '../stores/sessionStore';
 
 const LOGIN_ROLE_OPTIONS: Array<{ label: string; role: UserRole }> = [
@@ -75,9 +76,7 @@ export const LoginPage = () => {
       <section className="login-shell" aria-label="LabelHub 登录表单">
         <section className="login-form-panel">
           <div className="login-brand-lockup" aria-label="LabelHub">
-            <span className="login-brand-lockup__mark" aria-hidden="true">
-              LabelHub
-            </span>
+            <img className="login-brand-lockup__mark" src={labelHubLogo} alt="" aria-hidden="true" />
           </div>
 
           <div className="login-form-heading">
