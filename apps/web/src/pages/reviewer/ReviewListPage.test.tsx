@@ -77,8 +77,23 @@ describe('ReviewListPage', () => {
     expect(within(table).getByText('T-001')).toBeInTheDocument();
     expect(table).not.toHaveTextContent(rawReviewTaskId);
     expect(within(table).getByText('2')).toBeInTheDocument();
+    const pagination = screen.getByLabelText('人工审核任务列表分页');
+    expect(pagination).toHaveClass('task-table-pagination');
+    expect(within(pagination).getByLabelText('当前页码')).toHaveTextContent('第 1 / 2 页');
+    expect(within(pagination).getByRole('button', { name: '上一页' })).toBeDisabled();
+    expect(within(table).getByText('人工审核任务 10')).toBeInTheDocument();
+    expect(within(table).queryByText('人工审核任务 11')).not.toBeInTheDocument();
 
-    await user.click(taskRow);
+    await user.click(within(pagination).getByRole('button', { name: '下一页' }));
+
+    expect(within(pagination).getByLabelText('当前页码')).toHaveTextContent('第 2 / 2 页');
+    expect(within(table).getByText('人工审核任务 11')).toBeInTheDocument();
+    expect(within(table).queryByText('人工审核任务 10')).not.toBeInTheDocument();
+
+    await user.click(within(pagination).getByRole('button', { name: '上一页' }));
+    const firstPageTaskRow = within(table).getByRole('row', { name: '人工审核任务 真实人工审核任务' });
+
+    await user.click(firstPageTaskRow);
 
     const dialog = await screen.findByRole('dialog', { name: '真实人工审核任务' });
     expect(dialog).toHaveClass('manual-review-task-sheet');
@@ -133,6 +148,24 @@ const reviewTaskItems = [
     createdAt: '2026-05-30T10:01:02.000Z',
     updatedAt: '2026-05-30T10:02:02.000Z',
   },
+  ...Array.from({ length: 11 }, (_, index) => {
+    const taskNumber = index + 2;
+
+    return {
+      taskId: `${rawReviewTaskId}_${taskNumber}`,
+      taskDisplayId: `T-${String(taskNumber).padStart(3, '0')}`,
+      taskTitle: `人工审核任务 ${taskNumber}`,
+      status: '待复审',
+      pendingCount: taskNumber,
+      totalInRound: taskNumber,
+      decidedCount: 0,
+      needsRevisionCount: 0,
+      round: 1,
+      deadline: '2026-06-01T15:59:00.000Z',
+      createdAt: '2026-05-30T10:01:02.000Z',
+      updatedAt: '2026-05-30T10:02:02.000Z',
+    };
+  }),
 ];
 
 const taskItems = [

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { TableEmptyState } from '../../components/TableEmptyState';
@@ -19,11 +19,13 @@ type ManualReviewTask = {
 };
 
 const SHEET_EXIT_ANIMATION_MS = 260;
+const MANUAL_REVIEW_TABLE_PAGE_SIZE = 10;
 
 export const ReviewListPage = () => {
   const [tasks, setTasks] = useState<ManualReviewTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isSheetClosing, setIsSheetClosing] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
@@ -68,6 +70,17 @@ export const ReviewListPage = () => {
       isMounted = false;
     };
   }, []);
+
+  const totalPages = Math.max(1, Math.ceil(tasks.length / MANUAL_REVIEW_TABLE_PAGE_SIZE));
+  const paginatedTasks = useMemo(() => {
+    const startIndex = (currentPage - 1) * MANUAL_REVIEW_TABLE_PAGE_SIZE;
+
+    return tasks.slice(startIndex, startIndex + MANUAL_REVIEW_TABLE_PAGE_SIZE);
+  }, [currentPage, tasks]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   const openTask = (taskId: string) => {
     if (closeTimerRef.current !== null) {
@@ -126,8 +139,8 @@ export const ReviewListPage = () => {
               </tr>
             </thead>
             <tbody className="task-table__body">
-              {!isLoading && tasks.length > 0 ? (
-                tasks.map((task) => (
+              {!isLoading && paginatedTasks.length > 0 ? (
+                paginatedTasks.map((task) => (
                   <tr
                     key={task.taskId}
                     tabIndex={0}
@@ -182,6 +195,19 @@ export const ReviewListPage = () => {
             </tbody>
           </table>
         </div>
+        {!isLoading && tasks.length > 0 ? (
+          <div className="task-table-pagination" aria-label="人工审核任务列表分页">
+            <button type="button" disabled={currentPage <= 1} onClick={() => setCurrentPage(currentPage - 1)}>
+              上一页
+            </button>
+            <span aria-label="当前页码">
+              第 {currentPage} / {totalPages} 页
+            </span>
+            <button type="button" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(currentPage + 1)}>
+              下一页
+            </button>
+          </div>
+        ) : null}
       </div>
       <ManualReviewTaskSheetPortal>
         {selectedTaskId ? (
