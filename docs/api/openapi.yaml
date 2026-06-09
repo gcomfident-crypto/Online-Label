@@ -45,12 +45,23 @@ paths:
           application/json:
             schema:
               type: object
+              required: [password]
+              anyOf:
+                - required: [role]
+                - required: [account]
               properties:
                 role:
                   $ref: "#/components/schemas/UserRole"
                 account:
                   type: string
                   enum: [owner, labeler, labeler1, labeler2, ai_agent, agent, reviewer]
+                password:
+                  type: string
+                  enum: ["123456"]
+                  description: 演示环境固定密码。
+            example:
+              role: OWNER
+              password: "123456"
       responses:
         "201":
           description: 返回 mock token 和角色首页
