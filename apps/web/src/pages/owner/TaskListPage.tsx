@@ -60,7 +60,6 @@ import { createTaskDisplayIdMap, taskCreatedAtTimestamp } from './taskDisplayId'
 const OWNER_ID = 'user_owner_zhang_man';
 const CLOSE_CONFIRM_ANIMATION_MS = 220;
 const DRAWER_CLOSE_ANIMATION_MS = 240;
-const TASK_TEMPLATE_RETURN_ANIMATION_MS = 420;
 const TASK_ROW_ENTER_ANIMATION_MS = 680;
 const TASKS_FALLBACK_PAGE_SIZE = 7;
 const TASK_TABLE_ROW_HEIGHT = 66;
@@ -127,7 +126,6 @@ export const TaskListPage = () => {
   const datasetFileSelectionId = useRef(0);
   const closeConfirmTimerRef = useRef<number | null>(null);
   const drawerCloseTimerRef = useRef<number | null>(null);
-  const templateReturnAnimationTimerRef = useRef<number | null>(null);
   const taskEnterTimerRefs = useRef<Map<string, number>>(new Map());
   const toastSequenceRef = useRef(0);
   const templateOptionsRequestTaskIdRef = useRef<string | null>(null);
@@ -158,10 +156,6 @@ export const TaskListPage = () => {
 
       if (drawerCloseTimerRef.current) {
         window.clearTimeout(drawerCloseTimerRef.current);
-      }
-
-      if (templateReturnAnimationTimerRef.current) {
-        window.clearTimeout(templateReturnAnimationTimerRef.current);
       }
 
       taskEnterTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId));
@@ -261,7 +255,6 @@ export const TaskListPage = () => {
 
   const openPublishDrawer = (task: TaskDto) => {
     clearDrawerCloseTimer();
-    clearTemplateReturnAnimationTimer();
     setIsReturningFromTemplate(false);
     setIsDrawerClosing(false);
     setSelectedTask(task);
@@ -317,7 +310,6 @@ export const TaskListPage = () => {
   const restoreTaskDrawerFromTemplateReturn = (handoff: TaskTemplateReturnHandoff) => {
     clearDrawerCloseTimer();
     clearCloseConfirmTimer();
-    clearTemplateReturnAnimationTimer();
     setIsDrawerClosing(false);
     setIsReturningFromTemplate(true);
     const publishedTemplateOptions = mergeTaskTemplates(handoff.templateOptions);
@@ -335,10 +327,6 @@ export const TaskListPage = () => {
     setIsCloseConfirmClosing(false);
     setDrawerFieldErrors({});
 
-    templateReturnAnimationTimerRef.current = window.setTimeout(() => {
-      templateReturnAnimationTimerRef.current = null;
-      setIsReturningFromTemplate(false);
-    }, TASK_TEMPLATE_RETURN_ANIMATION_MS);
   };
 
   const handleCreateTask = async () => {
@@ -349,7 +337,6 @@ export const TaskListPage = () => {
 
       setTemplateOptions(availableTemplates);
       clearDrawerCloseTimer();
-      clearTemplateReturnAnimationTimer();
       setIsDrawerClosing(false);
       setIsReturningFromTemplate(false);
       setDrawerMode('new');
@@ -886,18 +873,8 @@ export const TaskListPage = () => {
     drawerCloseTimerRef.current = null;
   };
 
-  const clearTemplateReturnAnimationTimer = () => {
-    if (!templateReturnAnimationTimerRef.current) {
-      return;
-    }
-
-    window.clearTimeout(templateReturnAnimationTimerRef.current);
-    templateReturnAnimationTimerRef.current = null;
-  };
-
   const resetDrawerState = () => {
     clearCloseConfirmTimer();
-    clearTemplateReturnAnimationTimer();
     setSelectedTask(null);
     setTaskForm(null);
     setDrawerMode(null);
@@ -925,7 +902,6 @@ export const TaskListPage = () => {
     }
 
     clearDrawerCloseTimer();
-    clearTemplateReturnAnimationTimer();
     setIsCloseConfirmOpen(false);
     setIsCloseConfirmClosing(false);
     setIsReturningFromTemplate(false);

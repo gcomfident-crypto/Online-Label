@@ -1399,6 +1399,10 @@ describe('TaskListPage', () => {
     const restoredDrawer = await screen.findByRole('complementary', { name: '发布任务抽屉' });
     expect(screen.queryByRole('dialog', { name: '模板配置' })).not.toBeInTheDocument();
     expect(document.querySelector('.task-publish-drawer-shell')).toHaveClass('is-returning-from-template');
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
+    });
+    expect(document.querySelector('.task-publish-drawer-shell')).toHaveClass('is-returning-from-template');
     expect(within(restoredDrawer).getByLabelText('任务标题')).toHaveValue('查看模板后恢复的任务');
     expect(within(restoredDrawer).getByLabelText('关联模板')).toHaveValue('');
   });
