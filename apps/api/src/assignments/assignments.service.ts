@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import type { DatasetKind } from '@labelhub/shared';
+import type { DatasetImportFormat, DatasetKind } from '@labelhub/shared';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
 import { runInTransaction } from '../common/transactions/run-in-transaction.ts';
@@ -40,6 +40,7 @@ type MarketTaskRecord = {
   template: TaskTemplateSummary;
   createdById: string | null;
   createdBy: TaskCreatorSummary | null;
+  datasetImportSummary?: MarketDatasetImportSummary | null;
   items: MarketTaskItemRecord[];
   assignments: Array<{ id: string; assigneeId: string; status: AssignmentStatus }>;
   createdAt: Date;
@@ -68,6 +69,25 @@ type TaskItemRecord = {
 
 type MarketTaskItemRecord = Pick<TaskItemRecord, 'id' | 'externalId' | 'status'>;
 
+type MarketDatasetImportFileSummary = {
+  datasetKind: DatasetKind;
+  format: DatasetImportFormat;
+  fileName: string;
+  fields: string[];
+  importedCount: number;
+  errorCount: number;
+};
+
+type MarketDatasetImportSummary = {
+  taskId: string;
+  datasetKind: DatasetKind;
+  importedCount: number;
+  errorCount: number;
+  skippedFiles: string[];
+  fields: string[];
+  files: MarketDatasetImportFileSummary[];
+};
+
 type AssignmentRecord = {
   id: string;
   taskId: string;
@@ -94,6 +114,7 @@ export type MarketTaskDto = {
   datasetKind: DatasetKind;
   templateId: string;
   templateName: string;
+  datasetImportSummary: MarketDatasetImportSummary | null;
   itemCount: number;
   assignedCount: number;
   claimedByMeCount: number;
@@ -196,6 +217,7 @@ const MARKET_TASK_INCLUDE = {
       name: true,
     },
   },
+  datasetImportSummary: true,
   items: {
     orderBy: {
       sortOrder: 'asc',
@@ -361,6 +383,7 @@ function toMarketTaskDto(task: MarketTaskRecord, labelerId?: string): MarketTask
     datasetKind: task.template.datasetKind,
     templateId: task.template.id,
     templateName: task.template.name,
+    datasetImportSummary: task.datasetImportSummary ?? null,
     itemCount: task.items.length,
     assignedCount,
     claimedByMeCount,

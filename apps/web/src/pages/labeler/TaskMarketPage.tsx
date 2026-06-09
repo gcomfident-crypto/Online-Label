@@ -38,15 +38,17 @@ const CLAIM_STATUS_LABELS: Record<MarketClaimStatus, string> = {
   expired: '已截止',
 };
 
-const DATASET_KIND_LABELS: Record<MarketTaskDto['datasetKind'], string> = {
-  qa_quality: '问答质量',
-  preference_compare: '偏好对比',
-  generic_json: '通用 JSON',
-};
-
+const DATASET_IMPORT_FORMAT_LABELS = {
+  json: 'JSON 文件',
+  jsonl: 'JSONL 文件',
+  csv: 'CSV 文件',
+  xlsx: 'XLSX 文件',
+  zip: 'ZIP 文件',
+} as const;
+const MARKET_PREVIEW_ITEM_LIMIT = 100;
 const TASK_MARKET_FALLBACK_PAGE_SIZE = 7;
 const TASK_MARKET_TABLE_ROW_HEIGHT = 66;
-const TASK_MARKET_CACHE_KEY = `labelhub.labeler.market.${LABELER_ID}.v1`;
+const TASK_MARKET_CACHE_KEY = `labelhub.labeler.market.${LABELER_ID}.v2`;
 
 export const TaskMarketPage = () => {
   const cachedTasks = useMemo(() => readPageDataCache(TASK_MARKET_CACHE_KEY, isMarketTaskDtoArray), []);
@@ -642,7 +644,7 @@ const TaskPreviewDialog = ({
           <div>
             <h2>任务内容预览 · {task.title}</h2>
             <p>
-              {task.templateName} · {DATASET_KIND_LABELS[task.datasetKind]} · 共 {previewItems.length.toLocaleString()} 条样例
+              {formatTaskPreviewMeta(task, previewItems.length)}
             </p>
           </div>
           <button className="task-market-preview-close" type="button" aria-label="关闭预览" onClick={onClose}>
@@ -703,11 +705,53 @@ const collectTaskPreviewFields = (items: MarketTaskDto['previewItems']): string[
 };
 
 const toMarketPreviewItems = (items: readonly TaskItemDto[]): MarketTaskDto['previewItems'] =>
-  items.slice(0, 3).map((item) => ({
+  items.slice(0, MARKET_PREVIEW_ITEM_LIMIT).map((item) => ({
     id: item.id,
     externalId: item.externalId,
     rawData: item.rawData,
   }));
+
+const formatTaskPreviewMeta = (task: MarketTaskDto, previewCount: number): string => {
+  const sourceLabel = formatDatasetImportSource(task);
+  const countLabel = formatTaskPreviewCount(task, previewCount);
+
+  return [task.templateName, sourceLabel, countLabel].filter(Boolean).join(' · ');
+};
+
+const formatDatasetImportSource = (task: MarketTaskDto): string | null => {
+  const files = task.datasetImportSummary?.files ?? [];
+
+  if (files.length === 0) {
+    return null;
+  }
+
+  if (files.length === 1) {
+    const file = files[0];
+    const formatLabel = DATASET_IMPORT_FORMAT_LABELS[file.format] ?? file.format.toUpperCase();
+
+    return `${formatLabel} · ${file.fileName}`;
+  }
+
+  return `多文件导入 · ${files.length.toLocaleString()} 个文件`;
+};
+
+const formatTaskPreviewCount = (task: MarketTaskDto, previewCount: number): string => {
+  const totalCount = resolveTaskTotalCount(task);
+
+  if (previewCount > 0 && previewCount < totalCount) {
+    return `共 ${totalCount.toLocaleString()} 题，当前预览前 ${previewCount.toLocaleString()} 题`;
+  }
+
+  return `共 ${totalCount.toLocaleString()} 题`;
+};
+
+const resolveTaskTotalCount = (task: MarketTaskDto): number => {
+  if (task.itemCount > 0) {
+    return task.itemCount;
+  }
+
+  return task.datasetImportSummary?.importedCount ?? 0;
+};
 
 const formatPreviewValue = (value: unknown): string => {
   if (value === null || value === undefined || value === '') {

@@ -1,4 +1,5 @@
 import type { DatasetKind } from '@labelhub/shared';
+import type { DatasetImportSummaryDto } from './datasets';
 import { requestApi } from './request';
 
 export type MarketClaimStatus = 'available' | 'claimed' | 'limited' | 'full' | 'expired';
@@ -26,6 +27,7 @@ export type MarketTaskDto = {
   datasetKind: DatasetKind;
   templateId: string;
   templateName: string;
+  datasetImportSummary?: DatasetImportSummaryDto | null;
   itemCount: number;
   assignedCount: number;
   claimedByMeCount: number;
