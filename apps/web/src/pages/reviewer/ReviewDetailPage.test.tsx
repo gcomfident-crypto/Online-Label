@@ -157,7 +157,8 @@ describe('ReviewDetailPage', () => {
       '/reviews/submission_2/pass',
       expect.objectContaining({ method: 'POST' }),
     );
-    expect(within(queue).getByRole('button', { name: /P0002/ })).not.toHaveTextContent('通过');
+    expect(within(queue).getByRole('button', { name: /P0002/ })).toHaveTextContent('已通过');
+    expect(await screen.findByText('P0003 · 第三题')).toBeInTheDocument();
   });
 
   it('切换题目详情未返回时不展示 externalId 占位标题', async () => {
@@ -562,7 +563,7 @@ describe('ReviewDetailPage', () => {
     expect(within(queue).getByRole('button', { name: /P0003/ })).toHaveTextContent('待决策');
   });
 
-  it('单题通过后列表保留任务内全部题目，未收口前不提前透出题级结论', async () => {
+  it('单题通过后列表保留任务内全部题目，当前题立即已通过并自动切到下一题', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = input.toString();
@@ -582,6 +583,20 @@ describe('ReviewDetailPage', () => {
             ...reviewDetail,
             submission: { ...reviewDetail.submission, id: 'submission_2' },
             taskItem: { ...reviewDetail.taskItem, externalId: 'P0002', rawData: { prompt: '第二题' } },
+          },
+        });
+      }
+
+      if (path === '/reviews/submission_3' && method === 'GET') {
+        return jsonResponse({
+          data: {
+            ...reviewDetail,
+            submission: {
+              ...reviewDetail.submission,
+              id: 'submission_3',
+              answers: { quality: 'pass', comment: '第三题覆盖核心点。' },
+            },
+            taskItem: { ...reviewDetail.taskItem, externalId: 'P0003', rawData: { prompt: '第三题' } },
           },
         });
       }
@@ -609,10 +624,10 @@ describe('ReviewDetailPage', () => {
     expect(questionButtons).toHaveLength(3);
 
     await user.click(within(queue).getByRole('button', { name: /P0002/ }));
+    expect(await screen.findByText('P0002 · 第二题')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /通过 · 入库/ }));
 
     expect(await screen.findByRole('status')).toHaveTextContent('P0002 已通过入库');
-    expect((await screen.findAllByText('待决策')).length).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenCalledWith(
       '/reviews/submission_2/pass',
       expect.objectContaining({ method: 'POST' }),
@@ -621,8 +636,9 @@ describe('ReviewDetailPage', () => {
     const refreshedQueue = await screen.findByLabelText('当前任务题目列表');
     expect(refreshedQueue.querySelectorAll('article button')).toHaveLength(3);
     expect(within(refreshedQueue).getByRole('button', { name: /P0001/ })).toHaveTextContent('待决策');
-    expect(within(refreshedQueue).getByRole('button', { name: /P0002/ })).toHaveTextContent('待决策');
+    expect(within(refreshedQueue).getByRole('button', { name: /P0002/ })).toHaveTextContent('已通过');
     expect(within(refreshedQueue).getByRole('button', { name: /P0003/ })).toHaveTextContent('待决策');
+    expect(await screen.findByText('P0003 · 第三题')).toBeInTheDocument();
   });
 
   it('模板没有 show_item 时题目信息仍使用 ShowItem 表格样式', async () => {

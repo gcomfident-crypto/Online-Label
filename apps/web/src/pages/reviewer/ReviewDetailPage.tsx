@@ -25,6 +25,11 @@ type ManualReviewSuggestion = 'manual' | 'pass' | 'reject';
 type ManualReviewResult = 'pass' | 'reject';
 
 type ReviewSubmitSnapshot = Record<string, unknown>;
+type LocalReviewDecision = {
+  humanDecision: string;
+  status: string;
+  updatedAt: string;
+};
 
 type ReviewSubmitField = {
   fieldKey: string;
@@ -130,13 +135,27 @@ export const ReviewTaskDetailContent = ({
     Record<string, Record<string, FieldReviewComment>>
   >({});
   const [reviewDetail, setReviewDetail] = useState<ReviewDetailDto | null>(null);
+  const [reviewDetailsBySubmissionId, setReviewDetailsBySubmissionId] = useState<Record<string, ReviewDetailDto>>({});
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const reviewDetailCacheRef = useRef<Map<string, ReviewDetailDto>>(new Map());
   const reviewDetailRequestsRef = useRef<Map<string, Promise<ReviewDetailDto>>>(new Map());
   const reviewDetailPreloadErrorNotifiedRef = useRef(false);
+  const localReviewDecisionsRef = useRef<Map<string, LocalReviewDecision>>(new Map());
   const { dismissToast, messages, showErrorToast, showStatusToast } = useToastController();
+
+  const storeReviewDetail = useCallback((submissionId: string, detail: ReviewDetailDto) => {
+    reviewDetailCacheRef.current.set(submissionId, detail);
+    setReviewDetailsBySubmissionId((current) =>
+      current[submissionId] === detail
+        ? current
+        : {
+            ...current,
+            [submissionId]: detail,
+          },
+    );
+  }, []);
 
   const fetchAndCacheReviewDetail = useCallback((submissionId: string): Promise<ReviewDetailDto> => {
     const cachedDetail = reviewDetailCacheRef.current.get(submissionId);
@@ -151,7 +170,7 @@ export const ReviewTaskDetailContent = ({
 
     const request = getReview(submissionId)
       .then((detail) => {
-        reviewDetailCacheRef.current.set(submissionId, detail);
+        storeReviewDetail(submissionId, detail);
         return detail;
       })
       .finally(() => {
@@ -160,7 +179,7 @@ export const ReviewTaskDetailContent = ({
 
     reviewDetailRequestsRef.current.set(submissionId, request);
     return request;
-  }, []);
+  }, [storeReviewDetail]);
 
   const preloadReviewDetails = useCallback(
     (items: readonly ReviewQueueItemDto[], selectedId: string | null) => {
@@ -204,7 +223,7 @@ export const ReviewTaskDetailContent = ({
       return;
     }
 
-    const scopedItems = items.filter((item) => item.taskId === taskId);
+    const scopedItems = mergeLocalReviewDecisions(items.filter((item) => item.taskId === taskId), localReviewDecisionsRef.current);
     const orderedItems = sortReviewQueueItems(scopedItems);
     const nextSelectedSubmissionId = preserveSubmissionId && orderedItems.some((item) => item.submissionId === preserveSubmissionId)
       ? preserveSubmissionId
@@ -226,9 +245,11 @@ export const ReviewTaskDetailContent = ({
 
     setIsLoading(true);
     setReviewDetail(null);
+    setReviewDetailsBySubmissionId({});
     reviewDetailCacheRef.current.clear();
     reviewDetailRequestsRef.current.clear();
     reviewDetailPreloadErrorNotifiedRef.current = false;
+    localReviewDecisionsRef.current.clear();
     listPendingReviews({ taskId })
       .then((items) => {
         if (!isMounted) {
@@ -308,13 +329,14 @@ export const ReviewTaskDetailContent = ({
     [queueItems, selectedSubmissionId, visibleItems],
   );
   const selectedItemDetail = selectedQueueItem
-    ? reviewDetail?.submission.id === selectedQueueItem.submissionId
-      ? reviewDetail
-      : reviewDetailCacheRef.current.get(selectedQueueItem.submissionId) ?? null
+    ? reviewDetailsBySubmissionId[selectedQueueItem.submissionId] ??
+      (reviewDetail?.submission.id === selectedQueueItem.submissionId
+        ? reviewDetail
+        : reviewDetailCacheRef.current.get(selectedQueueItem.submissionId) ?? null)
     : null;
   const schemaFieldLabels = useMemo(
-    () => buildSchemaFieldLabelMap(selectedItemDetail?.task.schema ?? null),
-    [selectedItemDetail?.task.schema],
+    () => buildSchemaFieldLabelMap(selectedItemDetail?.task?.schema ?? null),
+    [selectedItemDetail?.task?.schema],
   );
   const selectedItem = useMemo(
     () =>
@@ -442,13 +464,14 @@ export const ReviewTaskDetailContent = ({
     }
 
     try {
+      let nextReviewDetail: ReviewDetailDto | null = null;
       if (action === 'pass') {
-        await passReview(selectedItem.submissionId, { actorId: REVIEWER_ID, comment: reviewComment });
+        nextReviewDetail = await passReview(selectedItem.submissionId, { actorId: REVIEWER_ID, comment: reviewComment });
         showStatusToast(`${selectedItem.subId} 已通过入库`);
       } else if (action === 'reject') {
         const fieldReviews = fieldReviewsFromComments(selectedFieldComments, orderedSubmitFields);
         const rejectReason = reviewComment.trim() || DEFAULT_REJECT_REASON;
-        await rejectReview(selectedItem.submissionId, {
+        nextReviewDetail = await rejectReview(selectedItem.submissionId, {
           actorId: REVIEWER_ID,
           reason: rejectReason,
           ...(fieldReviews.length > 0 ? { fieldReviews } : {}),
@@ -456,8 +479,25 @@ export const ReviewTaskDetailContent = ({
         showStatusToast(`${selectedItem.subId} 已打回`);
       }
 
+      if (nextReviewDetail) {
+        storeReviewDetail(selectedItem.submissionId, nextReviewDetail);
+      }
+
+      const localDecision = action === 'pass' ? 'recheck_pass' : 'reject';
+      localReviewDecisionsRef.current.set(selectedItem.submissionId, {
+        humanDecision: localDecision,
+        status: nextReviewDetail?.submission.status ?? (action === 'reject' ? 'NEEDS_REVISION' : selectedQueueItem.status),
+        updatedAt: new Date().toISOString(),
+      });
+
+      const locallyUpdatedItems = markQueueItemsReviewed(queueItems, localReviewDecisionsRef.current);
+      const nextSelectedSubmissionId =
+        findNextReviewableSubmissionId(locallyUpdatedItems, selectedItem.submissionId) ?? selectedItem.submissionId;
+      setQueueItems(locallyUpdatedItems);
+      setSelectedSubmissionId(nextSelectedSubmissionId);
+
       const latestItems = await listPendingReviews({ taskId });
-      applyCurrentTaskQueueItems(latestItems, selectedItem.submissionId);
+      applyCurrentTaskQueueItems(latestItems, nextSelectedSubmissionId);
       setSelectedIds((current) => {
         const next = new Set(current);
         next.delete(selectedItem.submissionId);
@@ -1229,6 +1269,46 @@ function countByTab(queueItems: ReviewQueueItemDto[], tab: ManualReviewSuggestio
   return queueItems.filter((item) => normalizeSuggestion(item.aiDecision) === tab).length;
 }
 
+function mergeLocalReviewDecisions(
+  items: ReviewQueueItemDto[],
+  localDecisions: ReadonlyMap<string, LocalReviewDecision>,
+): ReviewQueueItemDto[] {
+  return items.map((item) => {
+    if (REVIEW_DECISIONS.has(item.humanDecision ?? '')) {
+      return item;
+    }
+
+    const localDecision = localDecisions.get(item.submissionId);
+    if (!localDecision) {
+      return item;
+    }
+
+    return {
+      ...item,
+      humanDecision: localDecision.humanDecision,
+      status: localDecision.status,
+      updatedAt: localDecision.updatedAt,
+    };
+  });
+}
+
+function markQueueItemsReviewed(
+  items: ReviewQueueItemDto[],
+  localDecisions: ReadonlyMap<string, LocalReviewDecision>,
+): ReviewQueueItemDto[] {
+  return sortReviewQueueItems(mergeLocalReviewDecisions(items, localDecisions));
+}
+
+function findNextReviewableSubmissionId(items: ReviewQueueItemDto[], currentSubmissionId: string): string | null {
+  const orderedItems = sortReviewQueueItems(items);
+  const currentIndex = orderedItems.findIndex((item) => item.submissionId === currentSubmissionId);
+  const afterCurrent = currentIndex >= 0 ? orderedItems.slice(currentIndex + 1) : orderedItems;
+  const beforeCurrent = currentIndex >= 0 ? orderedItems.slice(0, currentIndex) : [];
+  const nextItem = [...afterCurrent, ...beforeCurrent].find(isReviewableQueueItem);
+
+  return nextItem?.submissionId ?? null;
+}
+
 function normalizeSuggestion(decision: string | null | undefined): ManualReviewSuggestion {
   if (decision === 'pass') {
     return 'pass';
@@ -1352,6 +1432,10 @@ function resolveManualReviewDecisionLabelByRound(
   if (scopeProgress.pendingCount > 0) {
     if (queueItem.humanDecision === 'reject') {
       return { text: '已标记待改', type: 'reject' };
+    }
+
+    if (queueItem.humanDecision && REVIEW_PASS_DECISIONS.has(queueItem.humanDecision)) {
+      return { text: '已通过', type: 'pass' };
     }
 
     if (queueItem.humanDecision && REVIEW_DECISIONS.has(queueItem.humanDecision)) {
