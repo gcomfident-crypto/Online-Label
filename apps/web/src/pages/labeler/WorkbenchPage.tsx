@@ -66,6 +66,8 @@ export const WorkbenchPage = () => {
   const taskSubmitInFlightRef = useRef(false);
   const validationFocusTimerRef = useRef<number | null>(null);
   const workbenchCacheRef = useRef<Map<string, WorkbenchDto>>(new Map());
+  const workbenchPreloadRequestsRef = useRef<Map<string, Promise<WorkbenchDto>>>(new Map());
+  const workbenchPreloadErrorNotifiedRef = useRef(false);
   const taskAssignmentsCacheRef = useRef<Map<string, LabelerAssignmentDto[]>>(new Map());
   const labelerStatsCacheRef = useRef<Map<string, LabelerStatsDto>>(new Map());
   const localAnswersByAssignmentRef = useRef<Map<string, Record<string, unknown>>>(new Map());
@@ -180,31 +182,64 @@ export const WorkbenchPage = () => {
     };
   }, []);
 
-  const preloadAdjacentWorkbenches = useCallback(
+  const fetchAndCacheWorkbench = useCallback((nextAssignmentId: string): Promise<WorkbenchDto> => {
+    const cachedWorkbench = workbenchCacheRef.current.get(nextAssignmentId);
+    if (cachedWorkbench) {
+      return Promise.resolve(cachedWorkbench);
+    }
+
+    const inflightRequest = workbenchPreloadRequestsRef.current.get(nextAssignmentId);
+    if (inflightRequest) {
+      return inflightRequest;
+    }
+
+    const request = getAssignmentWorkbench(nextAssignmentId)
+      .then((nextWorkbench) => {
+        workbenchCacheRef.current.set(nextAssignmentId, nextWorkbench);
+        return nextWorkbench;
+      })
+      .finally(() => {
+        workbenchPreloadRequestsRef.current.delete(nextAssignmentId);
+      });
+
+    workbenchPreloadRequestsRef.current.set(nextAssignmentId, request);
+    return request;
+  }, []);
+
+  const preloadTaskWorkbenches = useCallback(
     (currentAssignmentId: string, assignments: readonly LabelerAssignmentDto[]) => {
       const currentIndex = assignments.findIndex((assignment) => assignment.assignmentId === currentAssignmentId);
       if (currentIndex < 0) {
         return;
       }
 
-      for (const nextIndex of [currentIndex - 1, currentIndex + 1]) {
-        const nextAssignment = assignments[nextIndex];
-        if (!nextAssignment || workbenchCacheRef.current.has(nextAssignment.assignmentId)) {
+      const preloadQueue = assignments
+        .map((assignment, index) => ({ assignment, distance: Math.abs(index - currentIndex) }))
+        .filter(({ assignment }) => assignment.assignmentId !== currentAssignmentId)
+        .sort((first, second) => first.distance - second.distance);
+
+      for (const { assignment } of preloadQueue) {
+        if (
+          workbenchCacheRef.current.has(assignment.assignmentId) ||
+          workbenchPreloadRequestsRef.current.has(assignment.assignmentId)
+        ) {
           continue;
         }
 
-        void getAssignmentWorkbench(nextAssignment.assignmentId)
-          .then((nextWorkbench) => {
-            workbenchCacheRef.current.set(nextAssignment.assignmentId, nextWorkbench);
-          })
+        void fetchAndCacheWorkbench(assignment.assignmentId)
           .catch((error) => {
+            if (workbenchPreloadErrorNotifiedRef.current) {
+              return;
+            }
+
+            workbenchPreloadErrorNotifiedRef.current = true;
             showErrorToast(error instanceof Error
-              ? `相邻题预加载失败：${error.message}`
-              : '相邻题预加载失败。');
+              ? `题目预加载失败：${error.message}`
+              : '题目预加载失败。');
           });
       }
     },
-    [showErrorToast],
+    [fetchAndCacheWorkbench, showErrorToast],
   );
 
   useEffect(() => {
@@ -233,11 +268,10 @@ export const WorkbenchPage = () => {
       setIsLoading(false);
     } else {
       setIsLoading(true);
-      setWorkbench((current) => (current && current.assignment.id !== id ? null : current));
     }
 
     try {
-      const nextWorkbench = await getAssignmentWorkbench(id);
+      const nextWorkbench = await fetchAndCacheWorkbench(id);
       workbenchCacheRef.current.set(id, nextWorkbench);
       const { nextStats, nextTaskAssignments } = await loadTaskContextSnapshot(nextWorkbench.assignment.taskId);
 
@@ -246,7 +280,7 @@ export const WorkbenchPage = () => {
       }
 
       applyWorkbenchSnapshot(nextWorkbench, nextStats, nextTaskAssignments);
-      preloadAdjacentWorkbenches(nextWorkbench.assignment.id, nextTaskAssignments);
+      preloadTaskWorkbenches(nextWorkbench.assignment.id, nextTaskAssignments);
     } catch (error) {
       if (requestId !== loadWorkbenchRequestRef.current) {
         return;
@@ -266,10 +300,10 @@ export const WorkbenchPage = () => {
       const { nextStats, nextTaskAssignments } = await loadTaskContextSnapshot(nextWorkbench.assignment.taskId);
 
       applyWorkbenchSnapshot(nextWorkbench, nextStats, nextTaskAssignments);
-      preloadAdjacentWorkbenches(nextWorkbench.assignment.id, nextTaskAssignments);
+      preloadTaskWorkbenches(nextWorkbench.assignment.id, nextTaskAssignments);
       return nextWorkbench;
     },
-    [applyWorkbenchSnapshot, loadTaskContextSnapshot, preloadAdjacentWorkbenches],
+    [applyWorkbenchSnapshot, loadTaskContextSnapshot, preloadTaskWorkbenches],
   );
 
   const startAiReviewPolling = useCallback(
@@ -586,9 +620,6 @@ export const WorkbenchPage = () => {
         applyWorkbenchSnapshot(cachedWorkbench, cachedStats, cachedAssignments);
         setIsLoading(false);
       } else {
-        setWorkbench((current) =>
-          current && current.assignment.id !== assignment.assignmentId ? null : current,
-        );
         setIsLoading(true);
       }
 
