@@ -3,9 +3,9 @@
 </p>
 
 <p align="center">
-  An online collaboration platform for data labeling, automated pre-review, human review, and result export.
-  <br />
   支持数据标注、自动预审、人工复审及结果导出的在线协作平台
+  <br />
+  A full-stack platform for AI data labeling, automated pre-review, human review, and final export.
 </p>
 
 <p align="center">
@@ -17,73 +17,73 @@
 </p>
 
 <p align="center">
-  <a href="./README.md">English</a> | <a href="./README-ZH.md">中文文档</a>
+  <a href="./README-EN.md">English</a> | <a href="./README.md">中文文档</a>
 </p>
 
-## ⚡️ Project Overview
+## ⚡️ 项目概述
 
-LabelHub is an online platform for AI data labeling operations. It covers **labeling template configuration, item import, task publishing, labeling submission, AI automated pre-review, human review, and data export**, forming a traceable end-to-end loop for labeling tasks.
+LabelHub 是一个面向 AI 数据标注运营在线平台。功能涵盖**标注模板配置、题目导入、任务发布、标注提交、AI 自动预审、人工复审、数据导出**，实现标注任务的全链路可追溯闭环。
 
-## 🌍 Online Experience
+## 🌍 在线体验
 
-You can visit the online platform. View existing tasks or create your own tasks to quickly experience the core features: [115.190.153.31](http://115.190.153.31/)
+欢迎访问在线平台。通过查看过往任务或自主创建任务，即可快速体验平台核心功能：[115.190.153.31](http://115.190.153.31/)
 
-## 📷 System Screenshots
+## 📷 系统截图
 
 ### Owner
 
 <p align="center">
-  <img src="./docs/readme/owner/1.png" alt="Owner screenshot 1" width="22%" hspace="6" />
-  <img src="./docs/readme/owner/2.png" alt="Owner screenshot 2" width="22%" hspace="6" />
-  <img src="./docs/readme/owner/3.png" alt="Owner screenshot 3" width="22%" hspace="6" />
-  <img src="./docs/readme/owner/4.png" alt="Owner screenshot 4" width="22%" hspace="6" />
+  <img src="./docs/readme/owner/1.png" alt="Owner 截图 1" width="22%" hspace="6" />
+  <img src="./docs/readme/owner/2.png" alt="Owner 截图 2" width="22%" hspace="6" />
+  <img src="./docs/readme/owner/3.png" alt="Owner 截图 3" width="22%" hspace="6" />
+  <img src="./docs/readme/owner/4.png" alt="Owner 截图 4" width="22%" hspace="6" />
 </p>
 
 ### Labeler
 
 <p align="center">
-  <img src="./docs/readme/labeler/1.png" alt="Labeler screenshot 1" width="22%" hspace="6" />
-  <img src="./docs/readme/labeler/2.png" alt="Labeler screenshot 2" width="22%" hspace="6" />
-  <img src="./docs/readme/labeler/3.png" alt="Labeler screenshot 3" width="22%" hspace="6" />
-  <img src="./docs/readme/labeler/4.png" alt="Labeler screenshot 4" width="22%" hspace="6" />
+  <img src="./docs/readme/labeler/1.png" alt="Labeler 截图 1" width="22%" hspace="6" />
+  <img src="./docs/readme/labeler/2.png" alt="Labeler 截图 2" width="22%" hspace="6" />
+  <img src="./docs/readme/labeler/3.png" alt="Labeler 截图 3" width="22%" hspace="6" />
+  <img src="./docs/readme/labeler/4.png" alt="Labeler 截图 4" width="22%" hspace="6" />
 </p>
 
 ### Agent
 
 <p align="center">
-  <img src="./docs/readme/agent/1.png" alt="Agent screenshot 1" width="46%" hspace="8" />
-  <img src="./docs/readme/agent/2.png" alt="Agent screenshot 2" width="46%" hspace="8" />
+  <img src="./docs/readme/agent/1.png" alt="Agent 截图 1" width="46%" hspace="8" />
+  <img src="./docs/readme/agent/2.png" alt="Agent 截图 2" width="46%" hspace="8" />
 </p>
 
 ### Reviewer
 
 <p align="center">
-  <img src="./docs/readme/reviewer/1.png" alt="Reviewer screenshot 1" width="46%" hspace="8" />
-  <img src="./docs/readme/reviewer/2.png" alt="Reviewer screenshot 2" width="46%" hspace="8" />
+  <img src="./docs/readme/reviewer/1.png" alt="Reviewer 截图 1" width="46%" hspace="8" />
+  <img src="./docs/readme/reviewer/2.png" alt="Reviewer 截图 2" width="46%" hspace="8" />
 </p>
 
-## 🎬 Demo Video
+## 🎬 演示视频
 
-## 🔄 Workflow
+## 🔄 工作流程
 
-1. Owner designs templates, imports items, creates tasks, and publishes them
-2. Labeler claims tasks, answers items one by one, saves drafts, submits answers, and revises them based on AI Agent or Reviewer pre-review comments
-3. AI Agent performs automated pre-review, writes structured scores, and routes the result to human review or back to Labeler for revision
-4. Reviewer performs recheck and final review based on diffs, comments, and audit records
-5. Owner exports reviewed labeling data from the export center
+1. Owner 设计模板、导入题目、创建任务并发布
+2. Labeler 领取任务、逐题作答、保存草稿并提交答案。根据 AI Agent 或 Reviewer 预审意见修改
+3. AI Agent 执行自动预审，写入结构化评分，并把结果流转到人工审核或打回 Labeler 修改
+4. Reviewer 基于 Diff、评语和审计记录执行复审与终审
+5. Owner 在导出中心导出审核后的标注数据
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-### Prerequisites
+### 前置条件
 
-| Tool    | Version                       | Purpose                    |
+| 工具    | 版本                          | 用途                       |
 | ------- | ----------------------------- | -------------------------- |
-| Node.js | `^20.19.0` or `>=22.12.0`     | Vite, NestJS, Prisma, tests |
-| pnpm    | `10.x`                        | Monorepo package manager   |
-| Docker  | Latest stable                 | PostgreSQL and Redis       |
-| Git     | Latest stable                 | Source checkout            |
+| Node.js | `^20.19.0` 或 `>=22.12.0` | Vite、NestJS、Prisma、测试 |
+| pnpm    | `10.x`                      | Monorepo 包管理            |
+| Docker  | 最新稳定版                    | PostgreSQL 和 Redis        |
+| Git     | 最新稳定版                    | 拉取源码                   |
 
-### Source Deployment
+### 源码部署
 
 ```bash
 pnpm install
@@ -94,16 +94,16 @@ pnpm exec prisma db seed
 pnpm dev
 ```
 
-Default service URLs:
+默认服务地址：
 
-| Service    | URL                     |
-| ---------- | ----------------------- |
+| 服务       | 地址                      |
+| ---------- | ------------------------- |
 | Web        | `http://localhost:5173` |
 | API        | `http://localhost:3000` |
 | PostgreSQL | `localhost:5432`        |
 | Redis      | `localhost:6379`        |
 
-Start services separately when you need isolated logs:
+需要分开看日志时，可以单独启动：
 
 ```bash
 pnpm --filter @labelhub/api dev
@@ -111,9 +111,9 @@ pnpm --filter @labelhub/web dev
 pnpm --filter @labelhub/worker dev
 ```
 
-### AI Configuration
+### AI 配置
 
-`.env.example` uses DeepSeek-compatible placeholder configuration. Real keys must only be written to local `.env` or cloud platform secret management
+`.env.example` 使用 DeepSeek 兼容占位配置。真实 key 只能写入本机 `.env` 或云平台密钥管理
 
 ```text
 LLM_PROVIDER=deepseek
@@ -121,17 +121,17 @@ LLM_MODEL=deepseek-chat
 DEEPSEEK_API_KEY=replace_with_deepseek_api_key
 ```
 
-## Demo Accounts
+## 演示账号
 
-The current frontend login page creates a demo session; it is not real username-password authentication. You need to enter both account and password, but the password is only checked as non-empty and is not validated against a specific value. Use `password` for consistency.
+当前前端登录页是演示会话，不是真实账号密码认证。登录时需要填写账号和密码，但密码只校验是否非空，不校验具体值；建议统一填写 `password`。
 
-| Role           | Frontend account           | Frontend password | Login identity dropdown | Default home          |
-| -------------- | -------------------------- | ----------------- | ----------------------- | --------------------- |
-| Task Owner     | `owner`                    | `password`        | Owner Task Manager      | `/owner/tasks`        |
-| Labeler        | `labeler`                  | `password`        | Labeler                 | `/labeler/market`     |
-| AI Agent       | `agent`/`ai`/`ai_agent`    | `password`        | AI Agent Pre-review     | `/agent/ai-review`    |
-| Human Reviewer | `reviewer`                 | `password`        | Reviewer                | `/reviewer/reviews`   |
+| 角色       | 前端账号                    | 前端密码   | 登录身份下拉项   | 默认首页              |
+| ---------- | --------------------------- | ---------- | ---------------- | --------------------- |
+| 任务负责人 | `owner`                     | `password` | Owner 任务负责人 | `/owner/tasks`        |
+| 标注员     | `labeler`                   | `password` | Labeler 标注员   | `/labeler/market`     |
+| AI Agent   | `agent`/`ai`/`ai_agent`     | `password` | AI Agent 预审    | `/agent/ai-review`    |
+| 人工审核员 | `reviewer`                  | `password` | Reviewer 审核员  | `/reviewer/reviews`   |
 
-When the account matches one of the aliases above, the role is determined by the account. When the account does not match an alias, the role is determined by the "Login identity" dropdown.
+账号命中上表别名时，会按账号自动确定角色；账号没有命中别名时，会按“登录身份”下拉框选择的角色登录。
 
-The backend `/auth/login` endpoint is an independent demo API and does not accept passwords. Log in by role:
+后端 `/auth/login` 是独立的演示接口，不接收密码。按角色登录：
