@@ -18327,6 +18327,21 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   gap: 14px;
 }
 
+.agent-review-detail-actions {
+  position: relative;
+  min-width: 118px;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-right: 34px;
+}
+
+.agent-review-detail-actions .workbench-close-button {
+  top: -2px;
+  right: 0;
+}
+
 .agent-review-detail-summary-heading {
   min-width: 0;
   display: inline-flex;
@@ -18784,28 +18799,6 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   align-items: center;
   gap: 10px;
   white-space: nowrap;
-}
-
-.agent-review-sheet-close {
-  width: 38px;
-  min-width: 38px;
-  min-height: 34px;
-  border: 1px solid #c9d8f6;
-  border-radius: 8px;
-  padding: 0;
-  border-color: #c9d8f6;
-  color: #306df7;
-  background: #ffffff;
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.agent-review-sheet-close:hover,
-.agent-review-sheet-close:focus-visible {
-  border-color: #306df8;
-  background: #f8fbff;
-  outline: none;
 }
 
 .agent-review-drawer-body {
@@ -19446,9 +19439,11 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .agent-review-log-dialog .agent-review-card__heading {
+  position: relative;
   align-items: center;
   border-bottom: 1px solid #edf1f5;
   margin: -2px 0 0;
+  padding-right: 34px;
   padding-bottom: 10px;
 }
 
@@ -19462,13 +19457,9 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   font-weight: 720;
 }
 
-.agent-review-log-dialog .agent-review-sheet-close {
-  width: 30px;
-  min-width: 30px;
-  min-height: 28px;
-  border-color: #d6dee9;
-  color: #475569;
-  font-size: 17px;
+.agent-review-log-dialog .workbench-close-button {
+  top: -5px;
+  right: 0;
 }
 
 .agent-review-log-dialog > .agent-review-trace-timeline {

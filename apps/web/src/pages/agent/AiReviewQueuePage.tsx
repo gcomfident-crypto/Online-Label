@@ -701,7 +701,7 @@ const TaskFlowSheet = ({
                 <button className="task-button task-button--ghost" type="button" onClick={onOpenLogs}>
                   任务日志
                 </button>
-                <button className="agent-review-sheet-close" type="button" aria-label="关闭任务流转详情" onClick={onClose}>
+                <button className="workbench-close-button" type="button" aria-label="关闭任务流转详情" onClick={onClose}>
                   <span aria-hidden="true">×</span>
                 </button>
               </div>
@@ -1094,7 +1094,7 @@ const TaskFlowLogDialog = ({
         <h3>任务日志 · {flow.taskTitle}</h3>
         <span>按真实流转时间记录关键阶段事件</span>
       </div>
-      <button className="agent-review-sheet-close" type="button" aria-label="关闭任务日志" onClick={onClose}>
+      <button className="workbench-close-button" type="button" aria-label="关闭任务日志" onClick={onClose}>
         <span aria-hidden="true">×</span>
       </button>
     </header>
