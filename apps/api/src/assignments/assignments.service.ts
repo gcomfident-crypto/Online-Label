@@ -217,7 +217,6 @@ const MARKET_TASK_INCLUDE = {
       name: true,
     },
   },
-  datasetImportSummary: true,
   items: {
     orderBy: {
       sortOrder: 'asc',
