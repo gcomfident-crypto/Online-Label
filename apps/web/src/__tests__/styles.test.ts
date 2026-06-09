@@ -1121,15 +1121,15 @@ describe('global styles', () => {
     const cardRule = styles.match(/\.agent-dashboard-card\s*\{[^}]+\}/)?.[0] ?? '';
     const mediaRule = styles.match(/@media\s*\(max-width:\s*900px\)\s*\{[\s\S]*?\.agent-dashboard-page\s*\{[^}]+\}/)?.[0] ?? '';
 
-    expect(pageRule).toContain('padding: 18px 24px 16px;');
+    expect(pageRule).toContain('padding: 10px 16px 10px;');
     expect(pageRule).toContain('background: #f8fafc;');
     expect(pageRule).not.toContain('overflow: hidden;');
     expect(gridRule).toContain('grid-template-columns: repeat(12, minmax(0, 1fr));');
-    expect(gridRule).toContain('gap: 14px;');
+    expect(gridRule).toContain('gap: 8px;');
     expect(kpiRule).toContain('grid-template-columns: repeat(5, minmax(0, 1fr));');
-    expect(cardRule).toContain('border-radius: 16px;');
+    expect(cardRule).toContain('border-radius: 12px;');
     expect(cardRule).toContain('border: 1px solid #e2e8f0;');
-    expect(cardRule).toContain('box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);');
+    expect(cardRule).toContain('box-shadow: 0 6px 18px rgba(15, 23, 42, 0.035);');
     expect(mediaRule).toContain('padding: 16px;');
   });
 

@@ -17206,7 +17206,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-page {
   min-height: calc(100vh - var(--platform-topbar-height));
-  padding: 18px 24px 16px;
+  padding: 10px 16px 10px;
   background: #f8fafc;
   color: #334155;
 }
@@ -17215,14 +17215,14 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .agent-dashboard-heading {
   min-width: 0;
   display: grid;
-  gap: 6px;
+  gap: 3px;
 }
 
 .agent-dashboard-heading h1 {
@@ -17234,7 +17234,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   clip-path: none;
   margin: 0;
   color: #172b4d;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.2;
@@ -17243,7 +17243,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-dashboard-heading p {
   margin: 0;
   color: #64748b;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.45;
 }
@@ -17252,7 +17252,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -17274,12 +17274,12 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-range button,
 .agent-dashboard-button {
-  min-height: 36px;
+  min-height: 30px;
   border: 0;
-  padding: 0 13px;
+  padding: 0 10px;
   color: #64748b;
   background: transparent;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
   cursor: pointer;
@@ -17338,7 +17338,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-dashboard-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 14px;
+  gap: 8px;
   transition:
     opacity 220ms ease,
     transform 220ms ease;
@@ -17365,7 +17365,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -17375,19 +17375,19 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-dashboard-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.035);
 }
 
 .agent-dashboard-kpi-card {
   position: relative;
   min-width: 0;
-  min-height: 88px;
+  min-height: 64px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 8px 10px;
   overflow: hidden;
   transition:
     border-color 160ms ease,
@@ -17401,8 +17401,8 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .agent-dashboard-kpi-icon {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -17427,8 +17427,8 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .agent-dashboard-kpi-icon svg {
-  width: 17px;
-  height: 17px;
+  width: 15px;
+  height: 15px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -17439,13 +17439,13 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-dashboard-kpi-copy {
   min-width: 0;
   display: grid;
-  gap: 3px;
+  gap: 2px;
 }
 
 .agent-dashboard-kpi-copy span {
   overflow: hidden;
   color: #64748b;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -17453,14 +17453,14 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-kpi-copy strong {
   color: #172b4d;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1;
 }
 
 .agent-dashboard-kpi-copy small {
   overflow: hidden;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -17477,9 +17477,9 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-dashboard-sparkline {
   position: absolute;
   top: 50%;
-  right: 14px;
-  width: 66px;
-  height: 28px;
+  right: 10px;
+  width: 54px;
+  height: 22px;
   opacity: 0.9;
   transform: translateY(-50%);
   pointer-events: none;
@@ -17520,19 +17520,19 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px 5px;
+  gap: 8px;
+  padding: 8px 12px 3px;
 }
 
 .agent-dashboard-card__header--compact {
   align-items: center;
-  padding-bottom: 4px;
+  padding-bottom: 3px;
 }
 
 .agent-dashboard-card__header h2 {
   margin: 0;
   color: #172b4d;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.35;
 }
@@ -17540,14 +17540,14 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-dashboard-card__header p {
   margin: 3px 0 0;
   color: #64748b;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
 }
 
 .agent-dashboard-card__header > span {
   color: #64748b;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -17555,17 +17555,17 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-dashboard-card__content {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 8px 16px 12px;
+  padding: 5px 12px 8px;
 }
 
 .agent-dashboard-card__content--table {
-  padding-top: 6px;
-  padding-bottom: 6px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 .agent-dashboard-card__footer {
   border-top: 1px solid #eef2f7;
-  padding: 7px 16px 8px;
+  padding: 5px 12px 6px;
 }
 
 .agent-dashboard-card__footer button,
@@ -17574,7 +17574,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   padding: 0;
   color: #306df8;
   background: transparent;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0;
   cursor: pointer;
@@ -17591,26 +17591,26 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-trend-chart {
   position: relative;
-  min-height: 236px;
+  min-height: 170px;
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .agent-dashboard-trend-plot {
   width: 100%;
-  height: 236px;
+  height: 170px;
   overflow: visible;
 }
 
 .agent-dashboard-chart-legend {
   position: absolute;
-  top: -52px;
+  top: -36px;
   right: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   color: #64748b;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -17651,7 +17651,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   stroke: #16a34a;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 3.2;
+  stroke-width: 3;
 }
 
 .agent-dashboard-trend-point circle {
@@ -17663,7 +17663,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-dashboard-trend-y-label,
 .agent-dashboard-trend-x-label {
   fill: #64748b;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -17676,15 +17676,15 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .agent-dashboard-quality {
-  min-height: 185px;
+  min-height: 142px;
   display: grid;
-  grid-template-columns: minmax(112px, 0.78fr) minmax(0, 1fr);
+  grid-template-columns: minmax(92px, 0.7fr) minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .agent-dashboard-donut {
-  width: 128px;
+  width: 100px;
   max-width: 100%;
   justify-self: center;
   transform: rotate(-90deg);
@@ -17693,7 +17693,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-dashboard-donut__track,
 .agent-dashboard-donut__segment {
   fill: none;
-  stroke-width: 16;
+  stroke-width: 14;
 }
 
 .agent-dashboard-donut__track {
@@ -17712,20 +17712,20 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-donut__label {
   fill: #64748b;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .agent-dashboard-donut__value {
   fill: #172b4d;
-  font-size: 21px;
+  font-size: 18px;
   font-weight: 700;
 }
 
 .agent-dashboard-quality-list {
   min-width: 0;
   display: grid;
-  gap: 8px;
+  gap: 5px;
 }
 
 .agent-dashboard-quality-row {
@@ -17733,9 +17733,9 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: #334155;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -17747,32 +17747,32 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-quality-row strong {
   color: #172b4d;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .agent-dashboard-quality-row small {
   color: #64748b;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
 }
 
 .agent-dashboard-quality-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
 }
 
 .agent-dashboard-updated {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: #94a3b8;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
 }
 
 .agent-dashboard-problem-list {
   display: grid;
-  gap: 9px;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -17781,17 +17781,17 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .agent-dashboard-problem-list li {
   min-width: 0;
   display: grid;
-  gap: 5px;
+  gap: 3px;
 }
 
 .agent-dashboard-problem-row {
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   color: #334155;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -17803,18 +17803,18 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-problem-row strong {
   color: #172b4d;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .agent-dashboard-problem-row small {
   color: #64748b;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
 }
 
 .agent-dashboard-progress {
-  height: 6px;
+  height: 4px;
   overflow: hidden;
   border-radius: 999px;
   background: #eef2f7;
@@ -17836,12 +17836,12 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-table th,
 .agent-dashboard-table td {
-  height: 32px;
+  height: 24px;
   overflow: hidden;
   border-bottom: 1px solid #eef2f7;
-  padding: 0 8px;
+  padding: 0 5px;
   color: #334155;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.35;
   text-align: left;
@@ -17850,10 +17850,10 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .agent-dashboard-table th {
-  height: 30px;
+  height: 22px;
   color: #64748b;
   background: #f8fafc;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -17931,10 +17931,10 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 34px;
+  min-width: 30px;
   border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 12px;
+  padding: 1px 6px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -17955,12 +17955,12 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-status-overview {
   display: grid;
-  gap: 7px;
-  padding: 7px 16px 10px;
+  gap: 5px;
+  padding: 5px 12px 7px;
 }
 
 .agent-dashboard-segmented-bar {
-  height: 34px;
+  height: 24px;
   display: flex;
   overflow: hidden;
   border-radius: 12px;
@@ -17972,10 +17972,10 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 1px;
+  gap: 0;
   color: #ffffff;
   background: var(--segment-color);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 1.15;
 }
@@ -17986,45 +17986,45 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-segmented-bar small {
   color: rgba(255, 255, 255, 0.86);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
 }
 
 .agent-dashboard-status-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
+  gap: 4px 12px;
 }
 
 .agent-dashboard-status-legend div {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   color: #334155;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .agent-dashboard-status-legend div > span {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
 }
 
 .agent-dashboard-status-legend small {
   color: #64748b;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
 }
 
 .agent-dashboard-skeleton {
   display: grid;
-  gap: 9px;
-  padding: 4px 0;
+  gap: 6px;
+  padding: 3px 0;
 }
 
 .agent-dashboard-skeleton span {
-  height: 14px;
+  height: 11px;
   overflow: hidden;
   border-radius: 999px;
   background:
@@ -18035,11 +18035,11 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .agent-dashboard-empty {
-  min-height: 58px;
+  min-height: 40px;
   display: grid;
   place-items: center;
   color: #94a3b8;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   text-align: center;
 }
