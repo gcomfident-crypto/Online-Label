@@ -258,7 +258,7 @@ button:disabled {
 .login-form input:hover,
 .login-form select:hover {
   border-color: rgba(100, 116, 139, 0.34);
-  background: rgba(255, 255, 255, 0.9);
+  background: #ffffff;
 }
 
 .login-form input::placeholder {
@@ -11700,6 +11700,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   gap: 16px;
   padding: 18px 20px;
   border-bottom: 1px solid rgba(221, 229, 233, 0.9);
+  background: #ffffff;
 }
 
 .task-dataset-preview-modal__header h2 {
@@ -11740,6 +11741,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   display: grid;
   overflow: hidden;
   padding: 18px 20px 20px;
+  background: #ffffff;
 }
 
 .task-dataset-preview-empty {
@@ -11747,7 +11749,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   border-radius: 8px;
   padding: 18px;
   color: #5b6472;
-  background: rgba(248, 251, 252, 0.86);
+  background: #f8fbfc;
   font-weight: 800;
 }
 
@@ -11793,7 +11795,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   position: sticky;
   top: 0;
   color: #5b6472;
-  background: rgba(247, 250, 251, 0.96);
+  background: #f7fafb;
   font-size: 12px;
   box-shadow: 0 1px 0 #d8e2f3;
   z-index: 2;
