@@ -2034,8 +2034,12 @@ function resolveCurrentQuestionFlowStatusLabel(
     return '已完成';
   }
 
-  if (status === 'NEEDS_REVISION') {
-    return progress === 'complete' ? '待提交' : '待修改';
+  if (isRejectedQuestionSnapshot({
+    assignmentStatus: status,
+    latestReviewDecision: latestReviewRecordByCreatedAt(latestSubmission?.reviewRecords ?? [])?.decision ?? null,
+    latestSubmissionStatus: latestSubmission?.status ?? null,
+  })) {
+    return '待修改';
   }
 
   if (status === 'SUBMITTED') {
@@ -2067,8 +2071,12 @@ function resolveNavigationQuestionFlowStatusLabel(
     return '已完成';
   }
 
-  if (assignment.status === 'NEEDS_REVISION') {
-    return progress === 'complete' ? '待提交' : '待修改';
+  if (isRejectedQuestionSnapshot({
+    assignmentStatus: assignment.status,
+    latestReviewDecision: assignment.latestReviewDecision ?? null,
+    latestSubmissionStatus: assignment.latestSubmissionStatus,
+  })) {
+    return '待修改';
   }
 
   if (assignment.status === 'SUBMITTED') {
@@ -2108,6 +2116,21 @@ function resolveSubmittedQuestionFlowStatusLabel(status: string | null): Questio
   }
 
   return 'AI处理中';
+}
+
+function isRejectedQuestionSnapshot(input: {
+  assignmentStatus: AssignmentStatus;
+  latestReviewDecision: string | null;
+  latestSubmissionStatus: string | null;
+}): boolean {
+  return (
+    input.assignmentStatus === 'NEEDS_REVISION' ||
+    input.latestReviewDecision === 'reject' ||
+    input.latestReviewDecision === 'recheck_reject' ||
+    input.latestSubmissionStatus === 'NEEDS_REVISION' ||
+    AI_REJECTED_SUBMISSION_STATUSES.has(input.latestSubmissionStatus ?? '') ||
+    REVIEWER_REJECTED_SUBMISSION_STATUSES.has(input.latestSubmissionStatus ?? '')
+  );
 }
 
 function resolveTaskHeaderStatusLabel(

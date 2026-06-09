@@ -933,11 +933,23 @@ describe('WorkbenchPage', () => {
         ...taskAssignments[0],
         assignmentId: 'assignment_completed',
         taskItemId: 'item_completed',
-        taskItemSortOrder: 7,
+        taskItemSortOrder: 8,
         externalId: 'P0007',
         status: 'FINAL_APPROVED',
         latestSubmissionStatus: 'FINAL_APPROVED',
         latestSubmittedAt: '2026-05-21T08:20:00.000Z',
+      },
+      {
+        ...taskAssignments[0],
+        assignmentId: 'assignment_reviewer_rejected_snapshot',
+        taskItemId: 'item_reviewer_rejected_snapshot',
+        taskItemSortOrder: 7,
+        externalId: 'P0008',
+        status: 'UNDER_RECHECK',
+        latestSubmissionStatus: 'RECHECK_REJECTED',
+        latestReviewStage: 'RECHECK',
+        latestReviewerType: 'HUMAN',
+        latestReviewDecision: 'reject',
       },
     ];
     const fetchMock = vi.fn(async (url: string) => {
@@ -990,6 +1002,7 @@ describe('WorkbenchPage', () => {
     expect(within(navigationPanel).getByRole('button', { name: /P0004/ })).toHaveTextContent('待修改');
     expect(within(navigationPanel).getByRole('button', { name: /P0005/ })).toHaveTextContent('待审核');
     expect(within(navigationPanel).getByRole('button', { name: /P0006/ })).toHaveTextContent('待修改');
+    expect(within(navigationPanel).getByRole('button', { name: /P0008/ })).toHaveTextContent('待修改');
     expect(within(navigationPanel).getByRole('button', { name: /P0007/ })).toHaveTextContent('已完成');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0002/ }))
@@ -1013,6 +1026,11 @@ describe('WorkbenchPage', () => {
     ).toHaveClass('question-navigator__status--reviewer-reviewing');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0006/ }))
+        .getByText('待修改')
+        .closest('.question-navigator__status'),
+    ).toHaveClass('question-navigator__status--rejected');
+    expect(
+      within(within(navigationPanel).getByRole('button', { name: /P0008/ }))
         .getByText('待修改')
         .closest('.question-navigator__status'),
     ).toHaveClass('question-navigator__status--rejected');
@@ -1089,7 +1107,7 @@ describe('WorkbenchPage', () => {
     expect(screen.getByRole('button', { name: '提交任务' })).toBeDisabled();
   });
 
-  it('题目导航对当前 AI 打回题修改完成后显示待提交状态', async () => {
+  it('题目导航对当前 AI 打回题修改完成后仍显示待修改状态', async () => {
     const rejectedTaskAssignments = taskAssignments.map((assignment) => ({
       ...assignment,
       status: 'NEEDS_REVISION',
@@ -1137,13 +1155,13 @@ describe('WorkbenchPage', () => {
     const currentQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_1/ });
     const secondQuestionButton = within(navigationPanel).getByRole('button', { name: /qa_2/ });
 
-    expect(currentQuestionButton).toHaveTextContent('待提交');
-    expect(secondQuestionButton).toHaveTextContent('待提交');
-    expect(within(currentQuestionButton).getByText('待提交').closest('.question-navigator__status')).toHaveClass(
-      'question-navigator__status--submitted',
+    expect(currentQuestionButton).toHaveTextContent('待修改');
+    expect(secondQuestionButton).toHaveTextContent('待修改');
+    expect(within(currentQuestionButton).getByText('待修改').closest('.question-navigator__status')).toHaveClass(
+      'question-navigator__status--rejected',
     );
-    expect(within(secondQuestionButton).getByText('待提交').closest('.question-navigator__status')).toHaveClass(
-      'question-navigator__status--submitted',
+    expect(within(secondQuestionButton).getByText('待修改').closest('.question-navigator__status')).toHaveClass(
+      'question-navigator__status--rejected',
     );
   });
 
