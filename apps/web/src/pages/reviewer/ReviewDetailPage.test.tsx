@@ -160,6 +160,59 @@ describe('ReviewDetailPage', () => {
     expect(within(queue).getByRole('button', { name: /P0002/ })).not.toHaveTextContent('通过');
   });
 
+  it('切换题目详情未返回时不展示 externalId 占位标题', async () => {
+    const user = userEvent.setup();
+    let resolveSecondDetail: (response: Response) => void = () => undefined;
+    const secondDetailResponse = new Promise<Response>((resolve) => {
+      resolveSecondDetail = resolve;
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = input.toString();
+      const method = init?.method ?? 'GET';
+
+      if (path === '/reviews/pending?taskId=task_real' && method === 'GET') {
+        return jsonResponse({ data: reviewQueueItems });
+      }
+
+      if (path === '/reviews/submission_1' && method === 'GET') {
+        return jsonResponse({ data: reviewDetail });
+      }
+
+      if (path === '/reviews/submission_2' && method === 'GET') {
+        return secondDetailResponse;
+      }
+
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MemoryRouter initialEntries={['/reviewer/reviews/task_real']}>
+        <Routes>
+          <Route path="/reviewer/reviews/:taskId" element={<ReviewDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('P0001 · 如何判断回答质量？')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'P0002' }));
+
+    expect(await screen.findByText('正在加载 P0002')).toBeInTheDocument();
+    expect(screen.queryByText('P0002 · P0002')).not.toBeInTheDocument();
+
+    resolveSecondDetail(jsonResponse({
+      data: {
+        ...reviewDetail,
+        submission: { ...reviewDetail.submission, id: 'submission_2' },
+        taskItem: { ...reviewDetail.taskItem, externalId: 'P0002', rawData: { prompt: '第二题' } },
+      },
+    }));
+
+    expect(await screen.findByText('P0002 · 第二题')).toBeInTheDocument();
+    expect(screen.queryByText('正在加载 P0002')).not.toBeInTheDocument();
+  });
+
   it('剩余处理时限小于 24 小时和 2 小时时切换颜色，超时后只显示已超时', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-05-30T00:00:00.000Z').getTime());
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -303,7 +356,7 @@ describe('ReviewDetailPage', () => {
     expect(rejectCall).toBeDefined();
     expect(JSON.parse((rejectCall?.[1] as RequestInit).body as string)).toEqual({
       actorId: 'user_reviewer_wang_fang',
-      reason: '请根据审核意见修改',
+      reason: '请根据字段修改建议调整。',
     });
     expect(within(screen.getByLabelText('当前任务题目列表')).getByRole('button', { name: /P0001/ })).not.toHaveTextContent('打回');
   });
@@ -488,7 +541,7 @@ describe('ReviewDetailPage', () => {
     expect(rejectCall).toBeDefined();
     expect(JSON.parse((rejectCall?.[1] as RequestInit).body as string)).toEqual({
       actorId: 'user_reviewer_wang_fang',
-      reason: '请根据审核意见修改',
+      reason: '请根据字段修改建议调整。',
       submissionIds: ['submission_1'],
     });
     expect(within(queue).getByRole('button', { name: /P0001/ })).not.toHaveTextContent('打回');

@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getSchemaFieldKey, type LabelHubSchema, type SchemaField } from '@labelhub/shared';
 
@@ -133,7 +133,69 @@ export const ReviewTaskDetailContent = ({
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const reviewDetailCacheRef = useRef<Map<string, ReviewDetailDto>>(new Map());
+  const reviewDetailRequestsRef = useRef<Map<string, Promise<ReviewDetailDto>>>(new Map());
+  const reviewDetailPreloadErrorNotifiedRef = useRef(false);
   const { dismissToast, messages, showErrorToast, showStatusToast } = useToastController();
+
+  const fetchAndCacheReviewDetail = useCallback((submissionId: string): Promise<ReviewDetailDto> => {
+    const cachedDetail = reviewDetailCacheRef.current.get(submissionId);
+    if (cachedDetail) {
+      return Promise.resolve(cachedDetail);
+    }
+
+    const inflightRequest = reviewDetailRequestsRef.current.get(submissionId);
+    if (inflightRequest) {
+      return inflightRequest;
+    }
+
+    const request = getReview(submissionId)
+      .then((detail) => {
+        reviewDetailCacheRef.current.set(submissionId, detail);
+        return detail;
+      })
+      .finally(() => {
+        reviewDetailRequestsRef.current.delete(submissionId);
+      });
+
+    reviewDetailRequestsRef.current.set(submissionId, request);
+    return request;
+  }, []);
+
+  const preloadReviewDetails = useCallback(
+    (items: readonly ReviewQueueItemDto[], selectedId: string | null) => {
+      const selectedIndex = selectedId
+        ? items.findIndex((item) => item.submissionId === selectedId)
+        : -1;
+      const preloadQueue = [...items]
+        .map((item, index) => ({
+          item,
+          distance: selectedIndex >= 0 ? Math.abs(index - selectedIndex) : index,
+        }))
+        .sort((first, second) => first.distance - second.distance);
+
+      for (const { item } of preloadQueue) {
+        if (
+          reviewDetailCacheRef.current.has(item.submissionId) ||
+          reviewDetailRequestsRef.current.has(item.submissionId)
+        ) {
+          continue;
+        }
+
+        void fetchAndCacheReviewDetail(item.submissionId).catch((error) => {
+          if (reviewDetailPreloadErrorNotifiedRef.current) {
+            return;
+          }
+
+          reviewDetailPreloadErrorNotifiedRef.current = true;
+          showErrorToast(error instanceof Error
+            ? `Reviewer 题目预加载失败：${error.message}`
+            : 'Reviewer 题目预加载失败。');
+        });
+      }
+    },
+    [fetchAndCacheReviewDetail, showErrorToast],
+  );
 
   const applyCurrentTaskQueueItems = (items: ReviewQueueItemDto[], preserveSubmissionId?: string | null) => {
     if (!taskId) {
@@ -148,8 +210,9 @@ export const ReviewTaskDetailContent = ({
       ? preserveSubmissionId
       : orderedItems[0]?.submissionId ?? null;
 
-    setQueueItems(scopedItems);
+    setQueueItems(orderedItems);
     setSelectedSubmissionId(nextSelectedSubmissionId);
+    preloadReviewDetails(orderedItems, nextSelectedSubmissionId);
   };
 
   useEffect(() => {
@@ -162,6 +225,10 @@ export const ReviewTaskDetailContent = ({
     let isMounted = true;
 
     setIsLoading(true);
+    setReviewDetail(null);
+    reviewDetailCacheRef.current.clear();
+    reviewDetailRequestsRef.current.clear();
+    reviewDetailPreloadErrorNotifiedRef.current = false;
     listPendingReviews({ taskId })
       .then((items) => {
         if (!isMounted) {
@@ -197,9 +264,17 @@ export const ReviewTaskDetailContent = ({
       return;
     }
 
+    const cachedDetail = reviewDetailCacheRef.current.get(selectedSubmissionId);
+    if (cachedDetail) {
+      setReviewDetail(cachedDetail);
+      setErrorMessage(null);
+      return;
+    }
+
     let isMounted = true;
 
-    getReview(selectedSubmissionId)
+    setReviewDetail(null);
+    fetchAndCacheReviewDetail(selectedSubmissionId)
       .then((detail) => {
         if (isMounted) {
           setReviewDetail(detail);
@@ -216,7 +291,7 @@ export const ReviewTaskDetailContent = ({
     return () => {
       isMounted = false;
     };
-  }, [selectedSubmissionId]);
+  }, [fetchAndCacheReviewDetail, selectedSubmissionId]);
 
   const roundProgressByScope = useMemo(() => buildManualReviewRoundProgress(queueItems), [queueItems]);
   const task = useMemo(
@@ -224,10 +299,6 @@ export const ReviewTaskDetailContent = ({
     [queueItems, reviewDetail, taskId, roundProgressByScope],
   );
   const visibleItems = useMemo(() => sortReviewQueueItems(queueItems), [queueItems]);
-  const schemaFieldLabels = useMemo(
-    () => buildSchemaFieldLabelMap(reviewDetail?.task.schema ?? null),
-    [reviewDetail?.task.schema],
-  );
   const selectedQueueItem = useMemo(
     () =>
       queueItems.find((item) => item.submissionId === selectedSubmissionId) ??
@@ -236,18 +307,25 @@ export const ReviewTaskDetailContent = ({
       null,
     [queueItems, selectedSubmissionId, visibleItems],
   );
+  const selectedItemDetail = selectedQueueItem
+    ? reviewDetail?.submission.id === selectedQueueItem.submissionId
+      ? reviewDetail
+      : reviewDetailCacheRef.current.get(selectedQueueItem.submissionId) ?? null
+    : null;
+  const schemaFieldLabels = useMemo(
+    () => buildSchemaFieldLabelMap(selectedItemDetail?.task.schema ?? null),
+    [selectedItemDetail?.task.schema],
+  );
   const selectedItem = useMemo(
     () =>
-      selectedQueueItem
+      selectedQueueItem && selectedItemDetail
         ? buildManualReviewItem(
             selectedQueueItem,
-            reviewDetail?.submission.id === selectedQueueItem.submissionId ? reviewDetail : null,
+            selectedItemDetail,
           )
         : null,
-    [reviewDetail, selectedQueueItem],
+    [selectedItemDetail, selectedQueueItem],
   );
-  const selectedItemDetail =
-    selectedItem && reviewDetail?.submission.id === selectedItem.submissionId ? reviewDetail : null;
   const selectedFieldComments = selectedItem ? fieldCommentsBySubmissionId[selectedItem.submissionId] ?? {} : {};
   const orderedSubmitFields = useMemo(
     () => buildReviewSubmitFields(selectedItem?.currentRoundSubmit ?? {}, schemaFieldLabels),
@@ -458,7 +536,7 @@ export const ReviewTaskDetailContent = ({
           roundProgressByScope={roundProgressByScope}
           isItemReviewable={isReviewableQueueItem}
           selectedIds={selectedIds}
-          selectedSubId={selectedItem?.submissionId ?? null}
+          selectedSubId={selectedQueueItem?.submissionId ?? null}
           task={task}
           onBatchAction={handleBatchAction}
           onSelectItem={setSelectedSubmissionId}
@@ -466,7 +544,10 @@ export const ReviewTaskDetailContent = ({
           onToggleSelection={toggleSelection}
         />
 
-        <main className="manual-review-detail-main">
+        <main
+          className="manual-review-detail-main"
+          aria-busy={selectedQueueItem && !selectedItem ? true : undefined}
+        >
           {selectedItem ? (
             <>
               <div className="manual-review-detail-content">
@@ -518,6 +599,13 @@ export const ReviewTaskDetailContent = ({
                 </button>
               </section>
             </>
+          ) : selectedQueueItem ? (
+            <div className="manual-review-detail-content">
+              <div className="manual-review-empty-card" role="status">
+                <h2>正在加载 {selectedQueueItem.externalId}</h2>
+                <p>正在读取题目材料、本轮提交内容和审核记录。</p>
+              </div>
+            </div>
           ) : (
             <div className="manual-review-detail-content">
               <div className="manual-review-empty-card">
