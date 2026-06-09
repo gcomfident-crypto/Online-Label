@@ -1786,13 +1786,13 @@ describe('SchemaRenderer', () => {
 
     const regenerateButton = await within(noteLlm).findByRole('button', { name: '重新生成' });
     const actionRow = regenerateButton.closest('.schema-field__actions');
-    const providerBadgeText = within(noteLlm).getByText('Doubao-2.0-lite');
+    const providerBadgeText = within(noteLlm).getByText('DeepSeek-V4-Flash');
     const providerBadge = providerBadgeText.closest<HTMLElement>('.schema-field__llm-provider-badge');
 
     expect(actionRow).toHaveClass('schema-field__llm-action-row');
     expect(providerBadge).not.toBeNull();
     if (!providerBadge) {
-      throw new Error('Doubao 来源标识缺少胶囊容器');
+      throw new Error('DeepSeek 来源标识缺少胶囊容器');
     }
     expect(providerBadge).toHaveClass('schema-field__llm-provider-badge');
     expect(actionRow).toContainElement(regenerateButton);

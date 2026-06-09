@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { SchemaField } from '@labelhub/shared';
 
 import { requestApi } from '../../../api/request';
-import doubaoIcon from '../../../assets/doubao.svg';
+import deepseekIcon from '../../../assets/deepseek.svg';
 import starIcon from '../../../assets/star.svg';
 import { ToastViewport, useToastController } from '../../../components/ToastViewport';
 import type { BaseFieldProps } from './common';
@@ -94,8 +94,8 @@ export const InlineLlmSuggestionControl = ({
         </button>
         {shouldShowProviderBadge ? (
           <span className="schema-field__llm-provider-badge" aria-label="模型来源">
-            <img src={doubaoIcon} alt="" aria-hidden="true" draggable={false} />
-            <span>Doubao-2.0-lite</span>
+            <img src={deepseekIcon} alt="" aria-hidden="true" draggable={false} />
+            <span>DeepSeek-V4-Flash</span>
           </span>
         ) : null}
       </div>
