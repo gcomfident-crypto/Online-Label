@@ -21265,24 +21265,31 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .manual-review-detail-toolbar__actions .manual-review-sheet-close {
-  width: 38px;
-  min-width: 38px;
-  min-height: 34px;
-  border: 1px solid #c9d8f6;
+  flex: 0 0 28px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  border: 0;
   border-radius: 8px;
   padding: 0;
-  color: #306df7;
-  background: #ffffff;
-  font-size: 24px;
-  font-weight: 800;
+  color: #9ca3af;
+  background: transparent;
+  font-size: 20px;
+  font-weight: 400;
   line-height: 1;
+  box-shadow: none;
 }
 
 .manual-review-detail-toolbar__actions .manual-review-sheet-close:hover,
 .manual-review-detail-toolbar__actions .manual-review-sheet-close:focus-visible {
-  border-color: #306df8;
-  background: #f8fbff;
+  border-color: transparent;
+  color: #6b7280;
+  background: transparent;
+  box-shadow: none;
+  filter: none;
   outline: none;
+  transform: none;
 }
 
 .manual-review-detail-toolbar__actions a:hover,
