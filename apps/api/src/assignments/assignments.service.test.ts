@@ -34,6 +34,22 @@ type TaskRecord = {
     id: string;
     name: string;
   } | null;
+  datasetImportSummary?: {
+    taskId: string;
+    datasetKind: 'qa_quality' | 'preference_compare' | 'generic_json';
+    importedCount: number;
+    errorCount: number;
+    skippedFiles: string[];
+    fields: string[];
+    files: Array<{
+      datasetKind: 'qa_quality' | 'preference_compare' | 'generic_json';
+      format: 'json' | 'jsonl' | 'csv' | 'xlsx' | 'zip';
+      fileName: string;
+      fields: string[];
+      importedCount: number;
+      errorCount: number;
+    }>;
+  } | null;
   items: TaskItemRecord[];
   assignments: Array<{ id: string; assigneeId: string; status: AssignmentStatus }>;
   createdAt: Date;
@@ -110,6 +126,15 @@ describe('AssignmentsService', () => {
         remainingCount: 1,
         claimStatus: 'available',
         claimedByMe: false,
+        datasetImportSummary: expect.objectContaining({
+          importedCount: 2,
+          files: [
+            expect.objectContaining({
+              format: 'xlsx',
+              fileName: 'qa_quality.xlsx',
+            }),
+          ],
+        }),
         previewItems: [],
       }),
     ]);
@@ -449,6 +474,24 @@ function createTaskDefaults(now: Date): TaskRecord[] {
       createdBy: {
         id: 'user_owner_zhang_man',
         name: '张泽鑫',
+      },
+      datasetImportSummary: {
+        taskId: 'task_qa',
+        datasetKind: 'qa_quality',
+        importedCount: 2,
+        errorCount: 0,
+        skippedFiles: [],
+        fields: ['id', 'prompt'],
+        files: [
+          {
+            datasetKind: 'qa_quality',
+            format: 'xlsx',
+            fileName: 'qa_quality.xlsx',
+            fields: ['id', 'prompt'],
+            importedCount: 2,
+            errorCount: 0,
+          },
+        ],
       },
       items: [],
       assignments: [],

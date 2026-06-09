@@ -19,6 +19,26 @@ const marketTask = {
   datasetKind: 'qa_quality',
   templateId: 'template_qa',
   templateName: '问答质量官方模板',
+  datasetImportSummary: {
+    taskId: 'task_qa',
+    datasetKind: 'qa_quality',
+    importedCount: 30,
+    errorCount: 0,
+    skippedFiles: [],
+    fields: ['id', 'prompt', 'model_answer'],
+    errors: [],
+    preview: [],
+    files: [
+      {
+        datasetKind: 'qa_quality',
+        format: 'xlsx',
+        fileName: 'qa_quality.xlsx',
+        fields: ['id', 'prompt', 'model_answer'],
+        importedCount: 30,
+        errorCount: 0,
+      },
+    ],
+  },
   itemCount: 30,
   assignedCount: 8,
   claimedByMeCount: 0,
@@ -131,6 +151,7 @@ describe('TaskMarketPage', () => {
 
     await user.click(within(taskRow as HTMLElement).getByRole('button', { name: '预览 问答质量标注' }));
     const previewDialog = screen.getByRole('dialog', { name: '任务内容预览 · 问答质量标注' });
+    expect(previewDialog).toHaveTextContent('问答质量官方模板 · XLSX 文件 · qa_quality.xlsx · 共 30 题，当前预览前 1 题');
     const previewTable = within(previewDialog).getByRole('table', { name: '任务内容预览表格' });
     expect(within(previewTable).getByRole('columnheader', { name: '序号' })).toBeInTheDocument();
     expect(within(previewTable).getByRole('columnheader', { name: '外部 ID' })).toBeInTheDocument();
@@ -160,6 +181,81 @@ describe('TaskMarketPage', () => {
         method: 'POST',
         body: JSON.stringify({ taskId: 'task_qa', labelerId: 'user_labeler_li_lei' }),
       }),
+    );
+  });
+
+  it('预览上传文件任务时展示真实总题数和文件来源，不把通用模板类型当文件类型', async () => {
+    const user = userEvent.setup();
+    const xlsxTask = {
+      ...marketTask,
+      id: 'task_preference_xlsx',
+      title: '模型对比',
+      datasetKind: 'generic_json',
+      templateName: '模型对比--自动解析模板',
+      itemCount: 12,
+      assignedCount: 0,
+      remainingCount: 12,
+      previewItems: [],
+      datasetImportSummary: {
+        taskId: 'task_preference_xlsx',
+        datasetKind: 'generic_json',
+        importedCount: 12,
+        errorCount: 0,
+        skippedFiles: [],
+        fields: ['id', 'prompt', 'response_a', 'response_b'],
+        errors: [],
+        preview: [],
+        files: [
+          {
+            datasetKind: 'generic_json',
+            format: 'xlsx',
+            fileName: '模型对比.xlsx',
+            fields: ['id', 'prompt', 'response_a', 'response_b'],
+            importedCount: 12,
+            errorCount: 0,
+          },
+        ],
+      },
+    };
+    const xlsxItems = Array.from({ length: 12 }, (_, index) => ({
+      id: `item_xlsx_${index + 1}`,
+      taskId: 'task_preference_xlsx',
+      externalId: `P${String(index + 1).padStart(4, '0')}`,
+      datasetKind: 'generic_json',
+      rawData: {
+        id: `P${String(index + 1).padStart(4, '0')}`,
+        prompt: `模型对比问题 ${index + 1}`,
+        response_a: `回答 A${index + 1}`,
+        response_b: `回答 B${index + 1}`,
+      },
+      status: 'UNASSIGNED',
+      sortOrder: index + 1,
+      createdAt: '2026-05-21T00:00:00.000Z',
+      updatedAt: '2026-05-21T00:00:00.000Z',
+    }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: [xlsxTask] }))
+      .mockResolvedValueOnce(jsonResponse({ data: xlsxItems }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderTaskMarketPage();
+
+    const table = await screen.findByRole('table', { name: '任务广场列表' });
+    const taskRow = within(table).getByText('模型对比').closest('tr');
+    expect(taskRow).not.toBeNull();
+
+    await user.click(within(taskRow as HTMLElement).getByRole('button', { name: '预览 模型对比' }));
+
+    const previewDialog = await screen.findByRole('dialog', { name: '任务内容预览 · 模型对比' });
+    expect(previewDialog).toHaveTextContent('模型对比--自动解析模板 · XLSX 文件 · 模型对比.xlsx · 共 12 题');
+    expect(previewDialog).not.toHaveTextContent('通用 JSON');
+    expect(previewDialog).not.toHaveTextContent('共 3 条样例');
+    expect(within(previewDialog).getByText('P0012')).toBeInTheDocument();
+    expect(within(previewDialog).getByText('模型对比问题 12')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/tasks/task_preference_xlsx/items',
+      expect.objectContaining({ method: 'GET' }),
     );
   });
 
