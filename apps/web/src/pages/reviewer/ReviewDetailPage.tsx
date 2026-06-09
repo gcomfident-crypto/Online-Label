@@ -436,13 +436,17 @@ export const ReviewTaskDetailContent = ({
           <span>审核与质检 / 人工审核 / {task?.taskName ?? '加载中'}</span>
           <h1 id="manual-review-detail-title">{task?.taskName ?? '人工审核'}</h1>
         </div>
-        <div className="manual-review-detail-toolbar__actions" aria-label="人工审核视角操作">
-          {onClose ? (
-            <button className="manual-review-sheet-close" type="button" aria-label="关闭人工审核详情" onClick={onClose}>
-              <span aria-hidden="true">×</span>
-            </button>
-          ) : null}
-        </div>
+        {onClose ? (
+          <button
+            className="workbench-close-button"
+            type="button"
+            aria-label="关闭人工审核详情"
+            onClick={onClose}
+            title="关闭人工审核详情"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        ) : null}
       </header>
 
       {errorMessage ? <p role="alert">{errorMessage}</p> : null}
