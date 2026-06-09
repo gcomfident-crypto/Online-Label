@@ -189,7 +189,7 @@ describe('global styles', () => {
     expect(starKeyframes).not.toContain('opacity: 0;');
   });
 
-  it('LLM 标注备注操作区右侧展示克制的 Doubao 来源胶囊', () => {
+  it('LLM 标注备注操作区右侧展示浅蓝 DeepSeek 来源胶囊', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const actionRowRule = styles.match(/\.schema-field__llm-action-row\s*\{[^}]+\}/)?.[0] ?? '';
     const badgeRule = styles.match(/\.schema-field__llm-provider-badge\s*\{[^}]+\}/)?.[0] ?? '';
@@ -200,9 +200,9 @@ describe('global styles', () => {
     expect(actionRowRule).toContain('justify-content: space-between;');
     expect(actionRowRule).toContain('flex-wrap: wrap;');
     expect(badgeRule).toContain('border-radius: 999px;');
-    expect(badgeRule).toContain('border: 1px solid #d8c7ff;');
-    expect(badgeRule).toContain('background: #f5f0ff;');
-    expect(badgeRule).toContain('color: #7c3aed;');
+    expect(badgeRule).toContain('border: 1px solid #bfdbfe;');
+    expect(badgeRule).toContain('background: #eff6ff;');
+    expect(badgeRule).toContain('color: #1d4ed8;');
     expect(badgeRule).toContain('font-size: 13px;');
     expect(badgeRule).toContain('font-weight: 500;');
     expect(badgeRule).toContain('min-height: 32px;');
