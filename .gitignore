@@ -25,6 +25,7 @@ apps/api/storage/
 # 本地原始数据文件
 datasets/
 labelhub-local.dump.sql
+FETCH_HEAD
 
 # 本地提交材料与授权二维码
 submission/
