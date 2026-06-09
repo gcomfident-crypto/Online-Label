@@ -314,6 +314,8 @@ describe('ReviewsService', () => {
 
     expect(detail.submission.status).toBe('NEEDS_REVISION');
     expect(db.assignments[0].status).toBe('NEEDS_REVISION');
+    expect(detail.timeline.map((item) => item.reason)).toContain('事实性依据不足，需要补充说明。');
+    expect(detail.timeline.map((item) => item.reason)).not.toContain('请补充完整判断依据。');
     expect(db.reviewRecords.at(-1)).toEqual(
       expect.objectContaining({
         decision: 'reject',
@@ -334,6 +336,31 @@ describe('ReviewsService', () => {
         },
       }),
     );
+  });
+
+  it('审计时间线不会把字段级修改建议当成整体打回原因展示', async () => {
+    const { service } = createService();
+
+    await service.passReview('submission_2', {
+      actorId: 'reviewer_1',
+      comment: '第 2 题通过。',
+    });
+
+    const detail = await service.rejectReview('submission_1', {
+      actorId: 'reviewer_1',
+      reason: '请补充完整判断依据。',
+      fieldReviews: [
+        {
+          fieldKey: 'reason',
+          label: '判断理由',
+          comment: '请补充完整判断依据。',
+          value: '覆盖关键点。',
+        },
+      ],
+    });
+
+    expect(detail.timeline.map((item) => item.reason)).toContain('Reviewer 已打回，请按字段修改建议调整。');
+    expect(detail.timeline.map((item) => item.reason)).not.toContain('请补充完整判断依据。');
   });
 
   it('直接修订并通过会保存 revisedAnswers 快照，但不提前标记完成', async () => {

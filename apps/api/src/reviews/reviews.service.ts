@@ -94,6 +94,8 @@ type ReviewSubmissionRecord = {
   auditLogs: AuditLogRecord[];
 };
 
+const HUMAN_FIELD_REVIEW_TIMELINE_REASON = 'Reviewer 已打回，请按字段修改建议调整。';
+
 type ReviewQueueReviewRecord = Pick<
   ReviewRecordRecord,
   'stage' | 'reviewerType' | 'scores' | 'decision' | 'comment' | 'assignedReviewerId' | 'createdAt'
@@ -1198,7 +1200,7 @@ function buildTimeline(submission: ReviewSubmissionRecord): ReviewTimelineItemDt
     actorId: record.reviewerId,
     fromStatus: null,
     toStatus: record.decision,
-    reason: record.comment,
+    reason: reviewTimelineReason(record),
     metadata: {
       stage: record.stage,
       reviewerType: record.reviewerType,
@@ -1208,6 +1210,35 @@ function buildTimeline(submission: ReviewSubmissionRecord): ReviewTimelineItemDt
   }));
 
   return [...auditItems, ...reviewItems].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+function reviewTimelineReason(record: ReviewRecordRecord): string | null {
+  const comment = record.comment?.trim() ?? '';
+  if (
+    record.stage === 'RECHECK' &&
+    record.reviewerType === 'HUMAN' &&
+    record.decision === 'reject' &&
+    isFieldReviewComment(comment, record.structuredOutput)
+  ) {
+    return HUMAN_FIELD_REVIEW_TIMELINE_REASON;
+  }
+
+  return record.comment;
+}
+
+function isFieldReviewComment(comment: string, structuredOutput: Record<string, unknown> | null): boolean {
+  if (!comment || !structuredOutput) {
+    return false;
+  }
+
+  const fieldReviews = structuredOutput.fieldReviews;
+  if (!Array.isArray(fieldReviews)) {
+    return false;
+  }
+
+  return fieldReviews.some((fieldReview) =>
+    isRecord(fieldReview) && typeof fieldReview.comment === 'string' && fieldReview.comment.trim() === comment,
+  );
 }
 
 function latestRecord<TRecord extends { stage: ReviewStage | string; reviewerType: ReviewerType | string; createdAt: Date }>(

@@ -366,7 +366,7 @@ describe('ReviewDetailPage', () => {
     expect(rejectCall).toBeDefined();
     expect(JSON.parse((rejectCall?.[1] as RequestInit).body as string)).toEqual({
       actorId: 'user_reviewer_wang_fang',
-      reason: '质量判断要改成未通过。',
+      reason: '请根据字段修改建议调整。',
       fieldReviews: [
         {
           fieldKey: 'quality',

@@ -18,6 +18,7 @@ import {
 } from '../../api/reviews';
 
 const REVIEWER_ID = 'user_reviewer_wang_fang';
+const DEFAULT_REJECT_REASON = '请根据字段修改建议调整。';
 
 type ManualReviewSideTab = 'timeline' | 'comments';
 type ManualReviewSuggestion = 'manual' | 'pass' | 'reject';
@@ -368,7 +369,7 @@ export const ReviewTaskDetailContent = ({
         showStatusToast(`${selectedItem.subId} 已通过入库`);
       } else if (action === 'reject') {
         const fieldReviews = fieldReviewsFromComments(selectedFieldComments, orderedSubmitFields);
-        const rejectReason = reviewComment.trim() || fieldReviews[0]?.comment || '请根据审核意见修改';
+        const rejectReason = reviewComment.trim() || DEFAULT_REJECT_REASON;
         await rejectReview(selectedItem.submissionId, {
           actorId: REVIEWER_ID,
           reason: rejectReason,
@@ -409,7 +410,7 @@ export const ReviewTaskDetailContent = ({
             })
           : await batchRejectReviews({
               actorId: REVIEWER_ID,
-              reason: reviewComment || '请根据审核意见修改',
+              reason: reviewComment || DEFAULT_REJECT_REASON,
               submissionIds: selectedSubmissionIds,
             });
       const processedCount = result.processedCount || selectedItems.length;
