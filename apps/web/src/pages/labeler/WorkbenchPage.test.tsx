@@ -604,7 +604,7 @@ describe('WorkbenchPage', () => {
     expect(screen.queryByRole('button', { name: '跳过' })).not.toBeInTheDocument();
     expect(screen.queryByText('⌘/Ctrl + Enter 提交任务 · ⌘/Ctrl + S 保存 · J/K 切题 · R 报告')).not.toBeInTheDocument();
     expect(screen.getByLabelText('上一轮打回原因')).toHaveTextContent('请补充判断依据。');
-    expect(screen.getByLabelText('问答质量材料')).toHaveTextContent('如何判断回答质量？');
+    expect(screen.queryByLabelText('问答质量材料')).not.toBeInTheDocument();
     await user.click(screen.getByLabelText('优秀'));
     expect(screen.queryByText('草稿待自动保存')).not.toBeInTheDocument();
 

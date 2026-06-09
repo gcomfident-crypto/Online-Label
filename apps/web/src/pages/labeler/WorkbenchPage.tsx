@@ -973,7 +973,6 @@ export const WorkbenchPage = () => {
             ) : (
               <>
                 <RejectNotice notice={workbench.rejectionNotice} suggestion={reviewerRejectionSuggestion} />
-                <RawDataPanel workbench={workbench} />
                 <SchemaRenderer
                   schema={workbench.task.schema}
                   rawData={workbench.taskItem.rawData}
@@ -1222,77 +1221,6 @@ const LabelerWorkbenchInfoPanel = ({
       </section>
     </aside>
   );
-};
-
-const RawDataPanel = ({ workbench }: { workbench: WorkbenchDto }) => {
-  const rawData = workbench.taskItem.rawData;
-
-  if (workbench.task.datasetKind === 'preference_compare') {
-    return (
-      <section className="workbench-raw-panel" aria-label="偏好对比材料">
-        <h2>偏好对比材料</h2>
-        <p>{stringValue(rawData.prompt)}</p>
-        <div className="preference-compare-layout">
-          <article>
-            <span>回答 A</span>
-            <p>{stringValue(rawData.response_a)}</p>
-          </article>
-          <article>
-            <span>回答 B</span>
-            <p>{stringValue(rawData.response_b)}</p>
-          </article>
-        </div>
-      </section>
-    );
-  }
-
-  if (workbench.task.datasetKind !== 'qa_quality') {
-    return null;
-  }
-
-  return (
-    <section className="workbench-raw-panel" aria-label="问答质量材料">
-      <h2>问答质量材料</h2>
-      <dl>
-        <div>
-          <dt>用户问题</dt>
-          <dd>{stringValue(rawData.prompt)}</dd>
-        </div>
-        <div>
-          <dt>模型回答</dt>
-          <dd>{stringValue(rawData.model_answer)}</dd>
-        </div>
-        <div>
-          <dt>参考要点</dt>
-          <dd>{stringValue(rawData.reference)}</dd>
-        </div>
-        <div>
-          <dt>期望维度</dt>
-          <dd>{Array.isArray(rawData.expected_dimensions) ? rawData.expected_dimensions.join('、') : '未提供'}</dd>
-        </div>
-      </dl>
-      <MediaMaterial rawData={rawData} />
-    </section>
-  );
-};
-
-const MediaMaterial = ({ rawData }: { rawData: Record<string, unknown> }) => {
-  const mediaType = stringValue(rawData.media_type);
-  const mediaUrl = stringValue(rawData.media_url);
-
-  if (mediaType === 'image' && mediaUrl) {
-    return <img className="workbench-media" src={mediaUrl} alt="题目媒体" />;
-  }
-
-  if (mediaType === 'video' && mediaUrl) {
-    return <video className="workbench-media" src={mediaUrl} controls />;
-  }
-
-  if (mediaType === 'markdown') {
-    return <pre className="workbench-markdown">{stringValue(rawData.content_markdown)}</pre>;
-  }
-
-  return null;
 };
 
 type QuestionHistoryEntry = {
@@ -2422,10 +2350,6 @@ function formatReviewerName(reviewerId: string | null | undefined): string {
 function formatLabelerActorName(labelerId: string | null | undefined): string {
   const labelerName = formatUserName(labelerId);
   return labelerName === '标注员' ? labelerName : `标注员 ${labelerName}`;
-}
-
-function stringValue(value: unknown): string {
-  return typeof value === 'string' && value.trim() ? value : '未提供';
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {
