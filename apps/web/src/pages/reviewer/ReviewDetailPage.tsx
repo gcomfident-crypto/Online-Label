@@ -33,12 +33,6 @@ type ReviewSubmitField = {
 
 type FieldReviewComment = ReviewFieldCommentInput;
 
-type ScoreMetricItem = {
-  key: string;
-  label: string;
-  value: number | null;
-};
-
 type ReviewTimelineItem = {
   action: string;
   operatorName: string;
@@ -49,19 +43,16 @@ type ReviewTimelineItem = {
 
 type ManualReviewItem = {
   aiReviewConclusion: string;
-  aiScore: number | null;
   aiSuggestion: ManualReviewSuggestion;
   assignmentId: string;
   currentRoundSubmit: ReviewSubmitSnapshot;
   deadline: string | null;
   issueTags: string[];
   labelerName: string;
-  overallScore: number | null;
   questionInfo: ReviewSubmitSnapshot;
   questionId: string;
   reviewComment: string;
   round: number;
-  scoreMetrics: ScoreMetricItem[];
   status: string;
   subId: string;
   submissionId: string;
@@ -477,6 +468,8 @@ export const ReviewTaskDetailContent = ({
                 <ItemHeader item={selectedItem} task={task} />
                 <section className="manual-review-compare-grid" aria-label="本轮提交内容">
                   <QuestionInfoCard
+                    aiReviewConclusion={selectedItem.aiReviewConclusion}
+                    aiSuggestion={selectedItem.aiSuggestion}
                     fallbackSnapshot={selectedItem.questionInfo}
                     rawData={selectedItemDetail?.taskItem.rawData ?? selectedItem.questionInfo}
                     schema={selectedItemDetail?.task.schema ?? null}
@@ -490,7 +483,6 @@ export const ReviewTaskDetailContent = ({
                     title="本轮提交"
                   />
                 </section>
-                <AiReviewResult item={selectedItem} />
                 <label className="manual-review-comment-field">
                   <span>审核意见（打回时必填）</span>
                   <textarea
@@ -691,10 +683,14 @@ const ItemHeader = ({ item, task }: { item: ManualReviewItem; task: ManualReview
 const noopSchemaChange = () => undefined;
 
 const QuestionInfoCard = ({
+  aiReviewConclusion,
+  aiSuggestion,
   fallbackSnapshot,
   rawData,
   schema,
 }: {
+  aiReviewConclusion: string;
+  aiSuggestion: ManualReviewSuggestion;
   fallbackSnapshot: ReviewSubmitSnapshot;
   rawData: ReviewSubmitSnapshot;
   schema: LabelHubSchema | null;
@@ -707,6 +703,7 @@ const QuestionInfoCard = ({
   if (showItemSchema && showItemSchema.fields.length > 0) {
     return (
       <article className="manual-review-question-info-card" aria-label="题目信息">
+        <AiReviewInlineStatus conclusion={aiReviewConclusion} suggestion={aiSuggestion} />
         <SchemaRenderer
           schema={showItemSchema}
           rawData={rawData}
@@ -720,6 +717,19 @@ const QuestionInfoCard = ({
 
   return <SubmitSnapshotCard snapshot={fallbackSnapshot} title="题目信息" />;
 };
+
+const AiReviewInlineStatus = ({
+  conclusion,
+  suggestion,
+}: {
+  conclusion: string;
+  suggestion: ManualReviewSuggestion;
+}) => (
+  <div className={`manual-review-ai-inline-status is-${suggestion}`} aria-label="AI 预审结果">
+    <strong>AI 预审</strong>
+    <span>{aiReviewStatusText(conclusion, suggestion)}</span>
+  </div>
+);
 
 const SubmitSnapshotCard = ({
   fieldComments,
@@ -772,33 +782,6 @@ const SubmitSnapshotCard = ({
       })}
     </dl>
   </article>
-);
-
-const AiReviewResult = ({ item }: { item: ManualReviewItem }) => (
-  <section className="manual-review-ai-result" aria-label="AI 预审 · 本轮重跑结果">
-    <header>
-      <div>
-        <span>AI 预审 · 本轮重跑结果</span>
-        <h3>labeler 达标结果</h3>
-      </div>
-      <strong>{formatScore(item.overallScore)}</strong>
-    </header>
-    {item.scoreMetrics.length > 0 ? (
-      <div className="manual-review-score-grid">
-        {item.scoreMetrics.map((metric) => (
-          <ScoreMetric key={metric.key} label={metric.label} value={metric.value} />
-        ))}
-      </div>
-    ) : null}
-    <p>{item.aiReviewConclusion}</p>
-  </section>
-);
-
-const ScoreMetric = ({ label, value }: { label: string; value: number | null }) => (
-  <div className="manual-review-score-metric">
-    <span>{label}</span>
-    <strong>{formatScore(value)}</strong>
-  </div>
 );
 
 const ReviewSidePanel = ({
@@ -1046,23 +1029,19 @@ function buildManualReviewItem(queueItem: ReviewQueueItemDto, detail: ReviewDeta
   const rawData = detail?.taskItem.rawData ?? {};
   const aiSuggestion = normalizeSuggestion(queueItem.aiDecision ?? detail?.aiReview?.decision ?? null);
   const subId = detail?.taskItem.externalId ?? queueItem.externalId;
-  const overallScore = scoreValue(scores.overall ?? scores.ai_overall ?? scores.score);
 
   return {
     aiReviewConclusion: detail?.aiReview?.comment ?? queueItem.aiComment ?? '暂无 AI 预审结论。',
-    aiScore: overallScore,
     aiSuggestion,
     assignmentId: queueItem.assignmentId,
     currentRoundSubmit: Object.keys(answers).length > 0 ? answers : { externalId: subId },
     deadline: queueItem.deadline,
     issueTags: issueTagsFromScores(scores, aiSuggestion),
     labelerName: formatUserName(detail?.assignment.assigneeId),
-    overallScore,
     questionInfo: questionInfoFromData(rawData, answers, queueItem),
     questionId: subId,
     reviewComment: detail?.humanReview?.comment ?? detail?.aiReview?.comment ?? queueItem.aiComment ?? '',
     round: detail?.submission.round ?? queueItem.round,
-    scoreMetrics: buildScoreMetrics(scores),
     status: detail?.submission.status ?? queueItem.status,
     subId,
     submissionId: queueItem.submissionId,
@@ -1444,36 +1423,6 @@ function issueTagsFromScores(scores: Record<string, unknown>, suggestion: Manual
   return suggestion === 'reject' ? ['需要修改'] : ['人工复核'];
 }
 
-const SCORE_STAT_KEYS = new Set(['fieldCount', 'passedFieldCount', 'rejectedFieldCount']);
-const OVERALL_SCORE_KEYS = new Set(['overall', 'ai_overall', 'score']);
-
-function buildScoreMetrics(scores: Record<string, unknown>): ScoreMetricItem[] {
-  const metrics: ScoreMetricItem[] = [];
-  const overallScore = scoreValue(scores.overall ?? scores.ai_overall ?? scores.score);
-  if (overallScore !== null) {
-    metrics.push({ key: 'overall', label: '综合分', value: overallScore });
-  }
-
-  for (const [key, rawValue] of Object.entries(scores)) {
-    if (OVERALL_SCORE_KEYS.has(key) || SCORE_STAT_KEYS.has(key)) {
-      continue;
-    }
-
-    const value = scoreValue(rawValue);
-    if (value === null) {
-      continue;
-    }
-
-    metrics.push({
-      key,
-      label: scoreLabel(key),
-      value,
-    });
-  }
-
-  return metrics;
-}
-
 function orderedFieldComments(
   fieldComments: Record<string, FieldReviewComment>,
   orderedFields: readonly ReviewSubmitField[],
@@ -1503,17 +1452,6 @@ function fieldReviewsFromComments(
     .filter((fieldComment) => fieldComment.comment.length > 0);
 }
 
-function scoreLabel(key: string): string {
-  const labels: Record<string, string> = {
-    accuracy: '准确性',
-    format: '格式合规',
-    relevance: '相关性',
-    safety: '安全性',
-  };
-
-  return labels[key] ?? key;
-}
-
 function scoreValue(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return Math.max(0, Math.min(100, Math.round(value)));
@@ -1527,8 +1465,23 @@ function scoreValue(value: unknown): number | null {
   return null;
 }
 
-function formatScore(value: number | null): string {
-  return value === null ? '--' : value.toLocaleString();
+function scoreLabel(key: string): string {
+  const labels: Record<string, string> = {
+    accuracy: '准确性',
+    format: '格式合规',
+    relevance: '相关性',
+    safety: '安全性',
+  };
+
+  return labels[key] ?? key;
+}
+
+function aiReviewStatusText(conclusion: string, suggestion: ManualReviewSuggestion): string {
+  if (suggestion === 'pass') {
+    return '所有开启 AI 预审的字段均通过。';
+  }
+
+  return conclusion;
 }
 
 function formatSnapshotValue(value: unknown): string {

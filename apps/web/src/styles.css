@@ -21638,79 +21638,51 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   background-image: linear-gradient(to top, rgba(250, 204, 21, 0.34) 0 3px, transparent 3px);
 }
 
-.manual-review-ai-result {
+.manual-review-question-info-card {
+  min-width: 0;
   display: grid;
-  gap: 12px;
-  border: 1px solid #c4b5fd;
-  border-radius: 8px;
-  padding: 13px;
-  background: #faf5ff;
+  gap: 10px;
 }
 
-.manual-review-ai-result header {
+.manual-review-ai-inline-status {
+  min-width: 0;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.manual-review-ai-result header span {
-  color: #7c3aed;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.manual-review-ai-result h3 {
-  margin: 3px 0 0;
-  color: #172033;
-  font-size: 14px;
-  font-weight: 900;
-}
-
-.manual-review-ai-result header > strong {
-  min-width: 54px;
-  border-radius: 12px;
-  padding: 7px 10px;
-  color: #7c3aed;
-  background: #ffffff;
-  font-size: 24px;
-  line-height: 1;
-  text-align: center;
-}
-
-.manual-review-score-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
-  gap: 8px;
-}
-
-.manual-review-score-metric {
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #bbf7d0;
   border-radius: 8px;
-  padding: 8px;
-  background: #ffffff;
+  padding: 8px 10px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
-.manual-review-score-metric span {
-  display: block;
-  color: #64748b;
+.manual-review-ai-inline-status.is-reject {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.manual-review-ai-inline-status.is-manual {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.manual-review-ai-inline-status strong {
+  flex: 0 0 auto;
   font-size: 12px;
   font-weight: 900;
+  white-space: nowrap;
 }
 
-.manual-review-score-metric strong {
-  display: block;
-  margin-top: 3px;
-  color: #7c3aed;
-  font-size: 18px;
-  font-weight: 900;
-}
-
-.manual-review-ai-result p {
-  margin: 0;
-  color: #334155;
-  font-size: 13px;
+.manual-review-ai-inline-status span {
+  min-width: 0;
   font-weight: 800;
-  line-height: 1.65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .manual-review-comment-field {
