@@ -14,6 +14,10 @@ import {
   loadOwnerTasksPage,
   loadTemplateDesignerPage,
 } from './utils/ownerRoutePreload';
+import {
+  loadAgentDashboardPage,
+  loadAiReviewQueuePage,
+} from './utils/agentRoutePreload';
 import { resolvePagePathTitle, resolvePageTabTitle } from './utils/routePathTitle';
 
 const LoginPage = lazy(() => import('./pages/LoginPage').then(({ LoginPage }) => ({ default: LoginPage })));
@@ -44,12 +48,8 @@ const WorkbenchPage = lazy(() =>
   import('./pages/labeler/WorkbenchPage').then(({ WorkbenchPage }) => ({ default: WorkbenchPage })),
 );
 const MyDataPage = lazy(() => import('./pages/labeler/MyDataPage').then(({ MyDataPage }) => ({ default: MyDataPage })));
-const AgentDashboardPage = lazy(() =>
-  import('./pages/agent/AgentDashboardPage').then(({ AgentDashboardPage }) => ({ default: AgentDashboardPage })),
-);
-const AiReviewQueuePage = lazy(() =>
-  import('./pages/agent/AiReviewQueuePage').then(({ AiReviewQueuePage }) => ({ default: AiReviewQueuePage })),
-);
+const AgentDashboardPage = lazy(loadAgentDashboardPage);
+const AiReviewQueuePage = lazy(loadAiReviewQueuePage);
 const ReviewListPage = lazy(() =>
   import('./pages/reviewer/ReviewListPage').then(({ ReviewListPage }) => ({ default: ReviewListPage })),
 );

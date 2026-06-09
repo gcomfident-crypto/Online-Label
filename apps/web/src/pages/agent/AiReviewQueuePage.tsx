@@ -6,8 +6,11 @@ import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import {
   getTaskFlow,
+  getCachedTaskFlow,
+  getCachedTaskFlowLogs,
   getTaskFlowLogs,
   listTaskFlows,
+  prefetchTaskFlow,
   type TaskFlowAiStatus,
   type TaskFlowDetailDto,
   type TaskFlowFinalStatus,
@@ -190,6 +193,12 @@ export const AiReviewQueuePage = () => {
   }, [currentPage, sortedFlows]);
 
   useEffect(() => {
+    paginatedFlows.slice(0, 3).forEach((flow) => {
+      prefetchTaskFlow(flow.taskId, flow.round ? { round: flow.round } : {});
+    });
+  }, [paginatedFlows]);
+
+  useEffect(() => {
     setCurrentPage(1);
   }, [flowFilter, keyword, sortDirection, sortField]);
 
@@ -220,13 +229,15 @@ export const AiReviewQueuePage = () => {
       closeTimerRef.current = null;
     }
     setIsSheetClosing(false);
+    const cachedDetail = getCachedTaskFlow(flow.taskId, flow.round ? { round: flow.round } : {});
+    const cachedLogs = getCachedTaskFlowLogs(flow.taskId);
     setSelectedFlow(flow);
-    setDetail(null);
-    setTaskLogs([]);
+    setDetail(cachedDetail);
+    setTaskLogs(cachedLogs ?? []);
     setIsTaskLogStale(false);
     setIsLogOpen(false);
     setSelectedItemIndex(0);
-    setIsDetailLoading(true);
+    setIsDetailLoading(!cachedDetail);
 
     try {
       const nextDetail = await getTaskFlow(flow.taskId, flow.round ? { round: flow.round } : {});

@@ -174,26 +174,145 @@ export type TaskFlowDetailDto = TaskFlowSummaryDto & {
   items: TaskFlowItemDto[];
 };
 
+const TASK_FLOW_CACHE_TTL_MS = 20_000;
+const TASK_FLOW_DETAIL_CACHE_TTL_MS = 60_000;
+const TASK_FLOW_LOG_CACHE_TTL_MS = 30_000;
+
+let taskFlowsCache: { data: TaskFlowSummaryDto[]; expiresAt: number } | null = null;
+let taskFlowsRequest: Promise<TaskFlowSummaryDto[]> | null = null;
+const taskFlowDetailCache = new Map<string, { data: TaskFlowDetailDto; expiresAt: number }>();
+const taskFlowDetailRequests = new Map<string, Promise<TaskFlowDetailDto>>();
+const taskFlowLogCache = new Map<string, { data: TaskFlowLogDto[]; expiresAt: number }>();
+const taskFlowLogRequests = new Map<string, Promise<TaskFlowLogDto[]>>();
+
 export async function listTaskFlows(): Promise<TaskFlowSummaryDto[]> {
-  return requestTaskFlowApi<TaskFlowSummaryDto[]>('/agent/task-flows', { method: 'GET' });
+  const cached = getCachedTaskFlows();
+  if (cached) {
+    return cached;
+  }
+
+  if (taskFlowsRequest) {
+    return taskFlowsRequest;
+  }
+
+  taskFlowsRequest = requestTaskFlowApi<TaskFlowSummaryDto[]>('/agent/task-flows', { method: 'GET' })
+    .then((data) => {
+      taskFlowsCache = {
+        data,
+        expiresAt: Date.now() + TASK_FLOW_CACHE_TTL_MS,
+      };
+
+      return data;
+    })
+    .finally(() => {
+      taskFlowsRequest = null;
+    });
+
+  return taskFlowsRequest;
 }
 
 export async function getTaskFlow(taskId: string, input: { round?: number } = {}): Promise<TaskFlowDetailDto> {
+  const cached = getCachedTaskFlow(taskId, input);
+  if (cached) {
+    return cached;
+  }
+
   const searchParams = new URLSearchParams();
   if (input.round) {
     searchParams.set('round', input.round.toString());
   }
   const suffix = searchParams.size > 0 ? `?${searchParams.toString()}` : '';
+  const cacheKey = taskFlowDetailCacheKey(taskId, input);
+  const pendingRequest = taskFlowDetailRequests.get(cacheKey);
+  if (pendingRequest) {
+    return pendingRequest;
+  }
 
-  return requestTaskFlowApi<TaskFlowDetailDto>(`/agent/task-flows/${encodeURIComponent(taskId)}${suffix}`, {
+  const request = requestTaskFlowApi<TaskFlowDetailDto>(`/agent/task-flows/${encodeURIComponent(taskId)}${suffix}`, {
     method: 'GET',
-  });
+  })
+    .then((data) => {
+      taskFlowDetailCache.set(cacheKey, {
+        data,
+        expiresAt: Date.now() + TASK_FLOW_DETAIL_CACHE_TTL_MS,
+      });
+
+      return data;
+    })
+    .finally(() => {
+      taskFlowDetailRequests.delete(cacheKey);
+    });
+  taskFlowDetailRequests.set(cacheKey, request);
+
+  return request;
 }
 
 export async function getTaskFlowLogs(taskId: string): Promise<TaskFlowLogDto[]> {
-  return requestTaskFlowApi<TaskFlowLogDto[]>(`/agent/task-flows/${encodeURIComponent(taskId)}/logs`, {
+  const cached = getCachedTaskFlowLogs(taskId);
+  if (cached) {
+    return cached;
+  }
+
+  const pendingRequest = taskFlowLogRequests.get(taskId);
+  if (pendingRequest) {
+    return pendingRequest;
+  }
+
+  const request = requestTaskFlowApi<TaskFlowLogDto[]>(`/agent/task-flows/${encodeURIComponent(taskId)}/logs`, {
     method: 'GET',
-  });
+  })
+    .then((data) => {
+      taskFlowLogCache.set(taskId, {
+        data,
+        expiresAt: Date.now() + TASK_FLOW_LOG_CACHE_TTL_MS,
+      });
+
+      return data;
+    })
+    .finally(() => {
+      taskFlowLogRequests.delete(taskId);
+    });
+  taskFlowLogRequests.set(taskId, request);
+
+  return request;
+}
+
+export function getCachedTaskFlows(): TaskFlowSummaryDto[] | null {
+  if (!taskFlowsCache || taskFlowsCache.expiresAt <= Date.now()) {
+    return null;
+  }
+
+  return taskFlowsCache.data;
+}
+
+export function getCachedTaskFlow(taskId: string, input: { round?: number } = {}): TaskFlowDetailDto | null {
+  const cached = taskFlowDetailCache.get(taskFlowDetailCacheKey(taskId, input));
+  if (!cached || cached.expiresAt <= Date.now()) {
+    return null;
+  }
+
+  return cached.data;
+}
+
+export function getCachedTaskFlowLogs(taskId: string): TaskFlowLogDto[] | null {
+  const cached = taskFlowLogCache.get(taskId);
+  if (!cached || cached.expiresAt <= Date.now()) {
+    return null;
+  }
+
+  return cached.data;
+}
+
+export function prefetchTaskFlows(): void {
+  void listTaskFlows().catch(() => undefined);
+}
+
+export function prefetchTaskFlow(taskId: string, input: { round?: number } = {}): void {
+  void getTaskFlow(taskId, input).catch(() => undefined);
+}
+
+function taskFlowDetailCacheKey(taskId: string, input: { round?: number }): string {
+  return `${taskId}:${input.round ?? 'latest'}`;
 }
 
 async function requestTaskFlowApi<TData>(path: string, init: RequestInit): Promise<TData> {
