@@ -26,8 +26,11 @@ type DraftRecord = {
 
 type ReviewRecordSummary = {
   stage?: string;
+  reviewerId?: string | null;
+  reviewer?: { id: string; name: string } | null;
   reviewerType?: string;
   assignedReviewerId?: string | null;
+  assignedReviewer?: { id: string; name: string } | null;
   decision: string | null;
   comment?: string | null;
   scores: Record<string, unknown>;
@@ -142,6 +145,9 @@ export type WorkbenchDto = {
       stage?: string;
       reviewerType?: string;
       assignedReviewerId?: string | null;
+      reviewerId?: string | null;
+      reviewerName?: string | null;
+      assignedReviewerName?: string | null;
       decision: string | null;
       comment?: string | null;
       scores: Record<string, unknown>;
@@ -193,6 +199,20 @@ const WORKBENCH_INCLUDE = {
     include: {
       reviewRecords: {
         orderBy: { createdAt: 'desc' },
+        include: {
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          assignedReviewer: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
       },
     },
   },
@@ -355,7 +375,10 @@ function toWorkbenchDto(assignment: AssignmentWorkbenchRecord): WorkbenchDto {
       reviewRecords: submission.reviewRecords.map((reviewRecord) => ({
         stage: reviewRecord.stage,
         reviewerType: reviewRecord.reviewerType,
+        reviewerId: reviewRecord.reviewerId ?? null,
+        reviewerName: reviewRecord.reviewer?.name ?? null,
         assignedReviewerId: reviewRecord.assignedReviewerId ?? null,
+        assignedReviewerName: reviewRecord.assignedReviewer?.name ?? null,
         decision: reviewRecord.decision,
         comment: reviewRecord.comment,
         scores: reviewRecord.scores,

@@ -70,7 +70,10 @@ export type WorkbenchDto = {
     reviewRecords: Array<{
       stage?: string;
       reviewerType?: string;
+      reviewerId?: string | null;
+      reviewerName?: string | null;
       assignedReviewerId?: string | null;
+      assignedReviewerName?: string | null;
       decision: string | null;
       comment?: string | null;
       scores: Record<string, unknown>;

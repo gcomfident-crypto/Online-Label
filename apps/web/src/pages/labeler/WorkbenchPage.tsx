@@ -1346,7 +1346,7 @@ function buildQuestionHistoryTimeline(workbench: WorkbenchDto): QuestionHistoryT
         .map((record, index) => {
           const isRecheck = isHumanRecheckRecord(record);
           const actorName = isRecheck
-            ? formatRecheckActorName(record.assignedReviewerId)
+            ? formatReviewRecordActorName(record)
             : 'AI 预审';
 
           return {
@@ -2394,8 +2394,21 @@ function formatUserName(userId: string | null | undefined): string {
   return '标注员';
 }
 
+function formatReviewRecordActorName(record: WorkbenchDto['submissionHistory'][number]['reviewRecords'][number]): string {
+  const reviewerName =
+    record.reviewerName?.trim() ||
+    record.assignedReviewerName?.trim() ||
+    formatReviewerName(record.reviewerId ?? record.assignedReviewerId);
+
+  return reviewerName.startsWith('复审员') ? reviewerName : `复审员 ${reviewerName}`;
+}
+
 function formatReviewerName(reviewerId: string | null | undefined): string {
-  if (reviewerId === 'user_reviewer_wang_fang' || reviewerId === 'reviewer_1') {
+  if (
+    reviewerId === 'user_reviewer_wang_fang' ||
+    reviewerId === 'user_reviewer_xinzezhang' ||
+    reviewerId === 'reviewer_1'
+  ) {
     return '鑫泽张';
   }
 
@@ -2409,11 +2422,6 @@ function formatReviewerName(reviewerId: string | null | undefined): string {
 function formatLabelerActorName(labelerId: string | null | undefined): string {
   const labelerName = formatUserName(labelerId);
   return labelerName === '标注员' ? labelerName : `标注员 ${labelerName}`;
-}
-
-function formatRecheckActorName(reviewerId: string | null | undefined): string {
-  const reviewerName = formatReviewerName(reviewerId);
-  return reviewerName.startsWith('复审员') ? reviewerName : `复审员 ${reviewerName}`;
 }
 
 function stringValue(value: unknown): string {
