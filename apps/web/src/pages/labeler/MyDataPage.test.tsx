@@ -631,7 +631,7 @@ function toAssignmentTasks(items: LabelerAssignmentDto[]): LabelerAssignmentTask
 
         return !latest || item.latestSubmittedAt > latest ? item.latestSubmittedAt : latest;
       }, null);
-      const status = sortedItems.some(
+      const status: LabelerAssignmentTaskDto['status'] = sortedItems.some(
         (item) => item.status === 'NEEDS_REVISION' || item.latestSubmissionStatus === 'NEEDS_REVISION' || item.latestSubmissionStatus === 'AI_REJECTED',
       )
         ? 'NEEDS_REVISION'

@@ -10114,7 +10114,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .task-template-picker__menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% - 1px);
   right: 0;
   left: 0;
   z-index: var(--overlay-dropdown-z-index);
@@ -15398,7 +15398,6 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .question-navigator__status-text {
   display: inline-block;
-  animation: question-status-change 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .question-navigator__annotation-status {

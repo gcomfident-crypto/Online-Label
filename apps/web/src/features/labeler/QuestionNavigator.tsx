@@ -1,13 +1,17 @@
 import type { WorkbenchDto } from '../../api/drafts';
 
+type QuestionNavigatorItem = {
+  annotationStatusLabel?: string;
+  annotationStatusState?: 'empty' | 'draft' | 'complete';
+  flowStatusLabel: string;
+  label: string;
+};
+
 type QuestionNavigatorProps = {
   workbench: WorkbenchDto;
   currentIndex: number;
   totalCount: number;
-  items?: Array<{
-    flowStatusLabel: string;
-    label: string;
-  }>;
+  items?: QuestionNavigatorItem[];
   onJump: (index: number) => void;
 };
 
@@ -18,9 +22,8 @@ export const QuestionNavigator = ({
   items,
   onJump,
 }: QuestionNavigatorProps) => {
-  const navigationItems = items && items.length > 0 ? items : Array.from({ length: totalCount }, (_, index) => ({
+  const navigationItems: QuestionNavigatorItem[] = items && items.length > 0 ? items : Array.from({ length: totalCount }, (_, index) => ({
     flowStatusLabel: '待标注',
-    index,
     label: index === currentIndex ? workbench.taskItem.externalId : `#${String(index + 1).padStart(3, '0')}`,
   }));
   return (
@@ -39,6 +42,15 @@ export const QuestionNavigator = ({
             <span className="question-navigator__copy">
               <span className="question-navigator__identity">{item.label}</span>
             </span>
+            {item.annotationStatusLabel ? (
+              <span
+                className={`question-navigator__annotation-status ${getAnnotationStatusClassName(
+                  item.annotationStatusState,
+                )}`}
+              >
+                {item.annotationStatusLabel}
+              </span>
+            ) : null}
             <small className={`question-navigator__status ${getFlowStatusClassName(item.flowStatusLabel)}`}>
               <span className="question-navigator__status-text" key={item.flowStatusLabel}>
                 {item.flowStatusLabel}
@@ -81,4 +93,16 @@ function getFlowStatusClassName(statusLabel: string): string {
   }
 
   return '';
+}
+
+function getAnnotationStatusClassName(statusState: 'empty' | 'draft' | 'complete' | undefined): string {
+  if (statusState === 'complete') {
+    return 'is-complete';
+  }
+
+  if (statusState === 'draft') {
+    return 'is-draft';
+  }
+
+  return 'is-empty';
 }
