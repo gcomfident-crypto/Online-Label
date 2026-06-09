@@ -144,7 +144,7 @@ export const WorkbenchPage = () => {
             ? getSchemaFieldKey(defaultActiveField)
             : null,
       );
-      lastSavedSnapshotRef.current = JSON.stringify(nextWorkbench.draft?.answers ?? {});
+      lastSavedSnapshotRef.current = JSON.stringify(initialAnswers);
       hydratedRef.current = true;
       setDraftStatus(
         cachedAnswers ? '检测到本地未同步草稿，已恢复到当前表单。' : '草稿已载入',
