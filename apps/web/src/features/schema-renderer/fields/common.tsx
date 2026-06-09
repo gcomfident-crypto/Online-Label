@@ -204,7 +204,7 @@ export const UploadedFilePreview = ({ file }: { file: UploadedFileValue }) => {
       <small>
         {file.mimeType} · {formatFileSize(file.size)}
       </small>
-      {canNavigate ? <a href={file.url}>{file.url}</a> : <small>{file.url}</small>}
+      {canNavigate ? <a href={file.url}>{file.url}</a> : null}
     </div>
   );
 };

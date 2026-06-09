@@ -2049,7 +2049,7 @@ describe('SchemaRenderer', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('review 模式展示已保存的文件和图片元数据但不把本地 mock 链接渲染为可点击链接', () => {
+  it('review 模式展示已保存的文件和图片元数据但不暴露本地 mock 链接', () => {
     render(
       <SchemaRenderer
         schema={baseSchema([
@@ -2078,11 +2078,11 @@ describe('SchemaRenderer', () => {
 
     expect(screen.getByText('report.txt')).toBeInTheDocument();
     expect(screen.getByText('text/plain · 2.0 KB')).toBeInTheDocument();
-    expect(screen.getByText('mock://local/report.txt')).toBeInTheDocument();
+    expect(screen.queryByText('mock://local/report.txt')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'mock://local/report.txt' })).not.toBeInTheDocument();
     expect(screen.getByText('photo.png')).toBeInTheDocument();
     expect(screen.getByText('image/png · 512 B')).toBeInTheDocument();
-    expect(screen.getByText('mock://local/photo.png')).toBeInTheDocument();
+    expect(screen.queryByText('mock://local/photo.png')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'mock://local/photo.png' })).not.toBeInTheDocument();
   });
 
