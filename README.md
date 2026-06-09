@@ -22,24 +22,35 @@
 
 ## ⚡️ 项目概述
 
-LabelHub 是一个面向 AI 数据标注运营在线平台。功能涵盖**标注模板配置、题目导入、任务发布、标注提交、AI 自动预审、人工复审、数据导出**，实现标注任务的全链路可追溯闭环。
+LabelHub 是一个面向 AI 数据标注运营在线平台。功能涵盖**标注模板配置、题目导入、任务发布、标注提交、AI 自动预审、人工复审、数据导出**，实现标注任务的全链路可追溯闭环
 
 ## 🌍 在线体验
 
 欢迎访问在线平台。通过查看过往任务或自主创建任务，即可快速体验平台核心功能：[115.190.153.31](http://115.190.153.31/)
 
+## 📄 全部文档
+
+* [基础技术文档与展示 - 飞书云文档](https://scnylr3i9roc.feishu.cn/docx/R2rUdIlj9oSUBaxNQ3zcGW3onjc)
+* [AI Coding 过程记录 - 飞书云文档](https://scnylr3i9roc.feishu.cn/docx/GYqJddDLgo7qlIxKjbschFzlntf)
+* 
+
 ## 📷 系统截图
 
 ### Owner
 
+Owner 可独立完成「建任务 → 搭模板 → 发布 → 看结果 → 导出」全流程。多格式导出文件结构正确，可被下游消费
+
 <p align="center">
-  <img src="./docs/readme/owner/1.png" alt="Owner 截图 1" width="22%" hspace="6" />
-  <img src="./docs/readme/owner/2.png" alt="Owner 截图 2" width="22%" hspace="6" />
-  <img src="./docs/readme/owner/3.png" alt="Owner 截图 3" width="22%" hspace="6" />
-  <img src="./docs/readme/owner/4.png" alt="Owner 截图 4" width="22%" hspace="6" />
+  <img src="./docs/readme/owner/1.png" alt="Owner 截图 1" width="18%" hspace="3" />
+  <img src="./docs/readme/owner/2.png" alt="Owner 截图 2" width="18%" hspace="3" />
+  <img src="./docs/readme/owner/3.png" alt="Owner 截图 3" width="18%" hspace="3" />
+  <img src="./docs/readme/owner/4.png" alt="Owner 截图 4" width="18%" hspace="3" />
+  <img src="./docs/readme/owner/5.png" alt="Owner 导出结果截图" width="18%" hspace="3" />
 </p>
 
 ### Labeler
+
+Labeler 可独立完成「领任务 → 作答 → 提交 → 看打回 → 修改」全流程
 
 <p align="center">
   <img src="./docs/readme/labeler/1.png" alt="Labeler 截图 1" width="22%" hspace="6" />
@@ -50,12 +61,16 @@ LabelHub 是一个面向 AI 数据标注运营在线平台。功能涵盖**标�
 
 ### Agent
 
+AI Agent 自动预审可正常运行，结果可见、可追溯
+
 <p align="center">
   <img src="./docs/readme/agent/1.png" alt="Agent 截图 1" width="46%" hspace="8" />
   <img src="./docs/readme/agent/2.png" alt="Agent 截图 2" width="46%" hspace="8" />
 </p>
 
 ### Reviewer
+
+Reviewer 对标注内容复审，可查看每一道题目的审计历史
 
 <p align="center">
   <img src="./docs/readme/reviewer/1.png" alt="Reviewer 截图 1" width="46%" hspace="8" />
@@ -123,15 +138,23 @@ DEEPSEEK_API_KEY=replace_with_deepseek_api_key
 
 ## 演示账号
 
-当前前端登录页是演示会话，不是真实账号密码认证。登录时需要填写账号和密码，但密码只校验是否非空，不校验具体值；建议统一填写 `password`。
+当前前端登录页使用演示账号体系，不接入真实身份认证。登录时需要填写账号和密码，密码统一为 `1101101`。
 
-| 角色       | 前端账号                    | 前端密码   | 登录身份下拉项   | 默认首页              |
-| ---------- | --------------------------- | ---------- | ---------------- | --------------------- |
-| 任务负责人 | `owner`                     | `password` | Owner 任务负责人 | `/owner/tasks`        |
-| 标注员     | `labeler`                   | `password` | Labeler 标注员   | `/labeler/market`     |
-| AI Agent   | `agent`/`ai`/`ai_agent`     | `password` | AI Agent 预审    | `/agent/ai-review`    |
-| 人工审核员 | `reviewer`                  | `password` | Reviewer 审核员  | `/reviewer/reviews`   |
+| 角色       | 前端账号      | 前端密码  | 登录身份下拉项   | 显示名称 | 默认首页             |
+| ---------- | ------------- | --------- | ---------------- | -------- | -------------------- |
+| 任务负责人 | `zhangzexin`  | `1101101` | Owner 任务负责人 | 张泽鑫   | `/owner/tasks`       |
+| 标注员     | `wangyuyang`  | `1101101` | Labeler 标注员   | 王昱阳   | `/labeler/market`    |
+| 标注员     | `houshikang`  | `1101101` | Labeler 标注员   | 侯士康   | `/labeler/market`    |
+| AI Agent   | `agent`       | `1101101` | AI Agent 预审    | AI Agent | `/agent/ai-review`   |
+| 人工审核员 | `xinzezhang`  | `1101101` | Reviewer 审核员  | 鑫泽张   | `/reviewer/reviews`  |
 
-账号命中上表别名时，会按账号自动确定角色；账号没有命中别名时，会按“登录身份”下拉框选择的角色登录。
+账号命中上表时，会按账号自动确定角色；账号没有命中时，会按“登录身份”下拉框选择的角色登录。
 
-后端 `/auth/login` 是独立的演示接口，不接收密码。按角色登录：
+后端 `/auth/login` 使用同一套演示账号和密码。例如：
+
+```json
+{
+  "account": "zhangzexin",
+  "password": "1101101"
+}
+```

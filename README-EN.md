@@ -123,15 +123,23 @@ DEEPSEEK_API_KEY=replace_with_deepseek_api_key
 
 ## Demo Accounts
 
-The current frontend login page creates a demo session; it is not real username-password authentication. You need to enter both account and password, but the password is only checked as non-empty and is not validated against a specific value. Use `password` for consistency.
+The current frontend login page uses demo accounts and does not connect to a real identity provider. Enter both account and password; the unified demo password is `1101101`.
 
-| Role           | Frontend account           | Frontend password | Login identity dropdown | Default home          |
-| -------------- | -------------------------- | ----------------- | ----------------------- | --------------------- |
-| Task Owner     | `owner`                    | `password`        | Owner Task Manager      | `/owner/tasks`        |
-| Labeler        | `labeler`                  | `password`        | Labeler                 | `/labeler/market`     |
-| AI Agent       | `agent`/`ai`/`ai_agent`    | `password`        | AI Agent Pre-review     | `/agent/ai-review`    |
-| Human Reviewer | `reviewer`                 | `password`        | Reviewer                | `/reviewer/reviews`   |
+| Role           | Frontend account | Frontend password | Login identity dropdown | Display name | Default home          |
+| -------------- | ---------------- | ----------------- | ----------------------- | ------------ | --------------------- |
+| Task Owner     | `zhangzexin`     | `1101101`         | Owner Task Manager      | 张泽鑫       | `/owner/tasks`        |
+| Labeler        | `wangyuyang`     | `1101101`         | Labeler                 | 王昱阳       | `/labeler/market`     |
+| Labeler        | `houshikang`     | `1101101`         | Labeler                 | 侯士康       | `/labeler/market`     |
+| AI Agent       | `agent`          | `1101101`         | AI Agent Pre-review     | AI Agent     | `/agent/ai-review`    |
+| Human Reviewer | `xinzezhang`     | `1101101`         | Reviewer                | 鑫泽张       | `/reviewer/reviews`   |
 
-When the account matches one of the aliases above, the role is determined by the account. When the account does not match an alias, the role is determined by the "Login identity" dropdown.
+When the account matches one of the accounts above, the role is determined by the account. When the account does not match, the role is determined by the "Login identity" dropdown.
 
-The backend `/auth/login` endpoint is an independent demo API and does not accept passwords. Log in by role:
+The backend `/auth/login` endpoint uses the same demo accounts and password. Example:
+
+```json
+{
+  "account": "zhangzexin",
+  "password": "1101101"
+}
+```

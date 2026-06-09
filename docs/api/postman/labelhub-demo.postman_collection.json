@@ -1,0 +1,2281 @@
+{
+  "info": {
+    "name": "LabelHub Demo API",
+    "description": "LabelHub 主流程交付 Collection。只包含演示和对外交付需要的核心接口，不包含 debug、mock、内部重试和高阶维护接口。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "ownerToken",
+      "value": ""
+    },
+    {
+      "key": "labelerToken",
+      "value": ""
+    },
+    {
+      "key": "secondLabelerToken",
+      "value": ""
+    },
+    {
+      "key": "reviewerToken",
+      "value": ""
+    },
+    {
+      "key": "agentToken",
+      "value": ""
+    },
+    {
+      "key": "ownerId",
+      "value": "mock-owner"
+    },
+    {
+      "key": "labelerId",
+      "value": "mock-labeler-wang-yu-yang"
+    },
+    {
+      "key": "secondLabelerId",
+      "value": "mock-labeler-hou-shi-kang"
+    },
+    {
+      "key": "reviewerId",
+      "value": "mock-reviewer"
+    },
+    {
+      "key": "agentId",
+      "value": "mock-ai_agent"
+    },
+    {
+      "key": "templateId",
+      "value": ""
+    },
+    {
+      "key": "versionId",
+      "value": ""
+    },
+    {
+      "key": "taskId",
+      "value": ""
+    },
+    {
+      "key": "taskItemId",
+      "value": ""
+    },
+    {
+      "key": "assignmentId",
+      "value": ""
+    },
+    {
+      "key": "submissionId",
+      "value": ""
+    },
+    {
+      "key": "batchId",
+      "value": ""
+    },
+    {
+      "key": "jobId",
+      "value": ""
+    },
+    {
+      "key": "exportId",
+      "value": ""
+    },
+    {
+      "key": "idempotencyKey",
+      "value": "postman-demo-001"
+    },
+    {
+      "key": "zipContentBase64",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "00 Auth 登录",
+      "item": [
+        {
+          "name": "Owner 登录",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /auth/login\n\n使用演示账号登录。",
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"zhangzexin\",\n  \"password\": \"1101101\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "const json = pm.response.json();",
+                  "pm.environment.set(\"ownerToken\", json.data.token);",
+                  "pm.test(\"Owner 登录 保存 token\", () => pm.expect(pm.environment.get(\"ownerToken\")).to.be.ok);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Labeler 王昱阳登录",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /auth/login\n\n使用演示账号登录。",
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"wangyuyang\",\n  \"password\": \"1101101\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "const json = pm.response.json();",
+                  "pm.environment.set(\"labelerToken\", json.data.token);",
+                  "pm.test(\"Labeler 王昱阳登录 保存 token\", () => pm.expect(pm.environment.get(\"labelerToken\")).to.be.ok);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Labeler 侯士康登录",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /auth/login\n\n使用演示账号登录。",
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"houshikang\",\n  \"password\": \"1101101\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "const json = pm.response.json();",
+                  "pm.environment.set(\"secondLabelerToken\", json.data.token);",
+                  "pm.test(\"Labeler 侯士康登录 保存 token\", () => pm.expect(pm.environment.get(\"secondLabelerToken\")).to.be.ok);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "AI Agent 登录",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /auth/login\n\n使用演示账号登录。",
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"agent\",\n  \"password\": \"1101101\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "const json = pm.response.json();",
+                  "pm.environment.set(\"agentToken\", json.data.token);",
+                  "pm.test(\"AI Agent 登录 保存 token\", () => pm.expect(pm.environment.get(\"agentToken\")).to.be.ok);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reviewer 登录",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /auth/login\n\n使用演示账号登录。",
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"xinzezhang\",\n  \"password\": \"1101101\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "const json = pm.response.json();",
+                  "pm.environment.set(\"reviewerToken\", json.data.token);",
+                  "pm.test(\"Reviewer 登录 保存 token\", () => pm.expect(pm.environment.get(\"reviewerToken\")).to.be.ok);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "获取当前用户",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /me\n\n获取当前用户。",
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 System 系统检查",
+      "item": [
+        {
+          "name": "健康检查",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /health\n\n健康检查。",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 Owner 任务管理",
+      "item": [
+        {
+          "name": "创建任务草稿",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /tasks\n\n创建任务草稿。",
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman 验证任务\",\n  \"description\": \"通过 Postman Collection 创建的任务草稿。\",\n  \"richTextInstruction\": \"<p>请按模板完成标注。</p>\",\n  \"tags\": [\n    \"postman\",\n    \"api\"\n  ],\n  \"rewardRule\": \"按题计费\",\n  \"rewardPerItem\": 1,\n  \"perUserLimit\": 12,\n  \"quota\": 12,\n  \"deadline\": \"2026-06-30T18:00:00.000Z\",\n  \"distributionStrategy\": \"FIRST_COME_FIRST_SERVE\",\n  \"aiPreReviewEnabled\": true,\n  \"aiRuleName\": \"默认 AI 预审规则\",\n  \"templateId\": \"{{templateId}}\",\n  \"actorId\": \"{{ownerId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "const json = pm.response.json();",
+                  "const pick = (source, path) => path.split('.').reduce((value, key) => {",
+                  "  if (Array.isArray(value) && /^\\d+$/.test(key)) return value[Number(key)];",
+                  "  return value && typeof value === 'object' ? value[key] : undefined;",
+                  "}, source);",
+                  "const savedValue = [\"data.id\"].map((path) => pick(json, path)).find(Boolean);",
+                  "if (savedValue) pm.environment.set(\"taskId\", savedValue);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询 Owner 任务列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /tasks\n\n查询 Owner 任务列表。",
+            "url": {
+              "raw": "{{baseUrl}}/tasks?ownerId=%7B%7BownerId%7D%7D",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "ownerId",
+                  "value": "{{ownerId}}",
+                  "disabled": false
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "获取任务详情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /tasks/{id}\n\n获取任务详情。",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "任务状态流转",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "PATCH /tasks/{id}/status\n\n任务状态流转。",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "status"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"PUBLISHED\",\n  \"actorId\": \"{{ownerId}}\",\n  \"reason\": \"发布给标注员领取\",\n  \"confirm\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询任务审计日志",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /tasks/{id}/audit-logs\n\n查询任务审计日志。",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/audit-logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "audit-logs"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 Owner 模板管理",
+      "item": [
+        {
+          "name": "从官方 DatasetProfile 创建模板",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /templates/from-profile\n\n从官方 DatasetProfile 创建模板。",
+            "url": {
+              "raw": "{{baseUrl}}/templates/from-profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "templates",
+                "from-profile"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": \"preference_compare\",\n  \"actorId\": \"{{ownerId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "const json = pm.response.json();",
+                  "const pick = (source, path) => path.split('.').reduce((value, key) => {",
+                  "  if (Array.isArray(value) && /^\\d+$/.test(key)) return value[Number(key)];",
+                  "  return value && typeof value === 'object' ? value[key] : undefined;",
+                  "}, source);",
+                  "const savedValue = [\"data.id\"].map((path) => pick(json, path)).find(Boolean);",
+                  "if (savedValue) pm.environment.set(\"templateId\", savedValue);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询模板列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /templates\n\n查询模板列表。",
+            "url": {
+              "raw": "{{baseUrl}}/templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "templates"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "获取模板详情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /templates/{id}\n\n获取模板详情。",
+            "url": {
+              "raw": "{{baseUrl}}/templates/{{templateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "templates",
+                "{{templateId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "发布模板版本",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /templates/{id}/publish\n\n发布模板版本。",
+            "url": {
+              "raw": "{{baseUrl}}/templates/{{templateId}}/publish",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "templates",
+                "{{templateId}}",
+                "publish"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"versionName\": \"v1\",\n  \"actorId\": \"{{ownerId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 Owner 数据导入",
+      "item": [
+        {
+          "name": "导入 JSON、JSONL 或 Excel 题目",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /tasks/{taskId}/items/import\n\n导入 JSON、JSONL 或 Excel 题目。",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/items/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "items",
+                "import"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"datasetKind\": \"generic_json\",\n  \"format\": \"json\",\n  \"fileName\": \"postman-sample.json\",\n  \"content\": \"[{\\\"id\\\":\\\"P0001\\\",\\\"prompt\\\":\\\"请判断回答质量\\\",\\\"response_a\\\":\\\"回答 A\\\",\\\"response_b\\\":\\\"回答 B\\\"}]\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询任务题目",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /tasks/{taskId}/items\n\n查询任务题目。",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "items"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 Labeler 任务领取与标注",
+      "item": [
+        {
+          "name": "查询任务广场",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /labeler/tasks\n\n查询任务广场。",
+            "url": {
+              "raw": "{{baseUrl}}/labeler/tasks?claimStatus=available&labelerId=%7B%7BlabelerId%7D%7D",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "labeler",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "tag",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "claimStatus",
+                  "value": "available",
+                  "disabled": false
+                },
+                {
+                  "key": "labelerId",
+                  "value": "{{labelerId}}",
+                  "disabled": false
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{labelerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "领取任务",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /assignments/claim\n\n领取任务。",
+            "url": {
+              "raw": "{{baseUrl}}/assignments/claim",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assignments",
+                "claim"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{labelerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\",\n  \"labelerId\": \"{{labelerId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "const json = pm.response.json();",
+                  "const pick = (source, path) => path.split('.').reduce((value, key) => {",
+                  "  if (Array.isArray(value) && /^\\d+$/.test(key)) return value[Number(key)];",
+                  "  return value && typeof value === 'object' ? value[key] : undefined;",
+                  "}, source);",
+                  "const savedValue = [\"data.id\", \"data.assignmentId\", \"data.assignment.id\"].map((path) => pick(json, path)).find(Boolean);",
+                  "if (savedValue) pm.environment.set(\"assignmentId\", savedValue);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询标注台数据",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /assignments/{assignmentId}/workbench\n\n查询标注台数据。",
+            "url": {
+              "raw": "{{baseUrl}}/assignments/{{assignmentId}}/workbench",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assignments",
+                "{{assignmentId}}",
+                "workbench"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{labelerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询草稿",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /drafts/{assignmentId}\n\n查询草稿。",
+            "url": {
+              "raw": "{{baseUrl}}/drafts/{{assignmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "{{assignmentId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{labelerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "保存草稿",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "PUT /drafts/{assignmentId}\n\n保存草稿。",
+            "url": {
+              "raw": "{{baseUrl}}/drafts/{{assignmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "{{assignmentId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{labelerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actorId\": \"{{labelerId}}\",\n  \"answers\": {\n    \"answer\": \"这是草稿内容\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "提交整个任务标注结果",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "{{idempotencyKey}}"
+              }
+            ],
+            "description": "POST /submissions/task\n\n提交整个任务标注结果。",
+            "url": {
+              "raw": "{{baseUrl}}/submissions/task",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "submissions",
+                "task"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{labelerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\",\n  \"labelerId\": \"{{labelerId}}\",\n  \"actorId\": \"{{labelerId}}\",\n  \"currentAssignmentId\": \"{{assignmentId}}\",\n  \"currentAnswers\": {\n    \"answer\": \"最终标注结果\"\n  },\n  \"idempotencyKey\": \"{{idempotencyKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "const json = pm.response.json();",
+                  "const pick = (source, path) => path.split('.').reduce((value, key) => {",
+                  "  if (Array.isArray(value) && /^\\d+$/.test(key)) return value[Number(key)];",
+                  "  return value && typeof value === 'object' ? value[key] : undefined;",
+                  "}, source);",
+                  "const savedValue = [\"data.id\", \"data.submissionId\", \"data.submissions.0.id\"].map((path) => pick(json, path)).find(Boolean);",
+                  "if (savedValue) pm.environment.set(\"submissionId\", savedValue);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 AI Agent 预审",
+      "item": [
+        {
+          "name": "查询 AI 预审批次",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /ai-review/batches\n\n查询 AI 预审批次。",
+            "url": {
+              "raw": "{{baseUrl}}/ai-review/batches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai-review",
+                "batches"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{agentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询 AI 预审批次详情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /ai-review/batches/{batchId}\n\n查询 AI 预审批次详情。",
+            "url": {
+              "raw": "{{baseUrl}}/ai-review/batches/{{batchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai-review",
+                "batches",
+                "{{batchId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{agentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询提交的 AI 预审详情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /submissions/{submissionId}/ai-review\n\n查询提交的 AI 预审详情。",
+            "url": {
+              "raw": "{{baseUrl}}/submissions/{{submissionId}}/ai-review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "submissions",
+                "{{submissionId}}",
+                "ai-review"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{agentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 Reviewer 人工复核",
+      "item": [
+        {
+          "name": "查询待复核任务列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /reviews/pending/tasks\n\n查询待复核任务列表。",
+            "url": {
+              "raw": "{{baseUrl}}/reviews/pending/tasks?reviewerId=%7B%7BreviewerId%7D%7D",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews",
+                "pending",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "reviewerId",
+                  "value": "{{reviewerId}}",
+                  "disabled": false
+                },
+                {
+                  "key": "aiDecision",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{reviewerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询待人工复审题目",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /reviews/pending\n\n查询待人工复审题目。",
+            "url": {
+              "raw": "{{baseUrl}}/reviews/pending?reviewerId=%7B%7BreviewerId%7D%7D&taskId=%7B%7BtaskId%7D%7D",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews",
+                "pending"
+              ],
+              "query": [
+                {
+                  "key": "reviewerId",
+                  "value": "{{reviewerId}}",
+                  "disabled": false
+                },
+                {
+                  "key": "aiDecision",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "taskId",
+                  "value": "{{taskId}}",
+                  "disabled": false
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{reviewerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询提交轮次",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /reviews/{assignmentId}/rounds\n\n查询提交轮次。",
+            "url": {
+              "raw": "{{baseUrl}}/reviews/{{assignmentId}}/rounds",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews",
+                "{{assignmentId}}",
+                "rounds"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{reviewerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询轮次 Diff",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /reviews/{assignmentId}/diff\n\n查询轮次 Diff。",
+            "url": {
+              "raw": "{{baseUrl}}/reviews/{{assignmentId}}/diff?fromRound=1&toRound=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews",
+                "{{assignmentId}}",
+                "diff"
+              ],
+              "query": [
+                {
+                  "key": "fromRound",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "toRound",
+                  "value": "2",
+                  "disabled": false
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{reviewerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询复审详情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /reviews/{submissionId}\n\n查询复审详情。",
+            "url": {
+              "raw": "{{baseUrl}}/reviews/{{submissionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews",
+                "{{submissionId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{reviewerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询审计时间线",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /reviews/{submissionId}/timeline\n\n查询审计时间线。",
+            "url": {
+              "raw": "{{baseUrl}}/reviews/{{submissionId}}/timeline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews",
+                "{{submissionId}}",
+                "timeline"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{reviewerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "开始人工复审",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /reviews/{submissionId}/start\n\n开始人工复审。",
+            "url": {
+              "raw": "{{baseUrl}}/reviews/{{submissionId}}/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews",
+                "{{submissionId}}",
+                "start"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{reviewerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actorId\": \"{{reviewerId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "人工复审通过",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /reviews/{submissionId}/pass\n\n人工复审通过。",
+            "url": {
+              "raw": "{{baseUrl}}/reviews/{{submissionId}}/pass",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews",
+                "{{submissionId}}",
+                "pass"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{reviewerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actorId\": \"{{reviewerId}}\",\n  \"comment\": \"复审通过\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "人工复审打回",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /reviews/{submissionId}/reject\n\n人工复审打回。",
+            "url": {
+              "raw": "{{baseUrl}}/reviews/{{submissionId}}/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews",
+                "{{submissionId}}",
+                "reject"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{reviewerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actorId\": \"{{reviewerId}}\",\n  \"reason\": \"需要补充证据\",\n  \"fieldReviews\": [\n    {\n      \"fieldKey\": \"answer\",\n      \"verdict\": \"reject\",\n      \"comment\": \"请重新检查该字段\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 Export 导出中心",
+      "item": [
+        {
+          "name": "创建导出任务",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "{{idempotencyKey}}"
+              }
+            ],
+            "description": "POST /exports\n\n创建导出任务。",
+            "url": {
+              "raw": "{{baseUrl}}/exports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "exports"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\",\n  \"requestedById\": \"{{ownerId}}\",\n  \"format\": \"json\",\n  \"includeReviews\": true,\n  \"fieldMapping\": {},\n  \"idempotencyKey\": \"{{idempotencyKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "const json = pm.response.json();",
+                  "const pick = (source, path) => path.split('.').reduce((value, key) => {",
+                  "  if (Array.isArray(value) && /^\\d+$/.test(key)) return value[Number(key)];",
+                  "  return value && typeof value === 'object' ? value[key] : undefined;",
+                  "}, source);",
+                  "const savedValue = [\"data.id\"].map((path) => pick(json, path)).find(Boolean);",
+                  "if (savedValue) pm.environment.set(\"exportId\", savedValue);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询导出历史",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /exports\n\n查询导出历史。",
+            "url": {
+              "raw": "{{baseUrl}}/exports?taskId=%7B%7BtaskId%7D%7D",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "exports"
+              ],
+              "query": [
+                {
+                  "key": "taskId",
+                  "value": "{{taskId}}",
+                  "disabled": false
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询导出详情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /exports/{id}\n\n查询导出详情。",
+            "url": {
+              "raw": "{{baseUrl}}/exports/{{exportId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "exports",
+                "{{exportId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "下载导出文件",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /exports/{id}/download\n\n下载导出文件。",
+            "url": {
+              "raw": "{{baseUrl}}/exports/{{exportId}}/download",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "exports",
+                "{{exportId}}",
+                "download"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "预览终审通过数据的导出字段映射",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /tasks/{taskId}/export-preview\n\n预览终审通过数据的导出字段映射。",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/export-preview?includeReviews=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "export-preview"
+              ],
+              "query": [
+                {
+                  "key": "includeReviews",
+                  "value": "true",
+                  "disabled": false
+                },
+                {
+                  "key": "fieldMapping",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 Task Flow 质检流转",
+      "item": [
+        {
+          "name": "查询质检流转任务列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /agent/task-flows\n\n查询质检流转任务列表。",
+            "url": {
+              "raw": "{{baseUrl}}/agent/task-flows",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agent",
+                "task-flows"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{agentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询任务流转日志",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /agent/task-flows/{taskId}/logs\n\n查询任务流转日志。",
+            "url": {
+              "raw": "{{baseUrl}}/agent/task-flows/{{taskId}}/logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agent",
+                "task-flows",
+                "{{taskId}}",
+                "logs"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{agentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "查询任务流转详情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "GET /agent/task-flows/{taskId}\n\n查询任务流转详情。",
+            "url": {
+              "raw": "{{baseUrl}}/agent/task-flows/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agent",
+                "task-flows",
+                "{{taskId}}"
+              ],
+              "query": [
+                {
+                  "key": "round",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{agentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10 LLM 辅助能力",
+      "item": [
+        {
+          "name": "调用 LLM 辅助生成",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "POST /llm/assist\n\n调用 LLM 辅助生成。",
+            "url": {
+              "raw": "{{baseUrl}}/llm/assist",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "llm",
+                "assist"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{labelerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"datasetKind\": \"generic_json\",\n  \"rawData\": {\n    \"prompt\": \"请写一句话\"\n  },\n  \"answers\": {},\n  \"targetFieldKey\": \"answer\",\n  \"promptTemplate\": \"请生成标注建议\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 状态码成功', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
