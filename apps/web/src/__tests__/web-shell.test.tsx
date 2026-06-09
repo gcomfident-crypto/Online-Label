@@ -129,28 +129,28 @@ describe('Web 壳 smoke test', () => {
 
   it('浏览器标签标题随当前路径显示所在位置', async () => {
     renderRoute('/login');
-    await waitFor(() => expect(document.title).toBe('登录 · LabelHub'));
+    await waitFor(() => expect(document.title).toBe('登录'));
     cleanup();
 
     act(() => {
       sessionStore.loginAs(USER_ROLE.OWNER);
     });
     renderRoute('/owner/templates');
-    await waitFor(() => expect(document.title).toBe('评测模板 · LabelHub'));
+    await waitFor(() => expect(document.title).toBe('评测模板'));
     cleanup();
 
     act(() => {
       sessionStore.loginAs(USER_ROLE.LABELER);
     });
     renderRoute('/labeler/my-data');
-    await waitFor(() => expect(document.title).toBe('工作台 · LabelHub'));
+    await waitFor(() => expect(document.title).toBe('工作台'));
     cleanup();
 
     act(() => {
       sessionStore.loginAs(USER_ROLE.AI_AGENT);
     });
     renderRoute('/agent/dashboard');
-    await waitFor(() => expect(document.title).toBe('数据看板 · LabelHub'));
+    await waitFor(() => expect(document.title).toBe('数据看板'));
   });
 
   it('四端 Portal Layout 各自渲染对应导航', async () => {

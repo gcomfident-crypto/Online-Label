@@ -141,7 +141,7 @@ const PageTitleSync = () => {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    document.title = `${resolvePageTabTitle(pathname)} · LabelHub`;
+    document.title = resolvePageTabTitle(pathname);
   }, [pathname]);
 
   return null;
