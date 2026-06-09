@@ -124,13 +124,13 @@ export class LlmService {
     }
 
     try {
-      const output = await callOpenAiCompatibleAssist(request, remoteConfig);
+      const output = await callOpenAiCompatibleAssist(request, remoteConfig, provider);
 
       return normalizeLlmAssistResult(output, request);
-    } catch {
+    } catch (error) {
       throw new BadGatewayException({
         code: 'LLM_ASSIST_FAILED',
-        message: 'LLM 辅助模型调用失败，请稍后重试。',
+        message: error instanceof Error ? error.message : 'LLM 辅助模型调用失败。',
       });
     }
   }
@@ -687,6 +687,7 @@ async function callOpenAiCompatibleClassifier(
 async function callOpenAiCompatibleAssist(
   request: LlmAssistRequest,
   config: OpenAiCompatibleConfig,
+  provider: string,
 ): Promise<unknown> {
   const response = await fetch(config.endpoint, {
     method: 'POST',
@@ -727,7 +728,7 @@ async function callOpenAiCompatibleAssist(
   });
 
   if (!response.ok) {
-    throw new Error(`LLM assist request failed with HTTP ${response.status}.`);
+    throw createOpenAiCompatibleRequestError('LLM 辅助模型', provider, response.status);
   }
 
   const payload = await response.json() as {
@@ -740,6 +741,34 @@ async function callOpenAiCompatibleAssist(
   }
 
   return parseJsonObject(content);
+}
+
+function createOpenAiCompatibleRequestError(
+  action: string,
+  provider: string,
+  status: number,
+): Error {
+  const normalizedProvider = normalizeAiReviewProvider(provider);
+  const providerLabel = normalizedProvider === 'deepseek'
+    ? 'DeepSeek'
+    : normalizedProvider === 'openai'
+      ? 'OpenAI'
+      : '自定义 LLM';
+  const apiKeyName = normalizedProvider === 'deepseek'
+    ? 'DEEPSEEK_API_KEY'
+    : normalizedProvider === 'openai'
+      ? 'OPENAI_API_KEY'
+      : 'LLM_API_KEY';
+
+  if (status === 401 || status === 403) {
+    return new Error(`${action}鉴权失败：${providerLabel} API Key 无效或无权限，请检查服务器环境变量 ${apiKeyName}。`);
+  }
+
+  if (status === 429) {
+    return new Error(`${action}请求被限流或额度不足：${providerLabel} 返回 HTTP 429。`);
+  }
+
+  return new Error(`${action}请求失败：${providerLabel} 返回 HTTP ${status}。`);
 }
 
 function formatPreviousTargetPrompt(previousTargetValue: unknown): string[] {

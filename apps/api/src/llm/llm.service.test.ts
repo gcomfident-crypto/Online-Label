@@ -97,6 +97,39 @@ describe('LlmService template field classifier', () => {
     expect(assistUserMessage).not.toContain('"structured_note"');
   });
 
+  it('LLM 辅助生成遇到 DeepSeek 鉴权失败时返回可定位错误', async () => {
+    process.env.LLM_PROVIDER = 'deepseek';
+    process.env.NODE_ENV = 'development';
+    process.env.DEEPSEEK_API_KEY = 'invalid-deepseek-key';
+    process.env.LLM_MODEL = 'deepseek-chat';
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            message: 'Authentication Fails',
+            type: 'authentication_error',
+            code: 'invalid_request_error',
+          },
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } },
+      ),
+    ));
+
+    await expect(new LlmService().createAssist({
+      datasetKind: 'qa_quality',
+      rawData: { prompt: '1+1=?', model_answer: '2' },
+      answers: {},
+      targetFieldKey: 'comment',
+      promptTemplate: '生成简短评价。',
+    })).rejects.toMatchObject({
+      response: {
+        code: 'LLM_ASSIST_FAILED',
+        message: 'LLM 辅助模型鉴权失败：DeepSeek API Key 无效或无权限，请检查服务器环境变量 DEEPSEEK_API_KEY。',
+      },
+    });
+  });
+
   it('LLM 辅助生成在后端兜底过滤上传文件里的待标注演示值', async () => {
     process.env.LLM_PROVIDER = 'deepseek';
     process.env.NODE_ENV = 'development';
