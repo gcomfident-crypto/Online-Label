@@ -465,7 +465,6 @@ const ProblemReasonCard = ({ isLoading, items }: { isLoading: boolean; items: Pr
     <div className="agent-dashboard-card__content">
       {isLoading ? <DashboardSkeleton rows={5} /> : <ProblemReasonList items={items} />}
     </div>
-    <CardFooter label="查看全部问题原因" />
   </section>
 );
 
@@ -498,7 +497,6 @@ const HighRiskTaskCard = ({ isLoading, tasks }: { isLoading: boolean; tasks: Hig
     <div className="agent-dashboard-card__content agent-dashboard-card__content--table">
       {isLoading ? <DashboardSkeleton rows={5} /> : <HighRiskTaskTable tasks={tasks} />}
     </div>
-    <CardFooter label="查看全部任务" />
   </section>
 );
 
@@ -543,7 +541,6 @@ const AbnormalBatchCard = ({ batches, isLoading }: { batches: AbnormalBatch[]; i
     <div className="agent-dashboard-card__content agent-dashboard-card__content--table">
       {isLoading ? <DashboardSkeleton rows={5} /> : <AbnormalBatchTable batches={batches} />}
     </div>
-    <CardFooter label="查看全部异常批次" />
   </section>
 );
 
@@ -555,7 +552,6 @@ const AbnormalBatchTable = ({ batches }: { batches: AbnormalBatch[] }) => (
         <th>异常原因</th>
         <th>耗时</th>
         <th>时间</th>
-        <th>操作</th>
       </tr>
     </thead>
     <tbody>
@@ -566,21 +562,11 @@ const AbnormalBatchTable = ({ batches }: { batches: AbnormalBatch[] }) => (
             <td title={batch.reason}>{batch.reason}</td>
             <td>{batch.duration}</td>
             <td>{batch.time}</td>
-            <td>
-              <button
-                aria-label={`查看 ${batch.taskName} ${batch.reason}`}
-                className="agent-dashboard-text-button"
-                onClick={() => console.log('view-abnormal-batch', batch)}
-                type="button"
-              >
-                查看
-              </button>
-            </td>
           </tr>
         ))
       ) : (
         <tr>
-          <td colSpan={5}>
+          <td colSpan={4}>
             <DashboardEmptyState text="当前范围内暂无异常批次" />
           </td>
         </tr>
@@ -625,14 +611,6 @@ const TaskStatusOverviewCard = ({ items, totalTasks }: { items: TaskStatusItem[]
       </div>
     </div>
   </section>
-);
-
-const CardFooter = ({ label }: { label: string }) => (
-  <div className="agent-dashboard-card__footer">
-    <button onClick={() => console.log('dashboard-footer-action', label)} type="button">
-      {label} &gt;
-    </button>
-  </div>
 );
 
 const DashboardSkeleton = ({ rows }: { rows: number }) => (

@@ -17205,10 +17205,14 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .agent-dashboard-page {
+  height: calc(100vh - var(--platform-topbar-height));
   min-height: calc(100vh - var(--platform-topbar-height));
+  display: flex;
+  flex-direction: column;
   padding: 10px 16px 10px;
   background: #f8fafc;
   color: #334155;
+  overflow: hidden;
 }
 
 .agent-dashboard-header {
@@ -17336,8 +17340,16 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .agent-dashboard-grid {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows:
+    auto
+    minmax(280px, 1.2fr)
+    minmax(230px, 1fr)
+    auto;
+  align-content: stretch;
   gap: 8px;
   transition:
     opacity 220ms ease,
@@ -17510,6 +17522,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-card--analysis {
   grid-column: span 4;
+  min-height: 0;
 }
 
 .agent-dashboard-card--status {
@@ -17591,6 +17604,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-trend-chart {
   position: relative;
+  height: 100%;
   min-height: 170px;
   display: grid;
   gap: 4px;
@@ -17598,7 +17612,8 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-trend-plot {
   width: 100%;
-  height: 170px;
+  height: 100%;
+  min-height: 170px;
   overflow: visible;
 }
 
@@ -17904,27 +17919,22 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-dashboard-table--abnormal th:nth-child(1),
 .agent-dashboard-table--abnormal td:nth-child(1) {
-  width: 30%;
+  width: 34%;
 }
 
 .agent-dashboard-table--abnormal th:nth-child(2),
 .agent-dashboard-table--abnormal td:nth-child(2) {
-  width: 24%;
+  width: 34%;
 }
 
 .agent-dashboard-table--abnormal th:nth-child(3),
 .agent-dashboard-table--abnormal td:nth-child(3) {
-  width: 13%;
+  width: 14%;
 }
 
 .agent-dashboard-table--abnormal th:nth-child(4),
 .agent-dashboard-table--abnormal td:nth-child(4) {
-  width: 21%;
-}
-
-.agent-dashboard-table--abnormal th:nth-child(5),
-.agent-dashboard-table--abnormal td:nth-child(5) {
-  width: 12%;
+  width: 18%;
 }
 
 .agent-dashboard-risk-badge {
@@ -18072,6 +18082,8 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 @media (max-width: 900px) {
   .agent-dashboard-page {
+    height: auto;
+    overflow: visible;
     padding: 16px;
   }
 

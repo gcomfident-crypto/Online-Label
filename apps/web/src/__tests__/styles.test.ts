@@ -1123,7 +1123,8 @@ describe('global styles', () => {
 
     expect(pageRule).toContain('padding: 10px 16px 10px;');
     expect(pageRule).toContain('background: #f8fafc;');
-    expect(pageRule).not.toContain('overflow: hidden;');
+    expect(pageRule).toContain('height: calc(100vh - var(--platform-topbar-height));');
+    expect(pageRule).toContain('overflow: hidden;');
     expect(gridRule).toContain('grid-template-columns: repeat(12, minmax(0, 1fr));');
     expect(gridRule).toContain('gap: 8px;');
     expect(kpiRule).toContain('grid-template-columns: repeat(5, minmax(0, 1fr));');
