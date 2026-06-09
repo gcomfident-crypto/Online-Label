@@ -287,6 +287,7 @@ describe('ReviewDetailPage', () => {
     expect(within(sidePanel).getByRole('tab', { name: '评论' })).toHaveAttribute('aria-selected', 'true');
     const editCard = within(sidePanel).getByRole('region', { name: '编辑字段评论：判断理由' });
     expect(editCard).toBeInTheDocument();
+    expect(editCard).toHaveTextContent('针对「判断理由」的修改建议');
     expect(editCard).not.toHaveTextContent('鑫泽张');
     expect(editCard).not.toHaveTextContent('Reviewer');
 
@@ -351,8 +352,8 @@ describe('ReviewDetailPage', () => {
     expect(sentComments).not.toHaveTextContent('Reviewer');
     const commentCards = Array.from(sentComments.querySelectorAll<HTMLElement>('.manual-review-field-comment-card'));
     expect(commentCards.map((card) => within(card).getByRole('heading').textContent)).toEqual([
-      '质量判断',
-      '判断理由',
+      '针对「质量判断」的修改建议',
+      '针对「判断理由」的修改建议',
     ]);
     expect(commentCards[0]).toHaveTextContent('质量判断要改成未通过。');
     expect(commentCards[1]).toHaveTextContent('请补充完整判断依据。');

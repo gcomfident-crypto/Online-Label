@@ -913,7 +913,7 @@ const FieldCommentPanel = ({
       {field ? (
         <section className="manual-review-field-comment-editor" aria-label={`编辑字段评论：${field.label}`}>
           <header className="manual-review-field-comment-editor__topline">
-            <span>{field.label}</span>
+            <span>{fieldCommentTitle(field.label)}</span>
           </header>
           <textarea
             aria-label={`字段评论：${field.label}`}
@@ -936,7 +936,7 @@ const FieldCommentPanel = ({
         <div className="manual-review-field-comment-list" aria-label="已发送字段评论">
           {sentComments.map((comment) => (
             <article className="manual-review-field-comment-card" key={comment.fieldKey}>
-              <h3>{comment.label}</h3>
+              <h3>{fieldCommentTitle(comment.label)}</h3>
               <p>{comment.comment}</p>
             </article>
           ))}
@@ -1440,6 +1440,10 @@ function orderedFieldComments(
   );
 
   return [...orderedComments, ...extraComments];
+}
+
+function fieldCommentTitle(label: string): string {
+  return `针对「${label}」的修改建议`;
 }
 
 function fieldReviewsFromComments(
