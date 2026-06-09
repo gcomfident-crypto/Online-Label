@@ -462,12 +462,8 @@ export const WorkbenchPage = () => {
         label: assignment.externalId,
         flowStatusLabel:
           index === currentQuestionIndex && isWorkbenchForCurrentRoute && workbench
-            ? resolveCurrentQuestionFlowStatusLabel(workbench)
-            : resolveNavigationQuestionFlowStatusLabel(assignment),
-        annotationStatusLabel:
-          index === currentQuestionIndex && isWorkbenchForCurrentRoute && workbench
-            ? resolveCurrentQuestionAnnotationStatusLabel(workbench, currentQuestionProgress)
-            : resolveNavigationQuestionAnnotationStatusLabel(
+            ? resolveCurrentQuestionFlowStatusLabel(workbench, currentQuestionProgress)
+            : resolveNavigationQuestionFlowStatusLabel(
                 assignment,
                 localQuestionProgress[assignment.assignmentId],
                 workbench?.task.schema,
@@ -1731,8 +1727,7 @@ function getAnswerFields(fields: readonly SchemaField[]): SchemaField[] {
 }
 
 type QuestionProgressState = 'empty' | 'draft' | 'complete';
-type QuestionFlowStatusLabel = '待标注' | 'AI处理中' | '待审核' | '已完成' | '异常';
-type QuestionAnnotationStatusLabel = '未填写' | '草稿' | '已标注';
+type QuestionFlowStatusLabel = '待标注' | '待提交' | 'AI处理中' | '待审核' | '待修改' | '已完成' | '异常';
 
 const AI_REVIEWING_SUBMISSION_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING', 'SUBMITTED']);
 const AI_FAILED_SUBMISSION_STATUSES = new Set(['AI_FAILED', 'FAILED']);
@@ -1936,7 +1931,10 @@ function resolveSchemaAnswerProgressState(
   return hasAnyVisibleAnswer ? 'draft' : 'empty';
 }
 
-function resolveCurrentQuestionFlowStatusLabel(workbench: WorkbenchDto): QuestionFlowStatusLabel {
+function resolveCurrentQuestionFlowStatusLabel(
+  workbench: WorkbenchDto,
+  progress: QuestionProgressState,
+): QuestionFlowStatusLabel {
   const status = workbench.assignment.status;
   const latestSubmission = latestSubmissionByRound(workbench.submissionHistory);
 
@@ -1945,7 +1943,7 @@ function resolveCurrentQuestionFlowStatusLabel(workbench: WorkbenchDto): Questio
   }
 
   if (status === 'NEEDS_REVISION') {
-    return '待标注';
+    return progress === 'complete' ? '待提交' : '待修改';
   }
 
   if (status === 'SUBMITTED') {
@@ -1957,13 +1955,19 @@ function resolveCurrentQuestionFlowStatusLabel(workbench: WorkbenchDto): Questio
   }
 
   if (isSubmittableAssignmentStatus(status)) {
-    return '待标注';
+    return progress === 'complete' ? '待提交' : '待标注';
   }
 
   return '待标注';
 }
 
-function resolveNavigationQuestionFlowStatusLabel(assignment: LabelerAssignmentDto): QuestionFlowStatusLabel {
+function resolveNavigationQuestionFlowStatusLabel(
+  assignment: LabelerAssignmentDto,
+  locallyProgress?: QuestionProgressState,
+  schema?: WorkbenchDto['task']['schema'],
+): QuestionFlowStatusLabel {
+  const progress = resolveNavigationQuestionProgressState(assignment, locallyProgress, schema);
+
   if (
     assignment.status === 'FINAL_APPROVED' ||
     COMPLETED_SUBMISSION_STATUSES.has(assignment.latestSubmissionStatus ?? '')
@@ -1972,7 +1976,7 @@ function resolveNavigationQuestionFlowStatusLabel(assignment: LabelerAssignmentD
   }
 
   if (assignment.status === 'NEEDS_REVISION') {
-    return '待标注';
+    return progress === 'complete' ? '待提交' : '待修改';
   }
 
   if (assignment.status === 'SUBMITTED') {
@@ -1984,7 +1988,7 @@ function resolveNavigationQuestionFlowStatusLabel(assignment: LabelerAssignmentD
   }
 
   if (isSubmittableAssignmentStatus(assignment.status)) {
-    return '待标注';
+    return progress === 'complete' ? '待提交' : '待标注';
   }
 
   return '待标注';
@@ -2000,7 +2004,7 @@ function resolveSubmittedQuestionFlowStatusLabel(status: string | null): Questio
   }
 
   if (REVIEWER_REJECTED_SUBMISSION_STATUSES.has(status ?? '') || AI_REJECTED_SUBMISSION_STATUSES.has(status ?? '')) {
-    return '待标注';
+    return '待修改';
   }
 
   if (REVIEWER_REVIEWING_SUBMISSION_STATUSES.has(status ?? '')) {
@@ -2012,26 +2016,6 @@ function resolveSubmittedQuestionFlowStatusLabel(status: string | null): Questio
   }
 
   return 'AI处理中';
-}
-
-function resolveCurrentQuestionAnnotationStatusLabel(
-  workbench: WorkbenchDto,
-  progress: QuestionProgressState,
-): QuestionAnnotationStatusLabel {
-  const status = workbench.assignment.status;
-  const latestSubmission = latestSubmissionByRound(workbench.submissionHistory);
-
-  if (
-    status === 'FINAL_APPROVED' ||
-    status === 'SUBMITTED' ||
-    status === 'UNDER_RECHECK' ||
-    status === 'FINAL_PENDING' ||
-    COMPLETED_SUBMISSION_STATUSES.has(latestSubmission?.status ?? '')
-  ) {
-    return '已标注';
-  }
-
-  return formatAnnotationProgressLabel(progress);
 }
 
 function resolveTaskHeaderStatusLabel(
@@ -2066,42 +2050,20 @@ function resolveTaskHeaderStatusLabel(
   return formatDeadlineCountdown(workbench.task.deadline, currentTimeMs);
 }
 
-function resolveNavigationQuestionAnnotationStatusLabel(
+function resolveNavigationQuestionProgressState(
   assignment: LabelerAssignmentDto,
   locallyProgress?: QuestionProgressState,
   schema?: WorkbenchDto['task']['schema'],
-): QuestionAnnotationStatusLabel {
-  if (
-    assignment.status === 'FINAL_APPROVED' ||
-    assignment.status === 'SUBMITTED' ||
-    assignment.status === 'UNDER_RECHECK' ||
-    assignment.status === 'FINAL_PENDING' ||
-    COMPLETED_SUBMISSION_STATUSES.has(assignment.latestSubmissionStatus ?? '')
-  ) {
-    return '已标注';
-  }
-
+): QuestionProgressState | null {
   if (locallyProgress) {
-    return formatAnnotationProgressLabel(locallyProgress);
+    return locallyProgress;
   }
 
   if (assignment.draftAnswers && schema && isSubmittableAssignmentStatus(assignment.status)) {
-    return formatAnnotationProgressLabel(resolveSchemaAnswerProgressState(schema, assignment.draftAnswers));
+    return resolveSchemaAnswerProgressState(schema, assignment.draftAnswers);
   }
 
-  return '未填写';
-}
-
-function formatAnnotationProgressLabel(progress: QuestionProgressState): QuestionAnnotationStatusLabel {
-  if (progress === 'complete') {
-    return '已标注';
-  }
-
-  if (progress === 'draft') {
-    return '草稿';
-  }
-
-  return '未填写';
+  return null;
 }
 
 function latestSubmissionByRound(

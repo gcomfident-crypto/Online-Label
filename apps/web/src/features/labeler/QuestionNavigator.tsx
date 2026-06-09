@@ -5,7 +5,6 @@ type QuestionNavigatorProps = {
   currentIndex: number;
   totalCount: number;
   items?: Array<{
-    annotationStatusLabel: string;
     flowStatusLabel: string;
     label: string;
   }>;
@@ -20,7 +19,6 @@ export const QuestionNavigator = ({
   onJump,
 }: QuestionNavigatorProps) => {
   const navigationItems = items && items.length > 0 ? items : Array.from({ length: totalCount }, (_, index) => ({
-    annotationStatusLabel: '未填写',
     flowStatusLabel: '待标注',
     index,
     label: index === currentIndex ? workbench.taskItem.externalId : `#${String(index + 1).padStart(3, '0')}`,
@@ -40,9 +38,6 @@ export const QuestionNavigator = ({
           >
             <span className="question-navigator__copy">
               <span className="question-navigator__identity">{item.label}</span>
-              <small className={`question-navigator__annotation-status ${getAnnotationStatusClassName(item.annotationStatusLabel)}`}>
-                {item.annotationStatusLabel}
-              </small>
             </span>
             <small className={`question-navigator__status ${getFlowStatusClassName(item.flowStatusLabel)}`}>
               <span className="question-navigator__status-text" key={item.flowStatusLabel}>
@@ -65,6 +60,14 @@ function getFlowStatusClassName(statusLabel: string): string {
     return 'question-navigator__status--reviewer-reviewing';
   }
 
+  if (statusLabel === '待提交') {
+    return 'question-navigator__status--submitted';
+  }
+
+  if (statusLabel === '待修改') {
+    return 'question-navigator__status--rejected';
+  }
+
   if (statusLabel === '已完成') {
     return 'question-navigator__status--complete';
   }
@@ -78,16 +81,4 @@ function getFlowStatusClassName(statusLabel: string): string {
   }
 
   return '';
-}
-
-function getAnnotationStatusClassName(statusLabel: string): string {
-  if (statusLabel === '已标注') {
-    return 'is-complete';
-  }
-
-  if (statusLabel === '草稿') {
-    return 'is-draft';
-  }
-
-  return 'is-empty';
 }
