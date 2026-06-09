@@ -179,6 +179,21 @@ const renderInlineMarkdown = (value: string, keyPrefix: string): ReactNode[] => 
   return nodes;
 };
 
+const renderMarkdownVideo = (block: string): ReactNode | null => {
+  const match = /^<video\b[^>]*\bsrc=(["'])([^"']+)\1[^>]*>\s*(?:<\/video>)?$/i.exec(block.trim());
+  const url = match?.[2]?.trim();
+
+  if (!url || !isSafeResourceUrl(url, 'link')) {
+    return null;
+  }
+
+  return (
+    <video className="schema-field__markdown-video" controls preload="metadata" src={url}>
+      当前浏览器不支持视频播放。
+    </video>
+  );
+};
+
 const MarkdownText = ({ value }: { value: string }) => {
   const blocks = value
     .split(/\n{2,}/)
@@ -193,6 +208,11 @@ const MarkdownText = ({ value }: { value: string }) => {
     <div className="schema-field__markdown">
       {blocks.map((block, index) => {
         const lines = block.split('\n').map((line) => line.trim()).filter(Boolean);
+        const video = renderMarkdownVideo(block);
+
+        if (video) {
+          return <div key={`${block}:${index}`}>{video}</div>;
+        }
 
         if (lines.every((line) => line.startsWith('- '))) {
           return (
@@ -300,6 +320,14 @@ const ShowItemDisplayValue = ({
       <pre className={className} style={maxLinesStyle(field.maxLines)}>
         {displayValue}
       </pre>
+    );
+  }
+
+  if (field.sourceKey === 'content_markdown' && typeof value === 'string') {
+    return (
+      <div className="schema-field__show-markdown">
+        <MarkdownText value={value} />
+      </div>
     );
   }
 

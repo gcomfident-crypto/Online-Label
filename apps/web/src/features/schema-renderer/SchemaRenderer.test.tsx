@@ -860,6 +860,48 @@ describe('SchemaRenderer', () => {
     expect(screen.getByText('<script>alert(1)</script>')).toBeInTheDocument();
   });
 
+  it('show_item 表格字段中的 content_markdown 渲染图片和视频', () => {
+    const { container } = render(
+      <SchemaRenderer
+        schema={baseSchema([
+          {
+            key: 'material',
+            type: 'show_item',
+            label: '图文题目',
+            displayConfig: {
+              layout: 'table',
+              fields: [
+                { sourceKey: 'content_markdown', label: 'Markdown 图文正文', format: 'long_text' },
+              ],
+            },
+          },
+        ])}
+        rawData={{
+          content_markdown:
+            '## 媒体资源校验\n\n测试占位图：\n\n![测试占位图](https://dummyimage.com/600x400/4CAF50/fff&text=test)\n\n风景实拍图：\n\n![极光公路](https://www.w3schools.com/w3css/img_lights.jpg)\n\n演示视频：\n\n<video src="http://vjs.zencdn.net/v/oceans.mp4" controls></video>',
+        }}
+        value={{}}
+        mode="answer"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: '媒体资源校验' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '测试占位图' })).toHaveAttribute(
+      'src',
+      'https://dummyimage.com/600x400/4CAF50/fff&text=test',
+    );
+    expect(screen.getByRole('img', { name: '极光公路' })).toHaveAttribute(
+      'src',
+      'https://www.w3schools.com/w3css/img_lights.jpg',
+    );
+    const video = container.querySelector('video.schema-field__markdown-video');
+    expect(video).toBeInTheDocument();
+    expect(video).toHaveAttribute('src', 'http://vjs.zencdn.net/v/oceans.mp4');
+    expect(video).toHaveAttribute('controls');
+    expect(container.querySelector('.schema-field__show-markdown')).toBeInTheDocument();
+  });
+
   it('show_item markdown 不渲染不安全资源链接', () => {
     render(
       <SchemaRenderer
