@@ -17,12 +17,14 @@ const LOGIN_ROLE_OPTIONS: Array<{ label: string; role: UserRole }> = [
 ];
 
 const ACCOUNT_ROLE_ALIASES: Record<string, UserRole> = {
-  zhangman: USER_ROLE.OWNER,
-  lilei: USER_ROLE.LABELER,
-  hanmeimei: USER_ROLE.LABELER,
+  zhangzexin: USER_ROLE.OWNER,
+  wangyuyang: USER_ROLE.LABELER,
+  houshikang: USER_ROLE.LABELER,
   agent: USER_ROLE.AI_AGENT,
-  wangfang: USER_ROLE.REVIEWER,
+  xinzezhang: USER_ROLE.REVIEWER,
 };
+
+const DEMO_PASSWORD = '1101101';
 
 const resolveRoleFromAccount = (account: string): UserRole | null => {
   const normalizedAccount = account.trim().toLowerCase().split('@')[0];
@@ -61,6 +63,11 @@ export const LoginPage = () => {
 
     if (accountRole !== selectedRole) {
       setFormError(`账号「${account.trim()}」不是${ROLE_LABEL_MAP[selectedRole]}，请检查身份选择。`);
+      return;
+    }
+
+    if (password !== DEMO_PASSWORD) {
+      setFormError('密码错误，演示环境统一密码为 1101101。');
       return;
     }
 

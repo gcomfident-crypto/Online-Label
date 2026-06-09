@@ -140,15 +140,15 @@ DEEPSEEK_API_KEY=your_real_api_key
 
 ## 演示账号
 
-> 所有演示账号统一密码：`123456`
+> 所有演示账号统一密码：`1101101`
 
 | 账号 | 姓名 | 角色 | 默认首页 |
 | --- | --- | --- | --- |
-| `zhangman` | 张满 | Owner | `/owner/tasks` |
-| `lilei` | 李雷 | Labeler | `/labeler/market` |
-| `hanmeimei` | 韩梅梅 | Labeler | `/labeler/market` |
+| `zhangzexin` | 张泽鑫 | Owner | `/owner/tasks` |
+| `wangyuyang` | 王昱阳 | Labeler | `/labeler/market` |
+| `houshikang` | 侯士康 | Labeler | `/labeler/market` |
 | `agent` | 系统机审 | AI Agent | `/agent/dashboard` |
-| `wangfang` | 王芳 | Reviewer | `/reviewer/reviews` |
+| `xinzezhang` | 鑫泽张 | Reviewer | `/reviewer/reviews` |
 
 ## 发布检查
 

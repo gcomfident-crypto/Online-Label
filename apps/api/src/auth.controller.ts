@@ -21,11 +21,11 @@ export type MockUser = {
 };
 
 const ACCOUNT_ROLE_MAP: Record<string, UserRole> = {
-  zhangman: USER_ROLE.OWNER,
-  lilei: USER_ROLE.LABELER,
-  hanmeimei: USER_ROLE.LABELER,
+  zhangzexin: USER_ROLE.OWNER,
+  wangyuyang: USER_ROLE.LABELER,
+  houshikang: USER_ROLE.LABELER,
   agent: USER_ROLE.AI_AGENT,
-  wangfang: USER_ROLE.REVIEWER,
+  xinzezhang: USER_ROLE.REVIEWER,
 };
 
 const ROLE_NAMES: Record<UserRole, string> = {
@@ -36,11 +36,11 @@ const ROLE_NAMES: Record<UserRole, string> = {
 };
 
 const ACCOUNT_USERS: Record<string, Pick<MockUser, 'id' | 'name' | 'role'>> = {
-  zhangman: { id: 'mock-owner', name: '张满', role: USER_ROLE.OWNER },
-  lilei: { id: 'mock-labeler-li-lei', name: '李雷', role: USER_ROLE.LABELER },
-  hanmeimei: { id: 'mock-labeler-han-mei-mei', name: '韩梅梅', role: USER_ROLE.LABELER },
+  zhangzexin: { id: 'mock-owner', name: '张泽鑫', role: USER_ROLE.OWNER },
+  wangyuyang: { id: 'mock-labeler-wang-yu-yang', name: '王昱阳', role: USER_ROLE.LABELER },
+  houshikang: { id: 'mock-labeler-hou-shi-kang', name: '侯士康', role: USER_ROLE.LABELER },
   agent: { id: 'mock-ai_agent', name: '系统机审账号', role: USER_ROLE.AI_AGENT },
-  wangfang: { id: 'mock-reviewer', name: '王芳', role: USER_ROLE.REVIEWER },
+  xinzezhang: { id: 'mock-reviewer', name: '鑫泽张', role: USER_ROLE.REVIEWER },
 };
 
 @Controller('auth')
@@ -56,10 +56,10 @@ export class AuthController {
       });
     }
 
-    if (!body.password || body.password !== '123456') {
+    if (!body.password || body.password !== '1101101') {
       throw new BadRequestException({
         code: 'INVALID_PASSWORD',
-        message: '密码错误，演示环境统一密码为 123456。',
+        message: '密码错误，演示环境统一密码为 1101101。',
       });
     }
 

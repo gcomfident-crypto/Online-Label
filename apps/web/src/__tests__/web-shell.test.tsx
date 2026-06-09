@@ -96,11 +96,11 @@ describe('Web 壳 smoke test', () => {
     // 选择 Owner 身份，但输入 labeler 账号
     await user.click(screen.getByRole('combobox', { name: '登录身份' }));
     await user.click(screen.getByRole('option', { name: 'Owner 任务负责人' }));
-    await user.type(screen.getByLabelText('账号'), 'lilei');
-    await user.type(screen.getByLabelText('密码'), '123456');
+    await user.type(screen.getByLabelText('账号'), 'wangyuyang');
+    await user.type(screen.getByLabelText('密码'), '1101101');
     await user.click(screen.getByRole('button', { name: '登录平台' }));
 
-    expect(screen.getByText('账号「lilei」不是Owner 任务负责人，请检查身份选择。')).toBeInTheDocument();
+    expect(screen.getByText('账号「wangyuyang」不是Owner 任务负责人，请检查身份选择。')).toBeInTheDocument();
   });
 
   it('角色下拉与账号匹配时正常登录', async () => {
@@ -109,8 +109,8 @@ describe('Web 壳 smoke test', () => {
 
     await user.click(screen.getByRole('combobox', { name: '登录身份' }));
     await user.click(screen.getByRole('option', { name: 'Labeler 标注员' }));
-    await user.type(screen.getByLabelText('账号'), 'lilei');
-    await user.type(screen.getByLabelText('密码'), '123456');
+    await user.type(screen.getByLabelText('账号'), 'wangyuyang');
+    await user.type(screen.getByLabelText('密码'), '1101101');
     await user.click(screen.getByRole('button', { name: '登录平台' }));
 
     expect(await screen.findByRole('navigation', { name: 'Labeler 端导航' })).toBeInTheDocument();
@@ -165,7 +165,7 @@ describe('Web 壳 smoke test', () => {
     expect(brandIcon).toHaveTextContent('LH');
     expect(brandIcon).not.toHaveAttribute('src');
     expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('任务负责人后台 / 任务管理');
-    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('张满 · Owner');
+    expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('张泽鑫 · Owner');
     const currentPath = screen.getByLabelText('当前路径');
     expect(currentPath.querySelector('.platform-current-path__prefix')).toHaveTextContent('任务负责人后台');
     expect(currentPath.querySelector('.platform-current-path__leaf')).toHaveTextContent('任务管理');
@@ -365,10 +365,10 @@ describe('Web 路由守卫', () => {
   });
 
   it.each([
-    { role: USER_ROLE.OWNER, account: 'zhangman', roleLabel: 'Owner 任务负责人' },
-    { role: USER_ROLE.LABELER, account: 'lilei', roleLabel: 'Labeler 标注员' },
+    { role: USER_ROLE.OWNER, account: 'zhangzexin', roleLabel: 'Owner 任务负责人' },
+    { role: USER_ROLE.LABELER, account: 'wangyuyang', roleLabel: 'Labeler 标注员' },
     { role: USER_ROLE.AI_AGENT, account: 'agent', roleLabel: 'AI Agent 质检' },
-    { role: USER_ROLE.REVIEWER, account: 'wangfang', roleLabel: 'Reviewer 审核员' },
+    { role: USER_ROLE.REVIEWER, account: 'xinzezhang', roleLabel: 'Reviewer 审核员' },
   ])('登录 $role 后按角色默认首页跳转', async ({ role, account, roleLabel }) => {
     const user = userEvent.setup();
     renderRoute('/login');
@@ -379,7 +379,7 @@ describe('Web 路由守卫', () => {
     await user.click(screen.getByRole('option', { name: roleLabel }));
 
     await user.type(screen.getByLabelText('账号'), account);
-    await user.type(screen.getByLabelText('密码'), '123456');
+    await user.type(screen.getByLabelText('密码'), '1101101');
     await user.click(screen.getByRole('button', { name: '登录平台' }));
 
     expect(
@@ -391,8 +391,8 @@ describe('Web 路由守卫', () => {
     const user = userEvent.setup();
     renderRoute('/login');
 
-    await user.type(screen.getByLabelText('账号'), 'zhangman');
-    await user.type(screen.getByLabelText('密码'), '123456');
+    await user.type(screen.getByLabelText('账号'), 'zhangzexin');
+    await user.type(screen.getByLabelText('密码'), '1101101');
     await user.click(screen.getByRole('button', { name: '登录平台' }));
 
     expect(await screen.findByRole('navigation', { name: 'Owner 端导航' })).toBeInTheDocument();
@@ -406,8 +406,8 @@ describe('Web 路由守卫', () => {
     const user = userEvent.setup();
     renderRoute('/login');
 
-    await user.type(screen.getByLabelText('账号'), 'lilei');
-    await user.type(screen.getByLabelText('密码'), '123456');
+    await user.type(screen.getByLabelText('账号'), 'wangyuyang');
+    await user.type(screen.getByLabelText('密码'), '1101101');
 
     // 选择匹配的 Labeler 角色
     await user.click(screen.getByRole('combobox', { name: '登录身份' }));
@@ -470,7 +470,7 @@ describe('Web 路由守卫', () => {
         token: 'mock-token-owner',
         user: {
           id: 'demo-owner',
-          name: '张满',
+          name: '张泽鑫',
           role: 'OWNER',
         },
       }),

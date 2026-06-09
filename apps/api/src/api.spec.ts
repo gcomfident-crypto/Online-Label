@@ -31,7 +31,7 @@ describe('LabelHub API shell', () => {
   it.each(USER_ROLES)('logs in a %s demo user', async (role) => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ role, password: '123456' })
+      .send({ role, password: '1101101' })
       .expect(201);
 
     expect(response.body).toEqual({
@@ -51,7 +51,7 @@ describe('LabelHub API shell', () => {
   it('logs in by demo account identifier', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ account: 'wangfang', password: '123456' })
+      .send({ account: 'xinzezhang', password: '1101101' })
       .expect(201);
 
     expect(response.body.data.user.role).toBe('REVIEWER');
@@ -61,12 +61,12 @@ describe('LabelHub API shell', () => {
   it('logs in the second labeler demo account', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ account: 'hanmeimei', password: '123456' })
+      .send({ account: 'houshikang', password: '1101101' })
       .expect(201);
 
     expect(response.body.data.user).toEqual({
-      id: 'mock-labeler-han-mei-mei',
-      name: '韩梅梅',
+      id: 'mock-labeler-hou-shi-kang',
+      name: '侯士康',
       role: 'LABELER',
       homePath: getRoleHomePath('LABELER'),
     });
@@ -75,7 +75,7 @@ describe('LabelHub API shell', () => {
   it('returns a simplified Chinese error envelope for invalid login', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ role: 'ADMIN', password: '123456' })
+      .send({ role: 'ADMIN', password: '1101101' })
       .expect(400);
 
     expect(response.body).toEqual({
@@ -96,7 +96,7 @@ describe('LabelHub API shell', () => {
     expect(response.body).toEqual({
       error: {
         code: 'INVALID_PASSWORD',
-        message: '密码错误，演示环境统一密码为 123456。',
+        message: '密码错误，演示环境统一密码为 1101101。',
       },
       requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
     });
@@ -153,7 +153,7 @@ describe('LabelHub API shell', () => {
   it('returns the current mock user for /me', async () => {
     const login = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ role: 'OWNER' satisfies UserRole, password: '123456' })
+      .send({ role: 'OWNER' satisfies UserRole, password: '1101101' })
       .expect(201);
 
     const response = await request(app.getHttpServer())

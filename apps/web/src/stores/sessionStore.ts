@@ -20,7 +20,7 @@ export type SessionState = {
 const DEMO_USERS: Record<UserRole, SessionUser> = {
   [USER_ROLE.OWNER]: {
     id: 'demo-owner',
-    name: '张满',
+    name: '张泽鑫',
     role: USER_ROLE.OWNER,
   },
   [USER_ROLE.LABELER]: {
@@ -35,25 +35,25 @@ const DEMO_USERS: Record<UserRole, SessionUser> = {
   },
   [USER_ROLE.REVIEWER]: {
     id: 'demo-reviewer',
-    name: '王芳',
+    name: '鑫泽张',
     role: USER_ROLE.REVIEWER,
   },
 };
 
 const DEMO_ACCOUNT_USERS: Record<string, SessionUser> = {
-  zhangman: DEMO_USERS[USER_ROLE.OWNER],
-  lilei: {
-    id: 'demo-labeler-li-lei',
-    name: '李雷',
+  zhangzexin: DEMO_USERS[USER_ROLE.OWNER],
+  wangyuyang: {
+    id: 'demo-labeler-wang-yu-yang',
+    name: '王昱阳',
     role: USER_ROLE.LABELER,
   },
-  hanmeimei: {
-    id: 'demo-labeler-han-mei-mei',
-    name: '韩梅梅',
+  houshikang: {
+    id: 'demo-labeler-hou-shi-kang',
+    name: '侯士康',
     role: USER_ROLE.LABELER,
   },
   agent: DEMO_USERS[USER_ROLE.AI_AGENT],
-  wangfang: DEMO_USERS[USER_ROLE.REVIEWER],
+  xinzezhang: DEMO_USERS[USER_ROLE.REVIEWER],
 };
 
 const subscribers = new Set<() => void>();

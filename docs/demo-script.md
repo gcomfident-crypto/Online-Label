@@ -31,14 +31,14 @@ LabelHub 是 AI 数据标注与审核平台，演示重点有三点：
 
 ## 演示账号
 
-> 所有演示账号统一密码：`123456`
+> 所有演示账号统一密码：`1101101`
 
 | 角色 | 账号 | 登录入口 | 默认页面 |
 | --- | --- | --- | --- |
-| Owner | `zhangman` | `/login` → 输入账号密码 | `/owner/tasks` |
-| Labeler | `lilei` | `/login` → 输入账号密码 | `/labeler/market` |
+| Owner | `zhangzexin` | `/login` → 输入账号密码 | `/owner/tasks` |
+| Labeler | `wangyuyang` | `/login` → 输入账号密码 | `/labeler/market` |
 | AI Agent | `agent` | `/login` → 输入账号密码 | `/agent/ai-review` |
-| Reviewer | `wangfang` | `/login` → 输入账号密码 | `/reviewer/reviews` |
+| Reviewer | `xinzezhang` | `/login` → 输入账号密码 | `/reviewer/reviews` |
 
 ## 主线一：`qa_quality` 完整闭环
 
