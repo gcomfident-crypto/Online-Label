@@ -243,6 +243,9 @@ describe('Web 壳 smoke test', () => {
     });
     const agentView = renderRoute('/agent/dashboard');
     expect(await screen.findByRole('banner', { name: '平台顶栏' })).toHaveTextContent('AI Agent 后台 / 数据看板');
+    const agentAccountButton = screen.getByRole('button', { name: '打开账号菜单' });
+    expect(agentAccountButton).toHaveTextContent('AI Agent');
+    expect(agentAccountButton).not.toHaveTextContent('AI Agent 演示账号');
     const agentNav = await screen.findByRole('navigation', { name: 'AI Agent 端导航' });
     expect(agentNav).toHaveTextContent('数据看板');
     expect(agentNav).toHaveTextContent('质检流转');

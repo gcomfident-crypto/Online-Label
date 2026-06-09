@@ -29,6 +29,7 @@ export const PortalTopbar = ({
   const currentPathTitle = resolvePagePathTitle(pathname);
   const currentPathParts = splitPathTitle(currentPathTitle);
   const currentPathLeafKey = currentPathTitle;
+  const userDisplayLabel = session ? resolveUserDisplayLabel(session.user.name, userRoleLabel) : '未登录';
 
   useEffect(() => {
     if (!isUserMenuOpen) {
@@ -104,7 +105,7 @@ export const PortalTopbar = ({
           <span className="platform-user__avatar" aria-hidden="true">
             {session?.user.name.slice(0, 1) ?? userRoleLabel.slice(0, 1)}
           </span>
-          <span>{session ? `${session.user.name} · ${userRoleLabel}` : '未登录'}</span>
+          <span>{userDisplayLabel}</span>
         </button>
         {isUserMenuOpen ? (
           <div className="platform-user-menu" role="menu" aria-label="账号菜单">
@@ -117,6 +118,14 @@ export const PortalTopbar = ({
     </header>
   );
 };
+
+function resolveUserDisplayLabel(userName: string, userRoleLabel: string): string {
+  if (userRoleLabel === 'AI Agent') {
+    return 'AI Agent';
+  }
+
+  return `${userName} · ${userRoleLabel}`;
+}
 
 const splitPathTitle = (title: string): { prefix: string | null; leaf: string } => {
   const parts = title.split(' / ');
