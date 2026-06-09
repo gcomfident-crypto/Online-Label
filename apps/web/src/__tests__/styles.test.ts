@@ -697,7 +697,7 @@ describe('global styles', () => {
     expect(lockupRule).toContain('justify-content: center;');
     expect(lockupRule).toContain('width: 100%;');
     expect(lockupRule).not.toContain('width: fit-content;');
-    expect(logoRule).toContain('width: min(470px, 100%);');
+    expect(logoRule).toContain('width: min(600px, 100%);');
     expect(logoRule).toContain('display: block;');
     expect(logoRule).toContain('object-fit: contain;');
     expect(logoRule).not.toContain('font-size: clamp(52px, 8vw, 92px);');
