@@ -591,10 +591,9 @@ describe('WorkbenchPage', () => {
     const submitActionButtons = within(annotationCanvas)
       .getAllByRole('button')
       .filter((button) =>
-        ['报告题目', '保存草稿', '提交任务'].includes(button.textContent?.trim() ?? ''),
+        ['保存草稿', '提交任务'].includes(button.textContent?.trim() ?? ''),
       );
     expect(submitActionButtons.map((button) => button.textContent?.trim())).toEqual([
-      '报告题目',
       '保存草稿',
       '提交任务',
     ]);
@@ -1263,7 +1262,7 @@ describe('WorkbenchPage', () => {
     expect(within(infoPanel).queryByText('⌘+Enter 提交本题')).not.toBeInTheDocument();
     expect(within(infoPanel).getByText('⌘+S 保存草稿')).toBeInTheDocument();
     expect(within(infoPanel).getByText('← / → 上一题 / 下一题')).toBeInTheDocument();
-    expect(within(infoPanel).getByText('J 跳题 · R 报告题目')).toBeInTheDocument();
+    expect(within(infoPanel).getByText('J / K 下一题 / 上一题')).toBeInTheDocument();
     expect(screen.queryByText(/属性配置/)).not.toBeInTheDocument();
     expect(screen.queryByText('任务信息')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '基础信息' })).not.toBeInTheDocument();
@@ -1332,8 +1331,7 @@ describe('WorkbenchPage', () => {
     expect(within(workbenchSummary).getByText('已完成')).toHaveClass('workbench-deadline-countdown');
     expect(within(workbenchSummary).queryByText(/剩余/)).not.toBeInTheDocument();
 
-    const reportButton = screen.getByRole('button', { name: '报告题目' });
-    expect(reportButton).toBeDisabled();
+    expect(screen.queryByRole('button', { name: '报告题目' })).not.toBeInTheDocument();
     await user.keyboard('r');
     expect(screen.queryByText('请在本题备注中说明异常，提交任务后会随答案进入审核。')).not.toBeInTheDocument();
 

@@ -47,7 +47,6 @@ export const ContributionStats = ({ stats, history }: ContributionStatsProps) =>
           <li>⌘/Ctrl + Enter 提交任务</li>
           <li>⌘/Ctrl + S 保存草稿</li>
           <li>J / K 切换上一题或下一题</li>
-          <li>R 报告题目</li>
         </ul>
       </section>
     </aside>
