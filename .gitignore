@@ -29,6 +29,7 @@ labelhub-local.dump.sql
 # 本地提交材料与授权二维码
 submission/
 *qrcode*.png
+2026-06-05T150600-labelhub-observability/
 
 # pi agent 本地配置
 .pi/
