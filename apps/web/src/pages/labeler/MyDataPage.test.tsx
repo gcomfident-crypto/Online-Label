@@ -114,7 +114,7 @@ describe('MyDataPage', () => {
     expect(within(table).queryByText('问答质量官方模板 · r1')).not.toBeInTheDocument();
     expect(within(table).queryByText(/下一条/)).not.toBeInTheDocument();
     expect(within(table).queryByText('操作')).not.toBeInTheDocument();
-    expect(table.querySelectorAll('tbody tr:first-child .my-data-table__cell')).toHaveLength(7);
+    expect(table.querySelectorAll('tbody tr:first-child .my-data-table__cell')).toHaveLength(6);
     expect(screen.queryByRole('link', { name: '继续标注 问答质量标注' })).not.toBeInTheDocument();
     await user.click(within(screen.getByRole('table', { name: '工作台任务列表' })).getByText('问答质量标注'));
 

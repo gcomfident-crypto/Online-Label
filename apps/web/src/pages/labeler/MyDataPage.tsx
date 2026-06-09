@@ -1,7 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import type { DatasetKind } from '@labelhub/shared';
 import {
   listLabelerAssignmentTasks,
   type LabelerAssignmentDto,
@@ -213,7 +212,6 @@ export const MyDataPage = () => {
                     />
                   </th>
                   <th>任务名</th>
-                  <th>类型</th>
                   <th>已领取题目</th>
                   <th>进度</th>
                   <th>
@@ -263,9 +261,6 @@ export const MyDataPage = () => {
                       </MyDataTableCell>
                     </td>
                     <td>
-                      <MyDataTableCell>{DATASET_KIND_LABELS[taskGroup.datasetKind]}</MyDataTableCell>
-                    </td>
-                    <td>
                       <MyDataTableCell>
                         <strong>{taskGroup.assignmentCount.toLocaleString()} 条</strong>
                       </MyDataTableCell>
@@ -286,7 +281,7 @@ export const MyDataPage = () => {
                   </tr>
                 )) : (
                   <tr className="task-table__empty-row">
-                    <td colSpan={7}>
+                    <td colSpan={6}>
                       <TableEmptyState
                         title="暂无领取任务"
                         description="领取任务后会在这里查看待标注题目、提交进度和返回标注页入口"
@@ -364,12 +359,6 @@ type LabelerTaskGroup = LabelerAssignmentTaskDto;
 
 const workbenchHref = (assignment: LabelerAssignmentDto): string =>
   `/labeler/tasks/${encodeURIComponent(assignment.taskDisplayId || assignment.taskId)}/items/${encodeURIComponent(assignment.externalId || assignment.taskItemId)}`;
-
-const DATASET_KIND_LABELS: Record<DatasetKind, string> = {
-  qa_quality: '问答质量',
-  preference_compare: '偏好对比',
-  generic_json: '通用 JSON',
-};
 
 const formatDateTime = (value: string): string => value.slice(0, 16).replace('T', ' ');
 
