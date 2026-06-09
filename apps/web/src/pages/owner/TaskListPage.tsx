@@ -62,7 +62,6 @@ const CLOSE_CONFIRM_ANIMATION_MS = 220;
 const DRAWER_CLOSE_ANIMATION_MS = 240;
 const TASK_TEMPLATE_RETURN_ANIMATION_MS = 420;
 const TASK_ROW_ENTER_ANIMATION_MS = 680;
-const TASK_ROW_DELETE_ANIMATION_MS = 260;
 const TASKS_FALLBACK_PAGE_SIZE = 7;
 const TASK_TABLE_ROW_HEIGHT = 66;
 const OWNER_TASKS_CACHE_KEY = `labelhub.owner.tasks.${OWNER_ID}.v1`;
@@ -130,7 +129,6 @@ export const TaskListPage = () => {
   const drawerCloseTimerRef = useRef<number | null>(null);
   const templateReturnAnimationTimerRef = useRef<number | null>(null);
   const taskEnterTimerRefs = useRef<Map<string, number>>(new Map());
-  const taskDeleteTimerRefs = useRef<Map<string, number>>(new Map());
   const toastSequenceRef = useRef(0);
   const templateOptionsRequestTaskIdRef = useRef<string | null>(null);
   const { containerRef: taskTableContainerRef, pageSize: taskPageSize } = useAdaptiveTablePageSize({
@@ -168,8 +166,6 @@ export const TaskListPage = () => {
 
       taskEnterTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId));
       taskEnterTimerRefs.current.clear();
-      taskDeleteTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId));
-      taskDeleteTimerRefs.current.clear();
     };
   }, []);
 
@@ -790,7 +786,8 @@ export const TaskListPage = () => {
       if (selectedTask?.id === task.id) {
         closeDrawerWithAnimation();
       }
-      scheduleTaskRemoval(task.id);
+      setTasks((current) => current.filter((item) => item.id !== task.id));
+      clearTaskDeleting(task.id);
       showStatusToast('任务已删除。');
     } catch (error) {
       clearTaskDeleting(task.id);
@@ -848,21 +845,6 @@ export const TaskListPage = () => {
       next.delete(taskId);
       return next;
     });
-  };
-
-  const scheduleTaskRemoval = (taskId: string) => {
-    const existingTimerId = taskDeleteTimerRefs.current.get(taskId);
-    if (existingTimerId) {
-      window.clearTimeout(existingTimerId);
-    }
-
-    const timerId = window.setTimeout(() => {
-      taskDeleteTimerRefs.current.delete(taskId);
-      setTasks((current) => current.filter((item) => item.id !== taskId));
-      clearTaskDeleting(taskId);
-    }, TASK_ROW_DELETE_ANIMATION_MS);
-
-    taskDeleteTimerRefs.current.set(taskId, timerId);
   };
 
   const replaceTask = (task: TaskDto) => {

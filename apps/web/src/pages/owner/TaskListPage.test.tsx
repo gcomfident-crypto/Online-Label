@@ -204,13 +204,8 @@ describe('TaskListPage', () => {
     expect(within(table).getByText('待删除任务')).toBeInTheDocument();
     await user.click(within(table).getByRole('button', { name: '删除 待删除任务' }));
 
-    const deletingRow = within(table).getByText('待删除任务').closest('tr');
-    expect(deletingRow).not.toBeNull();
-    await waitFor(() => expect(deletingRow).toHaveClass('is-removing'));
-    expect(deletingRow?.querySelectorAll('.task-table__cell-inner')).toHaveLength(7);
     const deleteToastText = await screen.findByText('任务已删除');
     expect(deleteToastText.closest('.toast')).toHaveClass('toast--delete-success');
-    expect(within(table).getByText('待删除任务')).toBeInTheDocument();
     await waitFor(() => expect(within(table).queryByText('待删除任务')).not.toBeInTheDocument());
     expect(within(table).getByText('当前没有任务哦')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
