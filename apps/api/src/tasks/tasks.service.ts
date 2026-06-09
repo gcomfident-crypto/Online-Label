@@ -117,6 +117,7 @@ type TaskSummaryRecord = {
   distributionStrategy: DistributionStrategy;
   aiPreReviewEnabled: boolean;
   aiRuleName: string | null;
+  datasetImportSummary: PersistedDatasetImportSummary | null;
   status: TaskStatus;
   templateId: string | null;
   createdById: string | null;
@@ -288,6 +289,7 @@ const TASK_SUMMARY_SELECT = {
   distributionStrategy: true,
   aiPreReviewEnabled: true,
   aiRuleName: true,
+  datasetImportSummary: true,
   status: true,
   templateId: true,
   createdById: true,
@@ -415,6 +417,10 @@ export class TasksService {
 
   async update(taskId: string, input: UpdateTaskInput): Promise<TaskDto> {
     const current = await this.findTaskOrThrow(taskId);
+    if (current.status !== 'DRAFT') {
+      throw new BadRequestException('只有草稿任务可以修改基础配置。');
+    }
+
     const rewardFieldsChanged = input.rewardPerItem !== undefined;
     const rewardPerItem = input.rewardPerItem !== undefined ? input.rewardPerItem : current.rewardPerItem;
     const task = await this.prisma.task.update({
@@ -679,7 +685,7 @@ const toTaskSummaryDto = (task: TaskSummaryRecord): TaskDto => {
     aiPreReviewEnabled: task.aiPreReviewEnabled,
     aiRuleName: task.aiRuleName,
     reviewStageConfig: [],
-    datasetImportSummary: null,
+    datasetImportSummary: task.datasetImportSummary,
     status,
     templateId: task.templateId ?? '',
     template: task.template ?? UNCONFIGURED_TASK_TEMPLATE,

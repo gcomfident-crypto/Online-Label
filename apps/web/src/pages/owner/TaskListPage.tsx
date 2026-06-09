@@ -248,7 +248,8 @@ export const TaskListPage = () => {
   );
   const drawerDatasetFileName = datasetFile?.name ?? getDatasetFileNameFromImportSummary(datasetImportSummary);
   const isDrawerDatasetPreviewAvailable = Boolean(datasetFile) || Boolean(datasetImportSummary);
-  const canCreateTemplateFromDataset = Boolean(datasetTemplateDraft) || Boolean(datasetImportSummary);
+  const isDrawerEditable = drawerMode === 'new' || selectedTask?.status === 'DRAFT';
+  const canCreateTemplateFromDataset = isDrawerEditable && (Boolean(datasetTemplateDraft) || Boolean(datasetImportSummary));
 
   useEffect(() => {
     setCurrentTaskPage(1);
@@ -372,12 +373,20 @@ export const TaskListPage = () => {
   };
 
   const handleTaskFormChange = (patch: Partial<TaskFormInput>) => {
+    if (!isDrawerEditable) {
+      return;
+    }
+
     setTaskForm((current) => (current ? { ...current, ...patch } : current));
     setIsTaskFormDirty(true);
     setDrawerFieldErrors({});
   };
 
   const handleTemplateChange = (templateId: string) => {
+    if (!isDrawerEditable) {
+      return;
+    }
+
     const template = templateOptions.find((item) => item.id === templateId);
     if (!template?.id) {
       return;
@@ -416,6 +425,10 @@ export const TaskListPage = () => {
   };
 
   const handleDatasetFileChange = (file: File | null) => {
+    if (!isDrawerEditable) {
+      return;
+    }
+
     const selectionId = datasetFileSelectionId.current + 1;
     datasetFileSelectionId.current = selectionId;
     setDrawerFieldErrors({});
@@ -506,6 +519,10 @@ export const TaskListPage = () => {
   const handleCreateTemplateFromDataset = async () => {
     if (!selectedTask || !taskForm || !drawerMode) {
       showDrawerError('请先上传题目数据文件。');
+      return;
+    }
+
+    if (!isDrawerEditable) {
       return;
     }
 
@@ -657,6 +674,10 @@ export const TaskListPage = () => {
     if (!taskForm) {
       return null;
     }
+    if (!isDrawerEditable) {
+      return null;
+    }
+
     const taskFormForValidation = normalizeTaskForm(taskForm);
     const validation = validateTaskDrawerForm(taskFormForValidation, {
       datasetFile,
@@ -724,6 +745,9 @@ export const TaskListPage = () => {
 
   const handlePublish = async () => {
     if (!taskForm) {
+      return;
+    }
+    if (!isDrawerEditable) {
       return;
     }
 
@@ -924,6 +948,10 @@ export const TaskListPage = () => {
   };
 
   const shouldPromptBeforeClosingDrawer = () => {
+    if (!isDrawerEditable) {
+      return false;
+    }
+
     if (drawerMode === 'new') {
       return Boolean(taskForm?.title.trim());
     }
@@ -1023,7 +1051,7 @@ export const TaskListPage = () => {
     setToastMessages((current) => current.filter((message) => message.id !== id));
   };
 
-  const isCurrentTemplateEditable = drawerMode === 'new' || selectedTask?.status === 'DRAFT';
+  const isCurrentTemplateEditable = isDrawerEditable;
 
   return (
     <section className="task-management-page" aria-labelledby="owner-tasks-title">
@@ -1111,6 +1139,7 @@ export const TaskListPage = () => {
             form={taskForm}
             fieldErrors={drawerFieldErrors}
             templateOptions={templateOptions}
+            isEditable={isDrawerEditable}
             isTemplateEditable={isCurrentTemplateEditable}
             isSaving={isSaving}
             datasetFileName={drawerDatasetFileName}

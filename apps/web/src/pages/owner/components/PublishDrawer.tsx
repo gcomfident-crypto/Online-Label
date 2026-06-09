@@ -40,6 +40,7 @@ type PublishDrawerProps = {
   form: TaskFormInput;
   fieldErrors: TaskDrawerFieldErrors;
   templateOptions: TaskTemplateSummary[];
+  isEditable: boolean;
   isTemplateEditable: boolean;
   isSaving: boolean;
   datasetFileName: string | null;
@@ -62,6 +63,7 @@ export const PublishDrawer = ({
   form,
   fieldErrors,
   templateOptions,
+  isEditable,
   isTemplateEditable,
   isSaving,
   datasetFileName,
@@ -79,6 +81,7 @@ export const PublishDrawer = ({
   onPublish,
 }: PublishDrawerProps) => {
   const importedItemCount = importSummary?.importedCount ?? task.itemCount;
+  const isReadOnly = !isEditable;
   const isTemplateMissing = !isTemplateEditable && templateOptions.length === 0 && !form.templateId;
   const datasetFileIconKind = resolveDatasetFileIconKind(datasetFileName);
   const shouldShowDatasetPreview = Boolean(datasetFileName) && isDatasetPreviewAvailable;
@@ -126,11 +129,17 @@ export const PublishDrawer = ({
           <input
             aria-label="任务标题"
             className="task-publish-form__control"
+            disabled={isReadOnly}
             value={form.title}
             onChange={(event) => onChange({ title: event.target.value })}
           />
         </label>
-        <TagBubbleEditor tags={form.tags ?? []} fieldError={fieldErrors.tags} onChange={(tags) => onChange({ tags })} />
+        <TagBubbleEditor
+          tags={form.tags ?? []}
+          fieldError={fieldErrors.tags}
+          isReadOnly={isReadOnly}
+          onChange={(tags) => onChange({ tags })}
+        />
         <div className="task-dataset-import">
           <span className="task-field-heading task-dataset-import__heading">
             <span>题目数据导入</span>
@@ -140,7 +149,10 @@ export const PublishDrawer = ({
           <div className="task-dataset-import__panel">
             <div className="task-dataset-import__actions">
               <div className="task-dataset-import__file-zone">
-                <label className="task-dataset-import__file-picker">
+                <label
+                  className={`task-dataset-import__file-picker${isReadOnly ? ' is-readonly' : ''}`}
+                  aria-disabled={isReadOnly}
+                >
                   <span
                     key={datasetFileIconKind}
                     className={`task-dataset-import__file-icon task-dataset-import__file-icon--${datasetFileIconKind}${
@@ -159,6 +171,7 @@ export const PublishDrawer = ({
                     className="task-dataset-import__file-input"
                     type="file"
                     accept=".json,.jsonl,.csv,.xlsx,application/json,text/csv"
+                    disabled={isReadOnly}
                     onChange={(event) => {
                       const file = event.target.files?.[0];
                       if (!file) {
@@ -204,6 +217,7 @@ export const PublishDrawer = ({
                 className="task-publish-form__control"
                 inputMode="decimal"
                 type="text"
+                disabled={isReadOnly}
                 value={rewardInputValue}
                 onBlur={() => setIsRewardInputFocused(false)}
                 onChange={(event) => {
@@ -223,6 +237,7 @@ export const PublishDrawer = ({
             </span>
             <DeadlinePicker
               value={form.deadline ?? null}
+              disabled={isReadOnly}
               onChange={(deadline) => onChange({ deadline })}
             />
           </label>
@@ -261,6 +276,7 @@ export const PublishDrawer = ({
             aria-label="启用AI预审"
             type="checkbox"
             checked={Boolean(form.aiPreReviewEnabled)}
+            disabled={isReadOnly}
             onChange={(event) => onChange({ aiPreReviewEnabled: event.target.checked })}
           />
           <span className="task-ai-toggle__label">启用AI预审</span>
@@ -269,10 +285,10 @@ export const PublishDrawer = ({
       </div>
       <div className="task-publish-drawer__footer">
         <div className="task-publish-drawer__actions">
-          <button type="button" disabled={isSaving} onClick={onSaveDraft}>
+          <button type="button" disabled={isSaving || isReadOnly} onClick={onSaveDraft}>
             存为草稿
           </button>
-          <button className="primary-action" type="button" disabled={isSaving} onClick={onPublish}>
+          <button className="primary-action" type="button" disabled={isSaving || isReadOnly} onClick={onPublish}>
             立即发布 →
           </button>
         </div>
@@ -640,10 +656,12 @@ type PendingTaskTagDrag = {
 
 const TagBubbleEditor = ({
   fieldError,
+  isReadOnly = false,
   tags,
   onChange,
 }: {
   fieldError?: string;
+  isReadOnly?: boolean;
   tags: string[];
   onChange: (tags: string[]) => void;
 }) => {
@@ -696,6 +714,10 @@ const TagBubbleEditor = ({
   };
 
   const commitTag = (withAnimation = true) => {
+    if (isReadOnly) {
+      return;
+    }
+
     const tag = draftTag.trim();
 
     if (!tag || tags.includes(tag)) {
@@ -751,6 +773,10 @@ const TagBubbleEditor = ({
   };
 
   const removeTag = (tag: string, event: MouseEvent<HTMLButtonElement>) => {
+    if (isReadOnly) {
+      return;
+    }
+
     if (removingTag) {
       return;
     }
@@ -763,6 +789,10 @@ const TagBubbleEditor = ({
   };
 
   const handleAddTagClick = () => {
+    if (isReadOnly) {
+      return;
+    }
+
     if (isAtTagLimit) {
       showTagLimitNotice();
       return;
@@ -779,6 +809,10 @@ const TagBubbleEditor = ({
   };
 
   const startTagDrag = (tag: string, event: PointerEvent<HTMLSpanElement>) => {
+    if (isReadOnly) {
+      return;
+    }
+
     if ((event.button !== 0 && event.button !== undefined) || removingTag) {
       return;
     }
@@ -906,10 +940,14 @@ const TagBubbleEditor = ({
       <div className="task-tag-editor__heading">
         <span>标签</span>
       </div>
-      <div className={`task-tag-editor__bubbles${dragState ? ' task-tag-editor__bubbles--dragging' : ''}`}>
+      <div
+        className={`task-tag-editor__bubbles${dragState ? ' task-tag-editor__bubbles--dragging' : ''}${
+          isReadOnly ? ' task-tag-editor__bubbles--readonly' : ''
+        }`}
+      >
         {tags.map((tag) => (
           <span
-            className={`task-tag-bubble task-tag-bubble--removable${
+            className={`task-tag-bubble${isReadOnly ? ' task-tag-bubble--readonly' : ' task-tag-bubble--removable'}${
               enteringTag === tag ? ' task-tag-bubble--entering' : ''
             }${removingTag?.tag === tag ? ' task-tag-bubble--removing' : ''}${
               dragState?.tag === tag ? ' task-tag-bubble--dragging' : ''
@@ -959,19 +997,21 @@ const TagBubbleEditor = ({
               onPointerCancel={cancelTagDrag}
             >
               <span className="task-tag-bubble__label">{tag}</span>
-              <button
-                aria-label={`删除标签 ${tag}`}
-                className="task-tag-bubble__remove"
-                type="button"
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={(event) => removeTag(tag, event)}
-              >
-                <span aria-hidden="true" />
-              </button>
+              {isReadOnly ? null : (
+                <button
+                  aria-label={`删除标签 ${tag}`}
+                  className="task-tag-bubble__remove"
+                  type="button"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => removeTag(tag, event)}
+                >
+                  <span aria-hidden="true" />
+                </button>
+              )}
             </span>
           </span>
         ))}
-        {isComposerVisible ? (
+        {isReadOnly ? null : isComposerVisible ? (
           <form
             aria-label="新标签输入"
             className={`task-tag-composer${
@@ -1168,9 +1208,11 @@ const FieldError = ({
 };
 
 const DeadlinePicker = ({
+  disabled = false,
   value,
   onChange,
 }: {
+  disabled?: boolean;
   value: string | null;
   onChange: (value: string | null) => void;
 }) => {
@@ -1242,6 +1284,10 @@ const DeadlinePicker = ({
   }, []);
 
   const handleDateTimeChange = (dateTimeValue: string) => {
+    if (disabled) {
+      return;
+    }
+
     const parsedDate = parseDateTimeLocalValue(dateTimeValue);
     const nextDate = parsedDate ? normalizeDeadlineHour(parsedDate) : null;
 
@@ -1253,6 +1299,10 @@ const DeadlinePicker = ({
   };
 
   const handleTriggerClick = () => {
+    if (disabled) {
+      return;
+    }
+
     if (isOpen) {
       setIsOpen(false);
       return;
@@ -1503,6 +1553,7 @@ const DeadlinePicker = ({
         aria-label={`选择截止时间${safeSelectedDate ? `，当前 ${formatDateTimeLabel(safeSelectedDate)}` : ''}`}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
+        disabled={disabled}
         onClick={handleTriggerClick}
       >
         <span className="task-deadline-picker__trigger-content">
@@ -1645,6 +1696,7 @@ const DeadlinePicker = ({
         type="datetime-local"
         step="1"
         min={minDateTimeValue}
+        disabled={disabled}
         tabIndex={-1}
         value={dateTimeValue}
         onChange={(event) => handleDateTimeChange(event.target.value)}

@@ -1001,6 +1001,55 @@ describe('TaskListPage', () => {
     expect(within(drawer).queryByText('点击上传文件')).not.toBeInTheDocument();
   });
 
+  it('已发布和已完成任务只读展示历史题目文件且禁用保存发布', async () => {
+    const publishedTask = {
+      ...baseTask,
+      id: 'task_published_readonly',
+      status: 'PUBLISHED',
+      itemCount: 12,
+      quota: 12,
+      datasetImportSummary: {
+        taskId: 'task_published_readonly',
+        datasetKind: 'qa_quality',
+        importedCount: 12,
+        errorCount: 0,
+        skippedFiles: [],
+        fields: ['id', 'prompt'],
+        errors: [],
+        preview: [],
+        files: [
+          {
+            datasetKind: 'qa_quality',
+            format: 'jsonl',
+            fileName: 'published-items.jsonl',
+            fields: ['id', 'prompt'],
+            importedCount: 12,
+            errorCount: 0,
+          },
+        ],
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({ data: [publishedTask] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderTaskListPage();
+
+    const table = await screen.findByRole('table', { name: '任务列表' });
+    await userEvent.setup().click(within(table).getByRole('row', { name: /商品标题清洗/ }));
+
+    const drawer = await screen.findByRole('complementary', { name: '发布任务抽屉' });
+    expect(within(drawer).getByText('published-items.jsonl')).toBeInTheDocument();
+    expect(within(drawer).queryByText('点击上传文件')).not.toBeInTheDocument();
+    expect(within(drawer).getByLabelText('任务标题')).toBeDisabled();
+    expect(within(drawer).queryByRole('button', { name: '新增标签' })).not.toBeInTheDocument();
+    expect(within(drawer).getByLabelText('题目数据文件')).toBeDisabled();
+    expect(within(drawer).getByLabelText('单条奖励')).toBeDisabled();
+    expect(within(drawer).getByRole('button', { name: /选择截止时间/ })).toBeDisabled();
+    expect(within(drawer).getByLabelText('启用AI预审')).toBeDisabled();
+    expect(within(drawer).getByRole('button', { name: '存为草稿' })).toBeDisabled();
+    expect(within(drawer).getByRole('button', { name: '立即发布 →' })).toBeDisabled();
+  });
+
   it('保存成草稿后再次打开仍可根据已导入输入文件创建模板', async () => {
     const user = userEvent.setup();
     const draftTask = {

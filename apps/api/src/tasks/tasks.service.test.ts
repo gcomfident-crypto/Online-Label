@@ -389,6 +389,17 @@ describe('TasksService', () => {
         datasetImportSummary,
       }),
     ]);
+    await expect(service.listSummaries()).resolves.toEqual([
+      expect.objectContaining({
+        datasetImportSummary,
+      }),
+    ]);
+  });
+
+  it('拒绝修改非草稿任务基础配置', async () => {
+    const { service } = createService({ status: 'PUBLISHED' });
+
+    await expect(service.update('task_1', { title: '新标题' })).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('查询不存在任务返回 NotFoundException', async () => {
