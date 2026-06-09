@@ -1604,10 +1604,10 @@ function formatTimelineTime(value: string): string {
 
 function formatUserName(userId: string | null | undefined): string {
   if (userId === 'user_labeler_li_lei') {
-    return '李雷';
+    return '王昱阳';
   }
   if (userId === 'user_reviewer_wang_fang' || userId === 'reviewer_1') {
-    return '王芳';
+    return '鑫泽张';
   }
   if (!userId) {
     return '系统';

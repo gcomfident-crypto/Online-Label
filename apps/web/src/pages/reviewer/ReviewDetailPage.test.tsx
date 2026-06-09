@@ -287,7 +287,7 @@ describe('ReviewDetailPage', () => {
     expect(within(sidePanel).getByRole('tab', { name: '评论' })).toHaveAttribute('aria-selected', 'true');
     const editCard = within(sidePanel).getByRole('region', { name: '编辑字段评论：判断理由' });
     expect(editCard).toBeInTheDocument();
-    expect(editCard).not.toHaveTextContent('王芳');
+    expect(editCard).not.toHaveTextContent('鑫泽张');
     expect(editCard).not.toHaveTextContent('Reviewer');
 
     await user.type(within(sidePanel).getByRole('textbox', { name: '字段评论：判断理由' }), '请补充完整判断依据。');
@@ -347,7 +347,7 @@ describe('ReviewDetailPage', () => {
     await user.click(within(sidePanel).getByRole('button', { name: '发送' }));
 
     const sentComments = within(sidePanel).getByLabelText('已发送字段评论');
-    expect(sentComments).not.toHaveTextContent('王芳');
+    expect(sentComments).not.toHaveTextContent('鑫泽张');
     expect(sentComments).not.toHaveTextContent('Reviewer');
     const commentCards = Array.from(sentComments.querySelectorAll<HTMLElement>('.manual-review-field-comment-card'));
     expect(commentCards.map((card) => within(card).getByRole('heading').textContent)).toEqual([
@@ -429,7 +429,7 @@ describe('ReviewDetailPage', () => {
     expect(within(queue).queryByText(/第 1 轮/)).not.toBeInTheDocument();
     expect(within(queue).queryByText(/建议通过/)).not.toBeInTheDocument();
     expect(within(queue).queryByText(/AI\s*91/)).not.toBeInTheDocument();
-    expect(within(queue).queryByText(/系统标注|Labeler标注|李雷标注/)).not.toBeInTheDocument();
+    expect(within(queue).queryByText(/系统标注|Labeler标注|王昱阳标注/)).not.toBeInTheDocument();
   });
 
   it('批量通过和批量打回对已选题目调用对应接口并更新队列', async () => {

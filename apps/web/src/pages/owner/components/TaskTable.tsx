@@ -477,8 +477,8 @@ const hasActiveTextSelection = (): boolean => {
 };
 
 const TASK_CREATOR_NAMES: Record<string, string> = {
-  user_owner_001: '张满',
-  user_owner_zhang_man: '张满',
+  user_owner_001: '张泽鑫',
+  user_owner_zhang_man: '张泽鑫',
 };
 
 const formatTaskCreator = (createdById: string | null): string => {

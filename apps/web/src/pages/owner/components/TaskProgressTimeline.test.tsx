@@ -62,8 +62,8 @@ describe('TaskProgressTimeline', () => {
           submittedItemCount: 3,
           workflowProgress: [
             { id: 'published', type: 'published', createdAt: '2026-05-30T09:00:00.000Z' },
-            { id: 'claimed', type: 'claimed', actorName: '李雷', itemCount: 3, createdAt: '2026-05-30T09:05:00.000Z' },
-            { id: 'submit-1', type: 'submitted', actorName: '李雷', createdAt: '2026-05-30T09:20:00.000Z' },
+            { id: 'claimed', type: 'claimed', actorName: '王昱阳', itemCount: 3, createdAt: '2026-05-30T09:05:00.000Z' },
+            { id: 'submit-1', type: 'submitted', actorName: '王昱阳', createdAt: '2026-05-30T09:20:00.000Z' },
             { id: 'final', type: 'reviewer_final', status: 'pending', createdAt: '2026-05-30T09:50:00.000Z' },
           ],
         }}
@@ -72,12 +72,12 @@ describe('TaskProgressTimeline', () => {
 
     expect(progressLabels(container)).toEqual([
       '已发布',
-      '李雷已领取 3 题',
-      '李雷提交复审',
+      '王昱阳已领取 3 题',
+      '王昱阳提交复审',
       '待终审',
     ]);
     expect(screen.queryByText(/AI 预审/)).not.toBeInTheDocument();
-    expect(getProgressItemByLabel(container, '李雷提交复审')).toHaveClass('is-current');
+    expect(getProgressItemByLabel(container, '王昱阳提交复审')).toHaveClass('is-current');
   });
 
   it('未启用 AI 预审且没有事件数据时 fallback 也不展示 AI 预审', () => {
@@ -158,8 +158,8 @@ describe('TaskProgressTimeline', () => {
           ...baseTask,
           workflowProgress: [
             { id: 'published', type: 'published', createdAt: '2026-05-30T09:00:00.000Z' },
-            { id: 'claimed', type: 'claimed', actorName: '李雷', createdAt: '2026-05-30T09:05:00.000Z' },
-            { id: 'submit-1', type: 'ai_review_submitted', actorName: '李雷', createdAt: '2026-05-30T09:20:00.000Z' },
+            { id: 'claimed', type: 'claimed', actorName: '王昱阳', createdAt: '2026-05-30T09:05:00.000Z' },
+            { id: 'submit-1', type: 'ai_review_submitted', actorName: '王昱阳', createdAt: '2026-05-30T09:20:00.000Z' },
             { id: 'pass-1', type: 'ai_review_passed', createdAt: '2026-05-30T09:30:00.000Z' },
             { id: 'final-1', type: 'reviewer_final', actorName: '王敏', createdAt: '2026-05-30T09:50:00.000Z' },
           ],

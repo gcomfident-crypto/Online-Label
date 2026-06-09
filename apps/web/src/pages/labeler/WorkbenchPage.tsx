@@ -2388,7 +2388,7 @@ function formatHistoryTime(value: string): string {
 
 function formatUserName(userId: string | null | undefined): string {
   if (userId === 'user_labeler_li_lei') {
-    return '李雷';
+    return '王昱阳';
   }
 
   return '标注员';
@@ -2396,7 +2396,7 @@ function formatUserName(userId: string | null | undefined): string {
 
 function formatReviewerName(reviewerId: string | null | undefined): string {
   if (reviewerId === 'user_reviewer_wang_fang' || reviewerId === 'reviewer_1') {
-    return '王芳';
+    return '鑫泽张';
   }
 
   if (reviewerId === 'reviewer_2') {

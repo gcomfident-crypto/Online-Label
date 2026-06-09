@@ -72,7 +72,7 @@ const modelCompareLogs: TaskFlowLogDto[] = [
     id: 'log_owner_published',
     eventType: 'OWNER_PUBLISHED',
     actorRole: 'OWNER',
-    actorName: '张满',
+    actorName: '张泽鑫',
     occurredAt: '2026-05-20T09:00:00.000Z',
     message: 'Owner 发布了任务。',
   }),
@@ -80,17 +80,17 @@ const modelCompareLogs: TaskFlowLogDto[] = [
     id: 'log_labeler_claimed',
     eventType: 'LABELER_CLAIMED',
     actorRole: 'LABELER',
-    actorName: '李雷',
+    actorName: '王昱阳',
     occurredAt: '2026-05-21T09:00:00.000Z',
-    message: '李雷 领取了任务。',
+    message: '王昱阳 领取了任务。',
   }),
   createLog({
     id: 'log_labeler_submitted',
     eventType: 'LABELER_SUBMITTED',
     actorRole: 'LABELER',
-    actorName: '李雷',
+    actorName: '王昱阳',
     occurredAt: '2026-05-21T10:00:00.000Z',
-    message: '李雷 提交了整个任务的标注结果。',
+    message: '王昱阳 提交了整个任务的标注结果。',
   }),
   createLog({
     id: 'log_ai_completed',
@@ -162,7 +162,7 @@ describe('AiReviewQueuePage', () => {
     ['Owner 发布', 'Labeler 标注', 'AI Agent 预审', 'Reviewer 检查', '任务完成']
       .forEach((label) => expect(within(timeline).getByText(label)).toBeInTheDocument());
     await user.hover(within(timeline).getByRole('listitem', { name: /Owner 发布/ }));
-    expect(screen.getByText('张满')).toBeInTheDocument();
+    expect(screen.getByText('张泽鑫')).toBeInTheDocument();
     expect(within(timeline).queryByText('Labeler 修改')).not.toBeInTheDocument();
     expect(within(timeline).queryByText('Reviewer 再次复审')).not.toBeInTheDocument();
     expect(within(timeline).queryByText(/建议通过/)).not.toBeInTheDocument();
@@ -176,8 +176,8 @@ describe('AiReviewQueuePage', () => {
     expect(within(logDialog).getByText('完成预审')).toBeInTheDocument();
     expect(within(logDialog).getByText('流转到 Reviewer')).toBeInTheDocument();
     expect(within(logDialog).queryByText('Owner 发布了任务。')).not.toBeInTheDocument();
-    expect(within(logDialog).queryByText('李雷 领取了任务。')).not.toBeInTheDocument();
-    expect(within(logDialog).queryByText('李雷 提交了整个任务的标注结果。')).not.toBeInTheDocument();
+    expect(within(logDialog).queryByText('王昱阳 领取了任务。')).not.toBeInTheDocument();
+    expect(within(logDialog).queryByText('王昱阳 提交了整个任务的标注结果。')).not.toBeInTheDocument();
     expect(within(logDialog).queryByText('AI Agent 完成本轮预审，存在建议打回题目。')).not.toBeInTheDocument();
     expect(within(logDialog).queryByText('任务流转到 Reviewer 检查。')).not.toBeInTheDocument();
     expect(within(logDialog).getByLabelText('打回题目')).toHaveTextContent('P0003');
@@ -246,7 +246,7 @@ function createFlow(overrides: Partial<TaskFlowSummaryDto> = {}): TaskFlowSummar
     templateName: '模型比较模板',
     templateVersion: 'v2',
     ownerId: 'user_owner',
-    ownerName: '张满',
+    ownerName: '张泽鑫',
     round: 1,
     currentStage: 'HUMAN_REVIEW',
     totalItems: 1,
@@ -257,7 +257,7 @@ function createFlow(overrides: Partial<TaskFlowSummaryDto> = {}): TaskFlowSummar
         label: 'Owner 发布',
         status: 'COMPLETED',
         actorRole: 'OWNER',
-        actorName: '张满',
+        actorName: '张泽鑫',
         occurredAt: '2026-05-20T09:00:00.000Z',
       },
       {
@@ -265,7 +265,7 @@ function createFlow(overrides: Partial<TaskFlowSummaryDto> = {}): TaskFlowSummar
         label: 'Labeler 标注',
         status: 'COMPLETED',
         actorRole: 'LABELER',
-        actorName: '李雷',
+        actorName: '王昱阳',
         occurredAt: '2026-05-21T10:00:00.000Z',
       },
       {
@@ -342,7 +342,7 @@ function createItem(index: number, aiStatus: TaskFlowItemDto['aiStatus']): TaskF
     assignment: {
       id: `assignment_${index}`,
       assigneeId: 'user_labeler',
-      assigneeName: '李雷',
+      assigneeName: '王昱阳',
       status: 'UNDER_RECHECK',
     },
     submission: {
@@ -420,7 +420,7 @@ function createLog(overrides: Partial<TaskFlowLogDto>): TaskFlowLogDto {
     round: 1,
     eventType: 'OWNER_PUBLISHED',
     actorRole: 'OWNER',
-    actorName: '张满',
+    actorName: '张泽鑫',
     occurredAt: '2026-05-20T09:00:00.000Z',
     message: 'Owner 发布了任务。',
     itemRefs: [],

@@ -464,7 +464,7 @@ function createAssignmentFixture(
     id,
     status: 'ASSIGNED',
     claimedAt: now,
-    assignee: { id: 'labeler_1', name: '李雷' },
+    assignee: { id: 'labeler_1', name: '王昱阳' },
     submissions: [],
     ...overrides,
   };

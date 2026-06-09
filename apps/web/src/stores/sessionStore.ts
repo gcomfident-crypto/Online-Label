@@ -88,14 +88,20 @@ const readStoredSessionFrom = (scope: SessionStorageScope, key = STORAGE_KEY): S
       return null;
     }
 
-    return {
+    const session = {
       token: parsed.token,
-      user: {
+      user: normalizeStoredUser({
         id: parsed.user.id,
         name: parsed.user.name,
         role: parsed.user.role,
-      },
+      }),
     };
+
+    if (session.user.name !== parsed.user.name) {
+      storage.setItem(key, JSON.stringify(session));
+    }
+
+    return session;
   } catch {
     storage.removeItem(key);
     return null;
@@ -189,6 +195,26 @@ function isStoredSession(value: Partial<SessionState>): value is SessionState {
     typeof value.user?.name === 'string' &&
     isUserRole(value.user?.role)
   );
+}
+
+function normalizeStoredUser(user: SessionUser): SessionUser {
+  if (user.role === USER_ROLE.OWNER && user.name === '张满') {
+    return { ...user, name: '张泽鑫' };
+  }
+
+  if (user.role === USER_ROLE.LABELER && user.name === '李雷') {
+    return { ...user, name: '王昱阳' };
+  }
+
+  if (user.role === USER_ROLE.LABELER && user.name === '韩梅梅') {
+    return { ...user, name: '侯士康' };
+  }
+
+  if (user.role === USER_ROLE.REVIEWER && user.name === '王芳') {
+    return { ...user, name: '鑫泽张' };
+  }
+
+  return user;
 }
 
 function resolveDemoAccountUser(account?: string): SessionUser | null {

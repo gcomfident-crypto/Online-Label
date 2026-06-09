@@ -218,7 +218,7 @@ describe('ExportCenterPage', () => {
     expect(within(exportableTaskTable).getByText('T-002')).toBeInTheDocument();
     const taskNameCell = within(exportableTaskTable).getByText('偏好对比评测').closest('td');
     expect(taskNameCell).toHaveTextContent('偏好对比评测');
-    expect(taskNameCell).not.toHaveTextContent('Owner：张满');
+    expect(taskNameCell).not.toHaveTextContent('Owner：张泽鑫');
     expect(within(exportableTaskTable).queryByText(/Owner：/)).not.toBeInTheDocument();
     expect(within(exportableTaskTable).getByText('2026-05-21 08:00')).toBeInTheDocument();
     expect(within(exportableTaskTable).getAllByText('2026-06-01 15:59')).toHaveLength(2);

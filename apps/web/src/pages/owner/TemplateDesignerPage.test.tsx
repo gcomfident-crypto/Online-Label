@@ -1438,7 +1438,7 @@ describe('TemplateDesignerPage', () => {
     const modal = await screen.findByRole('dialog', { name: '模板版本管理' });
     expect(within(modal).getByText('模板版本管理')).toBeInTheDocument();
     expect(within(modal).getByText(/当前版本 v3/)).toBeInTheDocument();
-    expect(within(modal).getAllByText('张满')).toHaveLength(3);
+    expect(within(modal).getAllByText('张泽鑫')).toHaveLength(3);
     expect(within(modal).getByText('占用中')).toBeInTheDocument();
     expect(within(modal).getAllByText('空闲中')).toHaveLength(2);
     const versionTable = within(modal).getByRole('table', { name: '模板历史版本列表' });

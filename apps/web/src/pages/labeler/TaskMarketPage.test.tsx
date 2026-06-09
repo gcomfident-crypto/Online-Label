@@ -10,7 +10,7 @@ const marketTask = {
   title: '问答质量标注',
   description: '检查回答是否解决核心诉求。',
   ownerId: 'user_owner_zhang_man',
-  ownerName: '张满',
+  ownerName: '张泽鑫',
   tags: ['问答', '官方数据'],
   rewardRule: '0.30 元 / 条',
   perUserLimit: 5,
@@ -95,7 +95,7 @@ describe('TaskMarketPage', () => {
     expect(pageDescription.closest('.task-market-page-title')).not.toBeNull();
     expect(screen.queryByText('全部 Owner 发布任务')).not.toBeInTheDocument();
     expect(screen.queryByText('演示标注员')).not.toBeInTheDocument();
-    expect(screen.queryByText('李雷')).not.toBeInTheDocument();
+    expect(screen.queryByText('王昱阳')).not.toBeInTheDocument();
     expect(document.querySelector('.task-market-header')).toBeNull();
     expect(screen.queryByRole('heading', { name: '待领取任务列表' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('任务广场任务统计')).not.toBeInTheDocument();
@@ -121,7 +121,7 @@ describe('TaskMarketPage', () => {
     expect(taskRow).not.toBeNull();
     expect(document.querySelector('.task-market-card')).toBeNull();
     expect(within(taskRow as HTMLElement).getByText('T-001')).toBeInTheDocument();
-    expect(within(taskRow as HTMLElement).getByText('张满')).toBeInTheDocument();
+    expect(within(taskRow as HTMLElement).getByText('张泽鑫')).toBeInTheDocument();
     expect(within(taskRow as HTMLElement).getByText('可领取')).toBeInTheDocument();
     expect(within(taskRow as HTMLElement).getByText('0.30 元 / 条')).toBeInTheDocument();
     expect(within(taskRow as HTMLElement).queryByText('整任务')).not.toBeInTheDocument();

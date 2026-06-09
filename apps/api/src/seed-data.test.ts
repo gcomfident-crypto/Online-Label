@@ -12,22 +12,22 @@ describe('buildSeedData', () => {
       expect.arrayContaining([
         expect.objectContaining({
           id: 'user_owner_zhang_man',
-          name: '张满',
+          name: '张泽鑫',
           role: 'OWNER',
         }),
         expect.objectContaining({
           id: 'user_labeler_li_lei',
-          name: '李雷',
+          name: '王昱阳',
           role: 'LABELER',
         }),
         expect.objectContaining({
           id: 'user_labeler_han_mei_mei',
-          name: '韩梅梅',
+          name: '侯士康',
           role: 'LABELER',
         }),
         expect.objectContaining({
           id: 'user_reviewer_wang_fang',
-          name: '王芳',
+          name: '鑫泽张',
           role: 'REVIEWER',
         }),
         expect.objectContaining({

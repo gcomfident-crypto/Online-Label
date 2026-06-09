@@ -617,7 +617,7 @@ describe('WorkbenchPage', () => {
     await user.keyboard('{Control>}Enter{/Control}');
     expect(fetchMock.mock.calls.filter(([url]) => url === '/submissions/task')).toHaveLength(1);
     const itemHistory = screen.getByLabelText('本题历史列表');
-    expect(itemHistory.textContent?.match(/标注员 李雷 · 提交/g)).toHaveLength(1);
+    expect(itemHistory.textContent?.match(/标注员 王昱阳 · 提交/g)).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledWith(
       '/submissions/task',
       expect.objectContaining({
@@ -1255,9 +1255,9 @@ describe('WorkbenchPage', () => {
 
     const history = within(infoPanel).getByLabelText('本题历史列表');
     expect(history).toHaveTextContent('第 1 轮');
-    expect(history).toHaveTextContent('标注员 李雷 · 提交');
+    expect(history).toHaveTextContent('标注员 王昱阳 · 提交');
     expect(history).toHaveTextContent('AI 预审 · 打回');
-    expect(history).toHaveTextContent('复审员 王芳 · 复审打回');
+    expect(history).toHaveTextContent('复审员 鑫泽张 · 复审打回');
     expect(history).toHaveTextContent('05-16 14:22');
     expect(history).toHaveTextContent('05-16 15:08');
     expect(within(infoPanel).queryByLabelText('当前状态')).not.toBeInTheDocument();
@@ -1298,12 +1298,12 @@ describe('WorkbenchPage', () => {
     expect(history).toHaveTextContent('第 1 轮');
     expect(history).toHaveTextContent('第 2 轮');
     expect(history).toHaveTextContent('第 3 轮');
-    expect(history.textContent?.match(/标注员 李雷 · 提交/g)).toHaveLength(3);
+    expect(history.textContent?.match(/标注员 王昱阳 · 提交/g)).toHaveLength(3);
     expect(history.textContent?.match(/AI 预审 · 打回/g)).toHaveLength(2);
     expect(history.textContent?.match(/AI 预审 · 通过/g)).toHaveLength(1);
     expect(history).not.toHaveTextContent('06-06 13:23');
     expect(history).toHaveTextContent('06-06 13:39');
-    expect(history).not.toHaveTextContent('标注员 李雷 · 已提交');
+    expect(history).not.toHaveTextContent('标注员 王昱阳 · 已提交');
 
     expect(within(infoPanel).queryByLabelText('当前状态')).not.toBeInTheDocument();
   });
@@ -1340,11 +1340,11 @@ describe('WorkbenchPage', () => {
     expect(screen.queryByText('请在本题备注中说明异常，提交任务后会随答案进入审核。')).not.toBeInTheDocument();
 
     const history = screen.getByLabelText('本题历史列表');
-    expect(history).toHaveTextContent('标注员 李雷 · 提交');
+    expect(history).toHaveTextContent('标注员 王昱阳 · 提交');
     expect(history).toHaveTextContent('AI 预审 · 通过');
-    expect(history).toHaveTextContent('复审员 王芳 · 复审通过');
+    expect(history).toHaveTextContent('复审员 鑫泽张 · 复审通过');
     expect(history).not.toHaveTextContent('当前');
-    expect(history).not.toHaveTextContent('标注员 李雷 · 已完成');
+    expect(history).not.toHaveTextContent('标注员 王昱阳 · 已完成');
   });
 
   it('当前题已完成但同任务仍有返工题时，顶部任务状态显示待修改而不是已完成', async () => {

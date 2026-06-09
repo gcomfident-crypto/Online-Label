@@ -46,7 +46,7 @@ describe('TaskFlowsService', () => {
         label: 'Owner 发布',
         status: 'COMPLETED',
         actorRole: 'OWNER',
-        actorName: '张满',
+        actorName: '张泽鑫',
         occurredAt: '2026-05-20T09:00:00.000Z',
       }),
       expect.objectContaining({
@@ -54,7 +54,7 @@ describe('TaskFlowsService', () => {
         label: 'Labeler 标注',
         status: 'COMPLETED',
         actorRole: 'LABELER',
-        actorName: '李雷',
+        actorName: '王昱阳',
       }),
       expect.objectContaining({
         key: 'AI_PRECHECK',
@@ -233,7 +233,7 @@ function createTask(overrides: Record<string, unknown> = {}) {
     createdById: 'user_owner',
     createdBy: {
       id: 'user_owner',
-      name: '张满',
+      name: '张泽鑫',
     },
     template: {
       name: '模型比较模板',
@@ -250,7 +250,7 @@ function createTask(overrides: Record<string, unknown> = {}) {
         actorId: 'user_owner',
         actor: {
           id: 'user_owner',
-          name: '张满',
+          name: '张泽鑫',
         },
         reason: null,
         metadata: { action: 'TASK_PUBLISHED' },
@@ -282,7 +282,7 @@ function createUnsubmittedItem(index: number) {
         updatedAt: new Date(baseTime.getTime() + index),
         assignee: {
           id: 'user_labeler',
-          name: '李雷',
+          name: '王昱阳',
         },
         submissions: [],
       },
@@ -309,7 +309,7 @@ function createAiFailedItem(index: number) {
         updatedAt: new Date(baseTime.getTime() + index),
         assignee: {
           id: 'user_labeler',
-          name: '李雷',
+          name: '王昱阳',
         },
         submissions: [
           {
@@ -369,7 +369,7 @@ function createItem(
         updatedAt: new Date(baseTime.getTime() + index),
         assignee: {
           id: 'user_labeler',
-          name: '李雷',
+          name: '王昱阳',
         },
         submissions: [
           createSubmission(index, 1, {

@@ -98,10 +98,10 @@ const DEFAULT_DATABASE_URL =
 
 export function buildSeedData(): SeedData {
   const users: SeedUser[] = [
-    { id: SEED_USER_IDS[0], name: '张满', role: 'OWNER' },
-    { id: SEED_USER_IDS[1], name: '李雷', role: 'LABELER' },
-    { id: SEED_USER_IDS[2], name: '韩梅梅', role: 'LABELER' },
-    { id: SEED_USER_IDS[3], name: '王芳', role: 'REVIEWER' },
+    { id: SEED_USER_IDS[0], name: '张泽鑫', role: 'OWNER' },
+    { id: SEED_USER_IDS[1], name: '王昱阳', role: 'LABELER' },
+    { id: SEED_USER_IDS[2], name: '侯士康', role: 'LABELER' },
+    { id: SEED_USER_IDS[3], name: '鑫泽张', role: 'REVIEWER' },
     { id: SEED_USER_IDS[4], name: '系统机审账号', role: 'AI_AGENT' },
   ];
 

@@ -277,7 +277,7 @@ describe('TaskListPage', () => {
     expect(headers).not.toContain('分发策略');
     expect(rows[1]).toHaveTextContent('直播话术安全审核');
     expect(rows[2]).toHaveTextContent('短视频脚本对齐评测');
-    expect(within(table).getAllByText('张满').length).toBeGreaterThan(0);
+    expect(within(table).getAllByText('张泽鑫').length).toBeGreaterThan(0);
     expect(within(table).getAllByText('120 / 2,340 题')[0]).toHaveClass('task-progress-cell__count');
     expect(table.querySelectorAll('.task-date-cell').length).toBeGreaterThan(0);
     expect(table.querySelectorAll('.task-date-cell__date').length).toBeGreaterThan(0);
@@ -636,7 +636,7 @@ describe('TaskListPage', () => {
     const taskRow = within(table).getByText('商品标题清洗 v3 · 抖音电商').closest('tr');
     expect(taskRow).not.toBeNull();
 
-    await user.click(within(taskRow as HTMLElement).getByText('张满'));
+    await user.click(within(taskRow as HTMLElement).getByText('张泽鑫'));
 
     expect(screen.getByRole('complementary', { name: '发布任务抽屉' })).toBeInTheDocument();
     expect(screen.getByLabelText('任务标题')).toHaveValue('商品标题清洗 v3 · 抖音电商');

@@ -14,10 +14,10 @@ const REPORTS_DIR = join(ROOT, 'docs/verify/reports');
 const EXPORT_COPY_DIR = join(REPORTS_DIR, '_exports');
 
 const USERS = {
-  owner: { id: 'user_owner_zhang_man', name: '张满', role: 'OWNER', sessionId: 'demo-owner' },
-  labeler: { id: 'user_labeler_li_lei', name: '李雷', role: 'LABELER', sessionId: 'demo-labeler' },
+  owner: { id: 'user_owner_zhang_man', name: '张泽鑫', role: 'OWNER', sessionId: 'demo-owner' },
+  labeler: { id: 'user_labeler_li_lei', name: '王昱阳', role: 'LABELER', sessionId: 'demo-labeler' },
   agent: { id: undefined, name: 'AI Agent', role: 'AI_AGENT', sessionId: 'demo-agent' },
-  reviewer: { id: 'user_reviewer_wang_fang', name: '王芳', role: 'REVIEWER', sessionId: 'demo-reviewer' },
+  reviewer: { id: 'user_reviewer_wang_fang', name: '鑫泽张', role: 'REVIEWER', sessionId: 'demo-reviewer' },
 };
 
 const VALID_INPUTS = [

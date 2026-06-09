@@ -67,7 +67,7 @@ describe('AiReviewService', () => {
         batchId,
         itemCount: 2,
         taskTitle: '问答质量标注',
-        labelerName: '李雷',
+        labelerName: '王昱阳',
         aggregateDecision: 'pass',
         status: 'PASSED',
         aggregateScore: 90,
@@ -983,7 +983,7 @@ function createSubmissionSummaryRecord(
       assigneeId: 'user_labeler_li_lei',
       assignee: {
         id: 'user_labeler_li_lei',
-        name: '李雷',
+        name: '王昱阳',
       },
       taskItem: {
         id: `item_${input.externalId ?? 'qa_1'}`,

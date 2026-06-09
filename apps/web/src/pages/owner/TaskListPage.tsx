@@ -214,7 +214,7 @@ export const TaskListPage = () => {
           task.title.toLowerCase().includes(keyword) ||
           task.id.toLowerCase().includes(keyword) ||
           taskDisplayId.toLowerCase().includes(keyword) ||
-          '张满'.includes(keyword);
+          '张泽鑫'.includes(keyword);
 
         return matchesStatus && matchesSearch;
       })

@@ -103,7 +103,7 @@ describe('AssignmentsService', () => {
         id: 'task_qa',
         title: '问答质量标注',
         ownerId: 'user_owner_zhang_man',
-        ownerName: '张满',
+        ownerName: '张泽鑫',
         datasetKind: 'qa_quality',
         itemCount: 2,
         assignedCount: 1,
@@ -448,7 +448,7 @@ function createTaskDefaults(now: Date): TaskRecord[] {
       createdById: 'user_owner_zhang_man',
       createdBy: {
         id: 'user_owner_zhang_man',
-        name: '张满',
+        name: '张泽鑫',
       },
       items: [],
       assignments: [],
@@ -473,7 +473,7 @@ function createTaskDefaults(now: Date): TaskRecord[] {
       createdById: 'user_owner_zhang_man',
       createdBy: {
         id: 'user_owner_zhang_man',
-        name: '张满',
+        name: '张泽鑫',
       },
       items: [],
       assignments: [
@@ -504,7 +504,7 @@ function createTaskDefaults(now: Date): TaskRecord[] {
       createdById: 'user_owner_zhang_man',
       createdBy: {
         id: 'user_owner_zhang_man',
-        name: '张满',
+        name: '张泽鑫',
       },
       items: [],
       assignments: [],
