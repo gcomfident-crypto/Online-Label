@@ -284,6 +284,32 @@ describe('ExportsService', () => {
     ]);
   });
 
+  it('导出预览和导出文件按题目导入顺序稳定排列', async () => {
+    const { service } = createService();
+
+    const preview = await service.previewTaskExport('task_unordered', {
+      includeReviews: true,
+    });
+
+    expect(preview.totalFinalApproved).toBe(6);
+    expect(preview.rows.map((row) => row.id)).toEqual(['P0001', 'P0002', 'P0003', 'P0004', 'P0005']);
+
+    const job = await service.createExport({
+      taskId: 'task_unordered',
+      requestedById: 'user_owner_001',
+      format: 'json',
+      includeReviews: true,
+    });
+    await expect(readFile(job.filePath as string, 'utf8').then((text) => JSON.parse(text))).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'P0001' }),
+        expect.objectContaining({ id: 'P0006' }),
+      ]),
+    );
+    const exportedRows = JSON.parse(await readFile(job.filePath as string, 'utf8')) as Array<Record<string, unknown>>;
+    expect(exportedRows.map((row) => row.id)).toEqual(['P0001', 'P0002', 'P0003', 'P0004', 'P0005', 'P0006']);
+  });
+
   it('支持查询历史、详情和失败任务重试', async () => {
     const { service, db } = createService();
     db.exportJobs.push(createExportJob('export_failed', 'FAILED'));
@@ -358,6 +384,7 @@ function createExportDb() {
   };
   const genericTask = createGenericUploadedTask();
   const genericConflictTask = createGenericUploadedConflictTask();
+  const unorderedTask = createUnorderedExportTask();
   const db = {
     exportJobs,
     client: {
@@ -371,6 +398,9 @@ function createExportDb() {
           }
           if (args.where.id === genericConflictTask.id) {
             return genericConflictTask;
+          }
+          if (args.where.id === unorderedTask.id) {
+            return unorderedTask;
           }
           return null;
         },
@@ -477,7 +507,9 @@ function createGenericUploadedConflictTask() {
       {
         id: 'assignment_generic_conflict_final',
         taskItem: {
+          id: 'item_P9002',
           externalId: 'P9002',
+          sortOrder: 1,
           rawData: {
             preferred: '上传原值',
             prompt: '上传文件已有 preferred 列。',
@@ -577,7 +609,9 @@ function createGenericUploadedTask() {
       {
         id: 'assignment_generic_final',
         taskItem: {
+          id: 'item_P9001',
           externalId: 'P9001',
+          sortOrder: 1,
           rawData: {
             response_b: '回答 B 过于简略。',
             id: 'P9001',
@@ -624,11 +658,63 @@ function createGenericUploadedTask() {
   };
 }
 
-function createAssignment(id: string, externalId: string, status: string) {
+function createUnorderedExportTask() {
+  return {
+    id: 'task_unordered',
+    title: '乱序导出验证',
+    datasetImportSummary: {
+      taskId: 'task_unordered',
+      datasetKind: 'qa_quality' as const,
+      importedCount: 6,
+      errorCount: 0,
+      skippedFiles: [],
+      fields: ['id', 'prompt', 'model_answer'],
+      errors: [],
+      preview: [],
+      files: [],
+    },
+    template: {
+      datasetKind: 'qa_quality' as const,
+      schema: {
+        schemaVersion: 'qa-unordered-test',
+        datasetKind: 'qa_quality' as const,
+        fields: [],
+      },
+    },
+    assignments: [
+      createUnorderedAssignment('assignment_unordered_2', 'P0002', 2),
+      createUnorderedAssignment('assignment_unordered_1', 'P0001', 1),
+      createUnorderedAssignment('assignment_unordered_4', 'P0004', 4),
+      createUnorderedAssignment('assignment_unordered_6', 'P0006', 6),
+      createUnorderedAssignment('assignment_unordered_5', 'P0005', 5),
+      createUnorderedAssignment('assignment_unordered_3', 'P0003', 3),
+    ],
+  };
+}
+
+function createUnorderedAssignment(id: string, externalId: string, sortOrder: number) {
+  return {
+    ...createAssignment(id, externalId, 'FINAL_APPROVED', sortOrder),
+    taskItem: {
+      id: `item_${externalId}`,
+      externalId,
+      sortOrder,
+      rawData: {
+        id: externalId,
+        prompt: `题目 ${externalId}`,
+        model_answer: `回答 ${externalId}`,
+      },
+    },
+  };
+}
+
+function createAssignment(id: string, externalId: string, status: string, sortOrder = 0) {
   return {
     id,
     taskItem: {
+      id: `item_${externalId}`,
       externalId,
+      sortOrder,
       rawData: {
         prompt: '如何判断回答质量？',
         model_answer: '检查事实性。',

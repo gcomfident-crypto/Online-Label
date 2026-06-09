@@ -72,8 +72,10 @@ type ExportTaskRecord = {
   assignments: Array<{
     id: string;
     taskItem: {
+      id: string;
       externalId: string;
       rawData: Record<string, unknown>;
+      sortOrder: number;
     };
     submissions: ExportSubmissionRecord[];
   }>;
@@ -370,9 +372,10 @@ function normalizeFormat(value: string): ExportFormat {
 }
 
 function collectFinalApprovedSources(task: ExportTaskRecord): ExportSourceRow[] {
-  return task.assignments.flatMap((assignment) =>
-    assignment.submissions
+  return [...task.assignments].sort(compareExportAssignments).flatMap((assignment) =>
+    [...assignment.submissions]
       .filter((submission) => submission.status === 'FINAL_APPROVED')
+      .sort(compareExportSubmissions)
       .map((submission) => ({
         externalId: assignment.taskItem.externalId,
         rawData: assignment.taskItem.rawData,
@@ -380,6 +383,46 @@ function collectFinalApprovedSources(task: ExportTaskRecord): ExportSourceRow[] 
         review: buildReviewSnapshot(submission),
       })),
   );
+}
+
+function compareExportAssignments(
+  left: ExportTaskRecord['assignments'][number],
+  right: ExportTaskRecord['assignments'][number],
+): number {
+  const sortOrderDiff = left.taskItem.sortOrder - right.taskItem.sortOrder;
+  if (sortOrderDiff !== 0) {
+    return sortOrderDiff;
+  }
+
+  const externalIdDiff = naturalCompare(left.taskItem.externalId, right.taskItem.externalId);
+  if (externalIdDiff !== 0) {
+    return externalIdDiff;
+  }
+
+  const taskItemIdDiff = naturalCompare(left.taskItem.id, right.taskItem.id);
+  if (taskItemIdDiff !== 0) {
+    return taskItemIdDiff;
+  }
+
+  return naturalCompare(left.id, right.id);
+}
+
+function compareExportSubmissions(left: ExportSubmissionRecord, right: ExportSubmissionRecord): number {
+  const roundDiff = left.round - right.round;
+  if (roundDiff !== 0) {
+    return roundDiff;
+  }
+
+  return naturalCompare(left.id, right.id);
+}
+
+const naturalCollator = new Intl.Collator('zh-CN', {
+  numeric: true,
+  sensitivity: 'base',
+});
+
+function naturalCompare(left: string, right: string): number {
+  return naturalCollator.compare(left, right);
 }
 
 function buildTaskDefaultMapping(task: ExportTaskRecord, sources: ExportSourceRow[]): ExportFieldMapping[] {
