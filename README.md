@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.0.0-blue.svg?cacheSeconds=2592000" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-blue.svg?cacheSeconds=2592000" />
   <img alt="Workspace" src="https://img.shields.io/badge/workspace-pnpm-0f766e.svg" />
   <img alt="Web" src="https://img.shields.io/badge/web-React%20%2B%20Vite-306DF7.svg" />
   <img alt="API" src="https://img.shields.io/badge/api-NestJS%20%2B%20Prisma-EA2845.svg" />
@@ -29,6 +29,38 @@ LabelHub is an online platform for AI data labeling operations. It covers **labe
 You can visit the online platform. View existing tasks or create your own tasks to quickly experience the core features: [115.190.153.31](http://115.190.153.31/)
 
 ## 📷 System Screenshots
+
+### Owner
+
+<p align="center">
+  <img src="./docs/assets/readme/owner/1.png" alt="Owner screenshot 1" width="22%" hspace="6" />
+  <img src="./docs/assets/readme/owner/2.png" alt="Owner screenshot 2" width="22%" hspace="6" />
+  <img src="./docs/assets/readme/owner/3.png" alt="Owner screenshot 3" width="22%" hspace="6" />
+  <img src="./docs/assets/readme/owner/4.png" alt="Owner screenshot 4" width="22%" hspace="6" />
+</p>
+
+### Labeler
+
+<p align="center">
+  <img src="./docs/assets/readme/labeler/1.png" alt="Labeler screenshot 1" width="22%" hspace="6" />
+  <img src="./docs/assets/readme/labeler/2.png" alt="Labeler screenshot 2" width="22%" hspace="6" />
+  <img src="./docs/assets/readme/labeler/3.png" alt="Labeler screenshot 3" width="22%" hspace="6" />
+  <img src="./docs/assets/readme/labeler/4.png" alt="Labeler screenshot 4" width="22%" hspace="6" />
+</p>
+
+### Agent
+
+<p align="center">
+  <img src="./docs/assets/readme/agent/1.png" alt="Agent screenshot 1" width="46%" hspace="8" />
+  <img src="./docs/assets/readme/agent/2.png" alt="Agent screenshot 2" width="46%" hspace="8" />
+</p>
+
+### Reviewer
+
+<p align="center">
+  <img src="./docs/assets/readme/reviewer/1.png" alt="Reviewer screenshot 1" width="46%" hspace="8" />
+  <img src="./docs/assets/readme/reviewer/2.png" alt="Reviewer screenshot 2" width="46%" hspace="8" />
+</p>
 
 ## 🎬 Demo Video
 

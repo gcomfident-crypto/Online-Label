@@ -1,6 +1,6 @@
 {
   "name": "labelhub",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "LabelHub 全栈标注平台工作区",
   "packageManager": "pnpm@10.11.0",

@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.0.0-blue.svg?cacheSeconds=2592000" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-blue.svg?cacheSeconds=2592000" />
   <img alt="Workspace" src="https://img.shields.io/badge/workspace-pnpm-0f766e.svg" />
   <img alt="Web" src="https://img.shields.io/badge/web-React%20%2B%20Vite-306DF7.svg" />
   <img alt="API" src="https://img.shields.io/badge/api-NestJS%20%2B%20Prisma-EA2845.svg" />
@@ -29,6 +29,38 @@ LabelHub 是一个面向 AI 数据标注运营在线平台。功能涵盖**标�
 欢迎访问在线平台。通过查看过往任务或自主创建任务，即可快速体验平台核心功能：[115.190.153.31](http://115.190.153.31/)
 
 ## 📷 系统截图
+
+### Owner
+
+<p align="center">
+  <img src="./docs/assets/readme/owner/1.png" alt="Owner 截图 1" width="22%" hspace="6" />
+  <img src="./docs/assets/readme/owner/2.png" alt="Owner 截图 2" width="22%" hspace="6" />
+  <img src="./docs/assets/readme/owner/3.png" alt="Owner 截图 3" width="22%" hspace="6" />
+  <img src="./docs/assets/readme/owner/4.png" alt="Owner 截图 4" width="22%" hspace="6" />
+</p>
+
+### Labeler
+
+<p align="center">
+  <img src="./docs/assets/readme/labeler/1.png" alt="Labeler 截图 1" width="22%" hspace="6" />
+  <img src="./docs/assets/readme/labeler/2.png" alt="Labeler 截图 2" width="22%" hspace="6" />
+  <img src="./docs/assets/readme/labeler/3.png" alt="Labeler 截图 3" width="22%" hspace="6" />
+  <img src="./docs/assets/readme/labeler/4.png" alt="Labeler 截图 4" width="22%" hspace="6" />
+</p>
+
+### Agent
+
+<p align="center">
+  <img src="./docs/assets/readme/agent/1.png" alt="Agent 截图 1" width="46%" hspace="8" />
+  <img src="./docs/assets/readme/agent/2.png" alt="Agent 截图 2" width="46%" hspace="8" />
+</p>
+
+### Reviewer
+
+<p align="center">
+  <img src="./docs/assets/readme/reviewer/1.png" alt="Reviewer 截图 1" width="46%" hspace="8" />
+  <img src="./docs/assets/readme/reviewer/2.png" alt="Reviewer 截图 2" width="46%" hspace="8" />
+</p>
 
 ## 🎬 演示视频
 
