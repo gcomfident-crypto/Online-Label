@@ -1654,15 +1654,22 @@ const DeadlinePicker = ({
                   const content = formatHourWheelLabel(hour);
 
                   return (
-                    <button
-                      key={index}
-                      type="button"
-                      className={className}
-                      aria-current={distanceFromSelected === 0 ? 'time' : undefined}
-                      onClick={() => setDraftDate((currentDate) => setDeadlineHour(currentDate, hour))}
-                    >
-                      {content}
-                    </button>
+              <button
+                key={index}
+                type="button"
+                className={className}
+                aria-current={distanceFromSelected === 0 ? 'time' : undefined}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerUp={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setDraftDate((currentDate) => setDeadlineHour(currentDate, hour));
+                  window.setTimeout(() => syncHourWheelToHour(hour), 0);
+                }}
+              >
+                {content}
+              </button>
                   );
                 })}
               </div>
