@@ -38,7 +38,7 @@ LabelHub 是一个面向 AI 数据标注运营在线平台。功能涵盖**标�
 
 * [基础技术文档与展示 - 飞书云文档](https://scnylr3i9roc.feishu.cn/docx/R2rUdIlj9oSUBaxNQ3zcGW3onjc)
 * [AI Coding 过程记录 - 飞书云文档](https://scnylr3i9roc.feishu.cn/docx/GYqJddDLgo7qlIxKjbschFzlntf)
-* 
+* [API 文档 - Postman Collection](./docs/api/postman/README.md)
 
 ## 📷 系统截图
 
