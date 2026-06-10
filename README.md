@@ -79,6 +79,21 @@ Reviewer 对标注内容复审，可查看每一道题目的审计历史
 
 ## 🎬 演示视频
 
+<p align="center">
+  <a href="https://www.bilibili.com/video/BV1DBE96DET8" target="_blank">
+    <img src="https://i0.hdslb.com/bfs/archive/c1fb25d895a941764962c0556a3de91d1a43b58f.jpg" alt="LabelHub 演示视频" width="720" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://www.bilibili.com/video/BV1DBE96DET8">点击观看 LabelHub 演示视频</a>
+</p>
+
+<!-- Docsify + docsify-bilibili 可使用：
+- Bilibili video
+- aid=116724712081364&bvid=BV1DBE96DET8&cid=39006898467&p=1
+-->
+
 ## 🔄 工作流程
 
 1. Owner 设计模板、导入题目、创建任务并发布
