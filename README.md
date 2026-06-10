@@ -27,7 +27,7 @@ LabelHub 是一个面向 AI 数据标注运营在线平台。功能涵盖**标�
 ## 🧩 架构与模块划分
 
 <p align="center">
-  <img src="./docs/readme/architecture-modules.svg" alt="LabelHub 架构与模块划分" width="920" />
+  <img src="./docs/readme/architecture-modules.png" alt="LabelHub 架构与模块划分" width="920" />
 </p>
 
 ## 🌍 在线体验
