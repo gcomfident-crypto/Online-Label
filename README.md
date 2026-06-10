@@ -38,7 +38,8 @@ LabelHub 是一个面向 AI 数据标注运营在线平台。功能涵盖**标�
 
 * [基础技术文档与展示 - 飞书云文档](https://scnylr3i9roc.feishu.cn/docx/R2rUdIlj9oSUBaxNQ3zcGW3onjc)
 * [AI Coding 过程记录 - 飞书云文档](https://scnylr3i9roc.feishu.cn/docx/GYqJddDLgo7qlIxKjbschFzlntf)
-* [API 文档 - Postman Collection](./docs/api/postman/README.md)
+* [API 文档与 Postman 导入说明](./docs/api/postman/README.md)
+* [Postman Collection - 可直接导入](https://raw.githubusercontent.com/gcomfident-crypto/Online-Label/zzx/develop/docs/api/postman/labelhub-demo.postman_collection.json)
 
 ## 📷 系统截图
 
@@ -161,13 +162,13 @@ DEEPSEEK_API_KEY=replace_with_deepseek_api_key
 
 当前前端登录页使用演示账号体系，不接入真实身份认证。登录时需要填写账号和密码，密码统一为 `1101101`。
 
-| 角色       | 前端账号      | 前端密码  | 登录身份下拉项   | 显示名称 | 默认首页             |
-| ---------- | ------------- | --------- | ---------------- | -------- | -------------------- |
-| 任务负责人 | `zhangzexin`  | `1101101` | Owner 任务负责人 | 张泽鑫   | `/owner/tasks`       |
-| 标注员     | `wangyuyang`  | `1101101` | Labeler 标注员   | 王昱阳   | `/labeler/market`    |
-| 标注员     | `houshikang`  | `1101101` | Labeler 标注员   | 侯士康   | `/labeler/market`    |
-| AI Agent   | `agent`       | `1101101` | AI Agent 预审    | AI Agent | `/agent/ai-review`   |
-| 人工审核员 | `xinzezhang`  | `1101101` | Reviewer 审核员  | 鑫泽张   | `/reviewer/reviews`  |
+| 角色       | 前端账号       | 前端密码    | 登录身份下拉项   | 显示名称 | 默认首页              |
+| ---------- | -------------- | ----------- | ---------------- | -------- | --------------------- |
+| 任务负责人 | `zhangzexin` | `1101101` | Owner 任务负责人 | 张泽鑫   | `/owner/tasks`      |
+| 标注员     | `wangyuyang` | `1101101` | Labeler 标注员   | 王昱阳   | `/labeler/market`   |
+| 标注员     | `houshikang` | `1101101` | Labeler 标注员   | 侯士康   | `/labeler/market`   |
+| AI Agent   | `agent`      | `1101101` | AI Agent 预审    | AI Agent | `/agent/ai-review`  |
+| 人工审核员 | `xinzezhang` | `1101101` | Reviewer 审核员  | 鑫泽张   | `/reviewer/reviews` |
 
 账号命中上表时，会按账号自动确定角色；账号没有命中时，会按“登录身份”下拉框选择的角色登录。
 
@@ -179,3 +180,11 @@ DEEPSEEK_API_KEY=replace_with_deepseek_api_key
   "password": "1101101"
 }
 ```
+
+## 团队分工
+
+| 成员   | 主要职责 | 工作内容                                                         |
+| ------ | -------- | ---------------------------------------------------------------- |
+| 张泽鑫 | 开发     | 负责前后端核心功能、数据库模型、接口文档、线上部署与主要问题修复 |
+| 王昱阳 | 产品设计 | 负责业务流程梳理、多角色协作路径设计、页面交互需求和演示流程整理 |
+| 侯士康 | 测试     | 负责功能测试、全流程验收、数据导入导出核对和体验问题反馈         |

@@ -17,10 +17,19 @@
 - 演示、交付、给非研发同学看：导入 `labelhub-demo.postman_collection.json`。
 - 排查接口覆盖、研发自测、确认 controller 全量路由：导入 `labelhub-full.postman_collection.json`。
 
+## 直接导入链接
+
+在 Postman 中选择 `Import -> Link`，按需粘贴以下链接：
+
+- Demo Collection：`https://raw.githubusercontent.com/gcomfident-crypto/Online-Label/zzx/develop/docs/api/postman/labelhub-demo.postman_collection.json`
+- Full Collection：`https://raw.githubusercontent.com/gcomfident-crypto/Online-Label/zzx/develop/docs/api/postman/labelhub-full.postman_collection.json`
+- 线上环境：`https://raw.githubusercontent.com/gcomfident-crypto/Online-Label/zzx/develop/docs/api/postman/labelhub-prod.postman_environment.json`
+- 本地环境：`https://raw.githubusercontent.com/gcomfident-crypto/Online-Label/zzx/develop/docs/api/postman/labelhub-local.postman_environment.json`
+
 ## 使用步骤
 
-1. 在 Postman 导入 `labelhub-demo.postman_collection.json`。
-2. 导入 `labelhub-local.postman_environment.json` 或 `labelhub-prod.postman_environment.json`。
+1. 在 Postman 导入 Demo Collection 链接。
+2. 导入 `labelhub-prod.postman_environment.json` 线上环境链接，或导入 `labelhub-local.postman_environment.json` 本地环境链接。
 3. 选择对应环境。
 4. 先运行 `00 Auth 登录` 文件夹里的登录请求，登录脚本会自动保存 token。
 5. 再按 Owner、Labeler、AI Agent、Reviewer、Export 的业务顺序执行接口。
