@@ -34,6 +34,20 @@ LabelHub 是一个面向 AI 数据标注运营在线平台。功能涵盖**标�
 
 欢迎访问在线平台。通过查看过往任务或自主创建任务，即可快速体验平台核心功能：[115.190.153.31](http://115.190.153.31/)
 
+## 演示账号
+
+当前前端登录页使用演示账号体系，不接入真实身份认证。登录时需要填写账号和密码，密码统一为 `1101101`。
+
+| 角色       | 前端账号       | 前端密码    | 登录身份下拉项   | 显示名称 | 默认首页              |
+| ---------- | -------------- | ----------- | ---------------- | -------- | --------------------- |
+| 任务负责人 | `zhangzexin` | `1101101` | Owner 任务负责人 | 张泽鑫   | `/owner/tasks`      |
+| 标注员     | `wangyuyang` | `1101101` | Labeler 标注员   | 王昱阳   | `/labeler/market`   |
+| 标注员     | `houshikang` | `1101101` | Labeler 标注员   | 侯士康   | `/labeler/market`   |
+| AI Agent   | `agent`      | `1101101` | AI Agent 预审    | AI Agent | `/agent/ai-review`  |
+| 人工审核员 | `xinzezhang` | `1101101` | Reviewer 审核员  | 鑫泽张   | `/reviewer/reviews` |
+
+账号命中上表时，会按账号自动确定角色；账号没有命中时，会按“登录身份”下拉框选择的角色登录。
+
 ## 📄 全部文档
 
 * [基础技术文档与展示 - 飞书云文档](https://scnylr3i9roc.feishu.cn/docx/R2rUdIlj9oSUBaxNQ3zcGW3onjc)
@@ -156,29 +170,6 @@ pnpm --filter @labelhub/worker dev
 LLM_PROVIDER=deepseek
 LLM_MODEL=deepseek-chat
 DEEPSEEK_API_KEY=replace_with_deepseek_api_key
-```
-
-## 演示账号
-
-当前前端登录页使用演示账号体系，不接入真实身份认证。登录时需要填写账号和密码，密码统一为 `1101101`。
-
-| 角色       | 前端账号       | 前端密码    | 登录身份下拉项   | 显示名称 | 默认首页              |
-| ---------- | -------------- | ----------- | ---------------- | -------- | --------------------- |
-| 任务负责人 | `zhangzexin` | `1101101` | Owner 任务负责人 | 张泽鑫   | `/owner/tasks`      |
-| 标注员     | `wangyuyang` | `1101101` | Labeler 标注员   | 王昱阳   | `/labeler/market`   |
-| 标注员     | `houshikang` | `1101101` | Labeler 标注员   | 侯士康   | `/labeler/market`   |
-| AI Agent   | `agent`      | `1101101` | AI Agent 预审    | AI Agent | `/agent/ai-review`  |
-| 人工审核员 | `xinzezhang` | `1101101` | Reviewer 审核员  | 鑫泽张   | `/reviewer/reviews` |
-
-账号命中上表时，会按账号自动确定角色；账号没有命中时，会按“登录身份”下拉框选择的角色登录。
-
-后端 `/auth/login` 使用同一套演示账号和密码。例如：
-
-```json
-{
-  "account": "zhangzexin",
-  "password": "1101101"
-}
 ```
 
 ## 团队分工

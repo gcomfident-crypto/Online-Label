@@ -34,6 +34,20 @@ LabelHub is an online platform for AI data labeling operations. It covers **labe
 
 You can visit the online platform. View existing tasks or create your own tasks to quickly experience the core features: [115.190.153.31](http://115.190.153.31/)
 
+## Demo Accounts
+
+The current frontend login page uses demo accounts and does not connect to a real identity provider. Enter both account and password; the unified demo password is `1101101`.
+
+| Role           | Frontend account | Frontend password | Login identity dropdown | Display name | Default home          |
+| -------------- | ---------------- | ----------------- | ----------------------- | ------------ | --------------------- |
+| Task Owner     | `zhangzexin`     | `1101101`         | Owner Task Manager      | 张泽鑫       | `/owner/tasks`        |
+| Labeler        | `wangyuyang`     | `1101101`         | Labeler                 | 王昱阳       | `/labeler/market`     |
+| Labeler        | `houshikang`     | `1101101`         | Labeler                 | 侯士康       | `/labeler/market`     |
+| AI Agent       | `agent`          | `1101101`         | AI Agent Pre-review     | AI Agent     | `/agent/ai-review`    |
+| Human Reviewer | `xinzezhang`     | `1101101`         | Reviewer                | 鑫泽张       | `/reviewer/reviews`   |
+
+When the account matches one of the accounts above, the role is determined by the account. When the account does not match, the role is determined by the "Login identity" dropdown.
+
 ## 📄 Documentation
 
 * [Technical Documentation and Presentation - Feishu Cloud Document](https://scnylr3i9roc.feishu.cn/docx/R2rUdIlj9oSUBaxNQ3zcGW3onjc)
@@ -156,29 +170,6 @@ pnpm --filter @labelhub/worker dev
 LLM_PROVIDER=deepseek
 LLM_MODEL=deepseek-chat
 DEEPSEEK_API_KEY=replace_with_deepseek_api_key
-```
-
-## Demo Accounts
-
-The current frontend login page uses demo accounts and does not connect to a real identity provider. Enter both account and password; the unified demo password is `1101101`.
-
-| Role           | Frontend account | Frontend password | Login identity dropdown | Display name | Default home          |
-| -------------- | ---------------- | ----------------- | ----------------------- | ------------ | --------------------- |
-| Task Owner     | `zhangzexin`     | `1101101`         | Owner Task Manager      | 张泽鑫       | `/owner/tasks`        |
-| Labeler        | `wangyuyang`     | `1101101`         | Labeler                 | 王昱阳       | `/labeler/market`     |
-| Labeler        | `houshikang`     | `1101101`         | Labeler                 | 侯士康       | `/labeler/market`     |
-| AI Agent       | `agent`          | `1101101`         | AI Agent Pre-review     | AI Agent     | `/agent/ai-review`    |
-| Human Reviewer | `xinzezhang`     | `1101101`         | Reviewer                | 鑫泽张       | `/reviewer/reviews`   |
-
-When the account matches one of the accounts above, the role is determined by the account. When the account does not match, the role is determined by the "Login identity" dropdown.
-
-The backend `/auth/login` endpoint uses the same demo accounts and password. Example:
-
-```json
-{
-  "account": "zhangzexin",
-  "password": "1101101"
-}
 ```
 
 ## Team Responsibilities
