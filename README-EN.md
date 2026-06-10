@@ -24,22 +24,40 @@
 
 LabelHub is an online platform for AI data labeling operations. It covers **labeling template configuration, item import, task publishing, labeling submission, AI automated pre-review, human review, and data export**, forming a traceable end-to-end loop for labeling tasks.
 
+## 🧩 Architecture and Module Breakdown
+
+<p align="center">
+  <img src="./docs/readme/architecture-modules.png" alt="LabelHub architecture and module breakdown" width="920" />
+</p>
+
 ## 🌍 Online Experience
 
 You can visit the online platform. View existing tasks or create your own tasks to quickly experience the core features: [115.190.153.31](http://115.190.153.31/)
+
+## 📄 Documentation
+
+* [Technical Documentation and Presentation - Feishu Cloud Document](https://scnylr3i9roc.feishu.cn/docx/R2rUdIlj9oSUBaxNQ3zcGW3onjc)
+* [AI Coding Process Record - Feishu Cloud Document](https://scnylr3i9roc.feishu.cn/docx/GYqJddDLgo7qlIxKjbschFzlntf)
+* [API Documentation and Postman Import Guide](./docs/api/postman/README.md)
+* [Postman Collection - Direct Import](https://raw.githubusercontent.com/gcomfident-crypto/Online-Label/zzx/develop/docs/api/postman/labelhub-demo.postman_collection.json)
 
 ## 📷 System Screenshots
 
 ### Owner
 
+Owner can independently complete the full flow of creating tasks, configuring templates, publishing tasks, reviewing results, and exporting data. Exported files are structured for downstream use.
+
 <p align="center">
-  <img src="./docs/readme/owner/1.png" alt="Owner screenshot 1" width="22%" hspace="6" />
-  <img src="./docs/readme/owner/2.png" alt="Owner screenshot 2" width="22%" hspace="6" />
-  <img src="./docs/readme/owner/3.png" alt="Owner screenshot 3" width="22%" hspace="6" />
-  <img src="./docs/readme/owner/4.png" alt="Owner screenshot 4" width="22%" hspace="6" />
+  <img src="./docs/readme/owner/1.png" alt="Owner screenshot 1" width="18%" hspace="3" />
+  <img src="./docs/readme/owner/2.png" alt="Owner screenshot 2" width="18%" hspace="3" />
+  <img src="./docs/readme/owner/3.png" alt="Owner screenshot 3" width="18%" hspace="3" />
+  <img src="./docs/readme/owner/4.png" alt="Owner screenshot 4" width="18%" hspace="3" />
+  <img src="./docs/readme/owner/5.png" alt="Owner export result screenshot" width="18%" hspace="3" />
 </p>
 
 ### Labeler
+
+Labeler can independently complete claiming tasks, answering items, submitting results, viewing rejections, and revising answers.
 
 <p align="center">
   <img src="./docs/readme/labeler/1.png" alt="Labeler screenshot 1" width="22%" hspace="6" />
@@ -50,6 +68,8 @@ You can visit the online platform. View existing tasks or create your own tasks 
 
 ### Agent
 
+AI Agent automated pre-review runs normally, with visible and traceable results.
+
 <p align="center">
   <img src="./docs/readme/agent/1.png" alt="Agent screenshot 1" width="46%" hspace="8" />
   <img src="./docs/readme/agent/2.png" alt="Agent screenshot 2" width="46%" hspace="8" />
@@ -57,12 +77,29 @@ You can visit the online platform. View existing tasks or create your own tasks 
 
 ### Reviewer
 
+Reviewer can review labeling results and inspect the audit history of each item.
+
 <p align="center">
   <img src="./docs/readme/reviewer/1.png" alt="Reviewer screenshot 1" width="46%" hspace="8" />
   <img src="./docs/readme/reviewer/2.png" alt="Reviewer screenshot 2" width="46%" hspace="8" />
 </p>
 
 ## 🎬 Demo Video
+
+<p align="center">
+  <a href="https://www.bilibili.com/video/BV1DBE96DET8" target="_blank">
+    <img src="https://i0.hdslb.com/bfs/archive/c1fb25d895a941764962c0556a3de91d1a43b58f.jpg" alt="LabelHub demo video" width="720" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://www.bilibili.com/video/BV1DBE96DET8">Watch the LabelHub demo video</a>
+</p>
+
+<!-- Docsify + docsify-bilibili:
+- Bilibili video
+- aid=116724712081364&bvid=BV1DBE96DET8&cid=39006898467&p=1
+-->
 
 ## 🔄 Workflow
 
@@ -143,3 +180,11 @@ The backend `/auth/login` endpoint uses the same demo accounts and password. Exa
   "password": "1101101"
 }
 ```
+
+## Team Responsibilities
+
+| Member | Primary role | Work scope |
+| ------ | ------------ | ---------- |
+| Zhang Zexin | Development | Core frontend/backend features, database models, API documentation, deployment, and major issue fixes |
+| Wang Yuyang | Product design | Business flow design, multi-role collaboration paths, page interaction requirements, and demo flow planning |
+| Hou Shikang | Testing | Feature testing, end-to-end acceptance, import/export verification, and UX issue feedback |
