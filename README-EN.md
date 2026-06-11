@@ -48,10 +48,14 @@ The current frontend login page uses demo accounts and does not connect to a rea
 
 When the account matches one of the accounts above, the role is determined by the account. When the account does not match, the role is determined by the "Login identity" dropdown.
 
-The Owner role controls task creation, publishing, editing, and deletion across the labeling workflow, so its password is not public. To request an Owner role demo, send an SMS to `17331085199` or email `gcomifdent@gmail.com`.
-
 > [!CAUTION]
-> Alternatively, search for "张泽鑫" in the AI Full-Stack Challenge on Feishu and place an urgent Feishu call.
+> **Owner Password Access**
+>
+> The Owner role controls task creation, publishing, editing, and deletion across the labeling workflow, so its password is not public. To request an Owner role demo, scan the Feishu QR code below to contact Zhang Zexin.
+>
+> <img src="./docs/readme/feishu-contact-qr.jpg" width="180" alt="Feishu QR code for Zhang Zexin" />
+>
+> You can also search for "张泽鑫" in the AI Full-Stack Challenge on Feishu and place an urgent Feishu call.
 
 ## 📄 Documentation
 
