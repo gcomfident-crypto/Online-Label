@@ -43,6 +43,21 @@ const ACCOUNT_USERS: Record<string, Pick<MockUser, 'id' | 'name' | 'role'>> = {
   xinzezhang: { id: 'mock-reviewer', name: '鑫泽张', role: USER_ROLE.REVIEWER },
 };
 
+const ACCOUNT_PASSWORDS: Record<string, string> = {
+  zhangzexin: 'LabelHub@1101101',
+  wangyuyang: '1101101',
+  houshikang: '1101101',
+  agent: '1101101',
+  xinzezhang: '1101101',
+};
+
+const ROLE_PASSWORDS: Record<UserRole, string> = {
+  OWNER: ACCOUNT_PASSWORDS.zhangzexin,
+  LABELER: ACCOUNT_PASSWORDS.wangyuyang,
+  AI_AGENT: ACCOUNT_PASSWORDS.agent,
+  REVIEWER: ACCOUNT_PASSWORDS.xinzezhang,
+};
+
 @Controller('auth')
 export class AuthController {
   @Post('login')
@@ -56,10 +71,12 @@ export class AuthController {
       });
     }
 
-    if (!body.password || body.password !== '1101101') {
+    const expectedPassword = resolvePassword(body, role);
+
+    if (!body.password || body.password !== expectedPassword) {
       throw new BadRequestException({
         code: 'INVALID_PASSWORD',
-        message: '密码错误，演示环境统一密码为 1101101。',
+        message: '密码错误，请检查该演示账号对应的密码。',
       });
     }
 
@@ -104,6 +121,11 @@ function resolveRole(body: LoginBody): UserRole | null {
 
   const account = body.account?.trim().toLowerCase().split('@')[0];
   return account ? ACCOUNT_ROLE_MAP[account] ?? null : null;
+}
+
+function resolvePassword(body: LoginBody, role: UserRole): string {
+  const account = body.account?.trim().toLowerCase().split('@')[0];
+  return account ? ACCOUNT_PASSWORDS[account] ?? ROLE_PASSWORDS[role] : ROLE_PASSWORDS[role];
 }
 
 function createMockToken(role: UserRole): string {

@@ -96,7 +96,7 @@ paths:
               "$ref": "#/components/schemas/GenericObject"
             example:
               account: "zhangzexin"
-              password: "1101101"
+              password: "LabelHub@1101101"
   "/me":
     get:
       tags:
@@ -188,7 +188,7 @@ paths:
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "PUBLISHED"
       responses:
         200:
           description: "成功响应"
@@ -227,7 +227,7 @@ paths:
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "PUBLISHED"
       responses:
         200:
           description: "成功响应"
@@ -1000,14 +1000,14 @@ paths:
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "Postman"
         -
           name: "tag"
           in: "query"
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "api"
         -
           name: "claimStatus"
           in: "query"
@@ -1292,21 +1292,21 @@ paths:
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "AI_QUEUED"
         -
           name: "datasetKind"
           in: "query"
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "generic_json"
         -
           name: "itemId"
           in: "query"
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "{{taskItemId}}"
       responses:
         200:
           description: "成功响应"
@@ -1448,7 +1448,7 @@ paths:
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "PENDING"
       responses:
         200:
           description: "成功响应"
@@ -1511,7 +1511,7 @@ paths:
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "QUEUED"
       responses:
         200:
           description: "成功响应"
@@ -1661,7 +1661,7 @@ paths:
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "pass"
       responses:
         200:
           description: "成功响应"
@@ -1700,7 +1700,7 @@ paths:
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "pass"
         -
           name: "taskId"
           in: "query"
@@ -1739,7 +1739,7 @@ paths:
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "pass"
       responses:
         200:
           description: "成功响应"
@@ -2439,7 +2439,7 @@ paths:
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "{}"
       responses:
         200:
           description: "成功响应"
@@ -2532,7 +2532,7 @@ paths:
           required: false
           schema:
             type: "string"
-          example: ""
+          example: "1"
       responses:
         200:
           description: "成功响应"

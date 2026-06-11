@@ -124,6 +124,8 @@ assertRouteSetEqual('expected demo -> demo collection', expectedDemoRoutes, demo
 assertForbiddenDemoRoutes(demoRoutes, failures);
 assertCollectionShape('demo collection', demoCollection, failures);
 assertCollectionShape('full collection', fullCollection, failures);
+assertVisibleQueryParams('demo collection', demoCollection, failures);
+assertVisibleQueryParams('full collection', fullCollection, failures);
 assertEnvironment('local', localEnv, failures);
 assertEnvironment('prod', prodEnv, failures);
 assertTokenScripts('demo collection', demoCollection, failures);
@@ -257,6 +259,29 @@ function assertCollectionShape(label, collection, failures) {
   if (!Array.isArray(collection.item) || collection.item.length === 0) {
     failures.push(`${label}: no folders/items`);
   }
+}
+
+function assertVisibleQueryParams(label, collection, failures) {
+  const visit = (items = [], folderPath = []) => {
+    for (const item of items) {
+      if (item.request) {
+        const requestName = [...folderPath, item.name].join(' / ');
+        for (const queryParam of item.request.url?.query ?? []) {
+          if (queryParam.disabled === true) {
+            failures.push(`${label}: query param is disabled in ${requestName}: ${queryParam.key}`);
+          }
+
+          if (typeof queryParam.value !== 'string' || queryParam.value.trim() === '') {
+            failures.push(`${label}: query param has empty value in ${requestName}: ${queryParam.key}`);
+          }
+        }
+      }
+
+      if (item.item) visit(item.item, [...folderPath, item.name]);
+    }
+  };
+
+  visit(collection.item);
 }
 
 function assertEnvironment(label, env, failures) {

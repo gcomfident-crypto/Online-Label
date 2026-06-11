@@ -25,9 +25,9 @@ const routeDefinitions = [
   route('GET', '/health', '/health', 'system', '健康检查', { public: true }),
   route('POST', '/auth/login', '/auth/login', 'auth', '使用演示账号登录', {
     public: true,
-    body: { account: 'zhangzexin', password: '1101101' },
+    body: { account: 'zhangzexin', password: 'LabelHub@1101101' },
     variants: [
-      loginVariant('Owner 登录', 'zhangzexin', 'ownerToken'),
+      loginVariant('Owner 登录', 'zhangzexin', 'LabelHub@1101101', 'ownerToken'),
       loginVariant('Labeler 王昱阳登录', 'wangyuyang', 'labelerToken'),
       loginVariant('Labeler 侯士康登录', 'houshikang', 'secondLabelerToken'),
       loginVariant('AI Agent 登录', 'agent', 'agentToken'),
@@ -58,11 +58,11 @@ const routeDefinitions = [
   }),
   route('GET', '/tasks', '/tasks', 'tasks', '查询 Owner 任务列表', {
     token: 'ownerToken',
-    query: { ownerId: '{{ownerId}}', status: '' },
+    query: { ownerId: '{{ownerId}}', status: 'PUBLISHED' },
   }),
   route('GET', '/tasks/summaries', '/tasks/summaries', 'tasks', '查询 Owner 任务摘要', {
     token: 'ownerToken',
-    query: { ownerId: '{{ownerId}}', status: '' },
+    query: { ownerId: '{{ownerId}}', status: 'PUBLISHED' },
   }),
   route('GET', '/tasks/{id}', '/tasks/{{taskId}}', 'tasks', '获取任务详情', { token: 'ownerToken' }),
   route('PATCH', '/tasks/{id}', '/tasks/{{taskId}}', 'tasks', '更新任务基础信息', {
@@ -132,7 +132,7 @@ const routeDefinitions = [
 
   route('GET', '/labeler/tasks', '/labeler/tasks', 'labeler', '查询任务广场', {
     token: 'labelerToken',
-    query: { keyword: '', tag: '', claimStatus: 'available', labelerId: '{{labelerId}}' },
+    query: { keyword: 'Postman', tag: 'api', claimStatus: 'available', labelerId: '{{labelerId}}' },
   }),
   route('POST', '/assignments/claim', '/assignments/claim', 'labeler', '领取任务', {
     token: 'labelerToken',
@@ -159,7 +159,13 @@ const routeDefinitions = [
   }),
   route('GET', '/labeler/submissions', '/labeler/submissions', 'labeler', '查询标注员提交历史', {
     token: 'labelerToken',
-    query: { labelerId: '{{labelerId}}', taskId: '{{taskId}}', status: '', datasetKind: '', itemId: '' },
+    query: {
+      labelerId: '{{labelerId}}',
+      taskId: '{{taskId}}',
+      status: 'AI_QUEUED',
+      datasetKind: 'generic_json',
+      itemId: '{{taskItemId}}',
+    },
   }),
   route('GET', '/labeler/assignments', '/labeler/assignments', 'labeler', '查询标注员 assignment', {
     token: 'labelerToken',
@@ -174,9 +180,9 @@ const routeDefinitions = [
     query: { labelerId: '{{labelerId}}', taskId: '{{taskId}}' },
   }),
 
-  route('GET', '/ai-review/batches', '/ai-review/batches', 'ai', '查询 AI 预审批次', { token: 'agentToken', query: { status: '' } }),
+  route('GET', '/ai-review/batches', '/ai-review/batches', 'ai', '查询 AI 预审批次', { token: 'agentToken', query: { status: 'PENDING' } }),
   route('GET', '/ai-review/batches/{batchId}', '/ai-review/batches/{{batchId}}', 'ai', '查询 AI 预审批次详情', { token: 'agentToken' }),
-  route('GET', '/ai-review/jobs', '/ai-review/jobs', 'ai', '查询 AI 预审任务', { token: 'agentToken', query: { status: '' } }),
+  route('GET', '/ai-review/jobs', '/ai-review/jobs', 'ai', '查询 AI 预审任务', { token: 'agentToken', query: { status: 'QUEUED' } }),
   route('POST', '/ai-review/jobs/{id}/retry', '/ai-review/jobs/{{jobId}}/retry', 'ai', '重试 AI 预审任务', { token: 'agentToken' }),
   route('POST', '/ai-review/jobs/{id}/complete', '/ai-review/jobs/{{jobId}}/complete', 'ai', '完成 AI 预审任务', {
     token: 'agentToken',
@@ -186,13 +192,13 @@ const routeDefinitions = [
 
   route('GET', '/reviews/pending/tasks', '/reviews/pending/tasks', 'reviewer', '查询待复核任务列表', {
     token: 'reviewerToken',
-    query: { reviewerId: '{{reviewerId}}', aiDecision: '' },
+    query: { reviewerId: '{{reviewerId}}', aiDecision: 'pass' },
   }),
   route('GET', '/reviews/pending', '/reviews/pending', 'reviewer', '查询待人工复审题目', {
     token: 'reviewerToken',
-    query: { reviewerId: '{{reviewerId}}', aiDecision: '', taskId: '{{taskId}}' },
+    query: { reviewerId: '{{reviewerId}}', aiDecision: 'pass', taskId: '{{taskId}}' },
   }),
-  route('GET', '/reviews/results', '/reviews/results', 'reviewer', '查询审核结果', { token: 'reviewerToken', query: { verdict: '' } }),
+  route('GET', '/reviews/results', '/reviews/results', 'reviewer', '查询审核结果', { token: 'reviewerToken', query: { verdict: 'pass' } }),
   route('GET', '/reviews/{assignmentId}/rounds', '/reviews/{{assignmentId}}/rounds', 'reviewer', '查询提交轮次', { token: 'reviewerToken' }),
   route('GET', '/reviews/{assignmentId}/diff', '/reviews/{{assignmentId}}/diff', 'reviewer', '查询轮次 Diff', {
     token: 'reviewerToken',
@@ -247,12 +253,12 @@ const routeDefinitions = [
   route('POST', '/exports/{id}/retry', '/exports/{{exportId}}/retry', 'exports', '重试失败导出', { token: 'ownerToken' }),
   route('GET', '/tasks/{taskId}/export-preview', '/tasks/{{taskId}}/export-preview', 'exports', '预览终审通过数据的导出字段映射', {
     token: 'ownerToken',
-    query: { includeReviews: 'true', fieldMapping: '' },
+    query: { includeReviews: 'true', fieldMapping: '{}' },
   }),
 
   route('GET', '/agent/task-flows', '/agent/task-flows', 'flows', '查询质检流转任务列表', { token: 'agentToken' }),
   route('GET', '/agent/task-flows/{taskId}/logs', '/agent/task-flows/{{taskId}}/logs', 'flows', '查询任务流转日志', { token: 'agentToken' }),
-  route('GET', '/agent/task-flows/{taskId}', '/agent/task-flows/{{taskId}}', 'flows', '查询任务流转详情', { token: 'agentToken', query: { round: '' } }),
+  route('GET', '/agent/task-flows/{taskId}', '/agent/task-flows/{{taskId}}', 'flows', '查询任务流转详情', { token: 'agentToken', query: { round: '1' } }),
 
   route('POST', '/schema/validate', '/schema/validate', 'system', '校验 Schema answers', {
     token: 'ownerToken',
@@ -355,10 +361,13 @@ function routeKey(method, openapiPath) {
   return `${method.toUpperCase()} ${openapiPath}`;
 }
 
-function loginVariant(name, account, tokenVar) {
+function loginVariant(name, account, passwordOrTokenVar, maybeTokenVar) {
+  const password = maybeTokenVar ? passwordOrTokenVar : '1101101';
+  const tokenVar = maybeTokenVar ?? passwordOrTokenVar;
+
   return {
     name,
-    body: { account, password: '1101101' },
+    body: { account, password },
     tests: [
       'const json = pm.response.json();',
       `pm.environment.set(${JSON.stringify(tokenVar)}, json.data.token);`,
@@ -672,10 +681,19 @@ function buildReadme() {
     '- 演示、交付、给非研发同学看：导入 `labelhub-demo.postman_collection.json`。',
     '- 排查接口覆盖、研发自测、确认 controller 全量路由：导入 `labelhub-full.postman_collection.json`。',
     '',
+    '## 直接导入链接',
+    '',
+    '在 Postman 中选择 `Import -> Link`，按需粘贴以下链接：',
+    '',
+    '- Demo Collection：`https://raw.githubusercontent.com/gcomfident-crypto/Online-Label/zzx/develop/docs/api/postman/labelhub-demo.postman_collection.json`',
+    '- Full Collection：`https://raw.githubusercontent.com/gcomfident-crypto/Online-Label/zzx/develop/docs/api/postman/labelhub-full.postman_collection.json`',
+    '- 线上环境：`https://raw.githubusercontent.com/gcomfident-crypto/Online-Label/zzx/develop/docs/api/postman/labelhub-prod.postman_environment.json`',
+    '- 本地环境：`https://raw.githubusercontent.com/gcomfident-crypto/Online-Label/zzx/develop/docs/api/postman/labelhub-local.postman_environment.json`',
+    '',
     '## 使用步骤',
     '',
-    '1. 在 Postman 导入 `labelhub-demo.postman_collection.json`。',
-    '2. 导入 `labelhub-local.postman_environment.json` 或 `labelhub-prod.postman_environment.json`。',
+    '1. 在 Postman 导入 Demo Collection 链接。',
+    '2. 导入 `labelhub-prod.postman_environment.json` 线上环境链接，或导入 `labelhub-local.postman_environment.json` 本地环境链接。',
     '3. 选择对应环境。',
     '4. 先运行 `00 Auth 登录` 文件夹里的登录请求，登录脚本会自动保存 token。',
     '5. 再按 Owner、Labeler、AI Agent、Reviewer、Export 的业务顺序执行接口。',

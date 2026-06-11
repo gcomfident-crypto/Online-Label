@@ -121,7 +121,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"account\": \"zhangzexin\",\n  \"password\": \"1101101\"\n}",
+              "raw": "{\n  \"account\": \"zhangzexin\",\n  \"password\": \"LabelHub@1101101\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -523,7 +523,7 @@
             "header": [],
             "description": "GET /tasks\n\n查询 Owner 任务列表。",
             "url": {
-              "raw": "{{baseUrl}}/tasks?ownerId=%7B%7BownerId%7D%7D",
+              "raw": "{{baseUrl}}/tasks?ownerId=%7B%7BownerId%7D%7D&status=PUBLISHED",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -538,8 +538,8 @@
                 },
                 {
                   "key": "status",
-                  "value": "",
-                  "disabled": true
+                  "value": "PUBLISHED",
+                  "disabled": false
                 }
               ]
             },
@@ -573,7 +573,7 @@
             "header": [],
             "description": "GET /tasks/summaries\n\n查询 Owner 任务摘要。",
             "url": {
-              "raw": "{{baseUrl}}/tasks/summaries?ownerId=%7B%7BownerId%7D%7D",
+              "raw": "{{baseUrl}}/tasks/summaries?ownerId=%7B%7BownerId%7D%7D&status=PUBLISHED",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -589,8 +589,8 @@
                 },
                 {
                   "key": "status",
-                  "value": "",
-                  "disabled": true
+                  "value": "PUBLISHED",
+                  "disabled": false
                 }
               ]
             },
@@ -1587,7 +1587,7 @@
             "header": [],
             "description": "GET /labeler/tasks\n\n查询任务广场。",
             "url": {
-              "raw": "{{baseUrl}}/labeler/tasks?claimStatus=available&labelerId=%7B%7BlabelerId%7D%7D",
+              "raw": "{{baseUrl}}/labeler/tasks?keyword=Postman&tag=api&claimStatus=available&labelerId=%7B%7BlabelerId%7D%7D",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1598,13 +1598,13 @@
               "query": [
                 {
                   "key": "keyword",
-                  "value": "",
-                  "disabled": true
+                  "value": "Postman",
+                  "disabled": false
                 },
                 {
                   "key": "tag",
-                  "value": "",
-                  "disabled": true
+                  "value": "api",
+                  "disabled": false
                 },
                 {
                   "key": "claimStatus",
@@ -1967,7 +1967,7 @@
             "header": [],
             "description": "GET /labeler/submissions\n\n查询标注员提交历史。",
             "url": {
-              "raw": "{{baseUrl}}/labeler/submissions?labelerId=%7B%7BlabelerId%7D%7D&taskId=%7B%7BtaskId%7D%7D",
+              "raw": "{{baseUrl}}/labeler/submissions?labelerId=%7B%7BlabelerId%7D%7D&taskId=%7B%7BtaskId%7D%7D&status=AI_QUEUED&datasetKind=generic_json&itemId=%7B%7BtaskItemId%7D%7D",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1988,18 +1988,18 @@
                 },
                 {
                   "key": "status",
-                  "value": "",
-                  "disabled": true
+                  "value": "AI_QUEUED",
+                  "disabled": false
                 },
                 {
                   "key": "datasetKind",
-                  "value": "",
-                  "disabled": true
+                  "value": "generic_json",
+                  "disabled": false
                 },
                 {
                   "key": "itemId",
-                  "value": "",
-                  "disabled": true
+                  "value": "{{taskItemId}}",
+                  "disabled": false
                 }
               ]
             },
@@ -2186,7 +2186,7 @@
             "header": [],
             "description": "GET /ai-review/batches\n\n查询 AI 预审批次。",
             "url": {
-              "raw": "{{baseUrl}}/ai-review/batches",
+              "raw": "{{baseUrl}}/ai-review/batches?status=PENDING",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2197,8 +2197,8 @@
               "query": [
                 {
                   "key": "status",
-                  "value": "",
-                  "disabled": true
+                  "value": "PENDING",
+                  "disabled": false
                 }
               ]
             },
@@ -2272,7 +2272,7 @@
             "header": [],
             "description": "GET /ai-review/jobs\n\n查询 AI 预审任务。",
             "url": {
-              "raw": "{{baseUrl}}/ai-review/jobs",
+              "raw": "{{baseUrl}}/ai-review/jobs?status=QUEUED",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2283,8 +2283,8 @@
               "query": [
                 {
                   "key": "status",
-                  "value": "",
-                  "disabled": true
+                  "value": "QUEUED",
+                  "disabled": false
                 }
               ]
             },
@@ -2553,7 +2553,7 @@
             "header": [],
             "description": "GET /reviews/pending/tasks\n\n查询待复核任务列表。",
             "url": {
-              "raw": "{{baseUrl}}/reviews/pending/tasks?reviewerId=%7B%7BreviewerId%7D%7D",
+              "raw": "{{baseUrl}}/reviews/pending/tasks?reviewerId=%7B%7BreviewerId%7D%7D&aiDecision=pass",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2570,8 +2570,8 @@
                 },
                 {
                   "key": "aiDecision",
-                  "value": "",
-                  "disabled": true
+                  "value": "pass",
+                  "disabled": false
                 }
               ]
             },
@@ -2605,7 +2605,7 @@
             "header": [],
             "description": "GET /reviews/pending\n\n查询待人工复审题目。",
             "url": {
-              "raw": "{{baseUrl}}/reviews/pending?reviewerId=%7B%7BreviewerId%7D%7D&taskId=%7B%7BtaskId%7D%7D",
+              "raw": "{{baseUrl}}/reviews/pending?reviewerId=%7B%7BreviewerId%7D%7D&aiDecision=pass&taskId=%7B%7BtaskId%7D%7D",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2621,8 +2621,8 @@
                 },
                 {
                   "key": "aiDecision",
-                  "value": "",
-                  "disabled": true
+                  "value": "pass",
+                  "disabled": false
                 },
                 {
                   "key": "taskId",
@@ -2661,7 +2661,7 @@
             "header": [],
             "description": "GET /reviews/results\n\n查询审核结果。",
             "url": {
-              "raw": "{{baseUrl}}/reviews/results",
+              "raw": "{{baseUrl}}/reviews/results?verdict=pass",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2672,8 +2672,8 @@
               "query": [
                 {
                   "key": "verdict",
-                  "value": "",
-                  "disabled": true
+                  "value": "pass",
+                  "disabled": false
                 }
               ]
             },
@@ -3485,7 +3485,7 @@
             "header": [],
             "description": "GET /tasks/{taskId}/export-preview\n\n预览终审通过数据的导出字段映射。",
             "url": {
-              "raw": "{{baseUrl}}/tasks/{{taskId}}/export-preview?includeReviews=true",
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/export-preview?includeReviews=true&fieldMapping=%7B%7D",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -3502,8 +3502,8 @@
                 },
                 {
                   "key": "fieldMapping",
-                  "value": "",
-                  "disabled": true
+                  "value": "{}",
+                  "disabled": false
                 }
               ]
             },
@@ -3622,7 +3622,7 @@
             "header": [],
             "description": "GET /agent/task-flows/{taskId}\n\n查询任务流转详情。",
             "url": {
-              "raw": "{{baseUrl}}/agent/task-flows/{{taskId}}",
+              "raw": "{{baseUrl}}/agent/task-flows/{{taskId}}?round=1",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -3634,8 +3634,8 @@
               "query": [
                 {
                   "key": "round",
-                  "value": "",
-                  "disabled": true
+                  "value": "1",
+                  "disabled": false
                 }
               ]
             },

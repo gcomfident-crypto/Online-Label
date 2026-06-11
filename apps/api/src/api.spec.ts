@@ -8,6 +8,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from './app.module.ts';
 import { resolveApiPort } from './main.ts';
 
+const DEMO_ROLE_PASSWORDS: Record<UserRole, string> = {
+  OWNER: 'LabelHub@1101101',
+  LABELER: '1101101',
+  AI_AGENT: '1101101',
+  REVIEWER: '1101101',
+};
+
 describe('LabelHub API shell', () => {
   let app: Awaited<ReturnType<typeof createTestApp>>;
 
@@ -31,7 +38,7 @@ describe('LabelHub API shell', () => {
   it.each(USER_ROLES)('logs in a %s demo user', async (role) => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ role, password: '1101101' })
+      .send({ role, password: DEMO_ROLE_PASSWORDS[role] })
       .expect(201);
 
     expect(response.body).toEqual({
@@ -96,7 +103,7 @@ describe('LabelHub API shell', () => {
     expect(response.body).toEqual({
       error: {
         code: 'INVALID_PASSWORD',
-        message: '密码错误，演示环境统一密码为 1101101。',
+        message: '密码错误，请检查该演示账号对应的密码。',
       },
       requestId: expect.stringMatching(/^req_[a-z0-9]+$/),
     });
@@ -153,7 +160,7 @@ describe('LabelHub API shell', () => {
   it('returns the current mock user for /me', async () => {
     const login = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ role: 'OWNER' satisfies UserRole, password: '1101101' })
+      .send({ role: 'OWNER' satisfies UserRole, password: 'LabelHub@1101101' })
       .expect(201);
 
     const response = await request(app.getHttpServer())

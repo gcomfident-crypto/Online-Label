@@ -24,7 +24,13 @@ const ACCOUNT_ROLE_ALIASES: Record<string, UserRole> = {
   xinzezhang: USER_ROLE.REVIEWER,
 };
 
-const DEMO_PASSWORD = '1101101';
+const DEMO_ACCOUNT_PASSWORDS: Record<string, string> = {
+  zhangzexin: 'LabelHub@1101101',
+  wangyuyang: '1101101',
+  houshikang: '1101101',
+  agent: '1101101',
+  xinzezhang: '1101101',
+};
 
 const resolveRoleFromAccount = (account: string): UserRole | null => {
   const normalizedAccount = account.trim().toLowerCase().split('@')[0];
@@ -66,8 +72,11 @@ export const LoginPage = () => {
       return;
     }
 
-    if (password !== DEMO_PASSWORD) {
-      setFormError('密码错误，演示环境统一密码为 1101101。');
+    const normalizedAccount = account.trim().toLowerCase().split('@')[0];
+    const expectedPassword = DEMO_ACCOUNT_PASSWORDS[normalizedAccount];
+
+    if (!expectedPassword || password !== expectedPassword) {
+      setFormError('密码错误，请检查该演示账号对应的密码。');
       return;
     }
 

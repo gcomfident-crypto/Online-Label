@@ -36,11 +36,11 @@ You can visit the online platform. View existing tasks or create your own tasks 
 
 ## Demo Accounts
 
-The current frontend login page uses demo accounts and does not connect to a real identity provider. Enter both account and password; the unified demo password is `1101101`.
+The current frontend login page uses demo accounts and does not connect to a real identity provider. Enter both account and password.
 
 | Role           | Frontend account | Frontend password | Login identity dropdown | Display name | Default home          |
 | -------------- | ---------------- | ----------------- | ----------------------- | ------------ | --------------------- |
-| Task Owner     | `zhangzexin`     | `1101101`         | Owner Task Manager      | 张泽鑫       | `/owner/tasks`        |
+| Task Owner     | `zhangzexin`     | `LabelHub@1101101` | Owner Task Manager      | 张泽鑫       | `/owner/tasks`        |
 | Labeler        | `wangyuyang`     | `1101101`         | Labeler                 | 王昱阳       | `/labeler/market`     |
 | Labeler        | `houshikang`     | `1101101`         | Labeler                 | 侯士康       | `/labeler/market`     |
 | AI Agent       | `agent`          | `1101101`         | AI Agent Pre-review     | AI Agent     | `/agent/ai-review`    |
