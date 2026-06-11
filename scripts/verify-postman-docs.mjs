@@ -19,6 +19,7 @@ const requiredVariables = [
   'secondLabelerToken',
   'reviewerToken',
   'agentToken',
+  'ownerPassword',
   'ownerId',
   'labelerId',
   'secondLabelerId',

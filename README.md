@@ -38,9 +38,11 @@ LabelHub 是一个面向 AI 数据标注运营在线平台。功能涵盖**标�
 
 当前前端登录页使用演示账号体系，不接入真实身份认证。登录时需要填写账号和密码。
 
+Owner 角色掌管整条标注任务的创建、发布、修改和删除，密码不公开。需要演示 Owner 角色时，请发短信至 `17331085199`，或发邮件至 `gcomifdent@gmail.com`。
+
 | 角色       | 前端账号       | 前端密码    | 登录身份下拉项   | 显示名称 | 默认首页              |
 | ---------- | -------------- | ----------- | ---------------- | -------- | --------------------- |
-| 任务负责人 | `zhangzexin` | `LabelHub@1101101` | Owner 任务负责人 | 张泽鑫   | `/owner/tasks`      |
+| 任务负责人 | `zhangzexin` | 不公开      | Owner 任务负责人 | 张泽鑫   | `/owner/tasks`      |
 | 标注员     | `wangyuyang` | `1101101` | Labeler 标注员   | 王昱阳   | `/labeler/market`   |
 | 标注员     | `houshikang` | `1101101` | Labeler 标注员   | 侯士康   | `/labeler/market`   |
 | AI Agent   | `agent`      | `1101101` | AI Agent 预审    | AI Agent | `/agent/ai-review`  |

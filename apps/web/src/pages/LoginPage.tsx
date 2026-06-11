@@ -6,8 +6,9 @@ import {
   getRoleHomePath,
   type UserRole,
 } from '@labelhub/shared';
+import { requestApi } from '../api/request';
 import labelHubLogo from '../assets/LabelHub_logo_closer_transparent.png';
-import { sessionStore } from '../stores/sessionStore';
+import { sessionStore, type SessionState } from '../stores/sessionStore';
 
 const LOGIN_ROLE_OPTIONS: Array<{ label: string; role: UserRole }> = [
   { label: 'Owner 任务负责人', role: USER_ROLE.OWNER },
@@ -22,14 +23,6 @@ const ACCOUNT_ROLE_ALIASES: Record<string, UserRole> = {
   houshikang: USER_ROLE.LABELER,
   agent: USER_ROLE.AI_AGENT,
   xinzezhang: USER_ROLE.REVIEWER,
-};
-
-const DEMO_ACCOUNT_PASSWORDS: Record<string, string> = {
-  zhangzexin: 'LabelHub@1101101',
-  wangyuyang: '1101101',
-  houshikang: '1101101',
-  agent: '1101101',
-  xinzezhang: '1101101',
 };
 
 const resolveRoleFromAccount = (account: string): UserRole | null => {
@@ -52,7 +45,7 @@ export const LoginPage = () => {
   const [selectedRole, setSelectedRole] = useState<UserRole>(USER_ROLE.OWNER);
   const [formError, setFormError] = useState('');
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!account.trim() || !password.trim()) {
@@ -72,15 +65,23 @@ export const LoginPage = () => {
       return;
     }
 
-    const normalizedAccount = account.trim().toLowerCase().split('@')[0];
-    const expectedPassword = DEMO_ACCOUNT_PASSWORDS[normalizedAccount];
+    let nextSession: SessionState;
 
-    if (!expectedPassword || password !== expectedPassword) {
-      setFormError('密码错误，请检查该演示账号对应的密码。');
+    try {
+      nextSession = await requestApi<SessionState>(
+        '/auth/login',
+        {
+          method: 'POST',
+          body: JSON.stringify({ account, password }),
+        },
+        '登录接口请求失败',
+      );
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : '登录失败，请稍后重试。');
       return;
     }
 
-    const nextSession = sessionStore.loginAs(accountRole, { account, remember: rememberSession });
+    sessionStore.loginWithSession(nextSession, { remember: rememberSession });
 
     void navigate(getRoleHomePath(nextSession.user.role), { replace: true });
   };

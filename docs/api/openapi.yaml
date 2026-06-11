@@ -96,7 +96,7 @@ paths:
               "$ref": "#/components/schemas/GenericObject"
             example:
               account: "zhangzexin"
-              password: "LabelHub@1101101"
+              password: "{{ownerPassword}}"
   "/me":
     get:
       tags:

@@ -177,6 +177,10 @@ export const sessionStore = {
     persist(session, options.remember === false ? 'session' : 'local');
     return session;
   },
+  loginWithSession: (session: SessionState, options: { remember?: boolean } = {}) => {
+    persist(normalizeSession(session), options.remember ? 'local' : 'session');
+    return currentSession;
+  },
   clear: () => persist(null),
 };
 
@@ -215,6 +219,13 @@ function normalizeStoredUser(user: SessionUser): SessionUser {
   }
 
   return user;
+}
+
+function normalizeSession(session: SessionState): SessionState {
+  return {
+    token: session.token,
+    user: normalizeStoredUser(session.user),
+  };
 }
 
 function resolveDemoAccountUser(account?: string): SessionUser | null {

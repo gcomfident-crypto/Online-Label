@@ -25,9 +25,9 @@ const routeDefinitions = [
   route('GET', '/health', '/health', 'system', '健康检查', { public: true }),
   route('POST', '/auth/login', '/auth/login', 'auth', '使用演示账号登录', {
     public: true,
-    body: { account: 'zhangzexin', password: 'LabelHub@1101101' },
+    body: { account: 'zhangzexin', password: '{{ownerPassword}}' },
     variants: [
-      loginVariant('Owner 登录', 'zhangzexin', 'LabelHub@1101101', 'ownerToken'),
+      loginVariant('Owner 登录', 'zhangzexin', '{{ownerPassword}}', 'ownerToken'),
       loginVariant('Labeler 王昱阳登录', 'wangyuyang', 'labelerToken'),
       loginVariant('Labeler 侯士康登录', 'houshikang', 'secondLabelerToken'),
       loginVariant('AI Agent 登录', 'agent', 'agentToken'),
@@ -631,6 +631,7 @@ function environmentValues(baseUrl) {
     { key: 'secondLabelerToken', value: '', enabled: true },
     { key: 'reviewerToken', value: '', enabled: true },
     { key: 'agentToken', value: '', enabled: true },
+    { key: 'ownerPassword', value: '', enabled: true },
     { key: 'ownerId', value: 'mock-owner', enabled: true },
     { key: 'labelerId', value: 'mock-labeler-wang-yu-yang', enabled: true },
     { key: 'secondLabelerId', value: 'mock-labeler-hou-shi-kang', enabled: true },

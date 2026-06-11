@@ -1,6 +1,6 @@
 # LabelHub API 覆盖清单
 
-生成时间：2026-06-11T03:27:49.302Z
+生成时间：2026-06-11T03:45:02.264Z
 
 Full Collection 接口总数：76
 Demo Collection 接口总数：41

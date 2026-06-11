@@ -40,13 +40,15 @@ The current frontend login page uses demo accounts and does not connect to a rea
 
 | Role           | Frontend account | Frontend password | Login identity dropdown | Display name | Default home          |
 | -------------- | ---------------- | ----------------- | ----------------------- | ------------ | --------------------- |
-| Task Owner     | `zhangzexin`     | `LabelHub@1101101` | Owner Task Manager      | 张泽鑫       | `/owner/tasks`        |
+| Task Owner     | `zhangzexin`     | Not public | Owner Task Manager      | 张泽鑫       | `/owner/tasks`        |
 | Labeler        | `wangyuyang`     | `1101101`         | Labeler                 | 王昱阳       | `/labeler/market`     |
 | Labeler        | `houshikang`     | `1101101`         | Labeler                 | 侯士康       | `/labeler/market`     |
 | AI Agent       | `agent`          | `1101101`         | AI Agent Pre-review     | AI Agent     | `/agent/ai-review`    |
 | Human Reviewer | `xinzezhang`     | `1101101`         | Reviewer                | 鑫泽张       | `/reviewer/reviews`   |
 
 When the account matches one of the accounts above, the role is determined by the account. When the account does not match, the role is determined by the "Login identity" dropdown.
+
+The Owner role controls task creation, publishing, editing, and deletion across the labeling workflow, so its password is not public. To request an Owner role demo, send an SMS to `17331085199` or email `gcomifdent@gmail.com`.
 
 ## 📄 Documentation
 

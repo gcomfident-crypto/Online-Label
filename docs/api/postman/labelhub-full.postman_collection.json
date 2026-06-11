@@ -30,6 +30,10 @@
       "value": ""
     },
     {
+      "key": "ownerPassword",
+      "value": ""
+    },
+    {
       "key": "ownerId",
       "value": "mock-owner"
     },
@@ -121,7 +125,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"account\": \"zhangzexin\",\n  \"password\": \"LabelHub@1101101\"\n}",
+              "raw": "{\n  \"account\": \"zhangzexin\",\n  \"password\": \"{{ownerPassword}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, InternalServerErrorException, Post } from '@nestjs/common';
 import {
   USER_ROLE,
   getRoleHomePath,
@@ -43,16 +43,16 @@ const ACCOUNT_USERS: Record<string, Pick<MockUser, 'id' | 'name' | 'role'>> = {
   xinzezhang: { id: 'mock-reviewer', name: '鑫泽张', role: USER_ROLE.REVIEWER },
 };
 
-const ACCOUNT_PASSWORDS: Record<string, string> = {
-  zhangzexin: 'LabelHub@1101101',
+const OWNER_PASSWORD_ENV = 'DEMO_OWNER_PASSWORD';
+
+const ACCOUNT_PASSWORDS: Partial<Record<string, string>> = {
   wangyuyang: '1101101',
   houshikang: '1101101',
   agent: '1101101',
   xinzezhang: '1101101',
 };
 
-const ROLE_PASSWORDS: Record<UserRole, string> = {
-  OWNER: ACCOUNT_PASSWORDS.zhangzexin,
+const ROLE_PASSWORDS: Partial<Record<UserRole, string>> = {
   LABELER: ACCOUNT_PASSWORDS.wangyuyang,
   AI_AGENT: ACCOUNT_PASSWORDS.agent,
   REVIEWER: ACCOUNT_PASSWORDS.xinzezhang,
@@ -125,7 +125,33 @@ function resolveRole(body: LoginBody): UserRole | null {
 
 function resolvePassword(body: LoginBody, role: UserRole): string {
   const account = body.account?.trim().toLowerCase().split('@')[0];
-  return account ? ACCOUNT_PASSWORDS[account] ?? ROLE_PASSWORDS[role] : ROLE_PASSWORDS[role];
+
+  if (account === 'zhangzexin' || role === USER_ROLE.OWNER) {
+    return ownerPassword();
+  }
+
+  const password = account ? ACCOUNT_PASSWORDS[account] ?? ROLE_PASSWORDS[role] : ROLE_PASSWORDS[role];
+  if (!password) {
+    throw new BadRequestException({
+      code: 'INVALID_LOGIN',
+      message: '演示账号不存在，请选择有效角色登录。',
+    });
+  }
+
+  return password;
+}
+
+function ownerPassword(): string {
+  const password = process.env[OWNER_PASSWORD_ENV]?.trim();
+
+  if (!password) {
+    throw new InternalServerErrorException({
+      code: 'OWNER_PASSWORD_NOT_CONFIGURED',
+      message: `Owner 演示密码未配置，请在服务端环境变量 ${OWNER_PASSWORD_ENV} 中配置。`,
+    });
+  }
+
+  return password;
 }
 
 function createMockToken(role: UserRole): string {

@@ -8,8 +8,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from './app.module.ts';
 import { resolveApiPort } from './main.ts';
 
+const OWNER_TEST_PASSWORD = 'test-owner-demo-password';
+
 const DEMO_ROLE_PASSWORDS: Record<UserRole, string> = {
-  OWNER: 'LabelHub@1101101',
+  OWNER: OWNER_TEST_PASSWORD,
   LABELER: '1101101',
   AI_AGENT: '1101101',
   REVIEWER: '1101101',
@@ -17,13 +19,21 @@ const DEMO_ROLE_PASSWORDS: Record<UserRole, string> = {
 
 describe('LabelHub API shell', () => {
   let app: Awaited<ReturnType<typeof createTestApp>>;
+  let originalOwnerPassword: string | undefined;
 
   beforeAll(async () => {
+    originalOwnerPassword = process.env.DEMO_OWNER_PASSWORD;
+    process.env.DEMO_OWNER_PASSWORD = OWNER_TEST_PASSWORD;
     app = await createTestApp();
   });
 
   afterAll(async () => {
     await app.close();
+    if (originalOwnerPassword === undefined) {
+      delete process.env.DEMO_OWNER_PASSWORD;
+    } else {
+      process.env.DEMO_OWNER_PASSWORD = originalOwnerPassword;
+    }
   });
 
   it('returns health in the unified response envelope', async () => {
@@ -160,7 +170,7 @@ describe('LabelHub API shell', () => {
   it('returns the current mock user for /me', async () => {
     const login = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ role: 'OWNER' satisfies UserRole, password: 'LabelHub@1101101' })
+      .send({ role: 'OWNER' satisfies UserRole, password: OWNER_TEST_PASSWORD })
       .expect(201);
 
     const response = await request(app.getHttpServer())
