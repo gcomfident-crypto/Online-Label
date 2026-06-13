@@ -469,6 +469,37 @@ export const WorkbenchPage = () => {
     [answers, labelerId, localCacheKey, showErrorToast, showInfoToast, showStatusToast, workbench],
   );
 
+  useEffect(() => {
+    if (!hydratedRef.current || !workbench) {
+      return;
+    }
+
+    const snapshot = JSON.stringify(answers);
+    if (snapshot === lastSavedSnapshotRef.current) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void saveDraftNow('auto');
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [answers, saveDraftNow, workbench]);
+
+  const hasSubmittableCurrentTask = useMemo(
+    () => (workbench ? hasSubmittableTaskAssignments(workbench, taskAssignments) : false),
+    [taskAssignments, workbench],
+  );
+  const isCurrentQuestionEditable = workbench
+    ? isEditableAssignmentStatus(workbench.assignment.status)
+    : false;
+  const isTaskSubmitDisabled =
+    isSubmitting || !hasSubmittableCurrentTask || !isCurrentQuestionEditable;
+
+  const orderedTaskAssignments = useMemo(
+    () => [...taskAssignments].sort(compareLabelerAssignments),
+    [taskAssignments],
+  );
   const syncTaskDraftsBeforeSubmit = useCallback(async (): Promise<boolean> => {
     if (!workbench) {
       return false;
@@ -603,37 +634,6 @@ export const WorkbenchPage = () => {
     workbench,
   ]);
 
-  useEffect(() => {
-    if (!hydratedRef.current || !workbench) {
-      return;
-    }
-
-    const snapshot = JSON.stringify(answers);
-    if (snapshot === lastSavedSnapshotRef.current) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      void saveDraftNow('auto');
-    }, 800);
-
-    return () => window.clearTimeout(timer);
-  }, [answers, saveDraftNow, workbench]);
-
-  const hasSubmittableCurrentTask = useMemo(
-    () => (workbench ? hasSubmittableTaskAssignments(workbench, taskAssignments) : false),
-    [taskAssignments, workbench],
-  );
-  const isCurrentQuestionEditable = workbench
-    ? isEditableAssignmentStatus(workbench.assignment.status)
-    : false;
-  const isTaskSubmitDisabled =
-    isSubmitting || !hasSubmittableCurrentTask || !isCurrentQuestionEditable;
-
-  const orderedTaskAssignments = useMemo(
-    () => [...taskAssignments].sort(compareLabelerAssignments),
-    [taskAssignments],
-  );
   const isWorkbenchForCurrentRoute = Boolean(
     workbench &&
       (workbench.assignment.id === assignmentId || workbench.taskItem.id === itemId),
