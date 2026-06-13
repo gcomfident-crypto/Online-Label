@@ -200,6 +200,12 @@ type AssignmentsPrismaClient = {
       include: { taskItem: true };
     }) => Promise<AssignmentRecord>;
   };
+  user: {
+    findUnique: (args: {
+      where: { id: string };
+      select: { id: true; role: true };
+    }) => Promise<{ id: string; role: string } | null>;
+  };
   $transaction: <TResult>(callback: (client: AssignmentsPrismaClient) => Promise<TResult>) => Promise<TResult>;
 };
 
@@ -285,6 +291,17 @@ export class AssignmentsService {
       }
 
       assertTaskCanBeClaimed(task);
+
+      const labeler = await client.user.findUnique({
+        where: { id: input.labelerId },
+        select: { id: true, role: true },
+      });
+      if (!labeler || labeler.role !== 'LABELER') {
+        throw new BadRequestException({
+          code: 'LABELER_NOT_FOUND',
+          message: '标注员不存在或不是有效标注员，请重新登录后再领取任务。',
+        });
+      }
 
       const claimedCount = await client.assignment.count({
         where: {

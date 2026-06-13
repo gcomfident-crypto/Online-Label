@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, InternalServerErrorException, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Inject, InternalServerErrorException, Post } from '@nestjs/common';
 import {
   USER_ROLE,
   getRoleHomePath,
@@ -6,6 +6,8 @@ import {
   type UserRole,
 } from '@labelhub/shared';
 import { randomUUID } from 'node:crypto';
+
+import { PrismaService } from './prisma/prisma.service.ts';
 
 type LoginBody = {
   account?: string;
@@ -28,19 +30,19 @@ const ACCOUNT_ROLE_MAP: Record<string, UserRole> = {
   xinzezhang: USER_ROLE.REVIEWER,
 };
 
-const ROLE_NAMES: Record<UserRole, string> = {
-  OWNER: '演示项目所有者',
-  LABELER: '演示标注员',
-  AI_AGENT: '演示 AI Agent',
-  REVIEWER: '演示审核员',
-};
-
 const ACCOUNT_USERS: Record<string, Pick<MockUser, 'id' | 'name' | 'role'>> = {
   zhangzexin: { id: 'user_owner_zhang_man', name: '张泽鑫', role: USER_ROLE.OWNER },
   wangyuyang: { id: 'user_labeler_li_lei', name: '王昱阳', role: USER_ROLE.LABELER },
   houshikang: { id: 'user_labeler_han_mei_mei', name: '侯士康', role: USER_ROLE.LABELER },
   agent: { id: 'user_ai_agent_system', name: '系统机审账号', role: USER_ROLE.AI_AGENT },
   xinzezhang: { id: 'user_reviewer_wang_fang', name: '鑫泽张', role: USER_ROLE.REVIEWER },
+};
+
+const ROLE_USERS: Record<UserRole, Pick<MockUser, 'id' | 'name' | 'role'>> = {
+  OWNER: ACCOUNT_USERS.zhangzexin,
+  LABELER: ACCOUNT_USERS.wangyuyang,
+  AI_AGENT: ACCOUNT_USERS.agent,
+  REVIEWER: ACCOUNT_USERS.xinzezhang,
 };
 
 const OWNER_PASSWORD_ENV = 'DEMO_OWNER_PASSWORD';
@@ -61,7 +63,7 @@ const ROLE_PASSWORDS: Partial<Record<UserRole, string>> = {
 @Controller('auth')
 export class AuthController {
   @Post('login')
-  login(@Body() body: LoginBody): { token: string; user: MockUser } {
+  async login(@Body() body: LoginBody): Promise<{ token: string; user: MockUser }> {
     const role = resolveRole(body);
 
     if (!role) {
@@ -80,10 +82,33 @@ export class AuthController {
       });
     }
 
+    const user = createMockUser(role, body.account);
+    await this.ensureDemoUser(user);
+
     return {
       token: createMockToken(role),
-      user: createMockUser(role, body.account),
+      user,
     };
+  }
+
+  constructor(
+    @Inject(PrismaService)
+    private readonly prisma: Pick<PrismaService, 'user'>,
+  ) {}
+
+  private async ensureDemoUser(user: Pick<MockUser, 'id' | 'name' | 'role'>): Promise<void> {
+    await this.prisma.user.upsert({
+      where: { id: user.id },
+      create: {
+        id: user.id,
+        name: user.name,
+        role: user.role,
+      },
+      update: {
+        name: user.name,
+        role: user.role,
+      },
+    });
   }
 }
 
@@ -97,9 +122,7 @@ export function createMockUser(role: UserRole, account?: string): MockUser {
   }
 
   return {
-    id: `mock-${role.toLowerCase()}`,
-    name: ROLE_NAMES[role],
-    role,
+    ...ROLE_USERS[role],
     homePath: getRoleHomePath(role),
   };
 }

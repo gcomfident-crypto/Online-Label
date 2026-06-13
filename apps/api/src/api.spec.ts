@@ -10,6 +10,13 @@ import { resolveApiPort } from './main.ts';
 
 const OWNER_TEST_PASSWORD = 'test-owner-demo-password';
 
+const DEMO_ROLE_USERS: Record<UserRole, { id: string; name: string; role: UserRole }> = {
+  OWNER: { id: 'user_owner_zhang_man', name: '张泽鑫', role: 'OWNER' },
+  LABELER: { id: 'user_labeler_li_lei', name: '王昱阳', role: 'LABELER' },
+  AI_AGENT: { id: 'user_ai_agent_system', name: '系统机审账号', role: 'AI_AGENT' },
+  REVIEWER: { id: 'user_reviewer_wang_fang', name: '鑫泽张', role: 'REVIEWER' },
+};
+
 const DEMO_ROLE_PASSWORDS: Record<UserRole, string> = {
   OWNER: OWNER_TEST_PASSWORD,
   LABELER: '1101101',
@@ -55,8 +62,7 @@ describe('LabelHub API shell', () => {
       data: {
         token: expect.stringMatching(new RegExp(`^mock_${role.toLowerCase()}_[a-z0-9]+$`)),
         user: {
-          id: `mock-${role.toLowerCase()}`,
-          name: expect.any(String),
+          ...DEMO_ROLE_USERS[role],
           role,
           homePath: getRoleHomePath(role),
         },

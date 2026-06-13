@@ -107,6 +107,9 @@ type MockAssignmentsPrisma = {
     }) => Promise<number>;
     create: (args: { data: Partial<AssignmentRecord>; include?: unknown }) => Promise<AssignmentRecord>;
   };
+  user: {
+    findUnique: (args: { where: { id: string }; select: { id: true; role: true } }) => Promise<{ id: string; role: string } | null>;
+  };
   $transaction: <TResult>(callback: (client: MockAssignmentsPrisma) => Promise<TResult>) => Promise<TResult>;
 };
 
@@ -122,7 +125,7 @@ describe('AssignmentsService', () => {
         ownerName: '张泽鑫',
         datasetKind: 'qa_quality',
         itemCount: 2,
-        assignedCount: 1,
+        assignedCount: 0,
         remainingCount: 1,
         claimStatus: 'available',
         claimedByMe: false,
@@ -320,6 +323,19 @@ describe('AssignmentsService', () => {
       service.claim({ taskId: 'missing', labelerId: 'user_labeler_1' }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('不存在的标注员不能领取任务且不会触发数据库外键错误', async () => {
+    const { service } = createService({ assignments: [] });
+
+    await expect(
+      service.claim({ taskId: 'task_qa', labelerId: 'missing_labeler' }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'LABELER_NOT_FOUND',
+        message: '标注员不存在或不是有效标注员，请重新登录后再领取任务。',
+      }),
+    });
+  });
 });
 
 function createService(
@@ -385,6 +401,13 @@ function createService(
             taskItem: items.find((item) => item.id === assignment.taskItemId) ?? items[0],
           }),
         );
+  const users = new Map<string, { id: string; role: string }>([
+    ['user_labeler_1', { id: 'user_labeler_1', role: 'LABELER' }],
+    ['user_labeler_2', { id: 'user_labeler_2', role: 'LABELER' }],
+    ['user_labeler_other', { id: 'user_labeler_other', role: 'LABELER' }],
+    ['user_labeler_li_lei', { id: 'user_labeler_li_lei', role: 'LABELER' }],
+    ['user_labeler_han_mei_mei', { id: 'user_labeler_han_mei_mei', role: 'LABELER' }],
+  ]);
 
   const prisma: MockAssignmentsPrisma = {
     task: {
@@ -450,6 +473,9 @@ function createService(
         assignments.push(assignment);
         return assignment;
       },
+    },
+    user: {
+      findUnique: async ({ where }) => users.get(where.id) ?? null,
     },
     $transaction: async <TResult>(callback: (client: MockAssignmentsPrisma) => Promise<TResult>) =>
       callback(prisma),
