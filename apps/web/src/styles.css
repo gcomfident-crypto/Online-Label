@@ -11534,11 +11534,11 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .task-deadline-picker__hour-stepper-actions button:first-child::before {
-  transform: translateY(4px) rotate(45deg);
+  transform: translateY(2px) rotate(45deg);
 }
 
 .task-deadline-picker__hour-stepper-actions button:last-child::before {
-  transform: translateY(-4px) rotate(225deg);
+  transform: translateY(-2px) rotate(225deg);
 }
 
 .task-deadline-picker__hour-stepper-actions button:hover:not(:disabled),
