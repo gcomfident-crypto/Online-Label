@@ -1883,7 +1883,7 @@ function getAnswerFields(fields: readonly SchemaField[]): SchemaField[] {
 }
 
 type QuestionProgressState = 'empty' | 'draft' | 'complete';
-type QuestionFlowStatusLabel = '待标注' | '待提交' | 'AI预审中' | '人工审核中' | '待修改' | '已完成' | '异常';
+type QuestionFlowStatusLabel = '待标注' | '待提交' | 'AI预审中' | '待人工审核' | '待修改' | '已完成' | '异常';
 
 const AI_REVIEWING_SUBMISSION_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING', 'SUBMITTED']);
 const AI_FAILED_SUBMISSION_STATUSES = new Set(['AI_FAILED', 'FAILED']);
@@ -2118,7 +2118,7 @@ function resolveCurrentQuestionFlowStatusLabel(
   }
 
   if (status === 'UNDER_RECHECK' || status === 'FINAL_PENDING') {
-    return '人工审核中';
+    return '待人工审核';
   }
 
   if (isSubmittableAssignmentStatus(status)) {
@@ -2155,7 +2155,7 @@ function resolveNavigationQuestionFlowStatusLabel(
   }
 
   if (assignment.status === 'UNDER_RECHECK' || assignment.status === 'FINAL_PENDING') {
-    return '人工审核中';
+    return '待人工审核';
   }
 
   if (isSubmittableAssignmentStatus(assignment.status)) {
@@ -2179,7 +2179,7 @@ function resolveSubmittedQuestionFlowStatusLabel(status: string | null): Questio
   }
 
   if (REVIEWER_REVIEWING_SUBMISSION_STATUSES.has(status ?? '')) {
-    return '人工审核中';
+    return '待人工审核';
   }
 
   if (AI_REVIEWING_SUBMISSION_STATUSES.has(status ?? '')) {

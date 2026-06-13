@@ -68,7 +68,7 @@ function getFlowStatusClassName(statusLabel: string): string {
     return 'question-navigator__status--ai-review';
   }
 
-  if (statusLabel === '人工审核中') {
+  if (statusLabel === '待人工审核') {
     return 'question-navigator__status--reviewer-reviewing';
   }
 
