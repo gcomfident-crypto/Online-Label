@@ -90,6 +90,8 @@
 - 重要 UI 改动后，尽量用浏览器或 Playwright 打开正在运行的页面验证。
 - 浏览器验证不要只看截图，要检查真实 DOM 和关键 computed style。
 - 没有新鲜验证结果前，不要声称已经修好。
+- 每次完成测试后必须输出 Markdown 测试报告，位置和模板见 `docs/verify/test-script-index.md` 的“测试报告输出规范”。
+- 全仓测试脚本分类、路径、用途和推荐运行方式见 `docs/verify/test-script-index.md`。
 
 ## 汇报方式
 

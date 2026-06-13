@@ -35,6 +35,7 @@ export default defineConfig({
   ],
   use: {
     baseURL: 'http://127.0.0.1:5175',
+    channel: process.env.PW_BROWSER_CHANNEL,
     trace: 'retain-on-failure',
   },
   webServer: [
