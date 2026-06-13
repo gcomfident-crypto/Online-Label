@@ -36,11 +36,11 @@ const ROLE_NAMES: Record<UserRole, string> = {
 };
 
 const ACCOUNT_USERS: Record<string, Pick<MockUser, 'id' | 'name' | 'role'>> = {
-  zhangzexin: { id: 'mock-owner', name: '张泽鑫', role: USER_ROLE.OWNER },
-  wangyuyang: { id: 'mock-labeler-wang-yu-yang', name: '王昱阳', role: USER_ROLE.LABELER },
-  houshikang: { id: 'mock-labeler-hou-shi-kang', name: '侯士康', role: USER_ROLE.LABELER },
-  agent: { id: 'mock-ai_agent', name: '系统机审账号', role: USER_ROLE.AI_AGENT },
-  xinzezhang: { id: 'mock-reviewer', name: '鑫泽张', role: USER_ROLE.REVIEWER },
+  zhangzexin: { id: 'user_owner_zhang_man', name: '张泽鑫', role: USER_ROLE.OWNER },
+  wangyuyang: { id: 'user_labeler_li_lei', name: '王昱阳', role: USER_ROLE.LABELER },
+  houshikang: { id: 'user_labeler_han_mei_mei', name: '侯士康', role: USER_ROLE.LABELER },
+  agent: { id: 'user_ai_agent_system', name: '系统机审账号', role: USER_ROLE.AI_AGENT },
+  xinzezhang: { id: 'user_reviewer_wang_fang', name: '鑫泽张', role: USER_ROLE.REVIEWER },
 };
 
 const OWNER_PASSWORD_ENV = 'DEMO_OWNER_PASSWORD';

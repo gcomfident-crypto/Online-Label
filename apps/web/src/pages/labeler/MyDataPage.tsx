@@ -10,8 +10,8 @@ import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
+import { useSession } from '../../stores/sessionStore';
 
-const LABELER_ID = 'user_labeler_li_lei';
 const MY_DATA_FALLBACK_PAGE_SIZE = 7;
 const MY_DATA_TABLE_ROW_HEIGHT = 66;
 
@@ -40,6 +40,8 @@ type WorkbenchNavigationState = {
 
 export const MyDataPage = () => {
   const navigate = useNavigate();
+  const session = useSession();
+  const labelerId = session?.user.id ?? '';
   const [allTaskGroups, setAllTaskGroups] = useState<LabelerTaskGroup[]>([]);
   const [statusFilter, setStatusFilter] = useState<LabelerStatusFilter>('');
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -54,8 +56,8 @@ export const MyDataPage = () => {
   });
 
   useEffect(() => {
-    void loadMyData();
-  }, []);
+    void loadMyData(labelerId);
+  }, [labelerId]);
 
   const filteredTaskGroups = useMemo(() => {
     const keyword = searchKeyword.trim();
@@ -116,10 +118,17 @@ export const MyDataPage = () => {
     setCurrentPage(1);
   }, [searchKeyword, sortDirection, sortField, statusFilter]);
 
-  const loadMyData = async () => {
+  const loadMyData = async (activeLabelerId: string) => {
+    if (!activeLabelerId) {
+      setAllTaskGroups([]);
+      setIsLoading(false);
+      showErrorToast('缺少当前标注员身份，无法加载工作台。请重新登录。');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const nextTaskGroups = await listLabelerAssignmentTasks({ labelerId: LABELER_ID });
+      const nextTaskGroups = await listLabelerAssignmentTasks({ labelerId: activeLabelerId });
       setAllTaskGroups(nextTaskGroups);
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : '工作台加载失败。');

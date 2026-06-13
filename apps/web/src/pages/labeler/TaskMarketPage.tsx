@@ -10,11 +10,11 @@ import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
+import { useSession } from '../../stores/sessionStore';
 import { readPageDataCache, writePageDataCache } from '../../utils/pageDataCache';
 import eyeIcon from '../../assets/eye.svg';
 import getIcon from '../../assets/get.svg';
 
-const LABELER_ID = 'user_labeler_li_lei';
 type TaskMarketSortField = 'taskId' | 'deadline';
 type TaskMarketSortDirection = 'asc' | 'desc';
 
@@ -48,10 +48,12 @@ const DATASET_IMPORT_FORMAT_LABELS = {
 const MARKET_PREVIEW_ITEM_LIMIT = 100;
 const TASK_MARKET_FALLBACK_PAGE_SIZE = 7;
 const TASK_MARKET_TABLE_ROW_HEIGHT = 66;
-const TASK_MARKET_CACHE_KEY = `labelhub.labeler.market.${LABELER_ID}.v2`;
 
 export const TaskMarketPage = () => {
-  const cachedTasks = useMemo(() => readPageDataCache(TASK_MARKET_CACHE_KEY, isMarketTaskDtoArray), []);
+  const session = useSession();
+  const labelerId = session?.user.id ?? '';
+  const taskMarketCacheKey = useMemo(() => createTaskMarketCacheKey(labelerId), [labelerId]);
+  const cachedTasks = useMemo(() => readPageDataCache(taskMarketCacheKey, isMarketTaskDtoArray), [taskMarketCacheKey]);
   const [tasks, setTasks] = useState<MarketTaskDto[]>(cachedTasks ?? []);
   const [keyword, setKeyword] = useState('');
   const [claimStatus, setClaimStatus] = useState<MarketClaimStatus | 'ALL'>('ALL');
@@ -70,8 +72,11 @@ export const TaskMarketPage = () => {
   });
 
   useEffect(() => {
-    void loadTasks();
-  }, []);
+    const nextCachedTasks = readPageDataCache(taskMarketCacheKey, isMarketTaskDtoArray);
+    setTasks(nextCachedTasks ?? []);
+    setIsLoading(nextCachedTasks === null);
+    void loadTasks(labelerId, taskMarketCacheKey);
+  }, [labelerId, taskMarketCacheKey]);
 
   const taskDisplayIdMap = useMemo(() => {
     const chronologicalTasks = [...tasks].sort((first, second) => {
@@ -151,14 +156,22 @@ export const TaskMarketPage = () => {
     setCurrentPage(1);
   }, [claimStatus, keyword, sortDirection, sortField]);
 
-  const loadTasks = async () => {
+  const loadTasks = async (activeLabelerId: string, cacheKey: string) => {
+    if (!activeLabelerId) {
+      setTasks([]);
+      setCurrentPage(1);
+      setIsLoading(false);
+      showErrorToast('缺少当前标注员身份，无法加载任务广场。请重新登录。');
+      return;
+    }
+
     setIsLoading((current) => current && tasks.length === 0);
     try {
       const nextTasks = await listMarketTasks({
-        labelerId: LABELER_ID,
+        labelerId: activeLabelerId,
       });
       const visibleTasks = nextTasks.filter(isVisibleMarketTask);
-      writePageDataCache(TASK_MARKET_CACHE_KEY, visibleTasks);
+      writePageDataCache(cacheKey, visibleTasks);
       setTasks(visibleTasks);
       setCurrentPage(1);
     } catch (error) {
@@ -173,11 +186,16 @@ export const TaskMarketPage = () => {
   };
 
   const handleClaim = async (task: MarketTaskDto) => {
+    if (!labelerId) {
+      showErrorToast('缺少当前标注员身份，无法领取任务。请重新登录。');
+      return;
+    }
+
     setClaimingTaskId(task.id);
     try {
       const assignment = await claimAssignment({
         taskId: task.id,
-        labelerId: LABELER_ID,
+        labelerId,
       });
       const taskRouteId = /^T-\d+$/i.test(assignment.taskId) ? assignment.taskId : 'claimed-task';
       const itemRouteId = assignment.taskItem.externalId || assignment.taskItemId;
@@ -190,7 +208,7 @@ export const TaskMarketPage = () => {
           className: 'toast--claim-task',
         },
       );
-      await loadTasks();
+      await loadTasks(labelerId, taskMarketCacheKey);
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : '领取任务失败。');
     } finally {
@@ -426,6 +444,10 @@ export const TaskMarketPage = () => {
     </section>
   );
 };
+
+function createTaskMarketCacheKey(labelerId: string): string {
+  return `labelhub.labeler.market.${labelerId || 'anonymous'}.v2`;
+}
 
 const canClaim = (task: MarketTaskDto): boolean => {
   return task.claimStatus === 'available' && task.remainingCount > 0;

@@ -82,7 +82,7 @@ describe('LabelHub API shell', () => {
       .expect(201);
 
     expect(response.body.data.user).toEqual({
-      id: 'mock-labeler-hou-shi-kang',
+      id: 'user_labeler_han_mei_mei',
       name: '侯士康',
       role: 'LABELER',
       homePath: getRoleHomePath('LABELER'),

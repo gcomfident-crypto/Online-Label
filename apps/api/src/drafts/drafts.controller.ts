@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Put } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Put, Query } from '@nestjs/common';
 
 import {
   DraftsService,
@@ -20,8 +20,11 @@ export class DraftsController {
   ) {}
 
   @Get('assignments/:assignmentId/workbench')
-  getWorkbench(@Param('assignmentId') assignmentId: string): Promise<WorkbenchDto> {
-    return this.draftsService.getWorkbench(assignmentId);
+  getWorkbench(
+    @Param('assignmentId') assignmentId: string,
+    @Query('labelerId') labelerId?: string,
+  ): Promise<WorkbenchDto> {
+    return this.draftsService.getWorkbench(assignmentId, stringValue(labelerId));
   }
 
   @Get('drafts/:assignmentId')

@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { DatasetKind, LabelHubSchema } from '@labelhub/shared';
 
 import { PrismaService } from '../prisma/prisma.service.ts';
@@ -227,8 +227,9 @@ export class DraftsService {
     private readonly prisma: DraftsPrismaClient,
   ) {}
 
-  async getWorkbench(assignmentId: string): Promise<WorkbenchDto> {
+  async getWorkbench(assignmentId: string, labelerId?: string): Promise<WorkbenchDto> {
     const assignment = await this.findAssignmentOrThrow(assignmentId);
+    assertAssignmentBelongsToLabeler(assignment, labelerId);
 
     return toWorkbenchDto(assignment);
   }
@@ -250,6 +251,7 @@ export class DraftsService {
     }
 
     const assignment = await this.findAssignmentOrThrow(assignmentId);
+    assertAssignmentBelongsToLabeler(assignment, input.actorId);
 
     if (assignment.status === 'CANCELLED') {
       throw new BadRequestException({
@@ -314,6 +316,22 @@ export class DraftsService {
     }
 
     return assignment;
+  }
+}
+
+function assertAssignmentBelongsToLabeler(assignment: AssignmentWorkbenchRecord, labelerId: string | undefined): void {
+  if (!labelerId) {
+    throw new BadRequestException({
+      code: 'LABELER_ID_REQUIRED',
+      message: '请求缺少当前标注员 ID，无法访问领取记录。',
+    });
+  }
+
+  if (assignment.assigneeId !== labelerId) {
+    throw new ForbiddenException({
+      code: 'ASSIGNMENT_LABELER_MISMATCH',
+      message: '当前领取记录不属于该标注员，禁止访问。',
+    });
   }
 }
 

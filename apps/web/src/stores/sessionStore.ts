@@ -19,22 +19,22 @@ export type SessionState = {
 
 const DEMO_USERS: Record<UserRole, SessionUser> = {
   [USER_ROLE.OWNER]: {
-    id: 'demo-owner',
+    id: 'user_owner_zhang_man',
     name: '张泽鑫',
     role: USER_ROLE.OWNER,
   },
   [USER_ROLE.LABELER]: {
-    id: 'demo-labeler',
+    id: 'user_labeler_li_lei',
     name: 'Labeler 演示账号',
     role: USER_ROLE.LABELER,
   },
   [USER_ROLE.AI_AGENT]: {
-    id: 'demo-agent',
+    id: 'user_ai_agent_system',
     name: 'AI Agent 演示账号',
     role: USER_ROLE.AI_AGENT,
   },
   [USER_ROLE.REVIEWER]: {
-    id: 'demo-reviewer',
+    id: 'user_reviewer_wang_fang',
     name: '鑫泽张',
     role: USER_ROLE.REVIEWER,
   },
@@ -43,12 +43,12 @@ const DEMO_USERS: Record<UserRole, SessionUser> = {
 const DEMO_ACCOUNT_USERS: Record<string, SessionUser> = {
   zhangzexin: DEMO_USERS[USER_ROLE.OWNER],
   wangyuyang: {
-    id: 'demo-labeler-wang-yu-yang',
+    id: 'user_labeler_li_lei',
     name: '王昱阳',
     role: USER_ROLE.LABELER,
   },
   houshikang: {
-    id: 'demo-labeler-hou-shi-kang',
+    id: 'user_labeler_han_mei_mei',
     name: '侯士康',
     role: USER_ROLE.LABELER,
   },
@@ -202,6 +202,26 @@ function isStoredSession(value: Partial<SessionState>): value is SessionState {
 }
 
 function normalizeStoredUser(user: SessionUser): SessionUser {
+  if (user.id === 'mock-owner' || user.id === 'demo-owner') {
+    return { ...user, id: 'user_owner_zhang_man', name: '张泽鑫' };
+  }
+
+  if (user.id === 'mock-labeler-wang-yu-yang' || user.id === 'demo-labeler-wang-yu-yang') {
+    return { ...user, id: 'user_labeler_li_lei', name: '王昱阳' };
+  }
+
+  if (user.id === 'mock-labeler-hou-shi-kang' || user.id === 'demo-labeler-hou-shi-kang') {
+    return { ...user, id: 'user_labeler_han_mei_mei', name: '侯士康' };
+  }
+
+  if (user.id === 'mock-ai_agent' || user.id === 'demo-agent') {
+    return { ...user, id: 'user_ai_agent_system', name: 'AI Agent' };
+  }
+
+  if (user.id === 'mock-reviewer' || user.id === 'demo-reviewer') {
+    return { ...user, id: 'user_reviewer_wang_fang', name: '鑫泽张' };
+  }
+
   if (user.role === USER_ROLE.OWNER && user.name === '张满') {
     return { ...user, name: '张泽鑫' };
   }

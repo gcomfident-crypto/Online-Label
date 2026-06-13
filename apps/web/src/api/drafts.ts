@@ -83,8 +83,17 @@ export type WorkbenchDto = {
   }>;
 };
 
-export async function getAssignmentWorkbench(assignmentId: string): Promise<WorkbenchDto> {
-  return requestDraftApi<WorkbenchDto>(`/assignments/${assignmentId}/workbench`, { method: 'GET' });
+export async function getAssignmentWorkbench(input: {
+  assignmentId: string;
+  labelerId: string;
+}): Promise<WorkbenchDto> {
+  const searchParams = new URLSearchParams();
+  searchParams.set('labelerId', input.labelerId);
+
+  return requestDraftApi<WorkbenchDto>(
+    `/assignments/${input.assignmentId}/workbench?${searchParams.toString()}`,
+    { method: 'GET' },
+  );
 }
 
 export async function getDraft(assignmentId: string): Promise<DraftDto | null> {
@@ -93,7 +102,7 @@ export async function getDraft(assignmentId: string): Promise<DraftDto | null> {
 
 export async function saveDraft(
   assignmentId: string,
-  input: { actorId?: string; answers: Record<string, unknown> },
+  input: { actorId: string; answers: Record<string, unknown> },
 ): Promise<DraftDto> {
   return requestDraftApi<DraftDto>(`/drafts/${assignmentId}`, {
     method: 'PUT',

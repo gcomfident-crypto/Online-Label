@@ -13,8 +13,8 @@ import { RejectNotice } from '../../features/labeler/RejectNotice';
 import { listLabelerAssignments, type AssignmentStatus, type LabelerAssignmentDto } from '../../api/assignments';
 import { getAssignmentWorkbench, saveDraft, type WorkbenchDto } from '../../api/drafts';
 import { getLabelerStats, submitTask, type LabelerStatsDto, type TaskSubmissionDto } from '../../api/submissions';
+import { useSession } from '../../stores/sessionStore';
 
-const LABELER_ID = 'user_labeler_li_lei';
 type WorkbenchNavigationState = {
   assignmentId?: string;
   source?: 'my-data-table';
@@ -35,6 +35,8 @@ type ValidationFocusTarget = {
 export const WorkbenchPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const session = useSession();
+  const labelerId = session?.user.id ?? '';
   const { itemId } = useParams<{ itemId: string }>();
   const [searchParams] = useSearchParams();
   const workbenchNavigationState = location.state as WorkbenchNavigationState | null;
@@ -71,7 +73,7 @@ export const WorkbenchPage = () => {
   const taskAssignmentsCacheRef = useRef<Map<string, LabelerAssignmentDto[]>>(new Map());
   const labelerStatsCacheRef = useRef<Map<string, LabelerStatsDto>>(new Map());
   const localAnswersByAssignmentRef = useRef<Map<string, Record<string, unknown>>>(new Map());
-  const localCacheKey = createLocalDraftCacheKey(assignmentId);
+  const localCacheKey = createLocalDraftCacheKey(labelerId, assignmentId);
 
   const clearAiReviewPolling = useCallback(() => {
     if (aiReviewPollTimerRef.current !== null) {
@@ -81,6 +83,14 @@ export const WorkbenchPage = () => {
   }, []);
 
   useEffect(() => clearAiReviewPolling, [clearAiReviewPolling]);
+
+  useEffect(() => {
+    workbenchCacheRef.current.clear();
+    workbenchPreloadRequestsRef.current.clear();
+    taskAssignmentsCacheRef.current.clear();
+    labelerStatsCacheRef.current.clear();
+    localAnswersByAssignmentRef.current.clear();
+  }, [labelerId]);
 
   useEffect(
     () => () => {
@@ -157,6 +167,10 @@ export const WorkbenchPage = () => {
   );
 
   const loadTaskContextSnapshot = useCallback(async (taskId: string) => {
+    if (!labelerId) {
+      throw new Error('缺少当前标注员身份，无法加载标注任务。请重新登录。');
+    }
+
     const cachedAssignments = taskAssignmentsCacheRef.current.get(taskId);
     const cachedStats = labelerStatsCacheRef.current.get(taskId);
 
@@ -168,8 +182,8 @@ export const WorkbenchPage = () => {
     }
 
     const [nextStats, nextTaskAssignments] = await Promise.all([
-      getLabelerStats({ labelerId: LABELER_ID, taskId }),
-      listLabelerAssignments({ labelerId: LABELER_ID, taskId }),
+      getLabelerStats({ labelerId, taskId }),
+      listLabelerAssignments({ labelerId, taskId }),
     ]);
     const sortedTaskAssignments = [...nextTaskAssignments].sort(compareLabelerAssignments);
 
@@ -180,7 +194,7 @@ export const WorkbenchPage = () => {
       nextStats,
       nextTaskAssignments: sortedTaskAssignments,
     };
-  }, []);
+  }, [labelerId]);
 
   const fetchAndCacheWorkbench = useCallback((nextAssignmentId: string): Promise<WorkbenchDto> => {
     const cachedWorkbench = workbenchCacheRef.current.get(nextAssignmentId);
@@ -193,8 +207,16 @@ export const WorkbenchPage = () => {
       return inflightRequest;
     }
 
-    const request = getAssignmentWorkbench(nextAssignmentId)
+    if (!labelerId) {
+      return Promise.reject(new Error('缺少当前标注员身份，无法加载标注任务。请重新登录。'));
+    }
+
+    const request = getAssignmentWorkbench({ assignmentId: nextAssignmentId, labelerId })
       .then((nextWorkbench) => {
+        if (nextWorkbench.assignment.assigneeId !== labelerId) {
+          throw new Error('当前领取记录不属于当前标注员，无法进入标注台。请切换到正确账号。');
+        }
+
         workbenchCacheRef.current.set(nextAssignmentId, nextWorkbench);
         return nextWorkbench;
       })
@@ -204,7 +226,7 @@ export const WorkbenchPage = () => {
 
     workbenchPreloadRequestsRef.current.set(nextAssignmentId, request);
     return request;
-  }, []);
+  }, [labelerId]);
 
   const preloadTaskWorkbenches = useCallback(
     (currentAssignmentId: string, assignments: readonly LabelerAssignmentDto[]) => {
@@ -250,7 +272,7 @@ export const WorkbenchPage = () => {
     }
 
     void loadWorkbench(assignmentId);
-  }, [assignmentId]);
+  }, [assignmentId, labelerId]);
 
   const loadWorkbench = async (id: string) => {
     const requestId = loadWorkbenchRequestRef.current + 1;
@@ -295,7 +317,15 @@ export const WorkbenchPage = () => {
 
   const refreshWorkbenchSnapshot = useCallback(
     async (id: string): Promise<WorkbenchDto> => {
-      const nextWorkbench = await getAssignmentWorkbench(id);
+      if (!labelerId) {
+        throw new Error('缺少当前标注员身份，无法刷新标注任务。请重新登录。');
+      }
+
+      const nextWorkbench = await getAssignmentWorkbench({ assignmentId: id, labelerId });
+      if (nextWorkbench.assignment.assigneeId !== labelerId) {
+        throw new Error('当前领取记录不属于当前标注员，无法刷新标注台。请切换到正确账号。');
+      }
+
       workbenchCacheRef.current.set(id, nextWorkbench);
       const { nextStats, nextTaskAssignments } = await loadTaskContextSnapshot(nextWorkbench.assignment.taskId);
 
@@ -303,7 +333,7 @@ export const WorkbenchPage = () => {
       preloadTaskWorkbenches(nextWorkbench.assignment.id, nextTaskAssignments);
       return nextWorkbench;
     },
-    [applyWorkbenchSnapshot, loadTaskContextSnapshot, preloadTaskWorkbenches],
+    [applyWorkbenchSnapshot, labelerId, loadTaskContextSnapshot, preloadTaskWorkbenches],
   );
 
   const startAiReviewPolling = useCallback(
@@ -356,6 +386,11 @@ export const WorkbenchPage = () => {
         return false;
       }
 
+      if (!labelerId) {
+        showErrorToast('缺少当前标注员身份，无法保存草稿。请重新登录。');
+        return false;
+      }
+
       if (!isEditableAssignmentStatus(workbench.assignment.status)) {
         if (source === 'manual') {
           showInfoToast('当前题目已提交，暂不支持保存草稿。');
@@ -367,7 +402,7 @@ export const WorkbenchPage = () => {
       setIsSaving(true);
       try {
         const draft = await saveDraft(workbench.assignment.id, {
-          actorId: LABELER_ID,
+          actorId: labelerId,
           answers,
         });
         const savedAnswers = { ...answers };
@@ -431,7 +466,7 @@ export const WorkbenchPage = () => {
         setIsSaving(false);
       }
     },
-    [answers, localCacheKey, showErrorToast, showInfoToast, showStatusToast, workbench],
+    [answers, labelerId, localCacheKey, showErrorToast, showInfoToast, showStatusToast, workbench],
   );
 
   useEffect(() => {
@@ -699,6 +734,11 @@ export const WorkbenchPage = () => {
       return;
     }
 
+    if (!labelerId) {
+      showErrorToast('缺少当前标注员身份，无法提交任务。请重新登录。');
+      return;
+    }
+
     if (taskSubmitInFlightRef.current || !hasSubmittableCurrentTask) {
       showStatusToast('当前任务已提交，请等待审核结果。');
       return;
@@ -742,11 +782,11 @@ export const WorkbenchPage = () => {
 
       const taskSubmission = await submitTask({
         taskId: workbench.assignment.taskId,
-        labelerId: LABELER_ID,
-        actorId: LABELER_ID,
+        labelerId,
+        actorId: labelerId,
         currentAssignmentId: workbench.assignment.id,
         currentAnswers: submitAnswers,
-        idempotencyKey: createTaskSubmissionIdempotencyKey(workbench, submitAnswers),
+        idempotencyKey: createTaskSubmissionIdempotencyKey(workbench, labelerId, submitAnswers),
       });
       const submissionsByAssignmentId = new Map(
         taskSubmission.submissions.map((submission) => [submission.assignmentId, submission]),
@@ -797,7 +837,7 @@ export const WorkbenchPage = () => {
         taskAssignmentsCacheRef.current.set(workbench.assignment.taskId, nextAssignments);
         return nextAssignments;
       });
-      const nextStats = await getLabelerStats({ labelerId: LABELER_ID, taskId: workbench.assignment.taskId });
+      const nextStats = await getLabelerStats({ labelerId, taskId: workbench.assignment.taskId });
       labelerStatsCacheRef.current.set(workbench.assignment.taskId, nextStats);
       setStats(nextStats);
       if (currentSubmission && AI_REVIEW_PENDING_STATUSES.has(currentSubmission.status)) {
@@ -813,6 +853,7 @@ export const WorkbenchPage = () => {
     answers,
     focusValidationIssue,
     hasSubmittableCurrentTask,
+    labelerId,
     navigationAssignmentId,
     orderedTaskAssignments,
     saveDraftNow,
@@ -2321,6 +2362,7 @@ function isSubmittableAssignmentStatus(status: AssignmentStatus): boolean {
 
 function createTaskSubmissionIdempotencyKey(
   workbench: WorkbenchDto,
+  labelerId: string,
   answers: Record<string, unknown>,
 ): string {
   const nextRound =
@@ -2328,7 +2370,7 @@ function createTaskSubmissionIdempotencyKey(
 
   return createClientIdempotencyKey(
     'task-submit',
-    `${workbench.assignment.taskId}:${LABELER_ID}:${workbench.assignment.id}`,
+    `${workbench.assignment.taskId}:${labelerId}:${workbench.assignment.id}`,
     nextRound,
     answers,
   );
@@ -2430,8 +2472,8 @@ function readLocalDraft(key: string): Record<string, unknown> | null {
   }
 }
 
-function createLocalDraftCacheKey(assignmentId: string): string {
-  return assignmentId ? `labelhub.local-draft.${assignmentId}` : '';
+function createLocalDraftCacheKey(labelerId: string, assignmentId: string): string {
+  return labelerId && assignmentId ? `labelhub.local-draft.${labelerId}.${assignmentId}` : '';
 }
 
 function formatTime(value: string): string {
@@ -2475,8 +2517,20 @@ function formatHistoryTime(value: string): string {
 }
 
 function formatUserName(userId: string | null | undefined): string {
-  if (userId === 'user_labeler_li_lei') {
+  if (
+    userId === 'user_labeler_li_lei' ||
+    userId === 'mock-labeler-wang-yu-yang' ||
+    userId === 'demo-labeler-wang-yu-yang'
+  ) {
     return '王昱阳';
+  }
+
+  if (
+    userId === 'user_labeler_han_mei_mei' ||
+    userId === 'mock-labeler-hou-shi-kang' ||
+    userId === 'demo-labeler-hou-shi-kang'
+  ) {
+    return '侯士康';
   }
 
   return '标注员';
