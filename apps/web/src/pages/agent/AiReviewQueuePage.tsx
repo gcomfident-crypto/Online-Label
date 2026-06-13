@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import type { LabelHubSchema, SchemaField, ShowItemDisplayField } from '@labelhub/shared';
+import type { LabelHubSchema, ShowItemDisplayField } from '@labelhub/shared';
 
 import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
@@ -804,7 +804,6 @@ const ItemFlowResultStrip = ({ item }: { item: TaskFlowItemDto }) => {
 
 const SubmissionContentPanel = ({ item }: { item: TaskFlowItemDto }) => {
   const displaySchema = useMemo(() => createAgentReviewDisplaySchema(item), [item]);
-  const displayAnswers = useMemo(() => createAgentReviewDisplayAnswers(item.submission?.answers ?? {}), [item.submission?.answers]);
 
   return (
     <article className="agent-review-card agent-review-card--submission">
@@ -814,10 +813,43 @@ const SubmissionContentPanel = ({ item }: { item: TaskFlowItemDto }) => {
           mode="review"
           rawData={item.taskItem.rawData}
           schema={displaySchema}
-          value={displayAnswers}
+          value={{}}
           onChange={noopSchemaRendererChange}
         />
+        <AgentReviewSubmitSnapshotCard snapshot={item.submission?.answers ?? {}} title="Labeler 提交答案" />
       </div>
+    </article>
+  );
+};
+
+const AgentReviewSubmitSnapshotCard = ({
+  snapshot,
+  title,
+}: {
+  snapshot: Record<string, unknown>;
+  title: string;
+}) => {
+  const entries = Object.entries(snapshot);
+  const displayEntries = entries.length > 0 ? entries : [['agent_review_empty_answer', '未填写'] satisfies [string, unknown]];
+
+  return (
+    <article className="manual-review-submit-card is-highlight">
+      <h3>{title}</h3>
+      <dl>
+        {displayEntries.map(([key, value]) => {
+          const label = key === 'agent_review_empty_answer' ? '提交答案' : formatPreviewFieldLabel(key);
+
+          return (
+            <div key={key}>
+              <dt>
+                <span>{label}</span>
+                {label !== key && key !== 'agent_review_empty_answer' ? <small>{key}</small> : null}
+              </dt>
+              <dd>{formatReviewSubmitSnapshotValue(value)}</dd>
+            </div>
+          );
+        })}
+      </dl>
     </article>
   );
 };
@@ -1502,23 +1534,6 @@ function shortItemStatusLabel(item: TaskFlowItemDto): string {
 const noopSchemaRendererChange = () => undefined;
 
 function createAgentReviewDisplaySchema(item: TaskFlowItemDto): LabelHubSchema {
-  const answerEntries = Object.entries(item.submission?.answers ?? {});
-  const answerFields = answerEntries.length > 0
-    ? answerEntries.map(([key], index): SchemaField => ({
-        key: answerFieldKey(key, index),
-        fieldKey: answerFieldKey(key, index),
-        type: 'textarea',
-        label: formatPreviewFieldLabel(key),
-      }))
-    : [
-        {
-          key: 'agent_review_empty_answer',
-          fieldKey: 'agent_review_empty_answer',
-          type: 'textarea',
-          label: 'Labeler 提交答案',
-        } satisfies SchemaField,
-      ];
-
   return {
     schemaVersion: item.submission?.schemaVersion ?? AGENT_REVIEW_DISPLAY_SCHEMA_VERSION,
     datasetKind: item.taskItem.datasetKind,
@@ -1532,13 +1547,6 @@ function createAgentReviewDisplaySchema(item: TaskFlowItemDto): LabelHubSchema {
           layout: 'field_list',
           fields: createShowItemDisplayFields(item.taskItem.rawData),
         },
-      },
-      {
-        key: 'agent_review_labeler_answers',
-        type: 'group',
-        label: 'Labeler 提交答案',
-        layout: 'single_column',
-        fields: answerFields,
       },
     ],
   };
@@ -1579,31 +1587,20 @@ function showItemDisplayFormat(sourceKey: string, value: unknown): ShowItemDispl
   return undefined;
 }
 
-function createAgentReviewDisplayAnswers(answers: Record<string, unknown>): Record<string, unknown> {
-  const entries = Object.entries(answers);
-
-  if (entries.length === 0) {
-    return { agent_review_empty_answer: '未记录' };
+function formatReviewSubmitSnapshotValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.join('、');
   }
 
-  return Object.fromEntries(
-    entries.map(([key, value], index) => [
-      answerFieldKey(key, index),
-      formatReadonlyAnswerValue(value),
-    ]),
-  );
-}
-
-function answerFieldKey(key: string, index: number): string {
-  return `agent_review_answer_${index}_${key.replace(/[^a-zA-Z0-9_]/g, '_') || 'field'}`;
-}
-
-function formatReadonlyAnswerValue(value: unknown): string {
-  if (Array.isArray(value) || (value && typeof value === 'object')) {
-    return JSON.stringify(value, null, 2);
+  if (typeof value === 'object' && value !== null) {
+    return JSON.stringify(value);
   }
 
-  return formatPreviewScalar(value);
+  if (value === null || value === undefined || value === '') {
+    return '未填写';
+  }
+
+  return String(value);
 }
 
 function itemTraceEvents(item: TaskFlowItemDto, logs: TaskFlowLogDto[]): TraceEvent[] {

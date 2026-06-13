@@ -19458,19 +19458,6 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
 }
 
-.agent-review-submission-renderer .schema-field--group {
-  background: #ffffff;
-}
-
-.agent-review-submission-renderer .schema-field__group-body {
-  gap: 10px;
-}
-
-.agent-review-submission-renderer textarea {
-  min-height: 96px;
-  background: #f8fbff;
-}
-
 .agent-review-trace-timeline li.is-pass::before,
 .agent-review-trace-timeline li.is-pending::before,
 .agent-review-trace-timeline li.is-pendingReview::before {
