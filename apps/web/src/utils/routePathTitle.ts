@@ -75,7 +75,7 @@ export const resolvePageTabTitle = (pathname: string): string => {
   const pageTitle = parts[parts.length - 1] ?? fullTitle;
   const roleTitle = resolvePageTabRole(parts[0]);
 
-  return roleTitle ? `${roleTitle}·${pageTitle}` : pageTitle;
+  return roleTitle ? `${roleTitle} · ${pageTitle}` : pageTitle;
 };
 
 function resolvePageTabRole(sectionTitle: string | undefined): string | null {
