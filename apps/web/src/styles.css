@@ -22122,10 +22122,9 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .manual-review-field-comment-panel textarea {
   width: 100%;
-  height: 34px;
   min-height: 34px;
-  max-height: 104px;
-  resize: vertical;
+  max-height: 140px;
+  resize: none;
   border: 1px solid #d5dbe6;
   border-radius: 6px;
   padding: 7px 8px;
@@ -22135,6 +22134,11 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   font-size: 12px;
   font-weight: 700;
   line-height: 1.45;
+  overflow: hidden;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    height 120ms ease;
 }
 
 .manual-review-field-comment-panel textarea:focus {

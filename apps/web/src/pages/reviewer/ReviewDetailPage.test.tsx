@@ -7,6 +7,7 @@ import { ReviewDetailPage } from './ReviewDetailPage';
 
 describe('ReviewDetailPage', () => {
   afterEach(() => {
+    window.localStorage.clear();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.useRealTimers();
@@ -59,7 +60,7 @@ describe('ReviewDetailPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    render(
+    const rendered = render(
       <MemoryRouter initialEntries={['/reviewer/reviews/task_real']}>
         <Routes>
           <Route path="/reviewer/reviews/:taskId" element={<ReviewDetailPage />} />
@@ -414,10 +415,31 @@ describe('ReviewDetailPage', () => {
     expect(screen.getByRole('button', { name: '评论字段 质量判断' })).toHaveClass('has-review-comment');
     expect(screen.getByRole('button', { name: '评论字段 判断理由' })).toHaveClass('has-review-comment');
 
+    expect(window.localStorage.getItem('labelhub:review-field-comments:v1:user_reviewer_wang_fang:submission_1')).toContain(
+      '质量判断要改成未通过。',
+    );
+
+    rendered.unmount();
+    render(
+      <MemoryRouter initialEntries={['/reviewer/reviews/task_real']}>
+        <Routes>
+          <Route path="/reviewer/reviews/:taskId" element={<ReviewDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: '评论字段 质量判断' })).toHaveClass('has-review-comment'));
+    await user.click(screen.getByRole('button', { name: '评论字段 质量判断' }));
+    const restoredSidePanel = screen.getByRole('complementary', { name: '人工审核侧栏' });
+    const restoredSentComments = within(restoredSidePanel).getByLabelText('已发送字段评论');
+    expect(restoredSentComments).toHaveTextContent('质量判断要改成未通过。');
+    expect(restoredSentComments).toHaveTextContent('请补充完整判断依据。');
+    expect(within(restoredSidePanel).queryByRole('textbox', { name: '字段评论：质量判断' })).not.toBeInTheDocument();
+
     await user.click(screen.getByRole('button', { name: '评论字段 质量判断' }));
 
-    expect(within(sidePanel).queryByRole('textbox', { name: '字段评论：质量判断' })).not.toBeInTheDocument();
-    const commentCardsAfterReselect = Array.from(sentComments.querySelectorAll<HTMLElement>('.manual-review-field-comment-card'));
+    expect(within(restoredSidePanel).queryByRole('textbox', { name: '字段评论：质量判断' })).not.toBeInTheDocument();
+    const commentCardsAfterReselect = Array.from(restoredSentComments.querySelectorAll<HTMLElement>('.manual-review-field-comment-card'));
     expect(commentCardsAfterReselect).toHaveLength(2);
     expect(commentCardsAfterReselect[0]).toHaveClass('is-highlighted');
     expect(commentCardsAfterReselect[0]).toHaveAttribute('aria-current', 'true');

@@ -19,6 +19,8 @@ import {
 
 const REVIEWER_ID = 'user_reviewer_wang_fang';
 const DEFAULT_REJECT_REASON = '请根据字段修改建议调整。';
+const FIELD_REVIEW_COMMENT_STORAGE_PREFIX = 'labelhub:review-field-comments:v1';
+const FIELD_COMMENT_TEXTAREA_MAX_HEIGHT = 140;
 
 type ManualReviewSideTab = 'timeline' | 'comments';
 type ManualReviewSuggestion = 'manual' | 'pass' | 'reject';
@@ -372,6 +374,17 @@ export const ReviewTaskDetailContent = ({
     setHighlightedCommentFieldKey(null);
     setFieldCommentDraft('');
     setSidePanelTab('timeline');
+    const storedComments = loadStoredFieldReviewComments(selectedItem.submissionId);
+
+    if (Object.keys(storedComments).length > 0) {
+      setFieldCommentsBySubmissionId((current) => ({
+        ...current,
+        [selectedItem.submissionId]: {
+          ...storedComments,
+          ...(current[selectedItem.submissionId] ?? {}),
+        },
+      }));
+    }
   }, [selectedItem?.submissionId]);
 
   if (!isLoading && !task) {
@@ -448,6 +461,19 @@ export const ReviewTaskDetailContent = ({
       return;
     }
 
+    const nextFieldComment: FieldReviewComment = {
+      fieldKey: selectedCommentField.fieldKey,
+      label: selectedCommentField.label,
+      comment: trimmedComment,
+      value: selectedCommentField.value,
+    };
+    const nextSelectedSubmissionComments = {
+      ...selectedFieldComments,
+      [selectedCommentField.fieldKey]: nextFieldComment,
+    };
+
+    saveStoredFieldReviewComments(selectedItem.submissionId, nextSelectedSubmissionComments);
+
     setFieldCommentsBySubmissionId((current) => {
       const submissionComments = current[selectedItem.submissionId] ?? {};
 
@@ -455,12 +481,7 @@ export const ReviewTaskDetailContent = ({
         ...current,
         [selectedItem.submissionId]: {
           ...submissionComments,
-          [selectedCommentField.fieldKey]: {
-            fieldKey: selectedCommentField.fieldKey,
-            label: selectedCommentField.label,
-            comment: trimmedComment,
-            value: selectedCommentField.value,
-          },
+          [selectedCommentField.fieldKey]: nextFieldComment,
         },
       };
     });
@@ -507,6 +528,16 @@ export const ReviewTaskDetailContent = ({
         findNextReviewableSubmissionId(locallyUpdatedItems, selectedItem.submissionId) ?? selectedItem.submissionId;
       setQueueItems(locallyUpdatedItems);
       setSelectedSubmissionId(nextSelectedSubmissionId);
+      clearStoredFieldReviewComments(selectedItem.submissionId);
+      setFieldCommentsBySubmissionId((current) => {
+        if (!current[selectedItem.submissionId]) {
+          return current;
+        }
+
+        const next = { ...current };
+        delete next[selectedItem.submissionId];
+        return next;
+      });
 
       const latestItems = await listPendingReviews({ taskId });
       applyCurrentTaskQueueItems(latestItems, nextSelectedSubmissionId);
@@ -546,6 +577,16 @@ export const ReviewTaskDetailContent = ({
       const processedCount = result.processedCount || selectedItems.length;
       const latestItems = await listPendingReviews({ taskId });
       applyCurrentTaskQueueItems(latestItems, selectedItem?.submissionId ?? null);
+      for (const submissionId of selectedSubmissionIds) {
+        clearStoredFieldReviewComments(submissionId);
+      }
+      setFieldCommentsBySubmissionId((current) => {
+        const next = { ...current };
+        for (const submissionId of selectedSubmissionIds) {
+          delete next[submissionId];
+        }
+        return next;
+      });
       setSelectedIds((current) => {
         const next = new Set(current);
         for (const submissionId of selectedSubmissionIds) {
@@ -1055,10 +1096,23 @@ const FieldCommentPanel = ({
 }) => {
   const sentComments = orderedFieldComments(fieldComments, orderedFields);
   const highlightedCommentRef = useRef<HTMLElement | null>(null);
+  const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     highlightedCommentRef.current?.scrollIntoView?.({ block: 'nearest' });
   }, [highlightedFieldKey, sentComments.length]);
+
+  useEffect(() => {
+    const textarea = commentTextareaRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    textarea.style.height = 'auto';
+    const nextHeight = Math.min(textarea.scrollHeight, FIELD_COMMENT_TEXTAREA_MAX_HEIGHT);
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > FIELD_COMMENT_TEXTAREA_MAX_HEIGHT ? 'auto' : 'hidden';
+  }, [draft, field?.fieldKey]);
 
   return (
     <section className="manual-review-field-comment-panel" aria-label="字段评论">
@@ -1068,8 +1122,10 @@ const FieldCommentPanel = ({
             <span>{fieldCommentTitle(field.label)}</span>
           </header>
           <textarea
+            ref={commentTextareaRef}
             aria-label={`字段评论：${field.label}`}
             placeholder="写下这一个字段需要修改的原因"
+            rows={1}
             value={draft}
             onChange={(event) => onChangeDraft(event.target.value)}
           />
@@ -1645,6 +1701,69 @@ function orderedFieldComments(
   );
 
   return [...orderedComments, ...extraComments];
+}
+
+function fieldReviewCommentStorageKey(submissionId: string): string {
+  return `${FIELD_REVIEW_COMMENT_STORAGE_PREFIX}:${REVIEWER_ID}:${submissionId}`;
+}
+
+function loadStoredFieldReviewComments(submissionId: string): Record<string, FieldReviewComment> {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+
+  const storedValue = window.localStorage.getItem(fieldReviewCommentStorageKey(submissionId));
+  if (!storedValue) {
+    return {};
+  }
+
+  const parsedValue: unknown = JSON.parse(storedValue);
+  if (!isFieldReviewCommentMap(parsedValue)) {
+    throw new Error(`字段评论草稿格式错误：${fieldReviewCommentStorageKey(submissionId)}`);
+  }
+
+  return parsedValue;
+}
+
+function saveStoredFieldReviewComments(
+  submissionId: string,
+  fieldComments: Record<string, FieldReviewComment>,
+): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(fieldReviewCommentStorageKey(submissionId), JSON.stringify(fieldComments));
+}
+
+function clearStoredFieldReviewComments(submissionId: string): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.removeItem(fieldReviewCommentStorageKey(submissionId));
+}
+
+function isFieldReviewCommentMap(value: unknown): value is Record<string, FieldReviewComment> {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      Object.entries(value).every(([fieldKey, fieldComment]) =>
+        isFieldReviewComment(fieldKey, fieldComment),
+      ),
+  );
+}
+
+function isFieldReviewComment(fieldKey: string, value: unknown): value is FieldReviewComment {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      (value as FieldReviewComment).fieldKey === fieldKey &&
+      typeof (value as FieldReviewComment).label === 'string' &&
+      typeof (value as FieldReviewComment).comment === 'string',
+  );
 }
 
 function fieldCommentTitle(label: string): string {
