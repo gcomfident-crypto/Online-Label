@@ -40,9 +40,9 @@ const marketTask = {
     ],
   },
   itemCount: 30,
-  assignedCount: 8,
+  assignedCount: 0,
   claimedByMeCount: 0,
-  remainingCount: 22,
+  remainingCount: 30,
   claimedByMe: false,
   claimStatus: 'available',
   previewItems: [
@@ -78,7 +78,7 @@ describe('TaskMarketPage', () => {
             labelerId: 'user_labeler_li_lei',
             status: 'ASSIGNED',
             claimedAt: '2026-05-21T00:00:00.000Z',
-            claimedItemCount: 22,
+            claimedItemCount: 30,
             claimedCount: 30,
             taskItem: {
               id: 'item_qa_1',
@@ -146,7 +146,7 @@ describe('TaskMarketPage', () => {
     expect(within(taskRow as HTMLElement).getByText('0.30 元 / 条')).toBeInTheDocument();
     expect(within(taskRow as HTMLElement).queryByText('整任务')).not.toBeInTheDocument();
     expect(within(taskRow as HTMLElement).queryByText('问答质量官方模板')).not.toBeInTheDocument();
-    expect(within(taskRow as HTMLElement).getByText('8 / 30')).toBeInTheDocument();
+    expect(within(taskRow as HTMLElement).getByText('0 / 30')).toBeInTheDocument();
     expect(within(taskRow as HTMLElement).getByRole('button', { name: '预览 问答质量标注' })).toBeInTheDocument();
 
     await user.click(within(taskRow as HTMLElement).getByRole('button', { name: '预览 问答质量标注' }));
@@ -267,8 +267,8 @@ describe('TaskMarketPage', () => {
       title: '偏好对比标注',
       datasetKind: 'preference_compare',
       templateName: '偏好对比模板',
-      assignedCount: 30,
-      remainingCount: 0,
+      assignedCount: 0,
+      remainingCount: 30,
       claimStatus: 'expired',
     };
     const fetchMock = vi
@@ -352,6 +352,32 @@ describe('TaskMarketPage', () => {
     const table = await screen.findByRole('table', { name: '任务广场列表' });
     expect(within(table).queryByText('问答质量标注')).not.toBeInTheDocument();
     expect(screen.queryByText('已达上限')).not.toBeInTheDocument();
+    expect(within(table).getByText('暂无可领取任务')).toBeInTheDocument();
+  });
+
+  it('已被其他 labeler 领取的任务不再展示在任务广场', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(
+        jsonResponse({
+          data: [
+            {
+              ...marketTask,
+              assignedCount: 12,
+              claimedByMe: false,
+              claimedByMeCount: 0,
+              remainingCount: 18,
+              claimStatus: 'available',
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderTaskMarketPage();
+
+    const table = await screen.findByRole('table', { name: '任务广场列表' });
+    expect(within(table).queryByText('问答质量标注')).not.toBeInTheDocument();
     expect(within(table).getByText('暂无可领取任务')).toBeInTheDocument();
   });
 

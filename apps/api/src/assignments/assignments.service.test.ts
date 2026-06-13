@@ -111,8 +111,8 @@ type MockAssignmentsPrisma = {
 };
 
 describe('AssignmentsService', () => {
-  it('只把进行中任务展示到任务广场并支持关键词、标签和已领取筛选', async () => {
-    const { service } = createService();
+  it('只把未被领取的发布任务展示到任务广场并支持关键词和标签筛选', async () => {
+    const { service } = createService({ assignments: [] });
 
     await expect(service.listMarketTasks({ keyword: '问答', labelerId: 'user_labeler_1' })).resolves.toEqual([
       expect.objectContaining({
@@ -138,13 +138,19 @@ describe('AssignmentsService', () => {
         previewItems: [],
       }),
     ]);
-    await expect(service.listMarketTasks({ tag: '偏好', claimStatus: 'claimed', labelerId: 'user_labeler_1' })).resolves.toEqual([
+    await expect(service.listMarketTasks({ tag: '偏好', labelerId: 'user_labeler_1' })).resolves.toEqual([
       expect.objectContaining({
         id: 'task_preference',
-        claimStatus: 'claimed',
-        claimedByMe: true,
+        claimStatus: 'available',
+        claimedByMe: false,
       }),
     ]);
+  });
+
+  it('已被任一 labeler 领取的任务不会进入任务广场', async () => {
+    const { service } = createService();
+
+    await expect(service.listMarketTasks({ labelerId: 'user_labeler_2' })).resolves.toEqual([]);
   });
 
   it('领取任务时在事务中批量锁定整任务剩余题目并创建 assignments', async () => {
@@ -156,14 +162,7 @@ describe('AssignmentsService', () => {
         { id: 'item_qa_5', taskId: 'task_qa', externalId: 'qa_5', status: 'UNASSIGNED', sortOrder: 5 },
         { id: 'item_qa_6', taskId: 'task_qa', externalId: 'qa_6', status: 'UNASSIGNED', sortOrder: 6 },
       ],
-      assignments: [
-        {
-          id: 'assignment_1',
-          taskId: 'task_qa',
-          taskItemId: 'item_qa_2',
-          assigneeId: 'user_labeler_other',
-        },
-      ],
+      assignments: [],
     });
 
     const result = await service.claim({
@@ -173,13 +172,13 @@ describe('AssignmentsService', () => {
 
     expect(result).toEqual(
       expect.objectContaining({
-        assignmentId: 'assignment_2',
+        assignmentId: 'assignment_1',
         taskId: 'task_qa',
         taskItemId: 'item_qa_1',
         labelerId: 'user_labeler_1',
         status: 'ASSIGNED',
         claimedItemCount: 5,
-        claimedCount: 6,
+        claimedCount: 5,
       }),
     );
     expect(items.find((item) => item.id === 'item_qa_1')?.status).toBe('ASSIGNED');
@@ -187,7 +186,7 @@ describe('AssignmentsService', () => {
     expect(items.find((item) => item.id === 'item_qa_4')?.status).toBe('ASSIGNED');
     expect(items.find((item) => item.id === 'item_qa_5')?.status).toBe('ASSIGNED');
     expect(items.find((item) => item.id === 'item_qa_6')?.status).toBe('ASSIGNED');
-    expect(assignments).toHaveLength(6);
+    expect(assignments).toHaveLength(5);
     expect(assignments.filter((assignment) => assignment.assigneeId === 'user_labeler_1')).toHaveLength(5);
   });
 
@@ -233,8 +232,8 @@ describe('AssignmentsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('已达到历史单人限额时仍可继续领取整任务剩余题目', async () => {
-    const { service, assignments, items } = createService({
+  it('已被当前 labeler 领取的任务不能再次领取', async () => {
+    const { service } = createService({
       tasks: [{ id: 'task_qa', quota: 10, perUserLimit: 1 }],
       assignments: [
         {
@@ -246,23 +245,39 @@ describe('AssignmentsService', () => {
       ],
     });
 
-    await expect(service.claim({ taskId: 'task_qa', labelerId: 'user_labeler_1' })).resolves.toMatchObject({
-      taskItemId: 'item_qa_1',
-      claimedItemCount: 1,
-    });
-    expect(assignments.filter((assignment) => assignment.assigneeId === 'user_labeler_1')).toHaveLength(2);
-    expect(items.find((item) => item.id === 'item_qa_1')?.status).toBe('ASSIGNED');
+    await expect(
+      service.claim({ taskId: 'task_qa', labelerId: 'user_labeler_1' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('labeler 当天已领取 100 道题后仍可领取任务剩余题目', async () => {
+  it('已被其他 labeler 领取的任务不能再次领取', async () => {
+    const { service } = createService({
+      tasks: [{ id: 'task_qa', quota: 300, perUserLimit: 200 }],
+      assignments: [
+        {
+          id: 'assignment_other',
+          taskId: 'task_qa',
+          taskItemId: 'item_qa_2',
+          assigneeId: 'user_labeler_other',
+        },
+      ],
+    });
+
+    await expect(
+      service.claim({ taskId: 'task_qa', labelerId: 'user_labeler_1' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('无活跃领取记录时仍可领取任务所有剩余题目', async () => {
     const { service, assignments, items } = createService({
       tasks: [{ id: 'task_qa', quota: 300, perUserLimit: 200 }],
       assignments: Array.from({ length: 100 }, (_, index) => ({
-        id: `assignment_today_${index + 1}`,
+        id: `assignment_cancelled_${index + 1}`,
         taskId: 'task_qa',
         taskItemId: 'item_qa_2',
         assigneeId: 'user_labeler_1',
         claimedAt: new Date(),
+        status: 'CANCELLED',
       })),
     });
 
@@ -270,11 +285,11 @@ describe('AssignmentsService', () => {
       taskItemId: 'item_qa_1',
       claimedItemCount: 1,
     });
-    expect(assignments.filter((assignment) => assignment.assigneeId === 'user_labeler_1')).toHaveLength(101);
+    expect(assignments.filter((assignment) => assignment.status !== 'CANCELLED')).toHaveLength(1);
     expect(items.find((item) => item.id === 'item_qa_1')?.status).toBe('ASSIGNED');
   });
 
-  it('labeler 当天剩余额度不足时仍领取任务所有剩余题目', async () => {
+  it('领取任务不再按单人额度拆分，直接领取任务所有剩余题目', async () => {
     const { service, assignments, items } = createService({
       tasks: [{ id: 'task_qa', quota: 300, perUserLimit: 200 }],
       items: [
@@ -282,22 +297,16 @@ describe('AssignmentsService', () => {
         { id: 'item_qa_4', taskId: 'task_qa', externalId: 'qa_4', status: 'UNASSIGNED', sortOrder: 4 },
         { id: 'item_qa_5', taskId: 'task_qa', externalId: 'qa_5', status: 'UNASSIGNED', sortOrder: 5 },
       ],
-      assignments: Array.from({ length: 98 }, (_, index) => ({
-        id: `assignment_today_${index + 1}`,
-        taskId: 'task_qa',
-        taskItemId: 'item_qa_2',
-        assigneeId: 'user_labeler_1',
-        claimedAt: new Date(),
-      })),
+      assignments: [],
     });
 
     const result = await service.claim({ taskId: 'task_qa', labelerId: 'user_labeler_1' });
 
     expect(result).toMatchObject({
       claimedItemCount: 4,
-      claimedCount: 102,
+      claimedCount: 4,
     });
-    expect(assignments.filter((assignment) => assignment.assigneeId === 'user_labeler_1')).toHaveLength(102);
+    expect(assignments.filter((assignment) => assignment.assigneeId === 'user_labeler_1')).toHaveLength(4);
     expect(items.find((item) => item.id === 'item_qa_1')?.status).toBe('ASSIGNED');
     expect(items.find((item) => item.id === 'item_qa_3')?.status).toBe('ASSIGNED');
     expect(items.find((item) => item.id === 'item_qa_4')?.status).toBe('ASSIGNED');

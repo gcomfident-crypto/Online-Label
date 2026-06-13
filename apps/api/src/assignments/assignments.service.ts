@@ -253,6 +253,7 @@ export class AssignmentsService {
     return tasks
       .filter((task) => task.status === 'PUBLISHED')
       .map((task) => toMarketTaskDto(task, query.labelerId))
+      .filter(isTaskVisibleInMarket)
       .filter((task) => matchesMarketQuery(task, query));
   }
 
@@ -291,6 +292,13 @@ export class AssignmentsService {
           status: { not: 'CANCELLED' },
         },
       });
+      if (claimedCount > 0) {
+        throw new BadRequestException({
+          code: 'TASK_ALREADY_CLAIMED',
+          message: '任务已被领取，不能重复领取。请刷新任务广场。',
+        });
+      }
+
       if (task.quota !== null && claimedCount >= task.quota) {
         throw new BadRequestException({
           code: 'TASK_QUOTA_EXHAUSTED',
@@ -431,6 +439,10 @@ function matchesMarketQuery(task: MarketTaskDto, query: MarketTaskQuery): boolea
   }
 
   return !query.claimStatus || task.claimStatus === query.claimStatus;
+}
+
+function isTaskVisibleInMarket(task: MarketTaskDto): boolean {
+  return task.assignedCount === 0 && !task.claimedByMe && task.claimStatus !== 'full';
 }
 
 function matchesKeyword(task: MarketTaskDto, keyword: string): boolean {

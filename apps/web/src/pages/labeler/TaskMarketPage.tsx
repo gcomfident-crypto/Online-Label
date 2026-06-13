@@ -53,7 +53,11 @@ export const TaskMarketPage = () => {
   const session = useSession();
   const labelerId = session?.user.id ?? '';
   const taskMarketCacheKey = useMemo(() => createTaskMarketCacheKey(labelerId), [labelerId]);
-  const cachedTasks = useMemo(() => readPageDataCache(taskMarketCacheKey, isMarketTaskDtoArray), [taskMarketCacheKey]);
+  const cachedTasks = useMemo(() => {
+    const cachedValue = readPageDataCache(taskMarketCacheKey, isMarketTaskDtoArray);
+
+    return cachedValue ? cachedValue.filter(isVisibleMarketTask) : null;
+  }, [taskMarketCacheKey]);
   const [tasks, setTasks] = useState<MarketTaskDto[]>(cachedTasks ?? []);
   const [keyword, setKeyword] = useState('');
   const [claimStatus, setClaimStatus] = useState<MarketClaimStatus | 'ALL'>('ALL');
@@ -453,8 +457,9 @@ const canClaim = (task: MarketTaskDto): boolean => {
   return task.claimStatus === 'available' && task.remainingCount > 0;
 };
 
-const isVisibleMarketTask = (task: MarketTaskDto): boolean =>
-  !task.claimedByMe && task.claimStatus !== 'claimed';
+function isVisibleMarketTask(task: MarketTaskDto): boolean {
+  return task.assignedCount === 0 && !task.claimedByMe && task.claimStatus !== 'claimed' && task.claimStatus !== 'full';
+}
 
 const claimButtonText = (task: MarketTaskDto, claimingTaskId: string | null): string => {
   if (claimingTaskId === task.id) {
