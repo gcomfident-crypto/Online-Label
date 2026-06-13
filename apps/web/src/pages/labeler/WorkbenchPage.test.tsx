@@ -627,6 +627,171 @@ describe('WorkbenchPage', () => {
     expect(fetchMock).not.toHaveBeenCalledWith('/submissions', expect.anything());
   });
 
+  it('提交任务前会同步非当前题的本地未保存答案', async () => {
+    vi.useFakeTimers();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const firstWorkbench = {
+      ...qaWorkbench,
+      draft: {
+        id: 'draft_assignment_1',
+        assignmentId: 'assignment_1',
+        answers: { quality: 'pass' },
+        schemaVersion: 'r1',
+        createdAt: '2026-05-21T00:00:00.000Z',
+        updatedAt: '2026-05-21T08:00:00.000Z',
+      },
+    };
+    const secondWorkbench = {
+      ...qaWorkbench,
+      assignment: {
+        ...qaWorkbench.assignment,
+        id: 'assignment_2',
+        taskItemId: 'item_qa_2',
+        status: 'IN_PROGRESS',
+      },
+      taskItem: {
+        ...qaWorkbench.taskItem,
+        id: 'item_qa_2',
+        externalId: 'qa_2',
+        sortOrder: 9,
+      },
+      draft: {
+        id: 'draft_assignment_2',
+        assignmentId: 'assignment_2',
+        answers: {},
+        schemaVersion: 'r1',
+        createdAt: '2026-05-21T00:00:00.000Z',
+        updatedAt: '2026-05-21T08:00:00.000Z',
+      },
+      rejectionNotice: null,
+      submissionHistory: [],
+    };
+    const staleSecondDraftAssignments = taskAssignments.map((assignment) =>
+      assignment.assignmentId === 'assignment_2'
+        ? {
+            ...assignment,
+            status: 'IN_PROGRESS',
+            draftAnswers: {},
+            draftUpdatedAt: '2026-05-21T08:00:00.000Z',
+          }
+        : {
+            ...assignment,
+            draftAnswers: { quality: 'pass' },
+            draftUpdatedAt: '2026-05-21T08:00:00.000Z',
+          },
+    );
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === '/assignments/assignment_1/workbench') {
+        return jsonResponse({ data: firstWorkbench });
+      }
+
+      if (url === '/assignments/assignment_2/workbench') {
+        return jsonResponse({ data: secondWorkbench });
+      }
+
+      if (url.startsWith('/labeler/stats')) {
+        return jsonResponse({ data: { ...stats, totalAssignments: 2 } });
+      }
+
+      if (url.startsWith('/labeler/assignments')) {
+        return jsonResponse({ data: staleSecondDraftAssignments });
+      }
+
+      if (url === '/tasks') {
+        return jsonResponse({ data: taskList });
+      }
+
+      if (url === '/drafts/assignment_1') {
+        return jsonResponse({
+          data: {
+            id: 'draft_assignment_1',
+            assignmentId: 'assignment_1',
+            answers: JSON.parse(String(init?.body ?? '{}')).answers,
+            schemaVersion: 'r1',
+            createdAt: '2026-05-21T00:00:00.000Z',
+            updatedAt: '2026-05-21T08:05:00.000Z',
+          },
+        });
+      }
+
+      if (url === '/drafts/assignment_2') {
+        return jsonResponse({
+          data: {
+            id: 'draft_assignment_2',
+            assignmentId: 'assignment_2',
+            answers: JSON.parse(String(init?.body ?? '{}')).answers,
+            schemaVersion: 'r1',
+            createdAt: '2026-05-21T00:00:00.000Z',
+            updatedAt: '2026-05-21T08:05:00.000Z',
+          },
+        });
+      }
+
+      if (url === '/submissions/task') {
+        return jsonResponse({
+          data: {
+            taskId: 'task_qa',
+            labelerId: 'user_labeler_li_lei',
+            submittedCount: 2,
+            submissions: [
+              {
+                id: 'submission_1',
+                assignmentId: 'assignment_1',
+                status: 'AI_QUEUED',
+                round: 1,
+                answers: { quality: 'pass' },
+                schemaVersion: 'r1',
+                submittedAt: '2026-05-21T08:06:00.000Z',
+                createdAt: '2026-05-21T08:06:00.000Z',
+                updatedAt: '2026-05-21T08:06:00.000Z',
+              },
+              {
+                id: 'submission_2',
+                assignmentId: 'assignment_2',
+                status: 'AI_QUEUED',
+                round: 1,
+                answers: { quality: 'excellent' },
+                schemaVersion: 'r1',
+                submittedAt: '2026-05-21T08:06:00.000Z',
+                createdAt: '2026-05-21T08:06:00.000Z',
+                updatedAt: '2026-05-21T08:06:00.000Z',
+              },
+            ],
+          },
+        });
+      }
+
+      return jsonResponse({ data: null });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage();
+
+    const navigationPanel = await screen.findByRole('complementary', { name: '题目导航' });
+    await user.click(within(navigationPanel).getByRole('button', { name: /qa_2/ }));
+    await waitFor(() => {
+      expect(screen.getByTestId('location-path')).toHaveTextContent('/labeler/tasks/T-001/items/qa_2');
+    });
+    await user.click(screen.getByRole('radio', { name: '优秀' }));
+    await user.click(within(navigationPanel).getByRole('button', { name: /qa_1/ }));
+    await waitFor(() => {
+      expect(screen.getByTestId('location-path')).toHaveTextContent('/labeler/tasks/T-001/items/qa_1');
+    });
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
+
+    expect(await screen.findByText('提交任务成功，2 条标注已进入 AI 预审队列')).toBeInTheDocument();
+    const draftCalls = fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/drafts/'));
+    expect(draftCalls.map(([url]) => url)).toEqual(['/drafts/assignment_1', '/drafts/assignment_2']);
+    expect(draftCalls[1]?.[1]?.body).toEqual(JSON.stringify({
+      actorId: 'user_labeler_li_lei',
+      answers: { quality: 'excellent' },
+    }));
+    const secondDraftCallIndex = fetchMock.mock.calls.findIndex(([url]) => url === '/drafts/assignment_2');
+    const submitCallIndex = fetchMock.mock.calls.findIndex(([url]) => url === '/submissions/task');
+    expect(secondDraftCallIndex).toBeGreaterThan(-1);
+    expect(submitCallIndex).toBeGreaterThan(secondDraftCallIndex);
+  });
+
   it('直接打开标注台时也从任务列表恢复任务名和任务ID', async () => {
     const rawTaskIdTitle = 'cmpzo8u7h0002v6peylj249qy';
     vi.stubGlobal(

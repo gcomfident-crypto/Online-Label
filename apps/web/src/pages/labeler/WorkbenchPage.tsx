@@ -469,6 +469,140 @@ export const WorkbenchPage = () => {
     [answers, labelerId, localCacheKey, showErrorToast, showInfoToast, showStatusToast, workbench],
   );
 
+  const syncTaskDraftsBeforeSubmit = useCallback(async (): Promise<boolean> => {
+    if (!workbench) {
+      return false;
+    }
+
+    if (!labelerId) {
+      showErrorToast('缺少当前标注员身份，无法同步整任务草稿。请重新登录。');
+      return false;
+    }
+
+    const draftSnapshots = collectTaskSubmissionDraftSnapshots(
+      workbench,
+      orderedTaskAssignments,
+      answers,
+      localAnswersByAssignmentRef.current,
+    );
+    const draftSnapshotsToSync = draftSnapshots.filter(({ assignment, answers: snapshotAnswers }) =>
+      assignment.assignmentId === workbench.assignment.id ||
+      !areAnswerRecordsEqual(snapshotAnswers, assignment.draftAnswers ?? {}),
+    );
+
+    if (draftSnapshotsToSync.length === 0) {
+      return true;
+    }
+
+    setIsSaving(true);
+    try {
+      const syncedDrafts = await Promise.all(
+        draftSnapshotsToSync.map(async (snapshot) => {
+          try {
+            const snapshotAnswers = { ...snapshot.answers };
+            const draft = await saveDraft(snapshot.assignment.assignmentId, {
+              actorId: labelerId,
+              answers: snapshotAnswers,
+            });
+
+            return {
+              ...snapshot,
+              answers: snapshotAnswers,
+              draft,
+            };
+          } catch (error) {
+            throw new Error(formatTaskDraftSyncErrorMessage(snapshot.externalId, error));
+          }
+        }),
+      );
+
+      for (const syncedDraft of syncedDrafts) {
+        localAnswersByAssignmentRef.current.set(syncedDraft.assignment.assignmentId, syncedDraft.answers);
+
+        const cachedWorkbench = workbenchCacheRef.current.get(syncedDraft.assignment.assignmentId);
+        if (cachedWorkbench) {
+          cacheWorkbenchSnapshot({
+            ...cachedWorkbench,
+            draft: {
+              ...syncedDraft.draft,
+              answers: syncedDraft.answers,
+            },
+          }, workbenchCacheRef.current);
+        }
+      }
+
+      setLocalQuestionProgress((current) => {
+        let nextProgressByAssignment = current;
+
+        for (const syncedDraft of syncedDrafts) {
+          const nextProgress = resolveSchemaAnswerProgressState(workbench.task.schema, syncedDraft.answers);
+          if (nextProgressByAssignment[syncedDraft.assignment.assignmentId] === nextProgress) {
+            continue;
+          }
+
+          nextProgressByAssignment = {
+            ...nextProgressByAssignment,
+            [syncedDraft.assignment.assignmentId]: nextProgress,
+          };
+        }
+
+        return nextProgressByAssignment;
+      });
+      setTaskAssignments((current) => {
+        const nextAssignments = syncedDrafts.reduce<LabelerAssignmentDto[]>(
+          (assignments, syncedDraft) =>
+            syncAssignmentsWithDraftAnswers(
+              assignments,
+              syncedDraft.assignment.assignmentId,
+              syncedDraft.answers,
+              syncedDraft.draft.updatedAt,
+            ),
+          current,
+        );
+        taskAssignmentsCacheRef.current.set(workbench.assignment.taskId, nextAssignments);
+        return nextAssignments;
+      });
+      setWorkbench((current) => {
+        const currentSyncedDraft = syncedDrafts.find((syncedDraft) =>
+          syncedDraft.assignment.assignmentId === current?.assignment.id,
+        );
+
+        return current && currentSyncedDraft
+          ? cacheWorkbenchSnapshot({
+              ...current,
+              draft: {
+                ...currentSyncedDraft.draft,
+                answers: currentSyncedDraft.answers,
+              },
+            }, workbenchCacheRef.current)
+          : current;
+      });
+
+      if (syncedDrafts.some((syncedDraft) => syncedDraft.assignment.assignmentId === workbench.assignment.id)) {
+        lastSavedSnapshotRef.current = JSON.stringify(answers);
+        window.localStorage.removeItem(localCacheKey);
+      }
+
+      setDraftStatus(`提交前已同步 ${syncedDrafts.length} 道题草稿。`);
+      setDraftStatusRevision((current) => current + 1);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '提交前整任务草稿同步失败。';
+      setDraftStatus('提交前整任务草稿同步失败。');
+      showErrorToast(message);
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    answers,
+    labelerId,
+    localCacheKey,
+    orderedTaskAssignments,
+    showErrorToast,
+    workbench,
+  ]);
+
   useEffect(() => {
     if (!hydratedRef.current || !workbench) {
       return;
@@ -774,8 +908,8 @@ export const WorkbenchPage = () => {
     taskSubmitInFlightRef.current = true;
     setIsSubmitting(true);
     try {
-      const draftSaved = await saveDraftNow('submit');
-      if (!draftSaved) {
+      const taskDraftsSynced = await syncTaskDraftsBeforeSubmit();
+      if (!taskDraftsSynced) {
         taskSubmitInFlightRef.current = false;
         return;
       }
@@ -856,10 +990,10 @@ export const WorkbenchPage = () => {
     labelerId,
     navigationAssignmentId,
     orderedTaskAssignments,
-    saveDraftNow,
     showErrorToast,
     showStatusToast,
     startAiReviewPolling,
+    syncTaskDraftsBeforeSubmit,
     workbench,
   ]);
 
@@ -1919,13 +2053,22 @@ type TaskSubmissionValidationSnapshot = {
   answers: Record<string, unknown>;
 };
 
+type TaskSubmissionDraftSnapshot = TaskSubmissionValidationSnapshot & {
+  assignment: LabelerAssignmentDto;
+};
+
 function collectTaskSubmissionValidationIssues(
   workbench: WorkbenchDto,
   taskAssignments: readonly LabelerAssignmentDto[],
   currentAnswers: Record<string, unknown>,
   localAnswerSnapshots: ReadonlyMap<string, Record<string, unknown>>,
 ): TaskSubmissionValidationIssue[] {
-  const snapshotsByAssignmentId = new Map<string, TaskSubmissionValidationSnapshot>();
+  const snapshots = collectTaskSubmissionDraftSnapshots(
+    workbench,
+    taskAssignments,
+    currentAnswers,
+    localAnswerSnapshots,
+  );
   const fieldOrderByKey = new Map(
     getFlattenedSchemaFields(workbench.task.schema.fields).map((field, index) => [
       getSchemaFieldKey(field),
@@ -1933,39 +2076,7 @@ function collectTaskSubmissionValidationIssues(
     ]),
   );
 
-  for (const assignment of taskAssignments) {
-    if (assignment.taskId !== workbench.assignment.taskId || !isSubmittableAssignmentStatus(assignment.status)) {
-      continue;
-    }
-
-    snapshotsByAssignmentId.set(assignment.assignmentId, {
-      assignmentId: assignment.assignmentId,
-      taskItemId: assignment.taskItemId,
-      externalId: assignment.externalId,
-      sortOrder: assignment.taskItemSortOrder,
-      answers: resolveSubmissionValidationAnswers(
-        workbench,
-        assignment,
-        currentAnswers,
-        localAnswerSnapshots,
-      ),
-    });
-  }
-
-  if (
-    isSubmittableAssignmentStatus(workbench.assignment.status) &&
-    !snapshotsByAssignmentId.has(workbench.assignment.id)
-  ) {
-    snapshotsByAssignmentId.set(workbench.assignment.id, {
-      assignmentId: workbench.assignment.id,
-      taskItemId: workbench.assignment.taskItemId,
-      externalId: workbench.taskItem.externalId,
-      sortOrder: workbench.taskItem.sortOrder,
-      answers: currentAnswers,
-    });
-  }
-
-  return [...snapshotsByAssignmentId.values()]
+  return snapshots
     .sort(compareTaskSubmissionValidationSnapshots)
     .flatMap((snapshot) => {
       const linkageResult = applySchemaLinkage(workbench.task.schema, snapshot.answers);
@@ -1990,6 +2101,51 @@ function collectTaskSubmissionValidationIssues(
     });
 }
 
+function collectTaskSubmissionDraftSnapshots(
+  workbench: WorkbenchDto,
+  taskAssignments: readonly LabelerAssignmentDto[],
+  currentAnswers: Record<string, unknown>,
+  localAnswerSnapshots: ReadonlyMap<string, Record<string, unknown>>,
+): TaskSubmissionDraftSnapshot[] {
+  const snapshotsByAssignmentId = new Map<string, TaskSubmissionDraftSnapshot>();
+
+  for (const assignment of taskAssignments) {
+    if (assignment.taskId !== workbench.assignment.taskId || !isSubmittableAssignmentStatus(assignment.status)) {
+      continue;
+    }
+
+    snapshotsByAssignmentId.set(assignment.assignmentId, {
+      assignment,
+      assignmentId: assignment.assignmentId,
+      taskItemId: assignment.taskItemId,
+      externalId: assignment.externalId,
+      sortOrder: assignment.taskItemSortOrder,
+      answers: resolveSubmissionValidationAnswers(
+        workbench,
+        assignment,
+        currentAnswers,
+        localAnswerSnapshots,
+      ),
+    });
+  }
+
+  if (
+    isSubmittableAssignmentStatus(workbench.assignment.status) &&
+    !snapshotsByAssignmentId.has(workbench.assignment.id)
+  ) {
+    snapshotsByAssignmentId.set(workbench.assignment.id, {
+      assignment: createCurrentWorkbenchAssignmentSnapshot(workbench),
+      assignmentId: workbench.assignment.id,
+      taskItemId: workbench.assignment.taskItemId,
+      externalId: workbench.taskItem.externalId,
+      sortOrder: workbench.taskItem.sortOrder,
+      answers: currentAnswers,
+    });
+  }
+
+  return [...snapshotsByAssignmentId.values()];
+}
+
 function resolveSubmissionValidationAnswers(
   workbench: WorkbenchDto,
   assignment: LabelerAssignmentDto,
@@ -2001,6 +2157,33 @@ function resolveSubmissionValidationAnswers(
   }
 
   return localAnswerSnapshots.get(assignment.assignmentId) ?? assignment.draftAnswers ?? {};
+}
+
+function createCurrentWorkbenchAssignmentSnapshot(workbench: WorkbenchDto): LabelerAssignmentDto {
+  const latestSubmission = latestSubmissionByRound(workbench.submissionHistory);
+
+  return {
+    assignmentId: workbench.assignment.id,
+    taskId: workbench.assignment.taskId,
+    taskDisplayId: formatGeneratedTaskDisplayId(1),
+    taskTitle: workbench.task.title,
+    taskItemId: workbench.assignment.taskItemId,
+    taskItemSortOrder: workbench.taskItem.sortOrder,
+    externalId: workbench.taskItem.externalId,
+    datasetKind: workbench.taskItem.datasetKind,
+    status: workbench.assignment.status,
+    claimedAt: workbench.assignment.claimedAt,
+    templateName: workbench.task.templateName,
+    schemaVersion: workbench.task.schemaVersion,
+    latestSubmissionStatus: latestSubmission?.status ?? null,
+    latestSubmittedAt: latestSubmission?.submittedAt ?? null,
+    latestReviewStage: latestReviewRecordByCreatedAt(latestSubmission?.reviewRecords ?? [])?.stage ?? null,
+    latestReviewerType: latestReviewRecordByCreatedAt(latestSubmission?.reviewRecords ?? [])?.reviewerType ?? null,
+    latestReviewDecision: latestReviewRecordByCreatedAt(latestSubmission?.reviewRecords ?? [])?.decision ?? null,
+    draftAnswers: workbench.draft?.answers ?? null,
+    draftUpdatedAt: workbench.draft?.updatedAt ?? null,
+    round: latestSubmission?.round ?? 0,
+  };
 }
 
 function compareTaskSubmissionValidationSnapshots(
@@ -2022,6 +2205,21 @@ function normalizeInlineValidationMessage(message: string): string {
   const normalizedMessage = message.replace(/[。.!！]+$/g, '').trim();
 
   return normalizedMessage || '答案填写有误';
+}
+
+function formatTaskDraftSyncErrorMessage(externalId: string, error: unknown): string {
+  const reason = error instanceof Error && error.message.trim()
+    ? error.message.trim()
+    : '草稿同步失败。';
+
+  return `题目 ${externalId}：${reason}`;
+}
+
+function areAnswerRecordsEqual(
+  first: Record<string, unknown>,
+  second: Record<string, unknown>,
+): boolean {
+  return JSON.stringify(first) === JSON.stringify(second);
 }
 
 function formatTaskSubmissionErrorMessage(error: unknown): string {
