@@ -16,6 +16,7 @@ import {
   type ReviewTimelineItemDto,
   listPendingReviews,
 } from '../../api/reviews';
+import { formatClockTime, formatMonthDayTimeMinute } from '../../utils/dateTime';
 
 const REVIEWER_ID = 'user_reviewer_wang_fang';
 const DEFAULT_REJECT_REASON = '请根据字段修改建议调整。';
@@ -1888,11 +1889,11 @@ function isEmptySnapshotValue(value: unknown): boolean {
 }
 
 function formatTime(value: string): string {
-  return value.slice(11, 19) || value;
+  return formatClockTime(value, { seconds: true }, value);
 }
 
 function formatTimelineTime(value: string): string {
-  return value.slice(5, 16).replace('T', ' ');
+  return formatMonthDayTimeMinute(value, value);
 }
 
 function formatUserName(userId: string | null | undefined): string {

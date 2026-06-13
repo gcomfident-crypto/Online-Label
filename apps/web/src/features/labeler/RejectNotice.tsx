@@ -1,4 +1,5 @@
 import type { WorkbenchDto } from '../../api/drafts';
+import { formatDateTimeMinute } from '../../utils/dateTime';
 
 type RejectNoticeProps = {
   notice: WorkbenchDto['rejectionNotice'];
@@ -22,7 +23,7 @@ export const RejectNotice = ({ notice, suggestion }: RejectNoticeProps) => {
           {suggestion}
         </span>
       ) : null}
-      <small>{notice.createdAt.slice(0, 16).replace('T', ' ')}</small>
+      <small>{formatDateTimeMinute(notice.createdAt)}</small>
     </section>
   );
 };

@@ -1,5 +1,6 @@
 import type { LabelerStatsDto } from '../../api/submissions';
 import type { WorkbenchDto } from '../../api/drafts';
+import { formatDateTimeMinute } from '../../utils/dateTime';
 
 type ContributionStatsProps = {
   stats: LabelerStatsDto | null;
@@ -33,7 +34,7 @@ export const ContributionStats = ({ stats, history }: ContributionStatsProps) =>
             {history.map((submission) => (
               <li key={submission.id}>
                 <strong>第 {submission.round} 轮 · {SUBMISSION_STATUS_LABELS[submission.status] ?? submission.status}</strong>
-                <span>{submission.submittedAt.slice(0, 16).replace('T', ' ')}</span>
+                <span>{formatDateTimeMinute(submission.submittedAt)}</span>
               </li>
             ))}
           </ol>

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { listPendingReviewTasks, type ReviewTaskQueueDto } from '../../api/reviews';
+import { formatDateTimeMinute } from '../../utils/dateTime';
 import { ReviewTaskDetailContent } from './ReviewDetailPage';
 
 type ManualReviewTaskStatus = '复审中' | '待人工复审' | '已完成';
@@ -331,5 +332,5 @@ function hasActiveTextSelection(): boolean {
 }
 
 function formatMinute(value: string): string {
-  return value ? value.slice(0, 16).replace('T', ' ') : '未记录';
+  return value ? formatDateTimeMinute(value) : '未记录';
 }

@@ -14,6 +14,7 @@ import {
   emptyAgentDashboardData,
   loadAgentDashboardData,
 } from './agentDashboardData';
+import { formatDateTimeMinute } from '../../utils/dateTime';
 
 export const AgentDashboardPage = () => <DashboardPage />;
 
@@ -639,8 +640,8 @@ function triggerDashboardReportDownload(dashboardElement: HTMLElement | null, su
     throw new Error('导出失败：找不到可导出的看板区域。');
   }
 
-  const dateLabel = new Date().toISOString().slice(0, 10);
-  const exportTime = new Date().toLocaleString('zh-CN', { hour12: false });
+  const exportTime = formatDateTimeMinute(new Date());
+  const dateLabel = exportTime.slice(0, 10);
   const styles = collectAllStyles();
   const content = `<!doctype html>
 <html lang="zh-CN">

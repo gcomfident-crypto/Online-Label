@@ -11,6 +11,7 @@ import {
 } from '../../../api/templates';
 import diffIcon from '../../../assets/diff.svg';
 import recoverIcon from '../../../assets/recover.svg';
+import { formatDateTimeMinute } from '../../../utils/dateTime';
 import { TemplateRestoreConfirmDialog } from './TemplateRestoreConfirmDialog';
 import { TemplateVersionSideBySideDiffView } from './TemplateVersionSideBySideDiffView';
 
@@ -369,17 +370,7 @@ const formatVersionState = (version: TemplateVersionDto): string => {
   return '历史';
 };
 
-const formatDateTime = (value: string): string => {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value.slice(0, 16).replace('T', ' ');
-  }
-
-  return `${date.getFullYear()}-${formatDateTimePart(date.getMonth() + 1)}-${formatDateTimePart(date.getDate())} ${formatDateTimePart(date.getHours())}:${formatDateTimePart(date.getMinutes())}`;
-};
-
-const formatDateTimePart = (value: number): string => String(value).padStart(2, '0');
+const formatDateTime = (value: string): string => formatDateTimeMinute(value, value);
 
 const formatPublisher = (createdById: string | null): string => {
   if (!createdById) {

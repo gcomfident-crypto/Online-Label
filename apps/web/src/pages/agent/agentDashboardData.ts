@@ -1,6 +1,10 @@
 import type { AiReviewBatchDto } from '../../api/aiReview';
 import { listAiReviewBatches } from '../../api/aiReview';
 import { listTaskSummaries, type TaskDto } from '../../api/tasks';
+import {
+  formatDateTimeMinute as formatShanghaiDateTimeMinute,
+  formatMonthDayTimeMinute as formatShanghaiMonthDayTimeMinute,
+} from '../../utils/dateTime';
 
 export type DashboardRange = '7d' | '30d';
 
@@ -482,11 +486,11 @@ function formatDuration(seconds: number): string {
 }
 
 function formatDateTime(date: Date): string {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return formatShanghaiDateTimeMinute(date);
 }
 
 function formatMonthDayTime(date: Date): string {
-  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return formatShanghaiMonthDayTimeMinute(date);
 }
 
 function formatDayLabel(date: Date, year: number): string {

@@ -40,6 +40,7 @@ import {
   createStatusToast,
   type ToastMessage,
 } from '../../components/ToastViewport';
+import { formatDateTimeMinute } from '../../utils/dateTime';
 import { DesignerCanvas, DesignerFieldDragOverlay } from '../../features/template-designer/DesignerCanvas';
 import { MaterialDragOverlay, MaterialPanel } from '../../features/template-designer/MaterialPanel';
 import { PropertyPanel } from '../../features/template-designer/PropertyPanel';
@@ -2966,8 +2967,6 @@ const datasetKindLabel = (datasetKind: LabelHubSchema['datasetKind']): string =>
 
   return '通用数据';
 };
-
-const formatDateTimeMinute = (value: string): string => value.slice(0, 16).replace('T', ' ');
 
 const resolveTemplateSchema = (template: TemplateManagerRow): LabelHubSchema => {
   return template.template!.schema;

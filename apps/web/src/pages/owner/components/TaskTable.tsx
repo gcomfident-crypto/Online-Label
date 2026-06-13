@@ -3,6 +3,7 @@ import type { KeyboardEvent, MouseEvent, ReactNode, Ref } from 'react';
 import { StatusTag } from '../../../components/StatusTag';
 import type { TaskDto } from '../../../api/tasks';
 import { TableEmptyState } from '../../../components/TableEmptyState';
+import { splitDateTimeMinute } from '../../../utils/dateTime';
 
 export type TaskTableSortField = 'taskId' | 'createdAt' | 'deadline';
 export type TaskTableSortDirection = 'asc' | 'desc';
@@ -444,16 +445,6 @@ const DateTimeCell = ({ value }: { value?: string | null }) => {
       <small className="task-date-cell__time">{time}</small>
     </span>
   );
-};
-
-const splitDateTimeMinute = (value?: string | null): { date: string; time: string } => {
-  if (!value) {
-    return { date: '—', time: '' };
-  }
-
-  const [date, time = ''] = value.slice(0, 16).replace('T', ' ').split(' ');
-
-  return { date, time };
 };
 
 const formatProgressPercent = (value: number): string => {

@@ -6,6 +6,7 @@ import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { SchemaRenderer } from '../../features/schema-renderer';
+import { formatMonthDayTimeMinute, formatMonthDayTimeSecond } from '../../utils/dateTime';
 import {
   getTaskFlow,
   getCachedTaskFlow,
@@ -1865,15 +1866,13 @@ function splitDateTimeMinute(value?: string | null): { date: string; time: strin
     return { date: '未记录', time: '' };
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const formatted = formatMonthDayTimeMinute(value, '');
+  if (!formatted) {
     return { date: value, time: '' };
   }
 
-  return {
-    date: date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }),
-    time: date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-  };
+  const [date, time = ''] = formatted.split(' ');
+  return { date, time };
 }
 
 function formatDateTimeSecond(value?: string | null): string {
@@ -1881,18 +1880,7 @@ function formatDateTimeSecond(value?: string | null): string {
     return '未记录';
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+  return formatMonthDayTimeSecond(value, value);
 }
 
 function shouldIgnoreRowOpen(target: EventTarget | null): boolean {

@@ -11,6 +11,7 @@ import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
 import { useSession } from '../../stores/sessionStore';
+import { formatDateTimeMinute } from '../../utils/dateTime';
 
 const MY_DATA_FALLBACK_PAGE_SIZE = 7;
 const MY_DATA_TABLE_ROW_HEIGHT = 66;
@@ -369,7 +370,7 @@ type LabelerTaskGroup = LabelerAssignmentTaskDto;
 const workbenchHref = (assignment: LabelerAssignmentDto): string =>
   `/labeler/tasks/${encodeURIComponent(assignment.taskDisplayId || assignment.taskId)}/items/${encodeURIComponent(assignment.externalId || assignment.taskItemId)}`;
 
-const formatDateTime = (value: string): string => value.slice(0, 16).replace('T', ' ');
+const formatDateTime = (value: string): string => formatDateTimeMinute(value);
 
 const TaskProgressSummary = ({ taskGroup }: { taskGroup: LabelerTaskGroup }) => {
   const taskStatus = taskGroup.status;

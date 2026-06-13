@@ -12,6 +12,7 @@ import { ToastViewport, useToastController } from '../../components/ToastViewpor
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
 import { useSession } from '../../stores/sessionStore';
 import { readPageDataCache, writePageDataCache } from '../../utils/pageDataCache';
+import { splitDateTimeMinute } from '../../utils/dateTime';
 import eyeIcon from '../../assets/eye.svg';
 import getIcon from '../../assets/get.svg';
 
@@ -849,16 +850,6 @@ const DateTimeCell = ({ value }: { value?: string | null }) => {
       <small className="task-date-cell__time">{time}</small>
     </span>
   );
-};
-
-const splitDateTimeMinute = (value?: string | null): { date: string; time: string } => {
-  if (!value) {
-    return { date: '—', time: '' };
-  }
-
-  const [date, time = ''] = value.slice(0, 16).replace('T', ' ').split(' ');
-
-  return { date, time };
 };
 
 function isMarketTaskDtoArray(value: unknown): value is MarketTaskDto[] {

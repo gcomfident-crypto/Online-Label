@@ -1,4 +1,5 @@
 import type { ReviewTimelineItemDto } from '../../api/reviews';
+import { formatDateTimeMinute } from '../../utils/dateTime';
 
 type AuditTimelineProps = {
   items: ReviewTimelineItemDto[];
@@ -33,5 +34,5 @@ export const AuditTimeline = ({ items }: AuditTimelineProps) => (
 );
 
 function formatDateTime(value: string): string {
-  return value.slice(0, 16).replace('T', ' ');
+  return formatDateTimeMinute(value);
 }

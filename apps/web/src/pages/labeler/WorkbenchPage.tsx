@@ -14,6 +14,7 @@ import { listLabelerAssignments, type AssignmentStatus, type LabelerAssignmentDt
 import { getAssignmentWorkbench, saveDraft, type WorkbenchDto } from '../../api/drafts';
 import { getLabelerStats, submitTask, type LabelerStatsDto, type TaskSubmissionDto } from '../../api/submissions';
 import { useSession } from '../../stores/sessionStore';
+import { formatClockTime, formatDateTimeMinute, formatMonthDayTimeMinute } from '../../utils/dateTime';
 
 type WorkbenchNavigationState = {
   assignmentId?: string;
@@ -2674,12 +2675,7 @@ function createLocalDraftCacheKey(labelerId: string, assignmentId: string): stri
 }
 
 function formatTime(value: string): string {
-  return new Date(value).toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
+  return formatClockTime(value, { seconds: true });
 }
 
 function formatDeadlineCountdown(value: string | null, nowMs: number): string {
@@ -2706,11 +2702,11 @@ function formatDeadlineCountdown(value: string | null, nowMs: number): string {
 }
 
 function formatDateTime(value: string): string {
-  return value.slice(0, 16).replace('T', ' ');
+  return formatDateTimeMinute(value);
 }
 
 function formatHistoryTime(value: string): string {
-  return value.slice(5, 16).replace('T', ' ');
+  return formatMonthDayTimeMinute(value);
 }
 
 function formatUserName(userId: string | null | undefined): string {

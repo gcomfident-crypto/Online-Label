@@ -17,6 +17,7 @@ import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
 import { useAdaptiveTablePageSize } from '../../hooks/useAdaptiveTablePageSize';
+import { formatDateTimeMinute } from '../../utils/dateTime';
 import { readPageDataCache, writePageDataCache } from '../../utils/pageDataCache';
 import { DatasetPreviewModal } from './components/DatasetPreviewModal';
 import { createTaskDisplayIdMap, taskCreatedAtTimestamp } from './taskDisplayId';
@@ -786,10 +787,6 @@ function parseExportTaskSortTimestamp(value: string | null | undefined): number 
   const parsed = Date.parse(value);
 
   return Number.isNaN(parsed) ? null : parsed;
-}
-
-function formatDateTimeMinute(value: string): string {
-  return value.slice(0, 16).replace('T', ' ');
 }
 
 function createExportPreviewItems(preview: ExportPreviewDto): TaskItemDto[] {
