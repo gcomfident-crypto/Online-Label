@@ -436,15 +436,20 @@ describe('ReviewDetailPage', () => {
     const restoredSentComments = within(restoredSidePanel).getByLabelText('已发送字段评论');
     expect(restoredSentComments).toHaveTextContent('质量判断要改成未通过。');
     expect(restoredSentComments).toHaveTextContent('请补充完整判断依据。');
-    expect(within(restoredSidePanel).queryByRole('textbox', { name: '字段评论：质量判断' })).not.toBeInTheDocument();
+    const restoredEditor = within(restoredSidePanel).getByRole('textbox', { name: '字段评论：质量判断' });
+    expect(restoredEditor).toHaveValue('质量判断要改成未通过。');
 
-    await user.click(screen.getByRole('button', { name: '评论字段 质量判断' }));
+    await user.clear(restoredEditor);
+    await user.type(restoredEditor, '质量判断改成部分通过。');
+    await user.click(within(restoredSidePanel).getByRole('button', { name: '发送' }));
 
     expect(within(restoredSidePanel).queryByRole('textbox', { name: '字段评论：质量判断' })).not.toBeInTheDocument();
     const commentCardsAfterReselect = Array.from(restoredSentComments.querySelectorAll<HTMLElement>('.manual-review-field-comment-card'));
     expect(commentCardsAfterReselect).toHaveLength(2);
     expect(commentCardsAfterReselect[0]).toHaveClass('is-highlighted');
     expect(commentCardsAfterReselect[0]).toHaveAttribute('aria-current', 'true');
+    expect(commentCardsAfterReselect[0]).toHaveTextContent('质量判断改成部分通过。');
+    expect(commentCardsAfterReselect[0]).not.toHaveTextContent('质量判断要改成未通过。');
 
     await user.click(within(screen.getByLabelText('审核操作')).getByRole('button', { name: /打回/ }));
 
@@ -457,7 +462,7 @@ describe('ReviewDetailPage', () => {
         {
           fieldKey: 'quality',
           label: '质量判断',
-          comment: '质量判断要改成未通过。',
+          comment: '质量判断改成部分通过。',
           value: 'pass',
         },
         {

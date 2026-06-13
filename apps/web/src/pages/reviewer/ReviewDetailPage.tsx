@@ -434,8 +434,8 @@ export const ReviewTaskDetailContent = ({
 
     setSidePanelTab('comments');
     if (selectedFieldComments[field.fieldKey]?.comment.trim()) {
-      setSelectedCommentFieldKey(null);
-      setFieldCommentDraft('');
+      setSelectedCommentFieldKey(field.fieldKey);
+      setFieldCommentDraft(selectedFieldComments[field.fieldKey].comment);
       setHighlightedCommentFieldKey(field.fieldKey);
       return;
     }
