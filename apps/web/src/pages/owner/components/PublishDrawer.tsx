@@ -1314,6 +1314,10 @@ const DeadlinePicker = ({
     }
   };
 
+  const stopDeadlinePickerPanelEvent = (event: MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+  };
+
   const selectPreviousDeadlineHour = () => {
     setDraftDate((currentDate) => shiftSelectableDeadlineHour(currentDate, now, -1));
   };
@@ -1371,7 +1375,13 @@ const DeadlinePicker = ({
         <span className="task-deadline-picker__trigger-icon" aria-hidden="true" />
       </button>
       {isOpen ? (
-        <div className="task-deadline-picker__popover" role="dialog" aria-label="选择截止时间">
+        <div
+          className="task-deadline-picker__popover"
+          role="dialog"
+          aria-label="选择截止时间"
+          onClick={stopDeadlinePickerPanelEvent}
+          onMouseDown={stopDeadlinePickerPanelEvent}
+        >
           <section className="task-deadline-picker__calendar" aria-label="截止日期">
             <div className="task-deadline-picker__header">
               <button
@@ -1431,7 +1441,12 @@ const DeadlinePicker = ({
               })}
             </div>
           </section>
-          <section className="task-deadline-picker__time" aria-label="截止时间">
+          <section
+            className="task-deadline-picker__time"
+            aria-label="截止时间"
+            onClick={stopDeadlinePickerPanelEvent}
+            onMouseDown={stopDeadlinePickerPanelEvent}
+          >
             <div className="task-deadline-picker__time-heading">
               <span>选择时间</span>
             </div>

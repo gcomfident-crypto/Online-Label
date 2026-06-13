@@ -11239,6 +11239,8 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .task-deadline-picker__calendar {
+  position: relative;
+  z-index: 1;
   grid-column: 1;
   grid-row: 1;
   min-width: 0;
@@ -11348,6 +11350,8 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .task-deadline-picker__time {
+  position: relative;
+  z-index: 2;
   grid-column: 2;
   grid-row: 1;
   display: grid;
@@ -11360,7 +11364,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   border: 0;
   border-left: 1px solid #e3e9f3;
   border-radius: 0;
-  background: transparent;
+  background: #ffffff;
 }
 
 .task-deadline-picker__time-heading {
@@ -16005,7 +16009,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .labeler-item-history {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   grid-auto-rows: max-content;
   align-content: start;
   align-items: start;
@@ -16016,12 +16020,14 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .labeler-item-history__round {
   display: grid;
-  gap: 8px;
+  gap: 9px;
   align-self: start;
   position: relative;
-  border-left: 1px solid #dbe4f0;
-  padding: 0 0 2px 14px;
-  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
 .labeler-item-history__round-header {
@@ -16032,22 +16038,28 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .labeler-item-history__round-header span {
-  color: #0f172a;
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border-radius: 999px;
+  padding: 0 8px;
+  color: #1d4ed8;
+  background: #eaf1ff;
+  font-size: 12px;
   font-weight: 900;
   line-height: 1.2;
 }
 
 .labeler-item-history__round-header small {
   color: #64748b;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
 }
 
 .labeler-item-history__events {
   display: grid;
-  gap: 4px;
+  gap: 7px;
   grid-auto-rows: max-content;
   align-content: start;
   align-items: start;
@@ -16060,38 +16072,57 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   position: relative;
-  border-radius: 7px;
-  padding: 5px 6px 5px 16px;
-  color: #64748b;
+  border: 1px solid #e5eaf2;
+  border-left: 4px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 9px 9px 9px 14px;
+  color: #475569;
+  background: #ffffff;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
 }
 
 .labeler-item-history__row:hover {
-  background: #f1f5f9;
+  border-color: #c9d8f6;
+  background: #f8fbff;
 }
 
 .labeler-item-history__row::before {
   content: '';
   position: absolute;
-  left: 3px;
+  left: 5px;
   top: 50%;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
-  box-shadow: 0 0 0 3px #ffffff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95);
   background: #cbd5e1;
   transform: translateY(-50%);
 }
 
+.labeler-item-history__row--ai {
+  border-left-color: #f59e0b;
+  background: #fffaf0;
+}
+
 .labeler-item-history__row--ai::before {
-  background: #d97706;
+  background: #f59e0b;
+}
+
+.labeler-item-history__row--reviewer {
+  border-left-color: #306df7;
+  background: #f8fbff;
 }
 
 .labeler-item-history__row--reviewer::before {
   background: #306df7;
+}
+
+.labeler-item-history__row--submit {
+  border-left-color: #94a3b8;
 }
 
 .labeler-item-history__row--submit::before {
