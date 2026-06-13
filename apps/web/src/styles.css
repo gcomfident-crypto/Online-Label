@@ -15387,6 +15387,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .question-navigator__status-text {
   display: inline-block;
+  animation: question-status-change 180ms ease both;
 }
 
 .question-navigator__annotation-status {

@@ -311,6 +311,15 @@ export function prefetchTaskFlow(taskId: string, input: { round?: number } = {})
   void getTaskFlow(taskId, input).catch(() => undefined);
 }
 
+export function clearTaskFlowCachesForTest(): void {
+  taskFlowsCache = null;
+  taskFlowsRequest = null;
+  taskFlowDetailCache.clear();
+  taskFlowDetailRequests.clear();
+  taskFlowLogCache.clear();
+  taskFlowLogRequests.clear();
+}
+
 function taskFlowDetailCacheKey(taskId: string, input: { round?: number }): string {
   return `${taskId}:${input.round ?? 'latest'}`;
 }

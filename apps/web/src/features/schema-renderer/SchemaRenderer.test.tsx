@@ -640,11 +640,11 @@ describe('SchemaRenderer', () => {
     );
 
     expect(screen.getByText('展示项 ShowItem')).toBeInTheDocument();
-    expect(screen.getByText('用户问题')).toBeInTheDocument();
+    expect(screen.getByText('用户输入 / 任务说明')).toBeInTheDocument();
     expect(screen.getByText('请说明光合作用的主要过程。')).toBeInTheDocument();
-    expect(screen.getByText('模型回答')).toBeInTheDocument();
+    expect(screen.getByText('待评估模型回答')).toBeInTheDocument();
     expect(screen.getByText('光合作用会吸收二氧化碳并释放氧气。')).toBeInTheDocument();
-    expect(screen.getByText('参考答案')).toBeInTheDocument();
+    expect(screen.getByText('参考答案 / 评判要点')).toBeInTheDocument();
     expect(screen.getByText('应包含光能转化、二氧化碳和水生成有机物、释放氧气。')).toBeInTheDocument();
   });
 

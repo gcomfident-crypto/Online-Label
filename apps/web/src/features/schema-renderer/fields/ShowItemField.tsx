@@ -116,6 +116,10 @@ const resolveShowItemResource = (value: unknown): ShowItemResource | null => {
     return null;
   }
 
+  if (url.startsWith('data:image/')) {
+    return { kind: 'image', url };
+  }
+
   try {
     const parsedUrl = new URL(url);
 

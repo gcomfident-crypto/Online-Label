@@ -159,11 +159,12 @@ describe('Web 壳 smoke test', () => {
     });
     const { unmount } = renderRoute('/owner/tasks');
     const ownerTopbar = await screen.findByRole('banner', { name: '平台顶栏' });
-    expect(ownerTopbar).toHaveTextContent('LabelHub');
     const brandIcon = ownerTopbar.querySelector('.platform-brand__mark');
-    expect(brandIcon?.tagName.toLowerCase()).toBe('span');
-    expect(brandIcon).toHaveTextContent('LH');
-    expect(brandIcon).not.toHaveAttribute('src');
+    expect(brandIcon?.tagName.toLowerCase()).toBe('img');
+    expect(brandIcon).toHaveAttribute(
+      'src',
+      expect.stringContaining('LabelHub_logo_closer_transparent.png'),
+    );
     expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('任务负责人后台 / 任务管理');
     expect(screen.getByRole('banner', { name: '平台顶栏' })).toHaveTextContent('张泽鑫 · Owner');
     const currentPath = screen.getByLabelText('当前路径');
@@ -320,7 +321,7 @@ describe('Web 路由守卫', () => {
 
     renderRoute('/dev/renderer');
 
-    expect(screen.getByRole('heading', { name: 'Renderer 调试台' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Renderer 调试台' })).toBeInTheDocument();
     expect(screen.getByText('请说明光合作用的主要过程。')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '答案 JSON' })).toBeInTheDocument();
     expect(screen.getAllByText('一句话总评为必填项。').length).toBeGreaterThan(0);
@@ -331,7 +332,7 @@ describe('Web 路由守卫', () => {
     );
 
     await user.click(screen.getByRole('button', { name: '问答质量：图片' }));
-    expect(screen.getByRole('img', { name: '题目媒体' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '媒体素材' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '问答质量：视频' }));
     expect(document.querySelector('video')).toBeInTheDocument();
@@ -357,13 +358,13 @@ describe('Web 路由守卫', () => {
     expect(screen.getByLabelText('清洗后标题')).toHaveValue('降噪蓝牙耳机');
   });
 
-  it('Labeler 访问 /owner/tasks 被拦截到无权限页', () => {
+  it('Labeler 访问 /owner/tasks 被拦截到无权限页', async () => {
     act(() => {
       sessionStore.loginAs(USER_ROLE.LABELER);
     });
     renderRoute('/owner/tasks');
 
-    expect(screen.getByRole('heading', { name: '无权限访问' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '无权限访问' })).toBeInTheDocument();
     expect(screen.getByText('当前账号不能访问该端工作区。')).toBeInTheDocument();
   });
 

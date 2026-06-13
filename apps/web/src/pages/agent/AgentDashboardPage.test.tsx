@@ -74,7 +74,7 @@ describe('AgentDashboardPage', () => {
     const abnormalTable = within(page).getByRole('table', { name: '异常批次' });
     expect(abnormalTable).toBeInTheDocument();
     expect(within(abnormalTable).getByText('AI 建议打回')).toBeInTheDocument();
-    expect(within(page).getByRole('button', { name: '查看 城市道路-视频标注 AI 建议打回' })).toBeInTheDocument();
+    expect(within(abnormalTable).queryByRole('button', { name: /查看/ })).not.toBeInTheDocument();
 
     const statusOverview = within(page).getByRole('region', { name: '任务状态概览' });
     expect(within(statusOverview).getByText('总任务数：4')).toBeInTheDocument();

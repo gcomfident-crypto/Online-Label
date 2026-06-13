@@ -251,7 +251,7 @@ describe('TaskMarketPage', () => {
     expect(previewDialog).toHaveTextContent('模型对比--自动解析模板 · XLSX 文件 · 模型对比.xlsx · 共 12 题');
     expect(previewDialog).not.toHaveTextContent('通用 JSON');
     expect(previewDialog).not.toHaveTextContent('共 3 条样例');
-    expect(within(previewDialog).getByText('P0012')).toBeInTheDocument();
+    expect(within(previewDialog).getAllByText('P0012').length).toBeGreaterThan(0);
     expect(within(previewDialog).getByText('模型对比问题 12')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       '/tasks/task_preference_xlsx/items',

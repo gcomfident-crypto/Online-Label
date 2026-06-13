@@ -40,13 +40,13 @@ export default defineConfig({
   webServer: [
     {
       command: 'pnpm --dir apps/api exec tsx src/main.ts',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: process.env.PW_REUSE_EXISTING_SERVER === '1',
       timeout: 30_000,
       url: 'http://127.0.0.1:3000/health',
     },
     {
       command: 'pnpm --dir apps/web exec vite --host 127.0.0.1 --port 5175',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: process.env.PW_REUSE_EXISTING_SERVER === '1',
       timeout: 30_000,
       url: 'http://127.0.0.1:5175/dev/renderer',
     },

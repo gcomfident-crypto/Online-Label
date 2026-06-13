@@ -76,7 +76,7 @@ describe('ReviewListPage', () => {
     expect(within(table).getByText('真实人工审核任务')).toBeInTheDocument();
     expect(within(table).getByText('T-001')).toBeInTheDocument();
     expect(table).not.toHaveTextContent(rawReviewTaskId);
-    expect(within(table).getByText('2')).toBeInTheDocument();
+    expect(taskRowCells[2]).toHaveTextContent('2');
     const pagination = screen.getByLabelText('人工审核任务列表分页');
     expect(pagination).toHaveClass('task-table-pagination');
     expect(within(pagination).getByLabelText('当前页码')).toHaveTextContent('第 1 / 2 页');

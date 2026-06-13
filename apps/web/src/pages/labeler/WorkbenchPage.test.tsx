@@ -2010,7 +2010,7 @@ describe('WorkbenchPage', () => {
     expect(within(context).queryByRole('button', { name: '重新标注' })).not.toBeInTheDocument();
   });
 
-  it('支持保存、切题和报告快捷键', async () => {
+  it('支持保存和切题快捷键', async () => {
     const user = userEvent.setup();
     const secondWorkbench = {
       ...qaWorkbench,
@@ -2114,7 +2114,7 @@ describe('WorkbenchPage', () => {
     );
 
     await user.keyboard('r');
-    expect(await screen.findByText('请在本题备注中说明异常，提交任务后会随答案进入审核')).toBeInTheDocument();
+    expect(screen.queryByText('请在本题备注中说明异常，提交任务后会随答案进入审核')).not.toBeInTheDocument();
   });
 
   it('通用 JSON 任务不展示通用题目数据面板，也不回退成问答质量占位', async () => {

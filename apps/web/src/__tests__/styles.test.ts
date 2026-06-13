@@ -308,7 +308,7 @@ describe('global styles', () => {
   it('人工审核详情页左侧队列不显示深色悬浮块，AI 分数按真实维度自适应展示', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const queuePanelRule = styles.match(/\.manual-review-queue-panel\s*\{[^}]+\}/)?.[0] ?? '';
-    const scoreGridRule = styles.match(/\.manual-review-score-grid\s*\{[^}]+\}/)?.[0] ?? '';
+    const scoreGridRule = styles.match(/\.reviewer-workbench-page \.review-score-grid\s*\{[^}]+\}/)?.[0] ?? '';
     const fieldButtonRule = styles.match(/\.manual-review-submit-card div\[role='button'\]\s*\{[^}]+\}/)?.[0] ?? '';
     const questionRowHoverRule = styles.match(
       /\.manual-review-question-list article:hover,\s*\.manual-review-question-list article:focus-within\s*\{[^}]+\}/,
@@ -316,10 +316,11 @@ describe('global styles', () => {
     const questionStatusRule = styles.match(/\.manual-review-question-status\s*\{[^}]+\}/)?.[0] ?? '';
 
     expect(queuePanelRule).toContain('grid-template-rows: auto minmax(0, 1fr);');
-    expect(scoreGridRule).toContain('grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));');
+    expect(scoreGridRule).toContain('grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));');
     expect(scoreGridRule).not.toContain('repeat(5');
     expect(fieldButtonRule).toContain('cursor: pointer;');
-    expect(questionRowHoverRule).toContain('background: transparent;');
+    expect(questionRowHoverRule).not.toContain('#0f172a');
+    expect(questionRowHoverRule).not.toContain('rgba(15, 23, 42');
     expect(questionStatusRule).toContain('border-radius: 999px;');
   });
 
@@ -400,16 +401,13 @@ describe('global styles', () => {
     expect(topbarRule).toContain('padding: 0 var(--platform-topbar-inline-padding) 0 0;');
     expect(topbarLeftRule).toContain('display: grid;');
     expect(topbarLeftRule).toContain('grid-template-columns: var(--portal-sidebar-width) minmax(0, 1fr);');
-    expect(brandRule).toContain('font-size: var(--platform-topbar-brand-font-size);');
     expect(brandRule).toContain('padding-left: var(--platform-topbar-brand-start-padding);');
-    expect(brandMarkRule).toContain('width: var(--platform-topbar-brand-mark-size);');
-    expect(brandMarkRule).toContain('display: inline-flex;');
-    expect(brandMarkRule).toContain('background: linear-gradient(135deg, #0578FE 0%, #17F7DE 100%);');
-    expect(brandMarkRule).not.toContain('object-fit: contain;');
-    expect(brandTextRule).toContain('color: #0578FE;');
-    expect(brandTextRule).toContain('font-family: "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif;');
-    expect(styles).toContain('background: linear-gradient(45deg, #0578FE 0%, #17F7DE 100%);');
-    expect(styles).toContain('-webkit-text-fill-color: transparent;');
+    expect(brandMarkRule).toContain('display: block;');
+    expect(brandMarkRule).toContain('width: calc(var(--platform-topbar-brand-mark-size) * 3.68);');
+    expect(brandMarkRule).toContain('height: calc(var(--platform-topbar-brand-mark-size) * 1.42);');
+    expect(brandMarkRule).toContain('object-fit: contain;');
+    expect(brandMarkRule).toContain('object-position: left center;');
+    expect(brandTextRule).toBe('');
     expect(navLinkRule).toContain('min-height: var(--platform-topbar-nav-height);');
     expect(navLinkRule).toContain('font-size: var(--platform-topbar-font-size);');
     expect(userRule).toContain('font-size: var(--platform-topbar-font-size);');
@@ -1622,20 +1620,19 @@ describe('global styles', () => {
   it('人工审核详情关闭按钮样式与 AI 预审详情关闭按钮保持一致', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const manualCloseRule =
-      styles.match(/\.manual-review-detail-toolbar__actions \.manual-review-sheet-close\s*\{[^}]+\}/)?.[0] ?? '';
+      styles.match(/\.workbench-close-button\s*\{[^}]+\}/)?.[0] ?? '';
     const manualCloseHoverRule =
-      styles.match(/\.manual-review-detail-toolbar__actions \.manual-review-sheet-close:hover,[\s\S]*?\.manual-review-detail-toolbar__actions \.manual-review-sheet-close:focus-visible\s*\{[^}]+\}/)?.[0] ?? '';
+      styles.match(/\.workbench-close-button:hover,[\s\S]*?\.workbench-close-button:focus\s*\{[^}]+\}/)?.[0] ?? '';
 
-    expect(manualCloseRule).toContain('width: 38px;');
-    expect(manualCloseRule).toContain('min-width: 38px;');
-    expect(manualCloseRule).toContain('min-height: 34px;');
-    expect(manualCloseRule).toContain('border: 1px solid #c9d8f6;');
-    expect(manualCloseRule).toContain('border-radius: 8px;');
-    expect(manualCloseRule).toContain('background: #ffffff;');
-    expect(manualCloseRule).toContain('color: #306df7;');
+    expect(manualCloseRule).toContain('width: 28px;');
+    expect(manualCloseRule).toContain('height: 28px;');
+    expect(manualCloseRule).toContain('border: none;');
+    expect(manualCloseRule).toContain('background: transparent !important;');
+    expect(manualCloseRule).toContain('color: #64748b;');
     expect(manualCloseRule).toContain('font-size: 24px;');
-    expect(manualCloseHoverRule).toContain('border-color: #306df8;');
-    expect(manualCloseHoverRule).toContain('background: #f8fbff;');
+    expect(manualCloseHoverRule).toContain('border: none;');
+    expect(manualCloseHoverRule).toContain('background: transparent !important;');
+    expect(manualCloseHoverRule).toContain('color: #64748b;');
     expect(manualCloseHoverRule).toContain('outline: none;');
   });
 

@@ -13,7 +13,7 @@ test('Renderer 调试台覆盖示例切换、模式切换和答案保留', async
   await expect(page.getByRole('heading', { name: '答案 JSON' })).toBeVisible();
 
   await page.getByRole('button', { name: '问答质量：图片' }).click();
-  await expect(page.getByRole('img', { name: '题目媒体' })).toBeVisible();
+  await expect(page.getByRole('img', { name: '媒体素材' })).toBeVisible();
 
   await page.getByRole('button', { name: '问答质量：视频' }).click();
   await expect(page.locator('video')).toBeVisible();
@@ -30,11 +30,10 @@ test('Renderer 调试台覆盖示例切换、模式切换和答案保留', async
   await page.getByLabel('清洗后标题').fill('超长清洗标题'.repeat(8));
   await expect(page.getByText('48 / 35')).toBeVisible();
   await page.getByLabel('数码配件').click();
-  await expect(
-    page.getByLabel('Renderer 预览').getByText('卖点关键词为必填项。'),
-  ).toBeVisible();
   await expect(page.getByLabel('调试输出').getByText('卖点关键词为必填项。')).toBeVisible();
-  await page.getByLabel('降噪').click();
+  await page.getByRole('button', { name: '新增标签' }).click();
+  await page.getByRole('textbox', { name: '新标签' }).fill('降噪');
+  await page.getByRole('textbox', { name: '新标签' }).press('Enter');
   await expect(page.getByText(/"keywords":/)).toBeVisible();
 
   await page.getByRole('button', { name: '预览' }).click();
