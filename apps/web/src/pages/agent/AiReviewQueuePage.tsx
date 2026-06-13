@@ -866,10 +866,6 @@ const TraceSidebar = ({
         </div>
         <span className={`agent-review-trace-status is-${itemTone(item)}`}>{shortItemStatusLabel(item)}</span>
       </header>
-      <dl className="agent-review-trace-identifiers">
-        <TraceSummaryItem label="提交轮次" value={item.submission ? `第${item.submission.round}轮` : '未提交'} />
-        <TraceSummaryItem label="标注员" value={item.assignment?.assigneeName ?? '未领取'} />
-      </dl>
       {isLogStale ? (
         <p className="agent-review-trace-warning" role="alert">
           完整历史加载失败，当前仅展示本题最新记录。请点击任务日志重试。
