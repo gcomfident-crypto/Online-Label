@@ -8,8 +8,6 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
-  type UIEvent,
-  type WheelEvent,
 } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -1220,26 +1218,8 @@ const DeadlinePicker = ({
   const safeSelectedDate = selectedDate && Number.isFinite(selectedDate.getTime()) ? selectedDate : null;
   const activeDate = safeSelectedDate ?? createDefaultDeadlineDate();
   const inputRef = useRef<HTMLInputElement>(null);
-  const hourWheelRef = useRef<HTMLDivElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const hourDragRef = useRef<{
-    lastTime: number;
-    lastY: number;
-    startDate: Date;
-    startHour: number;
-    startY: number;
-    velocity: number;
-  } | null>(null);
-  const hourWheelDeltaRef = useRef(0);
-  const hourWheelDeltaResetTimerRef = useRef<number | null>(null);
-  const hourScrollSnapTimerRef = useRef<number | null>(null);
-  const hourScrollSyncReleaseTimerRef = useRef<number | null>(null);
-  const isSyncingHourScrollRef = useRef(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [isHourDragging, setIsHourDragging] = useState(false);
-  const [hourWheelSelectedIndex, setHourWheelSelectedIndex] = useState(
-    DEADLINE_HOUR_WHEEL_CYCLE_OFFSET + activeDate.getHours(),
-  );
   const [viewDate, setViewDate] = useState(activeDate);
   const [draftDate, setDraftDate] = useState(activeDate);
   const now = new Date();
@@ -1276,12 +1256,6 @@ const DeadlinePicker = ({
       document.removeEventListener('mousedown', handleDocumentMouseDown);
     };
   }, [isOpen]);
-
-  useEffect(() => {
-    return () => {
-      clearHourWheelTimers();
-    };
-  }, []);
 
   const handleDateTimeChange = (dateTimeValue: string) => {
     if (disabled) {
@@ -1340,216 +1314,44 @@ const DeadlinePicker = ({
     }
   };
 
-  const clearHourWheelTimers = () => {
-    if (hourWheelDeltaResetTimerRef.current !== null) {
-      window.clearTimeout(hourWheelDeltaResetTimerRef.current);
-      hourWheelDeltaResetTimerRef.current = null;
-    }
-
-    if (hourScrollSnapTimerRef.current !== null) {
-      window.clearTimeout(hourScrollSnapTimerRef.current);
-      hourScrollSnapTimerRef.current = null;
-    }
-
-    if (hourScrollSyncReleaseTimerRef.current !== null) {
-      window.clearTimeout(hourScrollSyncReleaseTimerRef.current);
-      hourScrollSyncReleaseTimerRef.current = null;
-    }
+  const selectPreviousDeadlineHour = () => {
+    setDraftDate((currentDate) => shiftSelectableDeadlineHour(currentDate, now, -1));
   };
 
-  const resetHourWheelDeltaAfterIdle = () => {
-    if (hourWheelDeltaResetTimerRef.current !== null) {
-      window.clearTimeout(hourWheelDeltaResetTimerRef.current);
-    }
-
-    hourWheelDeltaResetTimerRef.current = window.setTimeout(() => {
-      hourWheelDeltaRef.current = 0;
-      hourWheelDeltaResetTimerRef.current = null;
-    }, DEADLINE_HOUR_WHEEL_WHEEL_IDLE_RESET_MS);
+  const selectNextDeadlineHour = () => {
+    setDraftDate((currentDate) => shiftSelectableDeadlineHour(currentDate, now, 1));
   };
 
-  const releaseHourWheelSyncAfterScroll = () => {
-    if (hourScrollSyncReleaseTimerRef.current !== null) {
-      window.clearTimeout(hourScrollSyncReleaseTimerRef.current);
-    }
-
-    hourScrollSyncReleaseTimerRef.current = window.setTimeout(() => {
-      isSyncingHourScrollRef.current = false;
-      hourScrollSyncReleaseTimerRef.current = null;
-    }, DEADLINE_HOUR_WHEEL_SYNC_RELEASE_MS);
+  const selectDeadlineHour = (hour: number) => {
+    setDraftDate((currentDate) =>
+      isDeadlineHourSelectable(currentDate, now, hour) ? setDeadlineHour(currentDate, hour) : currentDate,
+    );
   };
 
-  const syncHourWheelToIndex = (index: number, behavior: ScrollBehavior = 'smooth') => {
-    const wheel = hourWheelRef.current;
-    if (!wheel) {
-      return;
-    }
-
-    const nextIndex = clampHourWheelIndex(index);
-    setHourWheelSelectedIndex(nextIndex);
-    isSyncingHourScrollRef.current = true;
-    scrollHourWheelTo(wheel, nextIndex * DEADLINE_HOUR_WHEEL_ITEM_HEIGHT, behavior);
-    releaseHourWheelSyncAfterScroll();
-  };
-
-  const syncHourWheelToHour = (hour: number, behavior: ScrollBehavior = 'smooth') => {
-    syncHourWheelToIndex(DEADLINE_HOUR_WHEEL_CYCLE_OFFSET + wrapDeadlineHour(hour), behavior);
-  };
-
-  const handleHourWheelKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowUp') {
+  const handleHourStepperKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
       event.preventDefault();
-      setDraftDate((currentDate) => shiftDeadlineHour(currentDate, 1));
-    } else if (event.key === 'ArrowDown') {
+      selectPreviousDeadlineHour();
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
       event.preventDefault();
-      setDraftDate((currentDate) => shiftDeadlineHour(currentDate, -1));
+      selectNextDeadlineHour();
     } else if (event.key === 'Home') {
       event.preventDefault();
-      setDraftDate((currentDate) => setDeadlineHour(currentDate, 0));
+      setDraftDate((currentDate) => setDeadlineHour(currentDate, getMinimumSelectableDeadlineHour(currentDate, now)));
     } else if (event.key === 'End') {
       event.preventDefault();
       setDraftDate((currentDate) => setDeadlineHour(currentDate, 23));
     }
   };
 
-  const handleHourWheelPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    const pointerY = getPointerClientY(event);
-    if (pointerY === null) {
-      return;
-    }
-
-    event.preventDefault();
-    hourDragRef.current = {
-      lastTime: event.timeStamp,
-      lastY: pointerY,
-      startDate: draftDate,
-      startHour: draftDate.getHours(),
-      startY: pointerY,
-      velocity: 0,
-    };
-    setIsHourDragging(true);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  };
-
-  const handleHourWheelPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    const drag = hourDragRef.current;
-    if (!drag) {
-      return;
-    }
-
-    const pointerY = getPointerClientY(event);
-    if (pointerY === null) {
-      return;
-    }
-
-    event.preventDefault();
-    const elapsedTime = event.timeStamp - drag.lastTime;
-    if (elapsedTime >= 16) {
-      drag.velocity = (drag.lastY - pointerY) / elapsedTime;
-      drag.lastY = pointerY;
-      drag.lastTime = event.timeStamp;
-    }
-
-    const hourOffset = Math.round((drag.startY - pointerY) / DEADLINE_HOUR_WHEEL_DRAG_STEP);
-    if (hourOffset === 0) {
-      return;
-    }
-
-    setDraftDate(setDeadlineHour(drag.startDate, wrapDeadlineHour(drag.startHour + hourOffset)));
-  };
-
-  const handleHourWheelPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
-    const drag = hourDragRef.current;
-    const momentumOffset = drag ? resolveHourWheelMomentumOffset(drag.velocity) : 0;
-
-    hourDragRef.current = null;
-    setIsHourDragging(false);
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-
-    if (momentumOffset !== 0) {
-      setDraftDate((currentDate) => shiftDeadlineHour(currentDate, momentumOffset));
-    }
-  };
-
-  const handleHourWheel = (event: WheelEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const wheel = hourWheelRef.current;
-    const wheelDirection = Math.sign(event.deltaY);
-    if (!wheel || wheelDirection === 0) {
-      return;
-    }
-
-    if (Math.sign(hourWheelDeltaRef.current) !== 0 && Math.sign(hourWheelDeltaRef.current) !== wheelDirection) {
-      hourWheelDeltaRef.current = 0;
-    }
-
-    const normalizedWheelDelta =
-      event.deltaMode === 1 ? event.deltaY * DEADLINE_HOUR_WHEEL_ITEM_HEIGHT : event.deltaY;
-    const maxWheelDelta = DEADLINE_HOUR_WHEEL_ITEM_HEIGHT * 0.72;
-    const dampedWheelDelta = Math.max(
-      -maxWheelDelta,
-      Math.min(maxWheelDelta, normalizedWheelDelta * 0.38),
-    );
-
-    hourWheelDeltaRef.current += dampedWheelDelta;
-    resetHourWheelDeltaAfterIdle();
-
-    if (Math.abs(hourWheelDeltaRef.current) < DEADLINE_HOUR_WHEEL_WHEEL_DELTA_THRESHOLD) {
-      return;
-    }
-
-    const scrollOffset = Math.sign(hourWheelDeltaRef.current) * DEADLINE_HOUR_WHEEL_ITEM_HEIGHT;
-    hourWheelDeltaRef.current = 0;
-    wheel.scrollBy({ top: scrollOffset, behavior: 'smooth' });
-  };
-
-  const handleHourWheelScroll = (event: UIEvent<HTMLDivElement>) => {
-    if (isSyncingHourScrollRef.current || isHourDragging) {
-      return;
-    }
-
-    const wheel = event.currentTarget;
-    const nextIndex = clampHourWheelIndex(Math.round(wheel.scrollTop / DEADLINE_HOUR_WHEEL_ITEM_HEIGHT));
-    const nextHour = wrapDeadlineHour(nextIndex - DEADLINE_HOUR_WHEEL_CYCLE_OFFSET);
-    setHourWheelSelectedIndex(nextIndex);
-    setDraftDate((currentDate) => (
-      currentDate.getHours() === nextHour ? currentDate : setDeadlineHour(currentDate, nextHour)
-    ));
-
-    if (hourScrollSnapTimerRef.current !== null) {
-      window.clearTimeout(hourScrollSnapTimerRef.current);
-    }
-
-    hourScrollSnapTimerRef.current = window.setTimeout(() => {
-      syncHourWheelToIndex(nextIndex);
-      hourScrollSnapTimerRef.current = null;
-    }, DEADLINE_HOUR_WHEEL_SNAP_DELAY_MS);
-  };
-
   const draftHour = draftDate.getHours();
+  const visibleHourOptions = getVisibleDeadlineHourOptions(draftDate, now);
+  const canSelectPreviousHour = canShiftDeadlineHour(draftDate, now, -1);
+  const canSelectNextHour = canShiftDeadlineHour(draftDate, now, 1);
   const calendarTitle = formatCalendarMonthLabel(viewDate);
   const triggerText = safeSelectedDate ? formatDateTimeLabel(safeSelectedDate) : '选择截止时间';
   const triggerHint = safeSelectedDate ? '整点截止' : '请选择日期与整点';
   const draftDateTimeLabel = formatDateTimeMinuteLabel(draftDate);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const selectedIndexHour = wrapDeadlineHour(hourWheelSelectedIndex - DEADLINE_HOUR_WHEEL_CYCLE_OFFSET);
-    const wheel = hourWheelRef.current;
-    const isWheelAlreadyAligned =
-      wheel &&
-      selectedIndexHour === draftHour &&
-      Math.abs(wheel.scrollTop - hourWheelSelectedIndex * DEADLINE_HOUR_WHEEL_ITEM_HEIGHT) <= 1;
-
-    if (isWheelAlreadyAligned) {
-      return;
-    }
-
-    syncHourWheelToHour(draftHour, 'auto');
-  }, [draftHour, hourWheelSelectedIndex, isOpen]);
 
   return (
     <div ref={rootRef} className="task-deadline-picker" onKeyDown={handleKeyDown}>
@@ -1633,11 +1435,8 @@ const DeadlinePicker = ({
             <div className="task-deadline-picker__time-heading">
               <span>选择时间</span>
             </div>
-            <div
-              className={`task-deadline-picker__hour-wheel-shell${isHourDragging ? ' is-dragging' : ''}`}
-            >
+            <div className="task-deadline-picker__hour-wheel-shell">
               <div
-                ref={hourWheelRef}
                 className="task-deadline-picker__hour-wheel"
                 aria-label="截止整点"
                 aria-valuemax={23}
@@ -1646,38 +1445,49 @@ const DeadlinePicker = ({
                 aria-valuetext={formatHourWheelLabel(draftHour)}
                 role="spinbutton"
                 tabIndex={0}
-                onKeyDown={handleHourWheelKeyDown}
-                onPointerCancel={handleHourWheelPointerEnd}
-                onPointerDown={handleHourWheelPointerDown}
-                onPointerMove={handleHourWheelPointerMove}
-                onPointerUp={handleHourWheelPointerEnd}
-                onScroll={handleHourWheelScroll}
-                onWheel={handleHourWheel}
+                onKeyDown={handleHourStepperKeyDown}
               >
-                {DEADLINE_HOUR_WHEEL_OPTIONS.map(({ hour, index }) => {
-                  const distanceFromSelected = index - hourWheelSelectedIndex;
-                  const className = getHourWheelOptionClassName(distanceFromSelected);
-                  const content = formatHourWheelLabel(hour);
+                <div className="task-deadline-picker__hour-options">
+                  {visibleHourOptions.map(({ disabled: isHourDisabled, distanceFromSelected, hour }) => {
+                    const className = getHourWheelOptionClassName(distanceFromSelected);
+                    const content = formatHourWheelLabel(hour);
 
-                  return (
-              <button
-                key={index}
-                type="button"
-                className={className}
-                aria-current={distanceFromSelected === 0 ? 'time' : undefined}
-                onPointerDown={(event) => event.stopPropagation()}
-                onPointerUp={(event) => event.stopPropagation()}
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setDraftDate((currentDate) => setDeadlineHour(currentDate, hour));
-                  window.setTimeout(() => syncHourWheelToHour(hour), 0);
-                }}
-              >
-                {content}
-              </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={`${distanceFromSelected}:${hour}`}
+                        type="button"
+                        className={className}
+                        disabled={isHourDisabled}
+                        aria-current={distanceFromSelected === 0 ? 'time' : undefined}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          selectDeadlineHour(hour);
+                        }}
+                      >
+                        {content}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="task-deadline-picker__hour-stepper-actions">
+                  <button
+                    type="button"
+                    aria-label="选择上一个整点"
+                    disabled={!canSelectPreviousHour}
+                    onClick={selectPreviousDeadlineHour}
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="选择下一个整点"
+                    disabled={!canSelectNextHour}
+                    onClick={selectNextDeadlineHour}
+                  >
+                    ▼
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -1725,21 +1535,8 @@ const createDefaultDeadlineDate = (): Date => {
   return date;
 };
 
-const DEADLINE_HOUR_WHEEL_CYCLE_COUNT = 3;
-const DEADLINE_HOUR_WHEEL_CYCLE_OFFSET = 24;
-const DEADLINE_HOUR_WHEEL_ITEM_HEIGHT = 38;
-const DEADLINE_HOUR_WHEEL_OPTION_COUNT = 24 * DEADLINE_HOUR_WHEEL_CYCLE_COUNT;
-const DEADLINE_HOUR_WHEEL_SNAP_DELAY_MS = 90;
-const DEADLINE_HOUR_WHEEL_DRAG_STEP = DEADLINE_HOUR_WHEEL_ITEM_HEIGHT * 2;
-const DEADLINE_HOUR_WHEEL_SYNC_RELEASE_MS = 140;
-const DEADLINE_HOUR_WHEEL_WHEEL_DELTA_THRESHOLD = 96;
-const DEADLINE_HOUR_WHEEL_WHEEL_IDLE_RESET_MS = 180;
-const DEADLINE_HOUR_WHEEL_MOMENTUM_THRESHOLD = 1.2;
 const DEADLINE_WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
-const DEADLINE_HOUR_WHEEL_OPTIONS = Array.from({ length: DEADLINE_HOUR_WHEEL_OPTION_COUNT }, (_, index) => ({
-  hour: wrapDeadlineHour(index - DEADLINE_HOUR_WHEEL_CYCLE_OFFSET),
-  index,
-}));
+const DEADLINE_VISIBLE_HOUR_OFFSETS = [-2, -1, 0, 1, 2] as const;
 
 const getCalendarGridDays = (date: Date): Date[] => {
   const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -1790,34 +1587,74 @@ const setDeadlineHour = (date: Date, value: number): Date => {
   return nextDate;
 };
 
-const shiftDeadlineHour = (date: Date, offset: number): Date => setDeadlineHour(date, date.getHours() + offset);
+type VisibleDeadlineHourOption = {
+  disabled: boolean;
+  distanceFromSelected: number;
+  hour: number;
+};
 
-const resolveHourWheelMomentumOffset = (velocity: number): number => {
-  const magnitude = Math.abs(velocity);
-  if (magnitude < DEADLINE_HOUR_WHEEL_MOMENTUM_THRESHOLD) {
+function getVisibleDeadlineHourOptions(date: Date, now: Date): VisibleDeadlineHourOption[] {
+  const selectedHour = date.getHours();
+
+  return DEADLINE_VISIBLE_HOUR_OFFSETS.map((distanceFromSelected) => {
+    const hour = wrapDeadlineHour(selectedHour + distanceFromSelected);
+
+    return {
+      disabled: !isDeadlineHourSelectable(date, now, hour),
+      distanceFromSelected,
+      hour,
+    };
+  });
+}
+
+function getMinimumSelectableDeadlineHour(date: Date, now: Date): number {
+  if (!isSameCalendarDay(date, now)) {
     return 0;
   }
 
-  return Math.sign(velocity);
-};
+  const isCurrentHourStillSelectable =
+    now.getMinutes() === 0 &&
+    now.getSeconds() === 0 &&
+    now.getMilliseconds() === 0;
 
-const clampHourWheelIndex = (value: number): number => {
-  return Math.min(DEADLINE_HOUR_WHEEL_OPTION_COUNT - 1, Math.max(0, value));
-};
+  return Math.min(23, now.getHours() + (isCurrentHourStillSelectable ? 0 : 1));
+}
 
-const scrollHourWheelTo = (element: HTMLDivElement, top: number, behavior: ScrollBehavior) => {
-  if (typeof element.scrollTo === 'function') {
-    element.scrollTo({ top, behavior });
-    return;
+function isDeadlineHourSelectable(date: Date, now: Date, hour: number): boolean {
+  if (!isSameCalendarDay(date, now)) {
+    return true;
   }
 
-  element.scrollTop = top;
-};
+  return hour >= getMinimumSelectableDeadlineHour(date, now);
+}
+
+function canShiftDeadlineHour(date: Date, now: Date, direction: -1 | 1): boolean {
+  if (!isSameCalendarDay(date, now)) {
+    return true;
+  }
+
+  const selectedHour = date.getHours();
+  if (direction < 0) {
+    return selectedHour > getMinimumSelectableDeadlineHour(date, now);
+  }
+
+  return selectedHour < 23;
+}
+
+function shiftSelectableDeadlineHour(date: Date, now: Date, direction: -1 | 1): Date {
+  if (!canShiftDeadlineHour(date, now, direction)) {
+    return date;
+  }
+
+  return setDeadlineHour(date, date.getHours() + direction);
+}
 
 const getHourWheelOptionClassName = (distanceFromSelected: number): string => {
   return [
     'task-deadline-picker__hour-option',
     distanceFromSelected === 0 ? 'task-deadline-picker__hour-option--selected' : '',
+    Math.abs(distanceFromSelected) === 1 ? 'task-deadline-picker__hour-option--near' : '',
+    Math.abs(distanceFromSelected) >= 2 ? 'task-deadline-picker__hour-option--far' : '',
   ].filter(Boolean).join(' ');
 };
 
@@ -1831,10 +1668,6 @@ const formatHourWheelLabel = (value: number): string => {
 
 const formatDateTimeMinuteLabel = (date: Date): string => {
   return `${formatDateButtonLabel(date)} ${String(date.getHours()).padStart(2, '0')}:00`;
-};
-
-const getPointerClientY = (event: PointerEvent<HTMLDivElement>): number | null => {
-  return Number.isFinite(event.clientY) ? event.clientY : null;
 };
 
 const normalizeDeadlineHour = (date: Date): Date => {
