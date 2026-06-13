@@ -1357,11 +1357,15 @@ function taskFlowStepPopoverRows(
 }
 
 function taskFlowStepColor(status: TaskFlowLifecycleStepStatus | undefined): string {
-  if (status === 'ACTION_REQUIRED') {
-    return '#ef4444';
+  if (status === 'COMPLETED') {
+    return '#269449';
   }
 
-  return '#3b82f6';
+  if (status === 'CURRENT' || status === 'ACTION_REQUIRED') {
+    return '#ff7900';
+  }
+
+  return '#cfd4dc';
 }
 
 function taskFlowTrackBackground(

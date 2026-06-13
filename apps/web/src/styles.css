@@ -19471,32 +19471,6 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   background: #f8fbff;
 }
 
-.agent-review-task-timeline li.is-complete .agent-review-task-timeline__dot,
-.agent-review-task-timeline li.is-current .agent-review-task-timeline__dot,
-.agent-review-task-timeline li.is-pending .agent-review-task-timeline__dot,
-.agent-review-task-timeline li.is-skipped .agent-review-task-timeline__dot {
-  border-color: #ffffff;
-  color: #ffffff;
-  background: linear-gradient(145deg, #60a5fa 0%, #2563eb 100%);
-  box-shadow:
-    0 0 0 2px #bfdbfe,
-    0 4px 10px rgba(37, 99, 235, 0.16);
-}
-
-.agent-review-task-timeline li.is-action-required .agent-review-task-timeline__dot,
-.agent-review-task-timeline li.is-reject .agent-review-task-timeline__dot {
-  border-color: #ffffff;
-  color: #ffffff;
-  background: linear-gradient(145deg, #fb7185 0%, #ef4444 100%);
-  box-shadow:
-    0 0 0 2px #fecaca,
-    0 4px 10px rgba(239, 68, 68, 0.16);
-}
-
-.agent-review-task-timeline li + li .agent-review-task-timeline__content {
-  background: transparent;
-}
-
 .agent-review-trace-timeline li.is-pass::before,
 .agent-review-trace-timeline li.is-pending::before,
 .agent-review-trace-timeline li.is-pendingReview::before {
