@@ -14048,16 +14048,16 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   width: 8%;
 }
 
+.task-market-table__col-item-count {
+  width: 8%;
+}
+
 .task-market-table__col-reward {
   width: 8%;
 }
 
-.task-market-table__col-progress {
-  width: 15%;
-}
-
 .task-market-table__col-deadline {
-  width: 9%;
+  width: 10%;
 }
 
 .task-market-table__col-actions {
@@ -14069,6 +14069,13 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   min-width: 0;
   display: grid;
   gap: 4px;
+}
+
+.task-market-table__item-count {
+  color: #172033;
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .task-market-table__title strong,

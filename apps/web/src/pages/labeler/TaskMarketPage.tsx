@@ -299,8 +299,8 @@ export const TaskMarketPage = () => {
                 <col className="task-market-table__col-title" />
                 <col className="task-market-table__col-owner" />
                 <col className="task-market-table__col-status" />
+                <col className="task-market-table__col-item-count" />
                 <col className="task-market-table__col-reward" />
-                <col className="task-market-table__col-progress" />
                 <col className="task-market-table__col-deadline" />
                 <col className="task-market-table__col-actions" />
               </colgroup>
@@ -318,8 +318,8 @@ export const TaskMarketPage = () => {
                   <th>任务名</th>
                   <th>发布者</th>
                   <th>状态</th>
+                  <th>题目数</th>
                   <th>报酬</th>
-                  <th>进度</th>
                   <th>
                     <SortableTaskMarketHeader
                       field="deadline"
@@ -359,12 +359,12 @@ export const TaskMarketPage = () => {
                     </td>
                     <td>
                       <TaskTableCellInner>
-                        <span className="task-market-table__reward">{task.rewardRule ?? '未设置奖励'}</span>
+                        <MarketTaskItemCountCell task={task} />
                       </TaskTableCellInner>
                     </td>
                     <td>
                       <TaskTableCellInner>
-                        <MarketTaskProgressCell task={task} />
+                        <span className="task-market-table__reward">{task.rewardRule ?? '未设置奖励'}</span>
                       </TaskTableCellInner>
                     </td>
                     <td className="task-table__date-column">
@@ -475,16 +475,6 @@ const claimButtonText = (task: MarketTaskDto, claimingTaskId: string | null): st
   }
 
   return '领取题目';
-};
-
-const progressPercent = (task: MarketTaskDto): number => {
-  const actualItemCount = task.itemCount ?? 0;
-  const total = actualItemCount > 0 ? actualItemCount : task.quota ?? 0;
-  if (total <= 0) {
-    return 0;
-  }
-
-  return Math.min(100, (task.assignedCount / total) * 100);
 };
 
 const formatMarketTaskDisplayId = (sequence: number): string => `T-${sequence.toString().padStart(3, '0')}`;
@@ -840,28 +830,13 @@ const ClaimStatusTag = ({ status }: { status: MarketClaimStatus }) => (
   </span>
 );
 
-const MarketTaskProgressCell = ({ task }: { task: MarketTaskDto }) => {
-  const actualItemCount = task.itemCount ?? 0;
-  const total = actualItemCount > 0 ? actualItemCount : task.quota ?? 0;
-
-  if (total <= 0) {
-    return <span className="task-progress-empty">—</span>;
-  }
-
-  const progress = progressPercent(task);
+const MarketTaskItemCountCell = ({ task }: { task: MarketTaskDto }) => {
+  const total = resolveTaskTotalCount(task);
 
   return (
-    <div className="task-progress-cell">
-      <div className="task-progress-cell__meta">
-        <span>
-          {task.assignedCount.toLocaleString()} / {total.toLocaleString()}
-        </span>
-        <small>{formatProgressPercent(progress)}</small>
-      </div>
-      <span className="task-progress">
-        <span style={{ width: `${progress}%` }} />
-      </span>
-    </div>
+    <span className="task-market-table__item-count">
+      {total > 0 ? `${total.toLocaleString()} 题` : '—'}
+    </span>
   );
 };
 
@@ -884,12 +859,6 @@ const splitDateTimeMinute = (value?: string | null): { date: string; time: strin
   const [date, time = ''] = value.slice(0, 16).replace('T', ' ').split(' ');
 
   return { date, time };
-};
-
-const formatProgressPercent = (value: number): string => {
-  const rounded = Math.round(value * 10) / 10;
-
-  return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
 };
 
 function isMarketTaskDtoArray(value: unknown): value is MarketTaskDto[] {
