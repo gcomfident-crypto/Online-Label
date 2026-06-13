@@ -19431,6 +19431,109 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   white-space: pre-wrap;
 }
 
+.agent-review-card--submission {
+  gap: 12px;
+}
+
+.agent-review-submission-renderer {
+  min-width: 0;
+}
+
+.agent-review-submission-renderer .schema-renderer {
+  display: grid;
+  gap: 10px;
+}
+
+.agent-review-submission-renderer .schema-renderer__field-node {
+  min-width: 0;
+}
+
+.agent-review-submission-renderer .schema-field {
+  border-radius: 8px;
+  border-color: #dbe7ff;
+  box-shadow: none;
+}
+
+.agent-review-submission-renderer .schema-field--show-item {
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.agent-review-submission-renderer .schema-field--group {
+  background: #ffffff;
+}
+
+.agent-review-submission-renderer .schema-field__group-body {
+  gap: 10px;
+}
+
+.agent-review-submission-renderer textarea {
+  min-height: 96px;
+  background: #f8fbff;
+}
+
+.agent-review-task-timeline li.is-complete .agent-review-task-timeline__dot,
+.agent-review-task-timeline li.is-current .agent-review-task-timeline__dot,
+.agent-review-task-timeline li.is-pending .agent-review-task-timeline__dot,
+.agent-review-task-timeline li.is-skipped .agent-review-task-timeline__dot {
+  border-color: #ffffff;
+  color: #ffffff;
+  background: linear-gradient(145deg, #60a5fa 0%, #2563eb 100%);
+  box-shadow:
+    0 0 0 2px #bfdbfe,
+    0 4px 10px rgba(37, 99, 235, 0.16);
+}
+
+.agent-review-task-timeline li.is-action-required .agent-review-task-timeline__dot,
+.agent-review-task-timeline li.is-reject .agent-review-task-timeline__dot {
+  border-color: #ffffff;
+  color: #ffffff;
+  background: linear-gradient(145deg, #fb7185 0%, #ef4444 100%);
+  box-shadow:
+    0 0 0 2px #fecaca,
+    0 4px 10px rgba(239, 68, 68, 0.16);
+}
+
+.agent-review-task-timeline li + li .agent-review-task-timeline__content {
+  background: transparent;
+}
+
+.agent-review-trace-timeline li.is-pass::before,
+.agent-review-trace-timeline li.is-pending::before,
+.agent-review-trace-timeline li.is-pendingReview::before {
+  background: #bfdbfe;
+}
+
+.agent-review-trace-timeline li.is-reject::before,
+.agent-review-trace-timeline li.is-failed::before {
+  background: #fecaca;
+}
+
+.agent-review-trace-timeline li.is-pass .agent-review-trace-timeline__dot,
+.agent-review-trace-timeline li.is-pending .agent-review-trace-timeline__dot,
+.agent-review-trace-timeline li.is-pendingReview .agent-review-trace-timeline__dot {
+  background: #3b82f6;
+  box-shadow: 0 0 0 1px #bfdbfe;
+}
+
+.agent-review-trace-timeline li.is-reject .agent-review-trace-timeline__dot,
+.agent-review-trace-timeline li.is-failed .agent-review-trace-timeline__dot {
+  background: #ef4444;
+  box-shadow: 0 0 0 1px #fecaca;
+}
+
+.agent-review-trace-timeline li.is-pass .agent-review-trace-timeline__body,
+.agent-review-trace-timeline li.is-pending .agent-review-trace-timeline__body,
+.agent-review-trace-timeline li.is-pendingReview .agent-review-trace-timeline__body {
+  border-color: #dbeafe;
+  background: #f8fbff;
+}
+
+.agent-review-trace-timeline li.is-reject .agent-review-trace-timeline__body,
+.agent-review-trace-timeline li.is-failed .agent-review-trace-timeline__body {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
 .agent-review-log-dialog {
   max-height: min(70vh, 680px);
   display: grid;

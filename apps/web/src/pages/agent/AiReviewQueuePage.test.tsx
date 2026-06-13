@@ -118,7 +118,7 @@ describe('AiReviewQueuePage', () => {
     vi.unstubAllGlobals();
   });
 
-  it('按任务展示完整质检流水线，AI 完成数和 Reviewer 待复审数分层显示', async () => {
+  it('按任务展示完整质检流水线，AI 完成数和 Reviewer 待人工复审数分层显示', async () => {
     const user = userEvent.setup();
     vi.stubGlobal('fetch', createFetchMock());
 
@@ -152,7 +152,10 @@ describe('AiReviewQueuePage', () => {
     expect(within(dialog).queryByLabelText('题目分组筛选')).not.toBeInTheDocument();
     expect(within(dialog).getByText('P0001')).toBeInTheDocument();
     expect(within(dialog).getByText('P0010')).toBeInTheDocument();
-    expect(within(dialog).getAllByText('待复审').length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText('待人工复审').length).toBeGreaterThan(0);
+    expect(within(dialog).getByText('题目原始数据')).toBeInTheDocument();
+    expect(within(dialog).getByText('展示项 ShowItem')).toBeInTheDocument();
+    expect(within(dialog).getByText('Labeler 提交答案')).toBeInTheDocument();
     expect(within(dialog).getByText('本题历史')).toBeInTheDocument();
     expect(within(dialog).getByText('预审记录')).toBeInTheDocument();
     expect(within(dialog).getByText('综合分')).toBeInTheDocument();

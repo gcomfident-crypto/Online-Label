@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import type { LabelHubSchema, SchemaField, ShowItemDisplayField } from '@labelhub/shared';
 
 import { PageLoading } from '../../components/PageLoading';
 import { TableEmptyState } from '../../components/TableEmptyState';
 import { ToastViewport, useToastController } from '../../components/ToastViewport';
+import { SchemaRenderer } from '../../features/schema-renderer';
 import {
   getTaskFlow,
   getCachedTaskFlow,
@@ -26,6 +28,7 @@ import {
 
 const FLOW_TABLE_PAGE_SIZE = 10;
 const SHEET_EXIT_ANIMATION_MS = 260;
+const AGENT_REVIEW_DISPLAY_SCHEMA_VERSION = 'agent-review-display-v1';
 
 type FlowFilter = 'ALL' | 'ACTIVE' | 'FINAL_COMPLETED';
 type FlowSortField = 'taskId' | 'updatedAt';
@@ -799,15 +802,25 @@ const ItemFlowResultStrip = ({ item }: { item: TaskFlowItemDto }) => {
   );
 };
 
-const SubmissionContentPanel = ({ item }: { item: TaskFlowItemDto }) => (
-  <article className="agent-review-card">
-    <PanelHeading title="题目与标注内容" meta={item.submission ? `第 ${item.submission.round} 轮提交` : '尚未提交'} />
-    <div className="agent-review-drawer-grid">
-      <PreviewBlock title="题目原始数据" value={item.taskItem.rawData} />
-      <PreviewBlock title="Labeler 提交答案" value={item.submission?.answers ?? {}} />
-    </div>
-  </article>
-);
+const SubmissionContentPanel = ({ item }: { item: TaskFlowItemDto }) => {
+  const displaySchema = useMemo(() => createAgentReviewDisplaySchema(item), [item]);
+  const displayAnswers = useMemo(() => createAgentReviewDisplayAnswers(item.submission?.answers ?? {}), [item.submission?.answers]);
+
+  return (
+    <article className="agent-review-card agent-review-card--submission">
+      <PanelHeading title="题目与标注内容" meta={item.submission ? `第 ${item.submission.round} 轮提交` : '尚未提交'} />
+      <div className="agent-review-submission-renderer">
+        <SchemaRenderer
+          mode="review"
+          rawData={item.taskItem.rawData}
+          schema={displaySchema}
+          value={displayAnswers}
+          onChange={noopSchemaRendererChange}
+        />
+      </div>
+    </article>
+  );
+};
 
 const AiReviewRecordPanel = ({ item }: { item: TaskFlowItemDto }) => (
   <article className={`agent-review-card agent-review-card--comment is-${aiTone(item.aiStatus)}`}>
@@ -1105,52 +1118,6 @@ const SummaryStatusPill = ({ stage }: { stage: TaskFlowStage }) => (
   </span>
 );
 
-const PreviewBlock = ({ title, value }: { title: string; value: Record<string, unknown> }) => {
-  const entries = Object.entries(value);
-
-  return (
-    <section className="agent-review-card agent-review-card--preview">
-      <PanelHeading title={title} />
-      {entries.length > 0 ? (
-        <dl className="agent-review-preview-list">
-          {entries.map(([key, fieldValue]) => (
-            <div className={isLongPreviewValue(fieldValue) ? 'is-wide' : undefined} key={key}>
-              <dt>{formatPreviewFieldLabel(key)}</dt>
-              <dd>
-                <PreviewValue value={fieldValue} />
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : (
-        <p className="agent-review-empty-text">未记录</p>
-      )}
-    </section>
-  );
-};
-
-const PreviewValue = ({ value }: { value: unknown }) => {
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      return <span className="agent-review-preview-empty">未记录</span>;
-    }
-
-    return (
-      <span className="agent-review-preview-chips">
-        {value.map((item, index) => (
-          <span key={`${formatPreviewScalar(item)}:${index}`}>{formatPreviewScalar(item)}</span>
-        ))}
-      </span>
-    );
-  }
-
-  if (value && typeof value === 'object') {
-    return <pre>{JSON.stringify(value, null, 2)}</pre>;
-  }
-
-  return <span>{formatPreviewScalar(value)}</span>;
-};
-
 const ScoreList = ({ scores }: { scores: Record<string, unknown> }) => {
   const entries = Object.entries(scores).filter(([, value]) => typeof value === 'number' || typeof value === 'string');
 
@@ -1190,7 +1157,7 @@ const TraceTimelineItem = ({ event }: { event: TraceEvent }) => (
     <div className="agent-review-trace-timeline__body">
       <time>{event.time ? formatDateTimeSecond(event.time) : '未发生'}</time>
       <strong>{event.title}</strong>
-          {event.description ? <p>{event.description}</p> : null}
+      {event.description ? <p>{event.description}</p> : null}
       {event.actorName || event.round ? (
         <small>{[event.actorName, event.round ? `第 ${event.round} 轮` : null].filter(Boolean).join(' · ')}</small>
       ) : null}
@@ -1394,15 +1361,11 @@ function taskFlowStepPopoverRows(
 }
 
 function taskFlowStepColor(status: TaskFlowLifecycleStepStatus | undefined): string {
-  if (status === 'COMPLETED') {
-    return '#269449';
+  if (status === 'ACTION_REQUIRED') {
+    return '#ef4444';
   }
 
-  if (status === 'CURRENT' || status === 'ACTION_REQUIRED') {
-    return '#ff7900';
-  }
-
-  return '#cfd4dc';
+  return '#3b82f6';
 }
 
 function taskFlowTrackBackground(
@@ -1530,10 +1493,117 @@ function shortItemStatusLabel(item: TaskFlowItemDto): string {
     failed: '异常',
     finalApproved: '已完成',
     labelerProcessing: '待修改',
-    reviewerPending: '待复审',
+    reviewerPending: '待人工复审',
   };
 
   return labels[itemBucket(item)];
+}
+
+const noopSchemaRendererChange = () => undefined;
+
+function createAgentReviewDisplaySchema(item: TaskFlowItemDto): LabelHubSchema {
+  const answerEntries = Object.entries(item.submission?.answers ?? {});
+  const answerFields = answerEntries.length > 0
+    ? answerEntries.map(([key], index): SchemaField => ({
+        key: answerFieldKey(key, index),
+        fieldKey: answerFieldKey(key, index),
+        type: 'textarea',
+        label: formatPreviewFieldLabel(key),
+      }))
+    : [
+        {
+          key: 'agent_review_empty_answer',
+          fieldKey: 'agent_review_empty_answer',
+          type: 'textarea',
+          label: 'Labeler 提交答案',
+        } satisfies SchemaField,
+      ];
+
+  return {
+    schemaVersion: item.submission?.schemaVersion ?? AGENT_REVIEW_DISPLAY_SCHEMA_VERSION,
+    datasetKind: item.taskItem.datasetKind,
+    fields: [
+      {
+        key: 'agent_review_raw_data',
+        type: 'show_item',
+        label: '题目原始数据',
+        sourceKeys: Object.keys(item.taskItem.rawData),
+        displayConfig: {
+          layout: 'field_list',
+          fields: createShowItemDisplayFields(item.taskItem.rawData),
+        },
+      },
+      {
+        key: 'agent_review_labeler_answers',
+        type: 'group',
+        label: 'Labeler 提交答案',
+        layout: 'single_column',
+        fields: answerFields,
+      },
+    ],
+  };
+}
+
+function createShowItemDisplayFields(rawData: Record<string, unknown>): ShowItemDisplayField[] {
+  return Object.entries(rawData).map(([sourceKey, value]) => ({
+    sourceKey,
+    label: formatPreviewFieldLabel(sourceKey),
+    format: showItemDisplayFormat(sourceKey, value),
+    maxLines: typeof value === 'string' && value.length > 220 ? 8 : undefined,
+  }));
+}
+
+function showItemDisplayFormat(sourceKey: string, value: unknown): ShowItemDisplayField['format'] | undefined {
+  if (value && typeof value === 'object') {
+    return 'json';
+  }
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalizedKey = sourceKey.toLowerCase();
+
+  if (normalizedKey.includes('json')) {
+    return 'json';
+  }
+
+  if (normalizedKey.includes('code') || normalizedKey.includes('sql')) {
+    return 'code';
+  }
+
+  if (value.includes('\n') || value.length > 96) {
+    return 'long_text';
+  }
+
+  return undefined;
+}
+
+function createAgentReviewDisplayAnswers(answers: Record<string, unknown>): Record<string, unknown> {
+  const entries = Object.entries(answers);
+
+  if (entries.length === 0) {
+    return { agent_review_empty_answer: '未记录' };
+  }
+
+  return Object.fromEntries(
+    entries.map(([key, value], index) => [
+      answerFieldKey(key, index),
+      formatReadonlyAnswerValue(value),
+    ]),
+  );
+}
+
+function answerFieldKey(key: string, index: number): string {
+  return `agent_review_answer_${index}_${key.replace(/[^a-zA-Z0-9_]/g, '_') || 'field'}`;
+}
+
+function formatReadonlyAnswerValue(value: unknown): string {
+  if (Array.isArray(value) || (value && typeof value === 'object')) {
+    return JSON.stringify(value, null, 2);
+  }
+
+  return formatPreviewScalar(value);
 }
 
 function itemTraceEvents(item: TaskFlowItemDto, logs: TaskFlowLogDto[]): TraceEvent[] {
@@ -1791,22 +1861,6 @@ function formatPreviewScalar(value: unknown): string {
   }
 
   return JSON.stringify(value);
-}
-
-function isLongPreviewValue(value: unknown): boolean {
-  if (typeof value === 'string') {
-    return value.length > 42;
-  }
-
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
-function formatJson(value: Record<string, unknown>): string {
-  if (Object.keys(value).length === 0) {
-    return '未记录';
-  }
-
-  return JSON.stringify(value, null, 2);
 }
 
 function splitDateTimeMinute(value?: string | null): { date: string; time: string } {
