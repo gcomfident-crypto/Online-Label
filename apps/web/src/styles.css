@@ -11525,6 +11525,9 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .task-deadline-picker__hour-stepper-actions button::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 8px;
   height: 8px;
   border-top: 2px solid #2f73ff;
@@ -11534,11 +11537,11 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .task-deadline-picker__hour-stepper-actions button:first-child::before {
-  transform: translateY(2px) rotate(45deg);
+  transform: translate(-50%, -50%) rotate(45deg);
 }
 
 .task-deadline-picker__hour-stepper-actions button:last-child::before {
-  transform: translateY(-2px) rotate(225deg);
+  transform: translate(-50%, -50%) rotate(225deg);
 }
 
 .task-deadline-picker__hour-stepper-actions button:hover:not(:disabled),
@@ -11571,29 +11574,12 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   margin: 0;
   color: #556274;
   font-size: 10px;
   font-weight: 800;
 }
 
-.task-deadline-picker__selected-summary::before {
-  width: 24px;
-  height: 24px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid #d8e4f6;
-  border-radius: 10px;
-  color: #52647d;
-  background:
-    linear-gradient(#52647d, #52647d) 50% 58% / 24px 3px no-repeat,
-    linear-gradient(#52647d, #52647d) 50% 40% / 24px 3px no-repeat,
-    linear-gradient(90deg, transparent 21%, #52647d 21% 29%, transparent 29% 46%, #52647d 46% 54%, transparent 54% 71%, #52647d 71% 79%, transparent 79%) 50% 68% / 24px 12px no-repeat,
-    #f6f9ff;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
-  content: '';
-}
 
 .task-deadline-picker__selected-summary strong {
   overflow: hidden;
