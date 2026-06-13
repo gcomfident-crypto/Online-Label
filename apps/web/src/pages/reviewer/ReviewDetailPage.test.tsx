@@ -342,6 +342,8 @@ describe('ReviewDetailPage', () => {
     expect(within(sidePanel).getByRole('tab', { name: '评论' })).toHaveAttribute('aria-selected', 'true');
     const editCard = within(sidePanel).getByRole('region', { name: '编辑字段评论：判断理由' });
     expect(editCard).toBeInTheDocument();
+    expect(editCard).toHaveClass('is-highlighted');
+    expect(editCard).toHaveAttribute('aria-current', 'true');
     expect(editCard).toHaveTextContent('针对「判断理由」的修改建议');
     expect(editCard).not.toHaveTextContent('鑫泽张');
     expect(editCard).not.toHaveTextContent('Reviewer');

@@ -440,7 +440,7 @@ export const ReviewTaskDetailContent = ({
       return;
     }
 
-    setHighlightedCommentFieldKey(null);
+    setHighlightedCommentFieldKey(field.fieldKey);
     setFieldCommentDraft('');
     setSelectedCommentFieldKey(field.fieldKey);
   };
@@ -1117,7 +1117,15 @@ const FieldCommentPanel = ({
   return (
     <section className="manual-review-field-comment-panel" aria-label="字段评论">
       {field ? (
-        <section className="manual-review-field-comment-editor" aria-label={`编辑字段评论：${field.label}`}>
+        <section
+          aria-current={field.fieldKey === highlightedFieldKey ? 'true' : undefined}
+          className={
+            field.fieldKey === highlightedFieldKey
+              ? 'manual-review-field-comment-editor is-highlighted'
+              : 'manual-review-field-comment-editor'
+          }
+          aria-label={`编辑字段评论：${field.label}`}
+        >
           <header className="manual-review-field-comment-editor__topline">
             <span>{fieldCommentTitle(field.label)}</span>
           </header>
