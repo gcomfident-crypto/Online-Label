@@ -11432,8 +11432,8 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   overscroll-behavior: contain;
   scroll-padding-block: 73px;
   scroll-snap-type: y mandatory;
-  scrollbar-color: #d8dee8 transparent;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   touch-action: none;
   user-select: none;
   outline: none;
@@ -11441,12 +11441,13 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .task-deadline-picker__hour-wheel::-webkit-scrollbar {
-  width: 5px;
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .task-deadline-picker__hour-wheel::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: #d8dee8;
+  background: transparent;
 }
 
 .task-deadline-picker__hour-wheel::-webkit-scrollbar-track {

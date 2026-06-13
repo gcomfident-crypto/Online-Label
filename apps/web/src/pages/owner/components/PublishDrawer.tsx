@@ -1473,8 +1473,9 @@ const DeadlinePicker = ({
 
   const handleHourWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
+    const wheel = hourWheelRef.current;
     const wheelDirection = Math.sign(event.deltaY);
-    if (wheelDirection === 0) {
+    if (!wheel || wheelDirection === 0) {
       return;
     }
 
@@ -1482,19 +1483,24 @@ const DeadlinePicker = ({
       hourWheelDeltaRef.current = 0;
     }
 
-    hourWheelDeltaRef.current += event.deltaY;
+    const normalizedWheelDelta =
+      event.deltaMode === 1 ? event.deltaY * DEADLINE_HOUR_WHEEL_ITEM_HEIGHT : event.deltaY;
+    const maxWheelDelta = DEADLINE_HOUR_WHEEL_ITEM_HEIGHT * 0.72;
+    const dampedWheelDelta = Math.max(
+      -maxWheelDelta,
+      Math.min(maxWheelDelta, normalizedWheelDelta * 0.38),
+    );
+
+    hourWheelDeltaRef.current += dampedWheelDelta;
     resetHourWheelDeltaAfterIdle();
 
     if (Math.abs(hourWheelDeltaRef.current) < DEADLINE_HOUR_WHEEL_WHEEL_DELTA_THRESHOLD) {
       return;
     }
 
-    const hourOffset = Math.sign(hourWheelDeltaRef.current);
+    const scrollOffset = Math.sign(hourWheelDeltaRef.current) * DEADLINE_HOUR_WHEEL_ITEM_HEIGHT;
     hourWheelDeltaRef.current = 0;
-    const nextHour = wrapDeadlineHour(draftHour + hourOffset);
-
-    setDraftDate((currentDate) => setDeadlineHour(currentDate, nextHour));
-    window.setTimeout(() => syncHourWheelToHour(nextHour), 0);
+    wheel.scrollBy({ top: scrollOffset, behavior: 'smooth' });
   };
 
   const handleHourWheelScroll = (event: UIEvent<HTMLDivElement>) => {

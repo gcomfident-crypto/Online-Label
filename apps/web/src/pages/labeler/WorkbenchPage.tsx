@@ -1368,7 +1368,6 @@ const LabelerWorkbenchInfoPanel = ({
         <h2>快捷键</h2>
         <ul className="labeler-shortcut-list">
           <li>⌘+S 保存草稿</li>
-          <li>← / → 上一题 / 下一题</li>
           <li>J / K 下一题 / 上一题</li>
         </ul>
       </section>
