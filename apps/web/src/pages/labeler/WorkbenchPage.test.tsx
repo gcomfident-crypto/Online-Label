@@ -998,9 +998,9 @@ describe('WorkbenchPage', () => {
 
     expect(within(navigationPanel).getByRole('button', { name: /P0001/ })).toHaveTextContent('待标注');
     expect(within(navigationPanel).getByRole('button', { name: /P0002/ })).toHaveTextContent('待提交');
-    expect(within(navigationPanel).getByRole('button', { name: /P0003/ })).toHaveTextContent('AI处理中');
+    expect(within(navigationPanel).getByRole('button', { name: /P0003/ })).toHaveTextContent('AI预审中');
     expect(within(navigationPanel).getByRole('button', { name: /P0004/ })).toHaveTextContent('待修改');
-    expect(within(navigationPanel).getByRole('button', { name: /P0005/ })).toHaveTextContent('待审核');
+    expect(within(navigationPanel).getByRole('button', { name: /P0005/ })).toHaveTextContent('人工审核中');
     expect(within(navigationPanel).getByRole('button', { name: /P0006/ })).toHaveTextContent('待修改');
     expect(within(navigationPanel).getByRole('button', { name: /P0008/ })).toHaveTextContent('待修改');
     expect(within(navigationPanel).getByRole('button', { name: /P0007/ })).toHaveTextContent('已完成');
@@ -1011,7 +1011,7 @@ describe('WorkbenchPage', () => {
     ).toHaveClass('question-navigator__status--submitted');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0003/ }))
-        .getByText('AI处理中')
+        .getByText('AI预审中')
         .closest('.question-navigator__status'),
     ).toHaveClass('question-navigator__status--ai-review');
     expect(
@@ -1021,7 +1021,7 @@ describe('WorkbenchPage', () => {
     ).toHaveClass('question-navigator__status--rejected');
     expect(
       within(within(navigationPanel).getByRole('button', { name: /P0005/ }))
-        .getByText('待审核')
+        .getByText('人工审核中')
         .closest('.question-navigator__status'),
     ).toHaveClass('question-navigator__status--reviewer-reviewing');
     expect(

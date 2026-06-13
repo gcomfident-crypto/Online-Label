@@ -64,11 +64,11 @@ export const QuestionNavigator = ({
 };
 
 function getFlowStatusClassName(statusLabel: string): string {
-  if (statusLabel === 'AI处理中') {
+  if (statusLabel === 'AI预审中') {
     return 'question-navigator__status--ai-review';
   }
 
-  if (statusLabel === '待审核') {
+  if (statusLabel === '人工审核中') {
     return 'question-navigator__status--reviewer-reviewing';
   }
 
