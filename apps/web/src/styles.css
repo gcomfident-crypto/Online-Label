@@ -11220,18 +11220,18 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   top: calc(100% + 10px);
   right: 0;
   z-index: var(--overlay-dropdown-z-index);
-  width: min(930px, calc(100vw - 80px));
-  max-height: min(760px, calc(100vh - var(--platform-topbar-height) - 48px));
+  width: min(760px, calc(100vw - 48px));
+  max-height: min(620px, calc(100vh - var(--platform-topbar-height) - 36px));
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  grid-template-rows: minmax(0, auto) 108px;
+  grid-template-columns: minmax(0, 1fr) 230px;
+  grid-template-rows: minmax(0, auto) 82px;
   align-items: stretch;
   column-gap: 0;
   row-gap: 0;
   overflow: visible;
   padding: 0;
   border: 1px solid #d4def1;
-  border-radius: 22px;
+  border-radius: 18px;
   background: #ffffff;
   box-shadow:
     0 24px 54px rgba(40, 61, 104, 0.18),
@@ -11246,17 +11246,17 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   grid-column: 1;
   grid-row: 1;
   min-width: 0;
-  padding: 38px 46px 34px;
+  padding: 26px 32px 22px;
   background: #ffffff;
 }
 
 .task-deadline-picker__header {
   grid-column: 1;
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) 58px;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
   align-items: center;
-  gap: 24px;
-  margin-bottom: 30px;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .task-deadline-picker__header strong {
@@ -11277,8 +11277,8 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .task-deadline-picker__nav {
-  width: 50px;
-  height: 50px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   border: 1px solid #d6e1f4;
@@ -11302,9 +11302,9 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .task-deadline-picker__weekdays {
-  margin-bottom: 22px;
+  margin-bottom: 14px;
   color: #6d7b95;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 900;
   text-align: center;
 }
@@ -11316,8 +11316,8 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .task-deadline-picker__day {
-  width: 48px;
-  height: 48px;
+  width: 38px;
+  height: 38px;
   min-width: 0;
   display: grid;
   place-items: center;
@@ -11327,7 +11327,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   padding: 0;
   color: #111d34;
   background: transparent;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
   line-height: 1;
   transition:
@@ -11364,9 +11364,9 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   grid-template-columns: 1fr;
   grid-template-rows: auto minmax(0, 1fr);
   justify-items: stretch;
-  gap: 20px;
+  gap: 14px;
   margin-top: 0;
-  padding: 42px 42px 42px 38px;
+  padding: 28px 28px 28px 24px;
   border: 0;
   border-left: 1px solid #d9e2f1;
   border-radius: 0;
@@ -11378,7 +11378,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   display: grid;
   align-items: center;
   color: #141f34;
-  font-size: 25px;
+  font-size: 21px;
   font-weight: 900;
   letter-spacing: 0.01em;
 }
@@ -11393,7 +11393,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   position: relative;
   isolation: isolate;
   width: 100%;
-  height: 430px;
+  height: 330px;
   overflow: hidden;
   border: 1px solid #d6e2f6;
   border-radius: 22px;
@@ -11415,7 +11415,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   height: 100%;
   display: block;
   overflow: hidden;
-  padding: 64px 22px;
+  padding: 48px 14px;
   color: #2f6df6;
   background: transparent;
   cursor: default;
@@ -11466,7 +11466,7 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .task-deadline-picker__hour-option--selected {
   color: #ffffff;
   background: #2f6df6;
-  font-size: 31px;
+  font-size: 24px;
   font-weight: 900;
   box-shadow:
     0 12px 24px rgba(47, 109, 246, 0.26),
@@ -11561,10 +11561,10 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 26px;
+  gap: 18px;
   margin-top: 0;
   border-top: 1px solid #d9e2f0;
-  padding: 22px 38px 22px 46px;
+  padding: 16px 30px 16px 32px;
 }
 
 .task-deadline-picker__selected-summary {
@@ -11574,13 +11574,13 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   gap: 18px;
   margin: 0;
   color: #556274;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
 }
 
 .task-deadline-picker__selected-summary::before {
-  width: 50px;
-  height: 50px;
+  width: 42px;
+  height: 42px;
   display: inline-grid;
   place-items: center;
   border: 1px solid #d8e4f6;
