@@ -5,7 +5,7 @@ import { TableEmptyState } from '../../components/TableEmptyState';
 import { listPendingReviewTasks, type ReviewTaskQueueDto } from '../../api/reviews';
 import { ReviewTaskDetailContent } from './ReviewDetailPage';
 
-type ManualReviewTaskStatus = '复审中' | '待复审' | '已完成';
+type ManualReviewTaskStatus = '复审中' | '待人工复审' | '已完成';
 
 type ManualReviewTask = {
   taskId: string;
@@ -294,7 +294,7 @@ function toManualReviewTask(item: ReviewTaskQueueDto): ManualReviewTask {
     taskDisplayId: item.taskDisplayId,
     taskName: item.taskTitle.trim() ? item.taskTitle : `人工审核任务 ${item.taskDisplayId}`,
     pendingCount: item.pendingCount,
-    status: item.status,
+    status: normalizeManualReviewTaskStatus(item.status),
     createdAt: formatMinute(item.createdAt),
     updatedAt: formatMinute(item.updatedAt),
     deadline: formatMinute(item.deadline ?? ''),
@@ -305,11 +305,15 @@ function statusTone(status: ManualReviewTask['status']): 'done' | 'final' | 'rev
   if (status === '已完成') {
     return 'done';
   }
-  if (status === '待复审') {
+  if (status === '待人工复审') {
     return 'final';
   }
 
   return 'reviewing';
+}
+
+function normalizeManualReviewTaskStatus(status: ReviewTaskQueueDto['status']): ManualReviewTaskStatus {
+  return status === '待复审' ? '待人工复审' : status;
 }
 
 function shouldIgnoreRowOpen(target: EventTarget | null): boolean {

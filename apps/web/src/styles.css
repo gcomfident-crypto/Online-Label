@@ -22185,6 +22185,14 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   padding: 8px 10px 10px;
 }
 
+.manual-review-field-comment-card.is-highlighted {
+  border-color: #facc15;
+  background: #fffbeb;
+  box-shadow:
+    0 0 0 2px rgba(250, 204, 21, 0.28),
+    0 14px 30px rgba(146, 64, 14, 0.16);
+}
+
 .manual-review-field-comment-card h3 {
   margin: 0;
   display: inline-flex;

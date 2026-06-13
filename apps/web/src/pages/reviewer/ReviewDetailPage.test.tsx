@@ -414,6 +414,14 @@ describe('ReviewDetailPage', () => {
     expect(screen.getByRole('button', { name: '评论字段 质量判断' })).toHaveClass('has-review-comment');
     expect(screen.getByRole('button', { name: '评论字段 判断理由' })).toHaveClass('has-review-comment');
 
+    await user.click(screen.getByRole('button', { name: '评论字段 质量判断' }));
+
+    expect(within(sidePanel).queryByRole('textbox', { name: '字段评论：质量判断' })).not.toBeInTheDocument();
+    const commentCardsAfterReselect = Array.from(sentComments.querySelectorAll<HTMLElement>('.manual-review-field-comment-card'));
+    expect(commentCardsAfterReselect).toHaveLength(2);
+    expect(commentCardsAfterReselect[0]).toHaveClass('is-highlighted');
+    expect(commentCardsAfterReselect[0]).toHaveAttribute('aria-current', 'true');
+
     await user.click(within(screen.getByLabelText('审核操作')).getByRole('button', { name: /打回/ }));
 
     const rejectCall = fetchMock.mock.calls.find(([path]) => path === '/reviews/submission_1/reject');

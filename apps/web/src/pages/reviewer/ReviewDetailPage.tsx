@@ -78,7 +78,7 @@ type ManualReviewTask = {
   taskName: string;
 };
 
-type ManualReviewTaskStatus = '复审中' | '待复审' | '已完成';
+type ManualReviewTaskStatus = '复审中' | '待人工复审' | '已完成';
 
 type ManualReviewRoundProgress = {
   totalInRound: number;
@@ -130,6 +130,7 @@ export const ReviewTaskDetailContent = ({
   const [reviewComment, setReviewComment] = useState('');
   const [sidePanelTab, setSidePanelTab] = useState<ManualReviewSideTab>('timeline');
   const [selectedCommentFieldKey, setSelectedCommentFieldKey] = useState<string | null>(null);
+  const [highlightedCommentFieldKey, setHighlightedCommentFieldKey] = useState<string | null>(null);
   const [fieldCommentDraft, setFieldCommentDraft] = useState('');
   const [fieldCommentsBySubmissionId, setFieldCommentsBySubmissionId] = useState<
     Record<string, Record<string, FieldReviewComment>>
@@ -368,6 +369,7 @@ export const ReviewTaskDetailContent = ({
 
     setReviewComment('');
     setSelectedCommentFieldKey(null);
+    setHighlightedCommentFieldKey(null);
     setFieldCommentDraft('');
     setSidePanelTab('timeline');
   }, [selectedItem?.submissionId]);
@@ -417,13 +419,22 @@ export const ReviewTaskDetailContent = ({
       return;
     }
 
-    setFieldCommentDraft(selectedFieldComments[field.fieldKey]?.comment ?? '');
-    setSelectedCommentFieldKey(field.fieldKey);
     setSidePanelTab('comments');
+    if (selectedFieldComments[field.fieldKey]?.comment.trim()) {
+      setSelectedCommentFieldKey(null);
+      setFieldCommentDraft('');
+      setHighlightedCommentFieldKey(field.fieldKey);
+      return;
+    }
+
+    setHighlightedCommentFieldKey(null);
+    setFieldCommentDraft('');
+    setSelectedCommentFieldKey(field.fieldKey);
   };
 
   const handleCancelFieldComment = () => {
     setSelectedCommentFieldKey(null);
+    setHighlightedCommentFieldKey(null);
     setFieldCommentDraft('');
   };
 
@@ -454,6 +465,7 @@ export const ReviewTaskDetailContent = ({
       };
     });
     setSelectedCommentFieldKey(null);
+    setHighlightedCommentFieldKey(selectedCommentField.fieldKey);
     setFieldCommentDraft('');
   };
 
@@ -661,6 +673,7 @@ export const ReviewTaskDetailContent = ({
           deadlineCountdown={deadlineCountdown}
           fieldCommentDraft={fieldCommentDraft}
           fieldComments={selectedFieldComments}
+          highlightedFieldKey={highlightedCommentFieldKey}
           item={selectedItem}
           orderedFields={orderedSubmitFields}
           selectedField={selectedCommentField}
@@ -922,6 +935,7 @@ const ReviewSidePanel = ({
   deadlineCountdown,
   fieldCommentDraft,
   fieldComments,
+  highlightedFieldKey,
   item,
   onCancelFieldComment,
   onFieldCommentDraftChange,
@@ -936,6 +950,7 @@ const ReviewSidePanel = ({
   deadlineCountdown: DeadlineCountdownState;
   fieldCommentDraft: string;
   fieldComments: Record<string, FieldReviewComment>;
+  highlightedFieldKey: string | null;
   item: ManualReviewItem | null;
   orderedFields: ReviewSubmitField[];
   selectedField: ReviewSubmitField | null;
@@ -987,6 +1002,7 @@ const ReviewSidePanel = ({
         draft={fieldCommentDraft}
         field={selectedField}
         fieldComments={fieldComments}
+        highlightedFieldKey={highlightedFieldKey}
         orderedFields={orderedFields}
         onCancel={onCancelFieldComment}
         onChangeDraft={onFieldCommentDraftChange}
@@ -1022,6 +1038,7 @@ const FieldCommentPanel = ({
   draft,
   field,
   fieldComments,
+  highlightedFieldKey,
   onCancel,
   onChangeDraft,
   onSend,
@@ -1030,12 +1047,18 @@ const FieldCommentPanel = ({
   draft: string;
   field: ReviewSubmitField | null;
   fieldComments: Record<string, FieldReviewComment>;
+  highlightedFieldKey: string | null;
   orderedFields: ReviewSubmitField[];
   onCancel: () => void;
   onChangeDraft: (comment: string) => void;
   onSend: () => void;
 }) => {
   const sentComments = orderedFieldComments(fieldComments, orderedFields);
+  const highlightedCommentRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    highlightedCommentRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [highlightedFieldKey, sentComments.length]);
 
   return (
     <section className="manual-review-field-comment-panel" aria-label="字段评论">
@@ -1063,12 +1086,21 @@ const FieldCommentPanel = ({
 
       {sentComments.length > 0 ? (
         <div className="manual-review-field-comment-list" aria-label="已发送字段评论">
-          {sentComments.map((comment) => (
-            <article className="manual-review-field-comment-card" key={comment.fieldKey}>
-              <h3>{fieldCommentTitle(comment.label)}</h3>
-              <p>{comment.comment}</p>
-            </article>
-          ))}
+          {sentComments.map((comment) => {
+            const isHighlighted = comment.fieldKey === highlightedFieldKey;
+
+            return (
+              <article
+                ref={isHighlighted ? highlightedCommentRef : undefined}
+                aria-current={isHighlighted ? 'true' : undefined}
+                className={isHighlighted ? 'manual-review-field-comment-card is-highlighted' : 'manual-review-field-comment-card'}
+                key={comment.fieldKey}
+              >
+                <h3>{fieldCommentTitle(comment.label)}</h3>
+                <p>{comment.comment}</p>
+              </article>
+            );
+          })}
         </div>
       ) : null}
 
@@ -1414,7 +1446,7 @@ function resolveManualReviewTaskStatus(progress: ManualReviewRoundProgress): Man
   }
 
   if (progress.needsRevisionCount > 0) {
-    return '待复审';
+    return '待人工复审';
   }
 
   return '已完成';
@@ -1442,11 +1474,11 @@ function resolveManualReviewDecisionLabelByRound(
       return null;
     }
 
-    return { text: queueItem.round > 1 ? '待复审' : '待决策', type: 'reject' };
+    return { text: queueItem.round > 1 ? '待人工复审' : '待决策', type: 'reject' };
   }
 
   if (queueItem.humanDecision === 'reject' || queueItem.status === 'NEEDS_REVISION') {
-    return { text: '待复审', type: 'reject' };
+    return { text: '待人工复审', type: 'reject' };
   }
 
   if (queueItem.humanDecision || queueItem.status === 'FINAL_APPROVED') {
