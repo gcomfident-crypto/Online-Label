@@ -523,7 +523,7 @@ describe('LlmService template field classifier', () => {
     );
   });
 
-  it('Rubric 字段总分按原始加权和统一取整，避免逐维度取整漂移', async () => {
+  it('Rubric 字段总分等于展示出来的维度加权分之和', async () => {
     process.env.LLM_PROVIDER = 'deepseek';
     process.env.NODE_ENV = 'development';
     process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
@@ -596,11 +596,11 @@ describe('LlmService template field classifier', () => {
       temperature: 0,
     });
 
-    expect(result.scores.overall).toBe(50);
+    expect(result.scores.overall).toBe(51);
     expect(result.structuredOutput.fieldReviews).toEqual([
       expect.objectContaining({
         fieldKey: 'comment',
-        score: 50,
+        score: 51,
         dimensionReviews: [
           expect.objectContaining({ key: 'dimension_a', weightedScore: 17 }),
           expect.objectContaining({ key: 'dimension_b', weightedScore: 17 }),

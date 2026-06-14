@@ -159,7 +159,7 @@ describe('AiReviewQueuePage', () => {
     expect(within(dialog).getByText('本题历史')).toBeInTheDocument();
     expect(within(dialog).getByText('预审记录')).toBeInTheDocument();
     expect(within(dialog).getByLabelText('预审记录')).toHaveClass('agent-precheck-card');
-    expect(within(dialog).getByRole('img', { name: '综合分 94 分' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('img', { name: '综合分 74 分' })).toBeInTheDocument();
     expect(within(dialog).getByText('综合分')).toBeInTheDocument();
     expect(within(dialog).queryByText('质量状态')).not.toBeInTheDocument();
     expect(within(dialog).getByText('维度评分')).toBeInTheDocument();

@@ -994,10 +994,10 @@ function normalizeAiReviewDimensionReviews(
 }
 
 function aggregateDimensionReviewScore(
-  dimensionReviews: ReadonlyArray<{ score: number; weight: number }>,
+  dimensionReviews: ReadonlyArray<{ weightedScore: number }>,
 ): number {
   return clampAiReviewScore(
-    dimensionReviews.reduce((total, dimension) => total + (dimension.score * dimension.weight) / 100, 0),
+    dimensionReviews.reduce((total, dimension) => total + dimension.weightedScore, 0),
   );
 }
 

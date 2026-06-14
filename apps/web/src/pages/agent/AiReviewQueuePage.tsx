@@ -860,7 +860,7 @@ const AiReviewRecordPanel = ({ item }: { item: TaskFlowItemDto }) => {
   const fieldSummaries = extractAiReviewFieldSummaries(structuredOutput);
   const dimensionGroups = extractAiReviewDimensionGroups(structuredOutput);
   const dimensions = flattenAiReviewDimensions(dimensionGroups);
-  const overallScore = aiReviewOverallScore(item.aiReview?.scores, fieldSummaries);
+  const overallScore = aiReviewOverallScore(item.aiReview?.scores, fieldSummaries, dimensionGroups);
   const scorePercent = overallScore === null ? 0 : clampPercent(overallScore);
   const tone = aiPrecheckTone(item, overallScore);
   const tags = aiPrecheckTags(item, fieldSummaries, dimensions);
@@ -1817,7 +1817,18 @@ function aiReviewDimensionTone(score: number): AiReviewDimensionDisplayItem['ton
 function aiReviewOverallScore(
   scores: Record<string, unknown> | undefined,
   fieldSummaries: readonly AiReviewFieldSummary[],
+  dimensionGroups: readonly AiReviewDimensionReviewGroup[],
 ): number | null {
+  const rubricFieldScores = dimensionGroups
+    .map((group) => group.dimensions.reduce((total, dimension) => total + dimension.weightedScore, 0))
+    .filter((score) => Number.isFinite(score));
+
+  if (rubricFieldScores.length > 0) {
+    return clampPercent(
+      rubricFieldScores.reduce((total, score) => total + score, 0) / rubricFieldScores.length,
+    );
+  }
+
   const explicitScore = finiteNumber(scores?.overall);
 
   if (explicitScore !== null) {
