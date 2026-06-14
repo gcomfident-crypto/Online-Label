@@ -823,9 +823,9 @@ function normalizeAiReviewResult(
   const candidate = ensureRecord(value, 'AI 预审结构化输出必须是 JSON 对象。');
   const fieldReviews = normalizeAiReviewFieldReviews(candidate.fieldReviews, request);
   const decision = normalizeAiReviewDecision(candidate.verdict) ?? aggregateAiReviewDecision(fieldReviews);
-  const hasRubricReview = fieldReviews.some((field) => field.dimensionReviews && field.dimensionReviews.length > 0);
-  const overallScore = hasRubricReview
-    ? aggregateAiReviewScore(fieldReviews)
+  const rubricFieldReviews = fieldReviews.filter((field) => field.dimensionReviews && field.dimensionReviews.length > 0);
+  const overallScore = rubricFieldReviews.length > 0
+    ? aggregateAiReviewScore(rubricFieldReviews)
     : (numericValue(candidate.overallScore)
       ?? numericValue(isRecord(candidate.scores) ? candidate.scores.overall : null)
       ?? aggregateAiReviewScore(fieldReviews));

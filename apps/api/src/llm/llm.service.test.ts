@@ -610,6 +610,121 @@ describe('LlmService template field classifier', () => {
     ]);
   });
 
+  it('Rubric 综合分只按维度加权结果计算，不被普通预审字段平均稀释', async () => {
+    process.env.LLM_PROVIDER = 'deepseek';
+    process.env.NODE_ENV = 'development';
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
+    process.env.LLM_MODEL = 'deepseek-chat';
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  verdict: 'pass',
+                  overallScore: 99,
+                  overallComment: '维度和备注均通过。',
+                  fieldReviews: [
+                    {
+                      fieldKey: 'dimensions',
+                      label: '评测维度',
+                      score: 90,
+                      decision: 'pass',
+                      comment: '选择的维度符合预设范围。',
+                      suggestions: [],
+                    },
+                    {
+                      fieldKey: 'annotator_note',
+                      label: '标注备注',
+                      score: 99,
+                      decision: 'pass',
+                      comment: '备注能够支撑偏好选择。',
+                      suggestions: [],
+                      dimensionReviews: [
+                        { key: 'preference_consistency', label: '偏好选择一致性', score: 100, comment: '偏好选择一致。' },
+                        { key: 'coverage', label: '关键质量维度覆盖', score: 92, comment: '质量维度覆盖较完整。' },
+                        { key: 'evidence', label: '证据支撑充分性', score: 80, comment: '证据基本充分。' },
+                        { key: 'format', label: '字段一致性与标注规范', score: 100, comment: '字段填写规范。' },
+                      ],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await new LlmService().reviewSubmission({
+      answers: {
+        dimensions: ['准确性', '完备性'],
+        annotator_note: '模型 A 的解释更完整，能够说明概念并给出例子。',
+      },
+      datasetKind: 'preference_compare',
+      fieldRequirements: [
+        {
+          fieldKey: 'dimensions',
+          label: '评测维度',
+          type: 'checkbox',
+          required: true,
+          requirement: '必须选择预设评测维度。',
+        } as never,
+        {
+          fieldKey: 'annotator_note',
+          label: '标注备注',
+          type: 'textarea',
+          required: true,
+          requirement: '说明必须支撑偏好选择。',
+          rubric: {
+            dimensions: [
+              { key: 'preference_consistency', label: '偏好选择一致性', weight: 35, criteria: '偏好选择必须成立。' },
+              { key: 'coverage', label: '关键质量维度覆盖', weight: 25, criteria: '覆盖关键质量维度。' },
+              { key: 'evidence', label: '证据支撑充分性', weight: 25, criteria: '给出具体证据。' },
+              { key: 'format', label: '字段一致性与标注规范', weight: 15, criteria: '字段完整且格式规范。' },
+            ],
+          },
+        } as never,
+      ],
+      model: 'deepseek-chat',
+      passThreshold: 0,
+      provider: 'deepseek',
+      rawData: {
+        prompt: '比较两个回答。',
+      },
+      rawPrompt: '请按 Rubric 输出维度评分。',
+      structuredOutputMode: 'json_schema',
+      temperature: 0,
+    });
+
+    expect(result.scores.overall).toBe(93);
+    expect(result.structuredOutput).toEqual(
+      expect.objectContaining({
+        overallScore: 93,
+        fieldReviews: [
+          expect.objectContaining({
+            fieldKey: 'dimensions',
+            score: 90,
+          }),
+          expect.objectContaining({
+            fieldKey: 'annotator_note',
+            score: 93,
+            dimensionReviews: [
+              expect.objectContaining({ key: 'preference_consistency', weightedScore: 35 }),
+              expect.objectContaining({ key: 'coverage', weightedScore: 23 }),
+              expect.objectContaining({ key: 'evidence', weightedScore: 20 }),
+              expect.objectContaining({ key: 'format', weightedScore: 15 }),
+            ],
+          }),
+        ],
+      }),
+    );
+  });
+
   it('没有显式 LLM_PROVIDER 但配置 DeepSeek key 时按 DeepSeek OpenAI 兼容接口分类字段', async () => {
     delete process.env.LLM_PROVIDER;
     process.env.NODE_ENV = 'development';
