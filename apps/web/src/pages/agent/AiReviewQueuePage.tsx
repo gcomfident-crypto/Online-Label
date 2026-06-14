@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { LabelHubSchema, ShowItemDisplayField } from '@labelhub/shared';
 
@@ -855,17 +855,108 @@ const AgentReviewSubmitSnapshotCard = ({
   );
 };
 
-const AiReviewRecordPanel = ({ item }: { item: TaskFlowItemDto }) => (
-  <article className={`agent-review-card agent-review-card--comment is-${aiTone(item.aiStatus)}`}>
-    <PanelHeading title="预审记录" />
-    <div className="agent-review-comment-box">
-      <strong>{AI_STATUS_LABELS[item.aiStatus]}</strong>
-      <p>{item.aiReview?.comment ?? item.latestAiJob?.lastError ?? '当前题没有 AI 预审结论。'}</p>
-    </div>
-    {item.aiReview ? <ScoreList scores={item.aiReview.scores} /> : null}
-    <AiReviewDimensionReviewList structuredOutput={item.aiReview?.structuredOutput ?? null} />
-  </article>
-);
+const AiReviewRecordPanel = ({ item }: { item: TaskFlowItemDto }) => {
+  const structuredOutput = item.aiReview?.structuredOutput ?? null;
+  const fieldSummaries = extractAiReviewFieldSummaries(structuredOutput);
+  const dimensionGroups = extractAiReviewDimensionGroups(structuredOutput);
+  const dimensions = flattenAiReviewDimensions(dimensionGroups);
+  const overallScore = aiReviewOverallScore(item.aiReview?.scores, fieldSummaries);
+  const scorePercent = overallScore === null ? 0 : clampPercent(overallScore);
+  const tone = aiPrecheckTone(item, overallScore);
+  const metricCards = aiPrecheckMetricCards(item, fieldSummaries, overallScore);
+  const tags = aiPrecheckTags(item, fieldSummaries, dimensions);
+  const note = aiPrecheckReviewerNote(item, fieldSummaries, dimensions);
+  const summary = item.aiReview?.comment ?? item.latestAiJob?.lastError ?? '当前题没有 AI 预审结论。';
+
+  return (
+    <article className={`agent-precheck-card is-${tone}`} aria-label="预审记录">
+      <div className="agent-precheck-header">
+        <div>
+          <div className="agent-precheck-title-row">
+            <h2>预审记录</h2>
+            <span className={`agent-precheck-status-pill is-${tone}`}>{AI_STATUS_LABELS[item.aiStatus]}</span>
+          </div>
+          <p className="agent-precheck-summary-text">{summary}</p>
+          {tags.length > 0 ? (
+            <div className="agent-precheck-summary-tags" aria-label="预审标签">
+              {tags.map((tag) => (
+                <span className="agent-precheck-tag" key={tag}>{tag}</span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div
+          className={`agent-precheck-score-ring is-${tone}`}
+          role="img"
+          aria-label={overallScore === null ? '综合分未记录' : `综合分 ${formatAiReviewDimensionScore(overallScore)} 分`}
+          style={{ '--agent-precheck-score-percent': `${scorePercent}%` } as CSSProperties}
+        >
+          <div className="agent-precheck-score-ring-inner">
+            <strong>{overallScore === null ? '--' : formatAiReviewDimensionScore(overallScore)}</strong>
+            <span>综合分</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="agent-precheck-metric-grid">
+        {metricCards.map((metric) => (
+          <article className="agent-precheck-metric-card" key={metric.label}>
+            <div className="agent-precheck-metric-label">{metric.label}</div>
+            <div className="agent-precheck-metric-value">
+              {metric.value}
+              {metric.unit ? <small>{metric.unit}</small> : null}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="agent-precheck-dimension-section">
+        <div className="agent-precheck-section-title">
+          <h3>维度评分</h3>
+          <span className="agent-precheck-section-hint">
+            {dimensions.length > 0 ? `${dimensions.length} 个维度` : '未记录 Rubric 明细'}
+          </span>
+        </div>
+
+        {dimensions.length > 0 ? (
+          <div className="agent-precheck-dimension-list">
+            {dimensions.map((dimension) => (
+              <article className={`agent-precheck-dimension-item is-${dimension.tone}`} key={`${dimension.fieldKey}:${dimension.key}`}>
+                <div className="agent-precheck-dimension-icon" aria-hidden="true">{dimension.tone === 'pass' ? '✓' : '!'}</div>
+                <div className="agent-precheck-dimension-main">
+                  <div className="agent-precheck-dimension-top">
+                    <span className="agent-precheck-dimension-name">{dimension.label}</span>
+                    <span className="agent-precheck-dimension-percent">{formatAiReviewDimensionScore(dimension.percent)}%</span>
+                  </div>
+                  <div className="agent-precheck-progress-track" aria-hidden="true">
+                    <div className="agent-precheck-progress-fill" style={{ width: `${dimension.percent}%` }} />
+                  </div>
+                  <p className="agent-precheck-dimension-desc">
+                    <strong>{dimension.fieldLabel}：</strong>
+                    {dimension.comment}
+                  </p>
+                </div>
+                <span className="agent-precheck-score-badge">
+                  {formatAiReviewDimensionScore(dimension.weightedScore)} / {formatAiReviewDimensionScore(dimension.weight)}
+                </span>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="agent-precheck-empty-dimensions">当前预审结果没有返回字段级 Rubric 维度评分。</p>
+        )}
+
+        {note ? (
+          <aside className="agent-precheck-note-card">
+            <div className="agent-precheck-note-icon">AI</div>
+            <p>{note}</p>
+          </aside>
+        ) : null}
+      </div>
+    </article>
+  );
+};
 
 const ReviewerRecordPanel = ({ item }: { item: TaskFlowItemDto }) => (
   <article className={`agent-review-card agent-review-card--comment is-${reviewerTone(item.reviewerStatus)}`}>
@@ -1150,6 +1241,22 @@ type AiReviewDimensionReviewGroup = {
   dimensions: AiReviewDimensionReviewItem[];
 };
 
+type AiReviewFieldSummary = {
+  fieldKey: string;
+  label: string;
+  decision: string | null;
+  score: number | null;
+  comment: string | null;
+  suggestions: string[];
+};
+
+type AiReviewDimensionDisplayItem = AiReviewDimensionReviewItem & {
+  fieldKey: string;
+  fieldLabel: string;
+  percent: number;
+  tone: 'pass' | 'warn' | 'reject';
+};
+
 const DecisionPill = ({ label, tone }: { label: string; tone: StatusTone }) => (
   <span className={`agent-review-decision-pill is-${tone}`}>
     <span className="status-tag__dot" aria-hidden="true" />
@@ -1161,64 +1268,6 @@ const SummaryStatusPill = ({ stage }: { stage: TaskFlowStage }) => (
   <span className={`agent-review-detail-summary-status is-${stageTone(stage)}`}>
     {STAGE_LABELS[stage]}
   </span>
-);
-
-const ScoreList = ({ scores }: { scores: Record<string, unknown> }) => {
-  const entries = Object.entries(scores).filter(([, value]) => typeof value === 'number' || typeof value === 'string');
-
-  if (entries.length === 0) {
-    return null;
-  }
-
-  return (
-    <dl className="agent-review-trace-identifiers">
-      {entries.map(([key, value]) => (
-        <TraceSummaryItem key={key} label={formatScoreLabel(key)} value={formatScoreValue(value)} />
-      ))}
-    </dl>
-  );
-};
-
-const AiReviewDimensionReviewList = ({ structuredOutput }: { structuredOutput: Record<string, unknown> | null }) => {
-  const groups = extractAiReviewDimensionGroups(structuredOutput);
-
-  if (groups.length === 0) {
-    return null;
-  }
-
-  return (
-    <section className="agent-review-dimension-reviews" aria-label="AI 预审维度评分">
-      <h4>维度评分</h4>
-      <div className="agent-review-dimension-reviews__fields">
-        {groups.map((group) => (
-          <div className="agent-review-dimension-reviews__field" key={group.fieldKey}>
-            <strong>{group.label}</strong>
-            <ul>
-              {group.dimensions.map((dimension) => (
-                <li key={dimension.key}>
-                  <div className="agent-review-dimension-reviews__row">
-                    <span>{dimension.label}</span>
-                    <em>
-                      {formatAiReviewDimensionScore(dimension.weightedScore)} / {formatAiReviewDimensionScore(dimension.weight)}
-                    </em>
-                  </div>
-                  <p>{dimension.comment}</p>
-                  <small>{formatAiReviewDimensionScore(dimension.score)} 分</small>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-};
-
-const TraceSummaryItem = ({ label, value }: { label: string; value: ReactNode }) => (
-  <div>
-    <dt>{label}</dt>
-    <dd>{value || '未记录'}</dd>
-  </div>
 );
 
 type TraceEvent = {
@@ -1655,6 +1704,40 @@ function formatReviewSubmitSnapshotValue(value: unknown): string {
   return String(value);
 }
 
+function extractAiReviewFieldSummaries(structuredOutput: Record<string, unknown> | null): AiReviewFieldSummary[] {
+  if (!structuredOutput || !Array.isArray(structuredOutput.fieldReviews)) {
+    return [];
+  }
+
+  return structuredOutput.fieldReviews
+    .map(parseAiReviewFieldSummary)
+    .filter((field): field is AiReviewFieldSummary => field !== null);
+}
+
+function parseAiReviewFieldSummary(value: unknown): AiReviewFieldSummary | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const fieldKey = nonEmptyString(value.fieldKey);
+  const label = nonEmptyString(value.label);
+
+  if (!fieldKey || !label) {
+    return null;
+  }
+
+  return {
+    fieldKey,
+    label,
+    decision: nonEmptyString(value.decision),
+    score: finiteNumber(value.score),
+    comment: nonEmptyString(value.comment),
+    suggestions: Array.isArray(value.suggestions)
+      ? value.suggestions.filter((suggestion): suggestion is string => typeof suggestion === 'string' && Boolean(suggestion.trim()))
+      : [],
+  };
+}
+
 function extractAiReviewDimensionGroups(structuredOutput: Record<string, unknown> | null): AiReviewDimensionReviewGroup[] {
   if (!structuredOutput || !Array.isArray(structuredOutput.fieldReviews)) {
     return [];
@@ -1711,6 +1794,178 @@ function parseAiReviewDimensionReview(value: unknown): AiReviewDimensionReviewIt
     weightedScore,
     comment,
   };
+}
+
+function flattenAiReviewDimensions(groups: readonly AiReviewDimensionReviewGroup[]): AiReviewDimensionDisplayItem[] {
+  return groups.flatMap((group) =>
+    group.dimensions.map((dimension) => ({
+      ...dimension,
+      fieldKey: group.fieldKey,
+      fieldLabel: group.label,
+      percent: aiReviewDimensionPercent(dimension),
+      tone: aiReviewDimensionTone(dimension.score),
+    })),
+  );
+}
+
+function aiReviewDimensionPercent(dimension: AiReviewDimensionReviewItem): number {
+  if (dimension.weight > 0) {
+    return clampPercent((dimension.weightedScore / dimension.weight) * 100);
+  }
+
+  return clampPercent(dimension.score);
+}
+
+function aiReviewDimensionTone(score: number): AiReviewDimensionDisplayItem['tone'] {
+  if (score >= 90) {
+    return 'pass';
+  }
+  if (score >= 70) {
+    return 'warn';
+  }
+
+  return 'reject';
+}
+
+function aiReviewOverallScore(
+  scores: Record<string, unknown> | undefined,
+  fieldSummaries: readonly AiReviewFieldSummary[],
+): number | null {
+  const explicitScore = finiteNumber(scores?.overall);
+
+  if (explicitScore !== null) {
+    return explicitScore;
+  }
+
+  const fieldScores = fieldSummaries
+    .map((field) => field.score)
+    .filter((score): score is number => score !== null);
+
+  if (fieldScores.length === 0) {
+    return null;
+  }
+
+  return Math.round(fieldScores.reduce((total, score) => total + score, 0) / fieldScores.length);
+}
+
+function aiPrecheckMetricCards(
+  item: TaskFlowItemDto,
+  fieldSummaries: readonly AiReviewFieldSummary[],
+  overallScore: number | null,
+): Array<{ label: string; value: string; unit?: string }> {
+  const scores = item.aiReview?.scores;
+  const fieldCount = finiteNumber(scores?.fieldCount) ?? fieldSummaries.length;
+  const passedFieldCount = finiteNumber(scores?.passedFieldCount) ?? fieldSummaries.filter((field) => field.decision === 'pass').length;
+  const rejectedFieldCount = finiteNumber(scores?.rejectedFieldCount) ?? fieldSummaries.filter((field) => field.decision === 'reject').length;
+  const quality = aiPrecheckQualityStatus(item, overallScore, rejectedFieldCount);
+
+  return [
+    { label: '检查字段', value: formatAiReviewMetricNumber(fieldCount), unit: '项' },
+    { label: '通过字段', value: formatAiReviewMetricNumber(passedFieldCount), unit: '项' },
+    { label: '打回字段', value: formatAiReviewMetricNumber(rejectedFieldCount), unit: '项' },
+    { label: '质量状态', value: quality.label, unit: quality.grade },
+  ];
+}
+
+function aiPrecheckQualityStatus(
+  item: TaskFlowItemDto,
+  overallScore: number | null,
+  rejectedFieldCount: number,
+): { label: string; grade: string } {
+  if (item.aiStatus === 'FAILED') {
+    return { label: '异常', grade: 'FAIL' };
+  }
+  if (item.aiDecision === 'reject' || rejectedFieldCount > 0) {
+    return { label: '需修改', grade: 'R' };
+  }
+  if (overallScore === null) {
+    return { label: '待生成', grade: '--' };
+  }
+  if (overallScore >= 95) {
+    return { label: '优秀', grade: 'A+' };
+  }
+  if (overallScore >= 90) {
+    return { label: '优秀', grade: 'A' };
+  }
+  if (overallScore >= 80) {
+    return { label: '良好', grade: 'B+' };
+  }
+  if (overallScore >= 70) {
+    return { label: '可复核', grade: 'B' };
+  }
+
+  return { label: '高风险', grade: 'C' };
+}
+
+function aiPrecheckTags(
+  item: TaskFlowItemDto,
+  fieldSummaries: readonly AiReviewFieldSummary[],
+  dimensions: readonly AiReviewDimensionDisplayItem[],
+): string[] {
+  if (!item.aiReview) {
+    return ['未生成预审记录'];
+  }
+
+  const rejectedCount = fieldSummaries.filter((field) => field.decision === 'reject').length;
+  const tags = [
+    item.aiReview.decision ? `AI ${reviewDecisionLabel(item.aiReview.decision)}` : AI_STATUS_LABELS[item.aiStatus],
+    fieldSummaries.length > 0 ? `${fieldSummaries.length} 个字段` : null,
+    rejectedCount > 0 ? `打回 ${rejectedCount} 项` : fieldSummaries.length > 0 ? '字段通过' : null,
+    dimensions.length > 0 ? `${dimensions.length} 个维度` : null,
+  ].filter((tag): tag is string => Boolean(tag));
+
+  return tags.slice(0, 4);
+}
+
+function aiPrecheckReviewerNote(
+  item: TaskFlowItemDto,
+  fieldSummaries: readonly AiReviewFieldSummary[],
+  dimensions: readonly AiReviewDimensionDisplayItem[],
+): string | null {
+  const riskDimension = dimensions
+    .filter((dimension) => dimension.tone !== 'pass')
+    .sort((left, right) => left.score - right.score)[0];
+
+  if (riskDimension) {
+    return `建议 Reviewer 重点复核「${riskDimension.label}」：${riskDimension.comment}`;
+  }
+
+  const firstSuggestion = fieldSummaries.flatMap((field) => field.suggestions)[0];
+
+  if (firstSuggestion) {
+    return `建议 Reviewer 关注模型建议：${firstSuggestion}`;
+  }
+
+  return item.aiReview?.comment ? `AI 结论：${item.aiReview.comment}` : null;
+}
+
+function aiPrecheckTone(item: TaskFlowItemDto, overallScore: number | null): 'pass' | 'warn' | 'reject' | 'failed' {
+  if (item.aiStatus === 'FAILED') {
+    return 'failed';
+  }
+  if (item.aiDecision === 'reject' || item.aiStatus === 'REJECTED') {
+    return 'reject';
+  }
+  if (overallScore !== null && overallScore < 90) {
+    return 'warn';
+  }
+  if (item.aiStatus === 'PASSED' || item.aiStatus === 'SUCCEEDED') {
+    return 'pass';
+  }
+
+  return 'warn';
+}
+
+function clampPercent(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function formatAiReviewMetricNumber(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.?0+$/, '');
 }
 
 function nonEmptyString(value: unknown): string | null {
@@ -1925,25 +2180,6 @@ const PREVIEW_FIELD_LABELS: Record<string, string> = {
   safety_flag: '安全标记',
   task_type: '任务类型',
 };
-
-const SCORE_FIELD_LABELS: Record<string, string> = {
-  fieldCount: '检查字段',
-  overall: '综合分',
-  passedFieldCount: '通过字段',
-  rejectedFieldCount: '打回字段',
-};
-
-function formatScoreLabel(key: string): string {
-  return SCORE_FIELD_LABELS[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim();
-}
-
-function formatScoreValue(value: unknown): string {
-  if (typeof value === 'number') {
-    return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
-  }
-
-  return formatPreviewScalar(value);
-}
 
 function formatAiReviewDimensionScore(value: number): string {
   const rounded = Math.round(value * 100) / 100;
