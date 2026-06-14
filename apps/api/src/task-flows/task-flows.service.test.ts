@@ -91,6 +91,15 @@ describe('TaskFlowsService', () => {
       'P0009',
       'P0010',
     ]);
+    expect(detail.items[0]?.aiReview?.structuredOutput).toEqual({
+      fieldReviews: [
+        {
+          fieldKey: 'comment',
+          label: '对比说明',
+          score: 94,
+        },
+      ],
+    });
   });
 
   it('只有上一轮被 Reviewer 打回的题会显示 Labeler 已修改', async () => {
@@ -477,6 +486,17 @@ function createReviewRecord(
     decision,
     comment: decision === 'reject' ? '需要修改。' : '可以通过。',
     scores: { overall: decision === 'reject' ? 62 : 94 },
+    structuredOutput: reviewerType === 'AI'
+      ? {
+          fieldReviews: [
+            {
+              fieldKey: 'comment',
+              label: '对比说明',
+              score: decision === 'reject' ? 62 : 94,
+            },
+          ],
+        }
+      : null,
     createdAt,
   };
 }

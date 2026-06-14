@@ -159,6 +159,10 @@ describe('AiReviewQueuePage', () => {
     expect(within(dialog).getByText('本题历史')).toBeInTheDocument();
     expect(within(dialog).getByText('预审记录')).toBeInTheDocument();
     expect(within(dialog).getByText('综合分')).toBeInTheDocument();
+    expect(within(dialog).getByText('维度评分')).toBeInTheDocument();
+    expect(within(dialog).getByText('偏好一致性')).toBeInTheDocument();
+    expect(within(dialog).getByText('32 / 40')).toBeInTheDocument();
+    expect(within(dialog).getByText('选择 B 与 A/B 内容差异一致。')).toBeInTheDocument();
     expect(within(dialog).queryByText('AI 建议通过')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('未最终完成')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('HUMAN_PENDING')).not.toBeInTheDocument();
@@ -379,6 +383,36 @@ function createItem(index: number, aiStatus: TaskFlowItemDto['aiStatus']): TaskF
       comment: aiStatus === 'REJECTED' ? '模型建议打回。' : '模型建议通过。',
       scores: {
         overall: aiStatus === 'REJECTED' ? 62 : 94,
+      },
+      structuredOutput: {
+        fieldReviews: [
+          {
+            fieldKey: 'comment',
+            label: '对比说明',
+            score: 74,
+            decision: 'pass',
+            comment: '理由能支撑偏好选择，但证据引用还可以更具体。',
+            suggestions: ['补充回答 B 中更完整的具体句子。'],
+            dimensionReviews: [
+              {
+                key: 'preference_consistency',
+                label: '偏好一致性',
+                weight: 40,
+                score: 80,
+                weightedScore: 32,
+                comment: '选择 B 与 A/B 内容差异一致。',
+              },
+              {
+                key: 'evidence_grounding',
+                label: '证据依据',
+                weight: 60,
+                score: 70,
+                weightedScore: 42,
+                comment: '理由提到了完整性，但缺少原文级证据。',
+              },
+            ],
+          },
+        ],
       },
       createdAt: '2026-05-21T11:01:00.000Z',
     },

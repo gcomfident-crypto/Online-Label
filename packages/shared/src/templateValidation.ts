@@ -31,6 +31,9 @@ export type TemplateSchemaValidationError = {
     | 'TEMPLATE_LINKAGE_OPTIONS_TARGET_INVALID'
     | 'TEMPLATE_LINKAGE_OPTION_INVALID'
     | 'TEMPLATE_LINKAGE_CONFLICT'
+    | 'TEMPLATE_AI_REVIEW_RUBRIC_DIMENSION_INVALID'
+    | 'TEMPLATE_AI_REVIEW_RUBRIC_DIMENSION_DUPLICATED'
+    | 'TEMPLATE_AI_REVIEW_RUBRIC_WEIGHT_INVALID'
     | 'TEMPLATE_CUSTOM_VALIDATOR_INVALID';
   message: string;
   fieldKey?: string;
@@ -171,6 +174,8 @@ export const validateTemplateSchema = (
       validateLinkageRule(rule, fieldsByKey, fieldKeySet, errors);
     }
 
+    validateAiReviewRubric(field, fieldKey, errors);
+
     const customValidatorKey = field.validation?.customValidatorKey;
 
     if (
@@ -246,6 +251,58 @@ const validateLinkageRule = (
 
   if (isLegacyFieldLinkageRule(rule)) {
     validateLegacyLinkageRule(rule, fieldsByKey, fieldKeySet, errors);
+  }
+};
+
+const validateAiReviewRubric = (
+  field: SchemaField,
+  fieldKey: string,
+  errors: TemplateSchemaValidationError[],
+) => {
+  const dimensions = field.aiReview?.rubric?.dimensions;
+
+  if (!dimensions || dimensions.length === 0) {
+    return;
+  }
+
+  const dimensionKeys: string[] = [];
+
+  dimensions.forEach((dimension, index) => {
+    const weight = Number(dimension.weight);
+    const hasValidIdentity = Boolean(dimension.key.trim() && dimension.label.trim());
+    const hasValidWeight = Number.isFinite(weight) && weight > 0;
+    const hasValidCriteria = Boolean(dimension.criteria.trim());
+
+    dimensionKeys.push(dimension.key.trim());
+
+    if (!hasValidIdentity || !hasValidWeight || !hasValidCriteria) {
+      errors.push({
+        code: 'TEMPLATE_AI_REVIEW_RUBRIC_DIMENSION_INVALID',
+        fieldKey,
+        message: `${field.label} 的第 ${index + 1} 个 AI 预审维度需要填写维度名称、权重和判断标准。`,
+      });
+    }
+  });
+
+  for (const duplicatedKey of collectDuplicatedValues(dimensionKeys.filter(Boolean))) {
+    errors.push({
+      code: 'TEMPLATE_AI_REVIEW_RUBRIC_DIMENSION_DUPLICATED',
+      fieldKey,
+      message: `${field.label} 的 AI 预审维度 ${duplicatedKey} 重复，请修改后再保存。`,
+    });
+  }
+
+  const totalWeight = dimensions.reduce((total, dimension) => {
+    const weight = Number(dimension.weight);
+    return Number.isFinite(weight) ? total + weight : total;
+  }, 0);
+
+  if (Math.abs(totalWeight - 100) > 0.0001) {
+    errors.push({
+      code: 'TEMPLATE_AI_REVIEW_RUBRIC_WEIGHT_INVALID',
+      fieldKey,
+      message: `${field.label} 的 AI 预审维度权重总和必须为 100，当前为 ${formatWeight(totalWeight)}。`,
+    });
   }
 };
 
@@ -510,6 +567,10 @@ const collectDuplicatedValues = (values: readonly string[]): string[] => {
   }
 
   return [...duplicated];
+};
+
+const formatWeight = (value: number): string => {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
 };
 
 const createFieldMap = (fields: readonly SchemaField[]): Map<string, SchemaField> => {

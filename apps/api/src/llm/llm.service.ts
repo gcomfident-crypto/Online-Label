@@ -563,6 +563,8 @@ async function callOpenAiCompatibleAiReview(
             '每个 fieldReviews.comment 必须是 AI 对当前字段标注内容的评语，要结合 ShowItem、AI 预审标准和当前标注内容说明通过或打回原因。',
             '上传文件中与待标注字段同名或映射到待标注字段的值，仅用于 owner 配置模板参考，不是标准答案，不得用于和当前标注答案做一致性比较。',
             '每个字段必须输出 fieldKey、label、score、decision、comment、suggestions。',
+            '如果字段审核标准包含 rubric.dimensions，该字段必须输出 dimensionReviews，并覆盖每一个 rubric 维度。',
+            'dimensionReviews 每项必须包含 key、label、score、comment；score 取 0-100，字段总分由服务端按 rubric 权重重新计算。',
             'verdict 只能是 pass 或 reject；任一字段 decision 为 reject 时 verdict 必须是 reject。',
             '不要输出 mock、模拟、占位、Markdown 或代码块。',
           ].join('\n'),
@@ -579,7 +581,7 @@ async function callOpenAiCompatibleAiReview(
             `当前标注答案：${JSON.stringify(request.answers)}`,
             `需要预审的字段和标准：${JSON.stringify(request.fieldRequirements)}`,
             '',
-            '请只输出 JSON：{"verdict":"pass|reject","overallScore":0,"overallComment":"整体结论","fieldReviews":[{"fieldKey":"字段 key","label":"字段标题","score":0,"decision":"pass|reject","comment":"AI 对当前字段标注内容的评语","suggestions":["修改建议"]}]}',
+            '请只输出 JSON：{"verdict":"pass|reject","overallScore":0,"overallComment":"整体结论","fieldReviews":[{"fieldKey":"字段 key","label":"字段标题","score":0,"decision":"pass|reject","comment":"AI 对当前字段标注内容的评语","suggestions":["修改建议"],"dimensionReviews":[{"key":"维度 key","label":"维度名称","score":0,"comment":"维度评语"}]}]}',
           ].join('\n'),
         },
       ],
@@ -821,9 +823,12 @@ function normalizeAiReviewResult(
   const candidate = ensureRecord(value, 'AI 预审结构化输出必须是 JSON 对象。');
   const fieldReviews = normalizeAiReviewFieldReviews(candidate.fieldReviews, request);
   const decision = normalizeAiReviewDecision(candidate.verdict) ?? aggregateAiReviewDecision(fieldReviews);
-  const overallScore = numericValue(candidate.overallScore)
-    ?? numericValue(isRecord(candidate.scores) ? candidate.scores.overall : null)
-    ?? aggregateAiReviewScore(fieldReviews);
+  const hasRubricReview = fieldReviews.some((field) => field.dimensionReviews && field.dimensionReviews.length > 0);
+  const overallScore = hasRubricReview
+    ? aggregateAiReviewScore(fieldReviews)
+    : (numericValue(candidate.overallScore)
+      ?? numericValue(isRecord(candidate.scores) ? candidate.scores.overall : null)
+      ?? aggregateAiReviewScore(fieldReviews));
   const overallComment = stringValue(candidate.overallComment)
     ?? stringValue(candidate.reason)
     ?? defaultAiReviewComment(decision, fieldReviews);
@@ -873,6 +878,14 @@ function normalizeAiReviewFieldReviews(
   decision: 'pass' | 'reject';
   comment: string;
   suggestions: string[];
+  dimensionReviews?: Array<{
+    key: string;
+    label: string;
+    weight: number;
+    score: number;
+    weightedScore: number;
+    comment: string;
+  }>;
 }> {
   if (!Array.isArray(value)) {
     throw new Error('AI 预审结构化输出缺少 fieldReviews 数组。');
@@ -903,17 +916,89 @@ function normalizeAiReviewFieldReviews(
       throw new Error(`AI 预审字段 ${field.fieldKey} 缺少 AI 对当前字段标注内容的评语。`);
     }
 
+    const dimensionReviews = normalizeAiReviewDimensionReviews(review.dimensionReviews, field);
+    const score = dimensionReviews.length > 0
+      ? aggregateDimensionReviewScore(dimensionReviews)
+      : clampAiReviewScore(explicitScore ?? defaultAiReviewScoreForDecision(decision));
+
     return {
       fieldKey: field.fieldKey,
       label: stringValue(review.label) ?? field.label,
-      score: clampAiReviewScore(explicitScore ?? defaultAiReviewScoreForDecision(decision)),
+      score,
       decision,
       comment,
       suggestions: Array.isArray(review.suggestions)
         ? review.suggestions.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
         : [],
+      ...(dimensionReviews.length > 0 ? { dimensionReviews } : {}),
     };
   });
+}
+
+function normalizeAiReviewDimensionReviews(
+  value: unknown,
+  field: AiReviewFieldRequirement,
+): Array<{
+  key: string;
+  label: string;
+  weight: number;
+  score: number;
+  weightedScore: number;
+  comment: string;
+}> {
+  const dimensions = field.rubric?.dimensions ?? [];
+
+  if (dimensions.length === 0) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error(`AI 预审字段 ${field.fieldKey} 缺少 dimensionReviews 数组。`);
+  }
+
+  const reviewByDimensionKey = new Map(
+    value
+      .map((item) => ensureRecord(item, 'dimensionReviews 每项必须是 JSON 对象。'))
+      .map((item) => [stringValue(item.key) ?? '', item] as const)
+      .filter(([key]) => Boolean(key)),
+  );
+
+  return dimensions.map((dimension) => {
+    const review = reviewByDimensionKey.get(dimension.key);
+
+    if (!review) {
+      throw new Error(`AI 预审字段 ${field.fieldKey} 缺少维度 ${dimension.key} 的 dimensionReview。`);
+    }
+
+    const explicitScore = numericValue(review.score);
+    const comment = stringValue(review.comment);
+
+    if (explicitScore === null) {
+      throw new Error(`AI 预审字段 ${field.fieldKey} 的维度 ${dimension.key} 缺少有效 score。`);
+    }
+    if (!comment) {
+      throw new Error(`AI 预审字段 ${field.fieldKey} 的维度 ${dimension.key} 缺少评语。`);
+    }
+
+    const score = clampAiReviewScore(explicitScore);
+
+    return {
+      key: dimension.key,
+      label: stringValue(review.label) ?? dimension.label,
+      weight: dimension.weight,
+      score,
+      weightedScore: roundAiReviewScore((score * dimension.weight) / 100),
+      comment,
+    };
+  });
+}
+
+function aggregateDimensionReviewScore(
+  dimensionReviews: ReadonlyArray<{ score: number; weight: number }>,
+): number {
+  return clampAiReviewScore(
+    dimensionReviews.reduce((total, dimension) => total + (dimension.score * dimension.weight) / 100, 0),
+  );
 }
 
 function defaultAiReviewScoreForDecision(decision: 'pass' | 'reject'): number {
@@ -972,6 +1057,10 @@ function numericValue(value: unknown): number | null {
 
 function clampAiReviewScore(value: number): number {
   return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function roundAiReviewScore(value: number): number {
+  return Math.round(value);
 }
 
 function stringValue(value: unknown): string | null {

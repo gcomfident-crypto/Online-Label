@@ -385,6 +385,231 @@ describe('LlmService template field classifier', () => {
     );
   });
 
+  it('AI 预审按 Rubric 维度权重重算字段分数并保留维度明细', async () => {
+    process.env.LLM_PROVIDER = 'deepseek';
+    process.env.NODE_ENV = 'development';
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
+    process.env.LLM_MODEL = 'deepseek-chat';
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'chatcmpl_ai_review_rubric',
+          usage: {
+            prompt_tokens: 240,
+            completion_tokens: 120,
+            total_tokens: 360,
+          },
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  verdict: 'pass',
+                  overallScore: 99,
+                  overallComment: '偏好理由基本达标。',
+                  fieldReviews: [
+                    {
+                      fieldKey: 'comment',
+                      label: '对比说明',
+                      score: 99,
+                      decision: 'pass',
+                      comment: '理由能支撑偏好选择，但证据引用还可以更具体。',
+                      suggestions: ['补充回答 B 中更完整的具体句子。'],
+                      dimensionReviews: [
+                        {
+                          key: 'preference_consistency',
+                          label: '偏好一致性',
+                          score: 80,
+                          comment: '选择 B 与 A/B 内容差异一致。',
+                        },
+                        {
+                          key: 'evidence_grounding',
+                          label: '证据依据',
+                          score: 70,
+                          comment: '理由提到了完整性，但缺少原文级证据。',
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await new LlmService().reviewSubmission({
+      answers: {
+        comment: '回答 B 更完整。',
+      },
+      datasetKind: 'preference_compare',
+      fieldRequirements: [
+        {
+          fieldKey: 'comment',
+          label: '对比说明',
+          type: 'textarea',
+          required: true,
+          requirement: '说明必须支撑偏好选择。',
+          rubric: {
+            dimensions: [
+              {
+                key: 'preference_consistency',
+                label: '偏好一致性',
+                weight: 40,
+                criteria: '偏好选择必须能被 A/B 回答的质量差异支撑。',
+              },
+              {
+                key: 'evidence_grounding',
+                label: '证据依据',
+                weight: 60,
+                criteria: '说明必须引用 A/B 回答中的具体差异。',
+              },
+            ],
+          },
+        } as never,
+      ],
+      model: 'deepseek-chat',
+      passThreshold: 70,
+      provider: 'deepseek',
+      rawData: {
+        prompt: '比较两个回答。',
+        response_a: '回答 A 较短。',
+        response_b: '回答 B 包含步骤和限制。',
+      },
+      rawPrompt: '请按 Rubric 输出维度评分。',
+      structuredOutputMode: 'json_schema',
+      temperature: 0,
+    });
+
+    expect(result.scores).toEqual(
+      expect.objectContaining({
+        overall: 74,
+        fieldCount: 1,
+        passedFieldCount: 1,
+        rejectedFieldCount: 0,
+      }),
+    );
+    expect(result.structuredOutput).toEqual(
+      expect.objectContaining({
+        overallScore: 74,
+        fieldReviews: [
+          expect.objectContaining({
+            fieldKey: 'comment',
+            score: 74,
+            dimensionReviews: [
+              {
+                key: 'preference_consistency',
+                label: '偏好一致性',
+                weight: 40,
+                score: 80,
+                weightedScore: 32,
+                comment: '选择 B 与 A/B 内容差异一致。',
+              },
+              {
+                key: 'evidence_grounding',
+                label: '证据依据',
+                weight: 60,
+                score: 70,
+                weightedScore: 42,
+                comment: '理由提到了完整性，但缺少原文级证据。',
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('Rubric 字段总分按原始加权和统一取整，避免逐维度取整漂移', async () => {
+    process.env.LLM_PROVIDER = 'deepseek';
+    process.env.NODE_ENV = 'development';
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
+    process.env.LLM_MODEL = 'deepseek-chat';
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  verdict: 'pass',
+                  overallScore: 99,
+                  overallComment: '边界评分。',
+                  fieldReviews: [
+                    {
+                      fieldKey: 'comment',
+                      label: '对比说明',
+                      score: 99,
+                      decision: 'pass',
+                      comment: '三个维度都处在边界分。',
+                      suggestions: [],
+                      dimensionReviews: [
+                        { key: 'dimension_a', label: '维度 A', score: 50, comment: 'A 维度 50 分。' },
+                        { key: 'dimension_b', label: '维度 B', score: 50, comment: 'B 维度 50 分。' },
+                        { key: 'dimension_c', label: '维度 C', score: 50, comment: 'C 维度 50 分。' },
+                      ],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await new LlmService().reviewSubmission({
+      answers: {
+        comment: '回答 B 更完整。',
+      },
+      datasetKind: 'preference_compare',
+      fieldRequirements: [
+        {
+          fieldKey: 'comment',
+          label: '对比说明',
+          type: 'textarea',
+          required: true,
+          requirement: '说明必须支撑偏好选择。',
+          rubric: {
+            dimensions: [
+              { key: 'dimension_a', label: '维度 A', weight: 33, criteria: 'A 标准。' },
+              { key: 'dimension_b', label: '维度 B', weight: 33, criteria: 'B 标准。' },
+              { key: 'dimension_c', label: '维度 C', weight: 34, criteria: 'C 标准。' },
+            ],
+          },
+        } as never,
+      ],
+      model: 'deepseek-chat',
+      passThreshold: 0,
+      provider: 'deepseek',
+      rawData: {
+        prompt: '比较两个回答。',
+      },
+      rawPrompt: '请按 Rubric 输出维度评分。',
+      structuredOutputMode: 'json_schema',
+      temperature: 0,
+    });
+
+    expect(result.scores.overall).toBe(50);
+    expect(result.structuredOutput.fieldReviews).toEqual([
+      expect.objectContaining({
+        fieldKey: 'comment',
+        score: 50,
+        dimensionReviews: [
+          expect.objectContaining({ key: 'dimension_a', weightedScore: 17 }),
+          expect.objectContaining({ key: 'dimension_b', weightedScore: 17 }),
+          expect.objectContaining({ key: 'dimension_c', weightedScore: 17 }),
+        ],
+      }),
+    ]);
+  });
+
   it('没有显式 LLM_PROVIDER 但配置 DeepSeek key 时按 DeepSeek OpenAI 兼容接口分类字段', async () => {
     delete process.env.LLM_PROVIDER;
     process.env.NODE_ENV = 'development';

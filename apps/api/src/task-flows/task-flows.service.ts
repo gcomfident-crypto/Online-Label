@@ -131,6 +131,7 @@ export type TaskFlowReviewRecordDto = {
   decision: string | null;
   comment: string | null;
   scores: Record<string, unknown>;
+  structuredOutput: Record<string, unknown> | null;
   createdAt: string;
 };
 
@@ -228,6 +229,7 @@ type ReviewRecordRecord = {
   decision: string | null;
   comment: string | null;
   scores: unknown;
+  structuredOutput: unknown;
   createdAt: Date;
 };
 
@@ -1363,6 +1365,7 @@ function toReviewRecordDto(record: ReviewRecordRecord): TaskFlowReviewRecordDto 
     decision: record.decision,
     comment: record.comment,
     scores: recordValue(record.scores),
+    structuredOutput: recordValueOrNull(record.structuredOutput),
     createdAt: record.createdAt.toISOString(),
   };
 }
@@ -1389,6 +1392,16 @@ function recordValue(value: unknown): Record<string, unknown> {
   }
 
   return {};
+}
+
+function recordValueOrNull(value: unknown): Record<string, unknown> | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const record = recordValue(value);
+
+  return Object.keys(record).length > 0 ? record : null;
 }
 
 function rejectedItemRefsValue(value: unknown): TaskFlowRejectedItemRefDto[] {

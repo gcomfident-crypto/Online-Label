@@ -863,6 +863,7 @@ const AiReviewRecordPanel = ({ item }: { item: TaskFlowItemDto }) => (
       <p>{item.aiReview?.comment ?? item.latestAiJob?.lastError ?? '当前题没有 AI 预审结论。'}</p>
     </div>
     {item.aiReview ? <ScoreList scores={item.aiReview.scores} /> : null}
+    <AiReviewDimensionReviewList structuredOutput={item.aiReview?.structuredOutput ?? null} />
   </article>
 );
 
@@ -1134,6 +1135,21 @@ const TaskFlowLogDialog = ({
 
 type StatusTone = 'pass' | 'reject' | 'pending' | 'pendingReview' | 'failed';
 
+type AiReviewDimensionReviewItem = {
+  key: string;
+  label: string;
+  weight: number;
+  score: number;
+  weightedScore: number;
+  comment: string;
+};
+
+type AiReviewDimensionReviewGroup = {
+  fieldKey: string;
+  label: string;
+  dimensions: AiReviewDimensionReviewItem[];
+};
+
 const DecisionPill = ({ label, tone }: { label: string; tone: StatusTone }) => (
   <span className={`agent-review-decision-pill is-${tone}`}>
     <span className="status-tag__dot" aria-hidden="true" />
@@ -1160,6 +1176,41 @@ const ScoreList = ({ scores }: { scores: Record<string, unknown> }) => {
         <TraceSummaryItem key={key} label={formatScoreLabel(key)} value={formatScoreValue(value)} />
       ))}
     </dl>
+  );
+};
+
+const AiReviewDimensionReviewList = ({ structuredOutput }: { structuredOutput: Record<string, unknown> | null }) => {
+  const groups = extractAiReviewDimensionGroups(structuredOutput);
+
+  if (groups.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="agent-review-dimension-reviews" aria-label="AI 预审维度评分">
+      <h4>维度评分</h4>
+      <div className="agent-review-dimension-reviews__fields">
+        {groups.map((group) => (
+          <div className="agent-review-dimension-reviews__field" key={group.fieldKey}>
+            <strong>{group.label}</strong>
+            <ul>
+              {group.dimensions.map((dimension) => (
+                <li key={dimension.key}>
+                  <div className="agent-review-dimension-reviews__row">
+                    <span>{dimension.label}</span>
+                    <em>
+                      {formatAiReviewDimensionScore(dimension.weightedScore)} / {formatAiReviewDimensionScore(dimension.weight)}
+                    </em>
+                  </div>
+                  <p>{dimension.comment}</p>
+                  <small>{formatAiReviewDimensionScore(dimension.score)} 分</small>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 };
 
@@ -1604,6 +1655,76 @@ function formatReviewSubmitSnapshotValue(value: unknown): string {
   return String(value);
 }
 
+function extractAiReviewDimensionGroups(structuredOutput: Record<string, unknown> | null): AiReviewDimensionReviewGroup[] {
+  if (!structuredOutput || !Array.isArray(structuredOutput.fieldReviews)) {
+    return [];
+  }
+
+  return structuredOutput.fieldReviews
+    .map(parseAiReviewDimensionGroup)
+    .filter((group): group is AiReviewDimensionReviewGroup => group !== null);
+}
+
+function parseAiReviewDimensionGroup(value: unknown): AiReviewDimensionReviewGroup | null {
+  if (!isRecord(value) || !Array.isArray(value.dimensionReviews)) {
+    return null;
+  }
+
+  const fieldKey = nonEmptyString(value.fieldKey);
+  const label = nonEmptyString(value.label);
+  const dimensions = value.dimensionReviews
+    .map(parseAiReviewDimensionReview)
+    .filter((dimension): dimension is AiReviewDimensionReviewItem => dimension !== null);
+
+  if (!fieldKey || !label || dimensions.length === 0) {
+    return null;
+  }
+
+  return {
+    fieldKey,
+    label,
+    dimensions,
+  };
+}
+
+function parseAiReviewDimensionReview(value: unknown): AiReviewDimensionReviewItem | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const key = nonEmptyString(value.key);
+  const label = nonEmptyString(value.label);
+  const comment = nonEmptyString(value.comment);
+  const weight = finiteNumber(value.weight);
+  const score = finiteNumber(value.score);
+  const weightedScore = finiteNumber(value.weightedScore);
+
+  if (!key || !label || !comment || weight === null || score === null || weightedScore === null) {
+    return null;
+  }
+
+  return {
+    key,
+    label,
+    weight,
+    score,
+    weightedScore,
+    comment,
+  };
+}
+
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function itemTraceEvents(item: TaskFlowItemDto, logs: TaskFlowLogDto[]): TraceEvent[] {
   const logEvents = logs
     .filter((log) => logAppliesToItem(log, item))
@@ -1822,6 +1943,12 @@ function formatScoreValue(value: unknown): string {
   }
 
   return formatPreviewScalar(value);
+}
+
+function formatAiReviewDimensionScore(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, '');
 }
 
 function formatPreviewFieldLabel(key: string): string {

@@ -90,6 +90,92 @@ describe('compileAiReviewPrompt', () => {
     expect(compiled.promptHash).toMatch(/^prompt_[a-f0-9]{8}$/);
   });
 
+  it('将字段级 Rubric 审核维度写入字段标准和输出格式约束', () => {
+    const schema = createLabelHubSchema({
+      schemaVersion: 'draft',
+      datasetKind: 'preference_compare',
+      fields: [
+        {
+          key: 'show_item',
+          type: 'show_item',
+          label: '偏好材料',
+          displayConfig: {
+            layout: 'comparison',
+            fields: [
+              { sourceKey: 'prompt', label: '题目', format: 'long_text' },
+              { sourceKey: 'response_a', label: '回答 A', format: 'long_text' },
+              { sourceKey: 'response_b', label: '回答 B', format: 'long_text' },
+            ],
+          },
+        },
+        {
+          key: 'comment_field',
+          fieldKey: 'comment',
+          type: 'textarea',
+          label: '对比说明',
+          aiReview: {
+            enabled: true,
+            requirement: '说明必须支撑偏好选择。',
+            rubric: {
+              dimensions: [
+                {
+                  key: 'preference_consistency',
+                  label: '偏好一致性',
+                  weight: 40,
+                  criteria: '偏好选择必须能被 A/B 回答的质量差异支撑。',
+                },
+                {
+                  key: 'evidence_grounding',
+                  label: '证据依据',
+                  weight: 60,
+                  criteria: '说明必须引用 A/B 回答中的具体差异。',
+                },
+              ],
+            },
+          } as never,
+        },
+      ],
+    });
+
+    const compiled = compileAiReviewPrompt({
+      schema,
+      rawData: {
+        prompt: '比较两个回答。',
+        response_a: '回答 A 较短。',
+        response_b: '回答 B 包含步骤和限制。',
+      },
+      answers: {
+        comment: '回答 B 更完整。',
+      },
+    });
+
+    expect(compiled.fieldRequirements).toEqual([
+      expect.objectContaining({
+        fieldKey: 'comment',
+        requirement: '说明必须支撑偏好选择。',
+        rubric: {
+          dimensions: [
+            {
+              key: 'preference_consistency',
+              label: '偏好一致性',
+              weight: 40,
+              criteria: '偏好选择必须能被 A/B 回答的质量差异支撑。',
+            },
+            {
+              key: 'evidence_grounding',
+              label: '证据依据',
+              weight: 60,
+              criteria: '说明必须引用 A/B 回答中的具体差异。',
+            },
+          ],
+        },
+      }),
+    ]);
+    expect(compiled.prompt).toContain('dimensionReviews');
+    expect(compiled.prompt).toContain('preference_consistency');
+    expect(compiled.prompt).toContain('证据依据');
+  });
+
   it('支持从分组和多 Tab 内部收集开启 AI 预审的待标注字段', () => {
     const schema = createLabelHubSchema({
       schemaVersion: 'draft',

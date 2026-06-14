@@ -224,6 +224,107 @@ describe('PropertyPanel', () => {
     expect(screen.getByLabelText('审核要求')).toHaveValue('必须保留商品核心信息，不得新增不存在的信息。');
   });
 
+  it('AI 预审支持配置 Rubric 审核维度、权重和判断标准', () => {
+    const onUpdateField = vi.fn();
+    const field: SchemaField = {
+      key: 'comment',
+      fieldKey: 'comment',
+      type: 'textarea',
+      label: '对比说明',
+      aiReview: {
+        enabled: true,
+        requirement: '说明必须支撑偏好选择。',
+        rubric: {
+          dimensions: [
+            {
+              key: 'preference_consistency',
+              label: '偏好一致性',
+              weight: 40,
+              criteria: '偏好选择必须能被 A/B 回答的质量差异支撑。',
+            },
+            {
+              key: 'evidence_grounding',
+              label: '证据依据',
+              weight: 60,
+              criteria: '说明必须引用 A/B 回答中的具体差异。',
+            },
+          ],
+        },
+      },
+    };
+
+    render(
+      <PropertyPanel
+        field={field}
+        onAddLinkageRule={vi.fn()}
+        onUpdateField={onUpdateField}
+        onUpdateValidation={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('审核维度')).toBeInTheDocument();
+    expect(screen.getByText('总权重：100 / 100')).toBeInTheDocument();
+    expect(screen.getByLabelText('维度 1 名称')).toHaveValue('偏好一致性');
+    expect(screen.getByLabelText('维度 1 权重')).toHaveValue(40);
+    expect(screen.getByLabelText('维度 1 判断标准')).toHaveValue('偏好选择必须能被 A/B 回答的质量差异支撑。');
+
+    fireEvent.change(screen.getByLabelText('维度 1 权重'), { target: { value: '30' } });
+    expect(onUpdateField).toHaveBeenLastCalledWith({
+      aiReview: {
+        enabled: true,
+        role: 'annotation_answer',
+        requirement: '说明必须支撑偏好选择。',
+        rubric: {
+          dimensions: [
+            {
+              key: 'preference_consistency',
+              label: '偏好一致性',
+              weight: 30,
+              criteria: '偏好选择必须能被 A/B 回答的质量差异支撑。',
+            },
+            {
+              key: 'evidence_grounding',
+              label: '证据依据',
+              weight: 60,
+              criteria: '说明必须引用 A/B 回答中的具体差异。',
+            },
+          ],
+        },
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '新增审核维度' }));
+    expect(onUpdateField).toHaveBeenLastCalledWith({
+      aiReview: {
+        enabled: true,
+        role: 'annotation_answer',
+        requirement: '说明必须支撑偏好选择。',
+        rubric: {
+          dimensions: [
+            {
+              key: 'preference_consistency',
+              label: '偏好一致性',
+              weight: 40,
+              criteria: '偏好选择必须能被 A/B 回答的质量差异支撑。',
+            },
+            {
+              key: 'evidence_grounding',
+              label: '证据依据',
+              weight: 60,
+              criteria: '说明必须引用 A/B 回答中的具体差异。',
+            },
+            {
+              key: expect.stringMatching(/^rubric_dimension_/),
+              label: '',
+              weight: 0,
+              criteria: '',
+            },
+          ],
+        },
+      },
+    });
+  });
+
   it('长度限制使用分段控件并支持区间和不限制模式', () => {
     const onUpdateValidation = vi.fn();
     const baseProps = {

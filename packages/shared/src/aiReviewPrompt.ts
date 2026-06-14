@@ -3,6 +3,7 @@ import type {
   AiReviewPromptSectionKey,
   FieldOption,
   FieldValidation,
+  FieldAiReviewRubric,
   LabelHubSchema,
   SchemaField,
 } from './schema.ts';
@@ -28,6 +29,7 @@ export type AiReviewFieldRequirement = {
   options?: readonly FieldOption[];
   validation?: FieldValidation;
   requirement: string;
+  rubric?: FieldAiReviewRubric;
 };
 
 export type CompileAiReviewPromptInput = {
@@ -61,6 +63,14 @@ const OUTPUT_SCHEMA = {
       decision: 'pass | reject',
       comment: '20-80 字说明该字段标注结果是否达标',
       suggestions: ['需要标注员修改的建议；通过时可为空数组'],
+      dimensionReviews: [
+        {
+          key: 'Rubric 维度 key；仅当字段配置了 rubric.dimensions 时必须返回',
+          label: '维度名称',
+          score: '0-100，表示该维度达标程度',
+          comment: '说明该维度扣分或通过原因',
+        },
+      ],
     },
   ],
   overallComment: '整体审核结论，说明通过或打回的原因',
@@ -112,6 +122,8 @@ export const compileAiReviewPrompt = ({
         '上传文件中与待标注字段同名或映射到待标注字段的值，仅用于 owner 配置模板参考，不是标准答案，不得用于和当前标注答案做一致性比较。',
         'fieldReviews 必须覆盖字段级审核标准中的每一个字段。',
         'fieldReviews 内每一项必须包含 fieldKey、label、score、decision、comment 和 suggestions。',
+        '如果字段审核标准包含 rubric.dimensions，fieldReviews 对应字段必须返回 dimensionReviews，且每个 dimensionReviews 必须覆盖 rubric.dimensions 中的每一个维度。',
+        'dimensionReviews 内每一项必须包含 key、label、score 和 comment；score 取 0-100，字段总分由服务端按 rubric 权重计算。',
         'verdict 只能是 pass 或 reject。',
         '只评价开启 AI 预审的字段。',
         '输出 JSON Schema 示例：',
@@ -244,6 +256,7 @@ const buildFieldRequirements = (
       ...(field.options && field.options.length > 0 ? { options: field.options } : {}),
       ...(field.validation ? { validation: field.validation } : {}),
       requirement: field.aiReview?.requirement?.trim() || '请判断该字段标注结果是否符合题目事实和任务要求。',
+      ...normalizedRubric(field.aiReview?.rubric),
     }));
 
 const isAiReviewAnswerField = (
@@ -264,6 +277,23 @@ const isAiReviewAnswerField = (
 };
 
 const stringifyJson = (value: unknown): string => JSON.stringify(value, null, 2);
+
+const normalizedRubric = (
+  rubric: FieldAiReviewRubric | undefined,
+): { rubric: FieldAiReviewRubric } | Record<string, never> => {
+  const dimensions = rubric?.dimensions
+    ?.map((dimension) => ({
+      key: dimension.key.trim(),
+      label: dimension.label.trim(),
+      weight: dimension.weight,
+      criteria: dimension.criteria.trim(),
+    }))
+    .filter((dimension) => dimension.key && dimension.label && Number.isFinite(dimension.weight) && dimension.criteria);
+
+  return dimensions && dimensions.length > 0
+    ? { rubric: { dimensions } }
+    : {};
+};
 
 const hashPrompt = (prompt: string): string => {
   let hash = 5381;

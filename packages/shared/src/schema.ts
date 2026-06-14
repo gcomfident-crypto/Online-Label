@@ -149,10 +149,22 @@ export const FIELD_AI_REVIEW_ROLES = [
 
 export type FieldAiReviewRole = (typeof FIELD_AI_REVIEW_ROLES)[number];
 
+export type AiReviewRubricDimension = {
+  key: string;
+  label: string;
+  weight: number;
+  criteria: string;
+};
+
+export type FieldAiReviewRubric = {
+  dimensions: readonly AiReviewRubricDimension[];
+};
+
 export type FieldAiReviewConfig = {
   enabled?: boolean;
   role?: FieldAiReviewRole;
   requirement?: string;
+  rubric?: FieldAiReviewRubric;
 };
 
 export const AI_REVIEW_PROMPT_SECTION_KEYS = [

@@ -120,6 +120,7 @@ export type TaskFlowReviewRecordDto = {
   decision: string | null;
   comment: string | null;
   scores: Record<string, unknown>;
+  structuredOutput: Record<string, unknown> | null;
   createdAt: string;
 };
 

@@ -133,6 +133,90 @@ describe('template validation', () => {
     });
   });
 
+  it('校验 AI 预审 Rubric 维度必填且权重总和必须为 100', () => {
+    expect(
+      validateTemplateSchema(
+        baseSchema([
+          {
+            key: 'comment',
+            fieldKey: 'comment',
+            type: 'textarea',
+            label: '对比说明',
+            aiReview: {
+              enabled: true,
+              requirement: '说明必须支撑偏好选择。',
+              rubric: {
+                dimensions: [
+                  {
+                    key: 'preference_consistency',
+                    label: '偏好一致性',
+                    weight: 60,
+                    criteria: '偏好选择必须能被 A/B 回答的质量差异支撑。',
+                  },
+                  {
+                    key: 'evidence_grounding',
+                    label: '',
+                    weight: 30,
+                    criteria: '',
+                  },
+                ],
+              },
+            } as never,
+          },
+        ]),
+      ),
+    ).toEqual({
+      valid: false,
+      errors: [
+        {
+          code: 'TEMPLATE_AI_REVIEW_RUBRIC_DIMENSION_INVALID',
+          fieldKey: 'comment',
+          message: '对比说明 的第 2 个 AI 预审维度需要填写维度名称、权重和判断标准。',
+        },
+        {
+          code: 'TEMPLATE_AI_REVIEW_RUBRIC_WEIGHT_INVALID',
+          fieldKey: 'comment',
+          message: '对比说明 的 AI 预审维度权重总和必须为 100，当前为 90。',
+        },
+      ],
+    });
+
+    expect(
+      validateTemplateSchema(
+        baseSchema([
+          {
+            key: 'comment',
+            fieldKey: 'comment',
+            type: 'textarea',
+            label: '对比说明',
+            aiReview: {
+              enabled: true,
+              rubric: {
+                dimensions: [
+                  {
+                    key: 'preference_consistency',
+                    label: '偏好一致性',
+                    weight: 40,
+                    criteria: '偏好选择必须能被 A/B 回答的质量差异支撑。',
+                  },
+                  {
+                    key: 'evidence_grounding',
+                    label: '证据依据',
+                    weight: 60,
+                    criteria: '说明必须引用 A/B 回答中的具体差异。',
+                  },
+                ],
+              },
+            } as never,
+          },
+        ]),
+      ),
+    ).toEqual({
+      valid: true,
+      errors: [],
+    });
+  });
+
   it('校验字段联动限制选项的目标类型、选项值和冲突规则', () => {
     const schema = baseSchema([
       {

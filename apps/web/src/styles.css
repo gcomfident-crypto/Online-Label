@@ -6915,6 +6915,132 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   text-align: left;
 }
 
+.designer-ai-review-rubric {
+  display: grid;
+  gap: 10px;
+  padding: 10px 0 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.designer-ai-review-rubric__header,
+.designer-ai-review-rubric__item-header,
+.designer-ai-review-rubric__fields {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.designer-ai-review-rubric__header {
+  justify-content: space-between;
+}
+
+.designer-ai-review-rubric__header h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.designer-ai-review-rubric__weight {
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.designer-ai-review-rubric__weight.is-valid {
+  color: #15803d;
+}
+
+.designer-ai-review-rubric__list {
+  display: grid;
+  gap: 10px;
+}
+
+.designer-ai-review-rubric__item {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.designer-ai-review-rubric__item-header {
+  justify-content: space-between;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.designer-ai-review-rubric__delete {
+  width: 28px;
+  height: 28px;
+}
+
+.designer-ai-review-rubric__fields {
+  align-items: flex-start;
+}
+
+.designer-ai-review-rubric__control {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 4px;
+  min-width: 0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.designer-ai-review-rubric__control input,
+.designer-ai-review-rubric__control textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.designer-ai-review-rubric__control input {
+  height: 34px;
+  padding: 0 8px;
+}
+
+.designer-ai-review-rubric__control textarea {
+  min-height: 58px;
+  padding: 8px;
+  resize: vertical;
+}
+
+.designer-ai-review-rubric__control--weight {
+  flex: 0 0 78px;
+}
+
+.designer-ai-review-rubric__control--weight input {
+  text-align: right;
+}
+
+.designer-ai-review-rubric__add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  border: 1px dashed #93c5fd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.designer-ai-review-rubric__add:hover {
+  border-color: #306df8;
+  background: #eff6ff;
+}
+
 .designer-property-checkbox {
   display: inline-flex;
   align-items: center;
@@ -19990,6 +20116,93 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 
 .agent-review-card--comment .agent-review-trace-identifiers dd {
   font-size: 12px;
+}
+
+.agent-review-dimension-reviews {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.agent-review-dimension-reviews h4 {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.agent-review-dimension-reviews__fields {
+  display: grid;
+  gap: 8px;
+}
+
+.agent-review-dimension-reviews__field {
+  display: grid;
+  gap: 7px;
+  border: 1px solid #e6eaf2;
+  border-radius: 8px;
+  padding: 9px;
+  background: #f8fbff;
+}
+
+.agent-review-dimension-reviews__field > strong {
+  color: #172033;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.agent-review-dimension-reviews__field ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-review-dimension-reviews__field li {
+  display: grid;
+  gap: 5px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 7px;
+}
+
+.agent-review-dimension-reviews__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.agent-review-dimension-reviews__row span {
+  min-width: 0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.agent-review-dimension-reviews__row em {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #1d4ed8;
+  background: #dbeafe;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.agent-review-dimension-reviews p {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 680;
+  line-height: 1.55;
+}
+
+.agent-review-dimension-reviews small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .agent-review-technical-sections {

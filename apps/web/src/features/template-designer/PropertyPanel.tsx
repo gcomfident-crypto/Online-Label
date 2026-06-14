@@ -15,6 +15,7 @@ import {
 import {
   collectFieldLinkageRuleFieldKeys,
   expandFieldLinkageRule,
+  type AiReviewRubricDimension,
   type FieldLinkageRule as PersistedFieldLinkageRule,
   getSchemaFieldKey,
   type FieldAiReviewRole,
@@ -42,6 +43,9 @@ type NormalizedAiReviewConfig = {
   enabled: boolean;
   role: FieldAiReviewRole;
   requirement: string;
+  rubric?: {
+    dimensions: AiReviewRubricDimension[];
+  };
 };
 
 const SHOW_ITEM_DEFAULT_LAYOUT: NonNullable<SchemaField['displayConfig']>['layout'] = 'table';
@@ -494,6 +498,41 @@ const AiReviewProperties = ({
     setIsExpanded(enabled);
     updateAiReview({ enabled });
   };
+  const rubricDimensions = aiReview.rubric?.dimensions ?? [];
+  const rubricWeightTotal = rubricDimensions.reduce((total, dimension) => total + dimension.weight, 0);
+  const updateRubricDimensions = (dimensions: AiReviewRubricDimension[]) => {
+    updateAiReview({
+      rubric: {
+        dimensions,
+      },
+    });
+  };
+  const updateRubricDimension = (index: number, patch: Partial<AiReviewRubricDimension>) => {
+    updateRubricDimensions(
+      rubricDimensions.map((dimension, currentIndex) =>
+        currentIndex === index
+          ? {
+              ...dimension,
+              ...patch,
+            }
+          : dimension,
+      ),
+    );
+  };
+  const addRubricDimension = () => {
+    updateRubricDimensions([
+      ...rubricDimensions,
+      {
+        key: createRubricDimensionKey(rubricDimensions),
+        label: '',
+        weight: 0,
+        criteria: '',
+      },
+    ]);
+  };
+  const removeRubricDimension = (index: number) => {
+    updateRubricDimensions(rubricDimensions.filter((_, currentIndex) => currentIndex !== index));
+  };
 
   return (
     <PropertySection
@@ -532,6 +571,79 @@ const AiReviewProperties = ({
               onFocus={() => setIsRequirementFocused(true)}
             />
           </PropertyRow>
+          <section className="designer-ai-review-rubric" aria-label="AI 预审审核维度">
+            <div className="designer-ai-review-rubric__header">
+              <h4>审核维度</h4>
+              <span
+                className={`designer-ai-review-rubric__weight${
+                  rubricWeightTotal === 100 ? ' is-valid' : ' is-invalid'
+                }`}
+              >
+                总权重：{formatRubricWeight(rubricWeightTotal)} / 100
+              </span>
+            </div>
+            <div className="designer-ai-review-rubric__list">
+              {rubricDimensions.map((dimension, index) => (
+                <article
+                  aria-label={`审核维度 ${index + 1}`}
+                  className="designer-ai-review-rubric__item"
+                  key={dimension.key || index}
+                >
+                  <div className="designer-ai-review-rubric__item-header">
+                    <span>维度 {index + 1}</span>
+                    <button
+                      aria-label={`删除维度 ${index + 1}`}
+                      className="template-manager-row-action template-manager-row-action--delete designer-ai-review-rubric__delete"
+                      type="button"
+                      onClick={() => removeRubricDimension(index)}
+                    >
+                      <PropertyPanelDeleteIcon />
+                    </button>
+                  </div>
+                  <div className="designer-ai-review-rubric__fields">
+                    <label className="designer-ai-review-rubric__control">
+                      <span>维度名称</span>
+                      <input
+                        aria-label={`维度 ${index + 1} 名称`}
+                        value={dimension.label}
+                        onChange={(event) => updateRubricDimension(index, { label: event.target.value })}
+                      />
+                    </label>
+                    <label className="designer-ai-review-rubric__control designer-ai-review-rubric__control--weight">
+                      <span>权重</span>
+                      <input
+                        aria-label={`维度 ${index + 1} 权重`}
+                        min={0}
+                        step={1}
+                        type="number"
+                        value={dimension.weight}
+                        onChange={(event) =>
+                          updateRubricDimension(index, { weight: normalizeRubricWeightInput(event.target.value) })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <label className="designer-ai-review-rubric__control designer-ai-review-rubric__control--criteria">
+                    <span>判断标准</span>
+                    <textarea
+                      aria-label={`维度 ${index + 1} 判断标准`}
+                      rows={2}
+                      value={dimension.criteria}
+                      onChange={(event) => updateRubricDimension(index, { criteria: event.target.value })}
+                    />
+                  </label>
+                </article>
+              ))}
+            </div>
+            <button
+              className="designer-ai-review-rubric__add"
+              type="button"
+              onClick={addRubricDimension}
+            >
+              <PropertyPanelPlusIcon />
+              <span>新增审核维度</span>
+            </button>
+          </section>
         </div>
       </PropertyCollapse>
     </PropertySection>
@@ -699,11 +811,44 @@ const supportsLlmPrompt = (field: SchemaField): boolean =>
   field.type === 'text' || field.type === 'textarea' || field.type === 'tag_select';
 
 const normalizeAiReviewConfig = (field: SchemaField): NormalizedAiReviewConfig => {
+  const dimensions = field.aiReview?.rubric?.dimensions
+    ? field.aiReview.rubric.dimensions.map((dimension) => ({
+        key: dimension.key,
+        label: dimension.label,
+        weight: dimension.weight,
+        criteria: dimension.criteria,
+      }))
+    : undefined;
+
   return {
     enabled: Boolean(field.aiReview?.enabled),
     role: field.aiReview?.role ?? defaultAiReviewRole(field),
     requirement: field.aiReview?.requirement ?? '',
+    ...(dimensions ? { rubric: { dimensions } } : {}),
   };
+};
+
+const createRubricDimensionKey = (dimensions: readonly AiReviewRubricDimension[]): string => {
+  const existingKeys = new Set(dimensions.map((dimension) => dimension.key));
+  let index = dimensions.length + 1;
+  let key = `rubric_dimension_${index}`;
+
+  while (existingKeys.has(key)) {
+    index += 1;
+    key = `rubric_dimension_${index}`;
+  }
+
+  return key;
+};
+
+const normalizeRubricWeightInput = (value: string): number => {
+  const weight = Number(value);
+
+  return Number.isFinite(weight) ? weight : 0;
+};
+
+const formatRubricWeight = (value: number): string => {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
 };
 
 const shouldExpandAiReview = (field: SchemaField): boolean => {
