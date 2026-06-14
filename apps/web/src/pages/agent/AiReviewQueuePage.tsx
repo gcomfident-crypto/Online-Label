@@ -863,7 +863,6 @@ const AiReviewRecordPanel = ({ item }: { item: TaskFlowItemDto }) => {
   const overallScore = aiReviewOverallScore(item.aiReview?.scores, fieldSummaries);
   const scorePercent = overallScore === null ? 0 : clampPercent(overallScore);
   const tone = aiPrecheckTone(item, overallScore);
-  const metricCards = aiPrecheckMetricCards(item, fieldSummaries, overallScore);
   const tags = aiPrecheckTags(item, fieldSummaries, dimensions);
   const note = aiPrecheckReviewerNote(item, fieldSummaries, dimensions);
   const summary = item.aiReview?.comment ?? item.latestAiJob?.lastError ?? '当前题没有 AI 预审结论。';
@@ -897,18 +896,6 @@ const AiReviewRecordPanel = ({ item }: { item: TaskFlowItemDto }) => {
             <span>综合分</span>
           </div>
         </div>
-      </div>
-
-      <div className="agent-precheck-metric-grid">
-        {metricCards.map((metric) => (
-          <article className="agent-precheck-metric-card" key={metric.label}>
-            <div className="agent-precheck-metric-label">{metric.label}</div>
-            <div className="agent-precheck-metric-value">
-              {metric.value}
-              {metric.unit ? <small>{metric.unit}</small> : null}
-            </div>
-          </article>
-        ))}
       </div>
 
       <div className="agent-precheck-dimension-section">
@@ -1848,55 +1835,6 @@ function aiReviewOverallScore(
   return Math.round(fieldScores.reduce((total, score) => total + score, 0) / fieldScores.length);
 }
 
-function aiPrecheckMetricCards(
-  item: TaskFlowItemDto,
-  fieldSummaries: readonly AiReviewFieldSummary[],
-  overallScore: number | null,
-): Array<{ label: string; value: string; unit?: string }> {
-  const scores = item.aiReview?.scores;
-  const fieldCount = finiteNumber(scores?.fieldCount) ?? fieldSummaries.length;
-  const passedFieldCount = finiteNumber(scores?.passedFieldCount) ?? fieldSummaries.filter((field) => field.decision === 'pass').length;
-  const rejectedFieldCount = finiteNumber(scores?.rejectedFieldCount) ?? fieldSummaries.filter((field) => field.decision === 'reject').length;
-  const quality = aiPrecheckQualityStatus(item, overallScore, rejectedFieldCount);
-
-  return [
-    { label: '检查字段', value: formatAiReviewMetricNumber(fieldCount), unit: '项' },
-    { label: '通过字段', value: formatAiReviewMetricNumber(passedFieldCount), unit: '项' },
-    { label: '打回字段', value: formatAiReviewMetricNumber(rejectedFieldCount), unit: '项' },
-    { label: '质量状态', value: quality.label, unit: quality.grade },
-  ];
-}
-
-function aiPrecheckQualityStatus(
-  item: TaskFlowItemDto,
-  overallScore: number | null,
-  rejectedFieldCount: number,
-): { label: string; grade: string } {
-  if (item.aiStatus === 'FAILED') {
-    return { label: '异常', grade: 'FAIL' };
-  }
-  if (item.aiDecision === 'reject' || rejectedFieldCount > 0) {
-    return { label: '需修改', grade: 'R' };
-  }
-  if (overallScore === null) {
-    return { label: '待生成', grade: '--' };
-  }
-  if (overallScore >= 95) {
-    return { label: '优秀', grade: 'A+' };
-  }
-  if (overallScore >= 90) {
-    return { label: '优秀', grade: 'A' };
-  }
-  if (overallScore >= 80) {
-    return { label: '良好', grade: 'B+' };
-  }
-  if (overallScore >= 70) {
-    return { label: '可复核', grade: 'B' };
-  }
-
-  return { label: '高风险', grade: 'C' };
-}
-
 function aiPrecheckTags(
   item: TaskFlowItemDto,
   fieldSummaries: readonly AiReviewFieldSummary[],
@@ -1962,10 +1900,6 @@ function clampPercent(value: number): number {
   }
 
   return Math.min(100, Math.max(0, Math.round(value)));
-}
-
-function formatAiReviewMetricNumber(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.?0+$/, '');
 }
 
 function nonEmptyString(value: unknown): string | null {
