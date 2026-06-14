@@ -266,7 +266,20 @@ describe('PropertyPanel', () => {
     expect(screen.getByText('总权重：100 / 100')).toBeInTheDocument();
     expect(screen.getByLabelText('维度 1 名称')).toHaveValue('偏好一致性');
     expect(screen.getByLabelText('维度 1 权重')).toHaveValue(40);
-    expect(screen.getByLabelText('维度 1 判断标准')).toHaveValue('偏好选择必须能被 A/B 回答的质量差异支撑。');
+    const firstCriteriaTextarea = screen.getByLabelText('维度 1 判断标准');
+    expect(firstCriteriaTextarea).toHaveValue('偏好选择必须能被 A/B 回答的质量差异支撑。');
+    expect(firstCriteriaTextarea).toHaveClass('designer-auto-resize-textarea');
+
+    Object.defineProperty(firstCriteriaTextarea, 'scrollHeight', {
+      configurable: true,
+      value: 132,
+    });
+    fireEvent.change(firstCriteriaTextarea, {
+      target: {
+        value: '偏好选择必须能被 A/B 回答的质量差异支撑，并且需要结合任务问题、回答完整性和事实一致性说明。',
+      },
+    });
+    expect(firstCriteriaTextarea).toHaveStyle({ height: '132px' });
 
     fireEvent.change(screen.getByLabelText('维度 1 权重'), { target: { value: '30' } });
     expect(onUpdateField).toHaveBeenLastCalledWith({

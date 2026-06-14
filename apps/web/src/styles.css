@@ -7013,6 +7013,13 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   resize: vertical;
 }
 
+.designer-ai-review-rubric__control textarea.designer-auto-resize-textarea {
+  field-sizing: content;
+  overflow-y: hidden;
+  resize: none;
+  transition: height 140ms ease;
+}
+
 .designer-ai-review-rubric__control--weight {
   flex: 0 0 78px;
 }

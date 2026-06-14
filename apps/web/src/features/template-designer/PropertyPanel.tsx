@@ -475,6 +475,7 @@ const AiReviewProperties = ({
   const [isExpanded, setIsExpanded] = useState(() => shouldExpandAiReview(field));
   const [isRequirementFocused, setIsRequirementFocused] = useState(false);
   const requirementTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const rubricCriteriaTextareaRefs = useRef(new Map<string, HTMLTextAreaElement>());
   const selectedFieldKey = field.fieldKey ?? field.key;
 
   useEffect(() => {
@@ -499,7 +500,15 @@ const AiReviewProperties = ({
     updateAiReview({ enabled });
   };
   const rubricDimensions = aiReview.rubric?.dimensions ?? [];
+  const rubricCriteriaResizeKey = rubricDimensions
+    .map((dimension) => `${dimension.key}:${dimension.criteria}`)
+    .join('\u0001');
   const rubricWeightTotal = rubricDimensions.reduce((total, dimension) => total + dimension.weight, 0);
+
+  useLayoutEffect(() => {
+    rubricCriteriaTextareaRefs.current.forEach(resizeTextareaToContent);
+  }, [isExpanded, selectedFieldKey, rubricCriteriaResizeKey]);
+
   const updateRubricDimensions = (dimensions: AiReviewRubricDimension[]) => {
     updateAiReview({
       rubric: {
@@ -626,10 +635,24 @@ const AiReviewProperties = ({
                   <label className="designer-ai-review-rubric__control designer-ai-review-rubric__control--criteria">
                     <span>判断标准</span>
                     <textarea
+                      ref={(node) => {
+                        const textareaKey = dimension.key || `dimension_${index}`;
+
+                        if (node) {
+                          rubricCriteriaTextareaRefs.current.set(textareaKey, node);
+                          resizeTextareaToContent(node);
+                        } else {
+                          rubricCriteriaTextareaRefs.current.delete(textareaKey);
+                        }
+                      }}
                       aria-label={`维度 ${index + 1} 判断标准`}
+                      className="designer-auto-resize-textarea"
                       rows={2}
                       value={dimension.criteria}
-                      onChange={(event) => updateRubricDimension(index, { criteria: event.target.value })}
+                      onChange={(event) => {
+                        scheduleTextareaResize(event.currentTarget);
+                        updateRubricDimension(index, { criteria: event.target.value });
+                      }}
                     />
                   </label>
                 </article>
