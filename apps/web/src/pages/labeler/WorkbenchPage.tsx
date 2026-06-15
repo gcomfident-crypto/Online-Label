@@ -1035,8 +1035,8 @@ export const WorkbenchPage = () => {
     }
 
     const reason = reportReason.trim();
-    if (reason.length < 6) {
-      showErrorToast('请说明具体问题，至少输入 6 个字。');
+    if (!reason) {
+      showErrorToast('请填写问题说明。');
       return;
     }
 
@@ -1426,11 +1426,12 @@ export const WorkbenchPage = () => {
                 <p>题目 {workbench.taskItem.externalId}</p>
               </div>
               <button
+                className="workbench-close-button"
                 type="button"
                 aria-label="关闭上报题目问题"
                 onClick={() => setIsReportDialogOpen(false)}
               >
-                ×
+                <span aria-hidden="true">×</span>
               </button>
             </header>
             <label>
@@ -1449,7 +1450,7 @@ export const WorkbenchPage = () => {
               <button
                 className="primary-action"
                 type="button"
-                disabled={isReportingItem || reportReason.trim().length < 6}
+                disabled={isReportingItem}
                 onClick={() => void handleReportSubmit()}
               >
                 {isReportingItem ? '上报中...' : '确认上报'}

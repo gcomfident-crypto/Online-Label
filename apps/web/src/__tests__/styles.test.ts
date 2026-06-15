@@ -831,6 +831,17 @@ describe('global styles', () => {
     expect(styles).not.toContain('.annotation-canvas-toolbar');
   });
 
+  it('题目上报弹窗关闭按钮复用工作台关闭按钮样式', () => {
+    const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const reportDialogCloseRule =
+      styles.match(/\.workbench-item-report-dialog__panel header \.workbench-close-button\s*\{[^}]+\}/)?.[0] ?? '';
+
+    expect(styles).not.toContain('.workbench-item-report-dialog__panel header button {');
+    expect(reportDialogCloseRule).toContain('position: static;');
+    expect(reportDialogCloseRule).toContain('top: auto;');
+    expect(reportDialogCloseRule).toContain('right: auto;');
+  });
+
   it('标注台提交栏上方不保留滚动区白色留白', () => {
     const styles = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
     const canvasPanelRule = styles.match(/\.annotation-canvas-panel\s*\{[^}]+\}/)?.[0] ?? '';

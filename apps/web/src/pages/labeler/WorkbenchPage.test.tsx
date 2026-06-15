@@ -1012,6 +1012,87 @@ describe('WorkbenchPage', () => {
     });
   });
 
+  it('题目上报弹窗确认按钮可点击并在提交时校验问题说明', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.startsWith('/assignments/assignment_1/workbench')) {
+        return jsonResponse({ data: qaWorkbench });
+      }
+
+      if (url.startsWith('/labeler/stats')) {
+        return jsonResponse({ data: stats });
+      }
+
+      if (url.startsWith('/labeler/assignments')) {
+        return jsonResponse({ data: taskAssignments });
+      }
+
+      if (url === '/tasks') {
+        return jsonResponse({ data: taskList });
+      }
+
+      if (url === '/assignments/assignment_1/report' && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { reason: string; reporterId: string };
+
+        return jsonResponse({
+          data: {
+            id: 'report_short_reason',
+            taskId: 'task_qa',
+            taskItemId: 'item_qa_1',
+            assignmentId: 'assignment_1',
+            reporterId: body.reporterId,
+            status: 'PENDING',
+            reason: body.reason,
+            ownerComment: null,
+            resolution: null,
+            resolvedById: null,
+            resolvedAt: null,
+            createdAt: '2026-05-21T08:10:00.000Z',
+            updatedAt: '2026-05-21T08:10:00.000Z',
+            taskItem: null,
+            reporter: null,
+            resolvedBy: null,
+          },
+        });
+      }
+
+      return jsonResponse({ data: null });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage();
+
+    await screen.findByRole('heading', { name: /问答质量标注/ });
+    await user.click(screen.getByRole('button', { name: '上报问题' }));
+
+    const closeButton = screen.getByRole('button', { name: '关闭上报题目问题' });
+    expect(closeButton).toHaveClass('workbench-close-button');
+    expect(closeButton.querySelector('span[aria-hidden="true"]')).toHaveTextContent('×');
+
+    const confirmButton = screen.getByRole('button', { name: '确认上报' });
+    expect(confirmButton).not.toBeDisabled();
+
+    await user.click(confirmButton);
+
+    expect(latestToast()).toHaveTextContent('请填写问题说明');
+    expect(fetchMock).not.toHaveBeenCalledWith('/assignments/assignment_1/report', expect.anything());
+
+    await user.type(screen.getByLabelText('问题说明'), '坏题');
+    await user.click(confirmButton);
+
+    expect(await screen.findByText('题目问题已上报给 Owner')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/assignments/assignment_1/report',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          reporterId: 'user_labeler_li_lei',
+          reason: '坏题',
+        }),
+      }),
+    );
+  });
+
   it('题目导航在切题后保留已填写题目的已完成状态', async () => {
     const user = userEvent.setup();
     const secondWorkbench = {

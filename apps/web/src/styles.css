@@ -17001,15 +17001,10 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   font-weight: 700;
 }
 
-.workbench-item-report-dialog__panel header button {
-  width: 34px;
-  height: 34px;
-  border: 1px solid #d7e0f2;
-  border-radius: 8px;
-  color: #334155;
-  background: #ffffff;
-  font-size: 20px;
-  line-height: 1;
+.workbench-item-report-dialog__panel header .workbench-close-button {
+  position: static;
+  top: auto;
+  right: auto;
 }
 
 .workbench-item-report-dialog__panel label {
