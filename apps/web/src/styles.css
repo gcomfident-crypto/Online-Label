@@ -12986,7 +12986,8 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 }
 
 .task-detail-grid div,
-.task-detail-audit {
+.task-detail-audit,
+.task-item-report-panel {
   border: 1px solid #d8e2f3;
   border-radius: 8px;
   padding: 16px;
@@ -13034,6 +13035,91 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
 .task-detail-audit small {
   margin-top: 3px;
   color: #6b757a;
+}
+
+.task-item-report-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.task-item-report-panel__header,
+.task-item-report-card header,
+.task-item-report-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.task-item-report-panel__header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.task-item-report-panel__header span,
+.task-item-report-card header span {
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.task-item-report-list {
+  display: grid;
+  gap: 10px;
+}
+
+.task-item-report-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfdff;
+}
+
+.task-item-report-card header > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-item-report-card p,
+.task-item-report-card small,
+.task-item-report-panel__empty {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.task-item-report-card time {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.task-item-report-card__actions {
+  justify-content: flex-start;
+}
+
+.task-item-report-card__actions button {
+  min-height: 32px;
+  border: 1px solid #d7e0f2;
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #334155;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+.task-item-report-card__actions button:hover:not(:disabled),
+.task-item-report-card__actions button:focus-visible:not(:disabled) {
+  border-color: #bfd0ff;
+  color: #1d4ed8;
+  background: #f8fbff;
 }
 
 .dataset-import-page,
@@ -16837,6 +16923,126 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   border-color: #255ee8;
   color: #ffffff;
   background: #255ee8;
+}
+
+.workbench-item-report-banner {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #fff7ed;
+}
+
+.workbench-item-report-banner strong {
+  color: #9a3412;
+  font-size: 14px;
+}
+
+.workbench-item-report-banner p,
+.workbench-item-report-banner small {
+  margin: 0;
+  color: #7c2d12;
+  line-height: 1.55;
+}
+
+.workbench-item-report-banner p {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.workbench-item-report-banner small {
+  font-size: 12px;
+}
+
+.workbench-item-report-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.workbench-item-report-dialog__panel {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 16px;
+  border: 1px solid #d8e2f3;
+  border-radius: 8px;
+  padding: 18px;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+}
+
+.workbench-item-report-dialog__panel header,
+.workbench-item-report-dialog__panel footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workbench-item-report-dialog__panel h2,
+.workbench-item-report-dialog__panel p {
+  margin: 0;
+}
+
+.workbench-item-report-dialog__panel h2 {
+  font-size: 18px;
+}
+
+.workbench-item-report-dialog__panel p {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.workbench-item-report-dialog__panel header button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d7e0f2;
+  border-radius: 8px;
+  color: #334155;
+  background: #ffffff;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.workbench-item-report-dialog__panel label {
+  display: grid;
+  gap: 8px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.workbench-item-report-dialog__panel textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid #d7e0f2;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #172033;
+  font: inherit;
+  line-height: 1.6;
+}
+
+.workbench-item-report-dialog__panel footer {
+  justify-content: flex-end;
+}
+
+.workbench-item-report-dialog__panel footer button {
+  min-height: 34px;
+  border: 1px solid #d7e0f2;
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #334155;
+  background: #ffffff;
+  font-weight: 800;
 }
 
 .annotation-canvas-scroll .schema-renderer {

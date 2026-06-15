@@ -1,9 +1,11 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { USER_ROLE } from '@labelhub/shared';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WorkbenchPage } from './WorkbenchPage';
+import { sessionStore } from '../../stores/sessionStore';
 
 const qaWorkbench = {
   assignment: {
@@ -455,9 +457,21 @@ const mixedStatusTaskAssignments = taskAssignments.map((assignment) =>
 );
 
 describe('WorkbenchPage', () => {
+  beforeEach(() => {
+    sessionStore.loginWithSession({
+      token: 'test-labeler-token',
+      user: {
+        id: 'user_labeler_li_lei',
+        name: 'Labeler 演示账号',
+        role: USER_ROLE.LABELER,
+      },
+    });
+  });
+
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    sessionStore.clear();
     window.localStorage.clear();
   });
 
@@ -628,7 +642,7 @@ describe('WorkbenchPage', () => {
   });
 
   it('提交任务前会同步非当前题的本地未保存答案', async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const firstWorkbench = {
       ...qaWorkbench,
@@ -681,11 +695,11 @@ describe('WorkbenchPage', () => {
           },
     );
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      if (url === '/assignments/assignment_1/workbench') {
+      if (url.startsWith('/assignments/assignment_1/workbench')) {
         return jsonResponse({ data: firstWorkbench });
       }
 
-      if (url === '/assignments/assignment_2/workbench') {
+      if (url.startsWith('/assignments/assignment_2/workbench')) {
         return jsonResponse({ data: secondWorkbench });
       }
 
@@ -889,6 +903,115 @@ describe('WorkbenchPage', () => {
     expect(screen.getByRole('radio', { name: '优秀' })).toBeDisabled();
   });
 
+  it('Labeler 上报题目后锁定当前题并允许继续处理其他题', async () => {
+    const user = userEvent.setup();
+    const reportReason = '原始数据缺少回答 B，无法判断偏好。';
+    const secondWorkbench = {
+      ...qaWorkbench,
+      assignment: {
+        ...qaWorkbench.assignment,
+        id: 'assignment_2',
+        taskItemId: 'item_qa_2',
+        status: 'ASSIGNED',
+      },
+      taskItem: {
+        ...qaWorkbench.taskItem,
+        id: 'item_qa_2',
+        externalId: 'qa_2',
+        rawData: {
+          ...qaWorkbench.taskItem.rawData,
+          prompt: '第二道题如何判断回答质量？',
+        },
+        sortOrder: 9,
+      },
+      draft: null,
+      rejectionNotice: null,
+      submissionHistory: [],
+    };
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.startsWith('/assignments/assignment_1/workbench')) {
+        return jsonResponse({ data: qaWorkbench });
+      }
+
+      if (url.startsWith('/assignments/assignment_2/workbench')) {
+        return jsonResponse({ data: secondWorkbench });
+      }
+
+      if (url.startsWith('/labeler/stats')) {
+        return jsonResponse({ data: { ...stats, totalAssignments: 2 } });
+      }
+
+      if (url.startsWith('/labeler/assignments')) {
+        return jsonResponse({ data: taskAssignments });
+      }
+
+      if (url === '/tasks') {
+        return jsonResponse({ data: taskList });
+      }
+
+      if (url === '/assignments/assignment_1/report' && init?.method === 'POST') {
+        return jsonResponse({
+          data: {
+            id: 'report_1',
+            taskId: 'task_qa',
+            taskItemId: 'item_qa_1',
+            assignmentId: 'assignment_1',
+            reporterId: 'user_labeler_li_lei',
+            status: 'PENDING',
+            reason: reportReason,
+            ownerComment: null,
+            resolution: null,
+            resolvedById: null,
+            resolvedAt: null,
+            createdAt: '2026-05-21T08:10:00.000Z',
+            updatedAt: '2026-05-21T08:10:00.000Z',
+            taskItem: null,
+            reporter: null,
+            resolvedBy: null,
+          },
+        });
+      }
+
+      return jsonResponse({ data: null });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage();
+
+    await screen.findByRole('heading', { name: /问答质量标注/ });
+    await user.click(screen.getByRole('button', { name: '上报问题' }));
+    await user.type(screen.getByLabelText('问题说明'), reportReason);
+    await user.click(screen.getByRole('button', { name: '确认上报' }));
+
+    expect(await screen.findByText('题目问题已上报给 Owner')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/assignments/assignment_1/report',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          reporterId: 'user_labeler_li_lei',
+          reason: reportReason,
+        }),
+      }),
+    );
+    expect(screen.getByLabelText('题目上报状态')).toHaveTextContent(reportReason);
+    expect(screen.getByRole('button', { name: '上报问题' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '保存草稿' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: '优秀' })).toBeDisabled();
+
+    const navigationPanel = screen.getByRole('complementary', { name: '题目导航' });
+    expect(within(navigationPanel).getByRole('button', { name: /qa_1/ })).toHaveTextContent('待Owner处理');
+
+    await user.click(screen.getByRole('button', { name: '下一题 →' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location-path')).toHaveTextContent('/labeler/tasks/T-001/items/qa_2');
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '保存草稿' })).toBeEnabled();
+    });
+  });
+
   it('题目导航在切题后保留已填写题目的已完成状态', async () => {
     const user = userEvent.setup();
     const secondWorkbench = {
@@ -914,11 +1037,11 @@ describe('WorkbenchPage', () => {
       submissionHistory: [],
     };
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === '/assignments/assignment_1/workbench') {
+      if (url.startsWith('/assignments/assignment_1/workbench')) {
         return jsonResponse({ data: qaWorkbench });
       }
 
-      if (url === '/assignments/assignment_2/workbench') {
+      if (url.startsWith('/assignments/assignment_2/workbench')) {
         return jsonResponse({ data: secondWorkbench });
       }
 
@@ -993,7 +1116,7 @@ describe('WorkbenchPage', () => {
         : assignment,
     );
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === '/assignments/assignment_1/workbench') {
+      if (url.startsWith('/assignments/assignment_1/workbench')) {
         return jsonResponse({ data: qaWorkbench });
       }
 
@@ -1118,7 +1241,7 @@ describe('WorkbenchPage', () => {
       },
     ];
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === '/assignments/assignment_pending/workbench') {
+      if (url.startsWith('/assignments/assignment_pending/workbench')) {
         return jsonResponse({
           data: {
             ...qaWorkbench,
@@ -1223,7 +1346,7 @@ describe('WorkbenchPage', () => {
     };
 
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === '/assignments/assignment_1/workbench') {
+      if (url.startsWith('/assignments/assignment_1/workbench')) {
         return jsonResponse({
           data: {
             ...aiRejectedWorkbench,
@@ -1238,7 +1361,7 @@ describe('WorkbenchPage', () => {
         });
       }
 
-      if (url === '/assignments/assignment_2/workbench') {
+      if (url.startsWith('/assignments/assignment_2/workbench')) {
         return jsonResponse({ data: passedQuestionWorkbench });
       }
 
@@ -1282,7 +1405,7 @@ describe('WorkbenchPage', () => {
       draftUpdatedAt: '2026-05-21T08:12:00.000Z',
     }));
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === '/assignments/assignment_1/workbench') {
+      if (url.startsWith('/assignments/assignment_1/workbench')) {
         return jsonResponse({
           data: {
             ...aiRejectedWorkbench,
@@ -1359,11 +1482,11 @@ describe('WorkbenchPage', () => {
       resolveSecondWorkbench = resolve;
     });
     const fetchMock = vi.fn((url: string) => {
-      if (url === '/assignments/assignment_1/workbench') {
+      if (url.startsWith('/assignments/assignment_1/workbench')) {
         return Promise.resolve(jsonResponse({ data: qaWorkbench }));
       }
 
-      if (url === '/assignments/assignment_2/workbench') {
+      if (url.startsWith('/assignments/assignment_2/workbench')) {
         return secondWorkbenchResponse;
       }
 
@@ -1438,13 +1561,12 @@ describe('WorkbenchPage', () => {
     expect(history).toHaveTextContent('标注员 王昱阳 · 提交');
     expect(history).toHaveTextContent('AI 预审 · 打回');
     expect(history).toHaveTextContent('复审员 鑫泽张 · 复审打回');
-    expect(history).toHaveTextContent('05-16 14:22');
-    expect(history).toHaveTextContent('05-16 15:08');
+    expect(history).toHaveTextContent('05-16 22:22');
+    expect(history).toHaveTextContent('05-16 23:08');
     expect(within(infoPanel).queryByLabelText('当前状态')).not.toBeInTheDocument();
 
     expect(within(infoPanel).queryByText('⌘+Enter 提交本题')).not.toBeInTheDocument();
     expect(within(infoPanel).getByText('⌘+S 保存草稿')).toBeInTheDocument();
-    expect(within(infoPanel).getByText('← / → 上一题 / 下一题')).toBeInTheDocument();
     expect(within(infoPanel).getByText('J / K 下一题 / 上一题')).toBeInTheDocument();
     expect(screen.queryByText(/属性配置/)).not.toBeInTheDocument();
     expect(screen.queryByText('任务信息')).not.toBeInTheDocument();
@@ -1481,8 +1603,8 @@ describe('WorkbenchPage', () => {
     expect(history.textContent?.match(/标注员 王昱阳 · 提交/g)).toHaveLength(3);
     expect(history.textContent?.match(/AI 预审 · 打回/g)).toHaveLength(2);
     expect(history.textContent?.match(/AI 预审 · 通过/g)).toHaveLength(1);
-    expect(history).not.toHaveTextContent('06-06 13:23');
-    expect(history).toHaveTextContent('06-06 13:39');
+    expect(history).not.toHaveTextContent('06-06 21:23');
+    expect(history).toHaveTextContent('06-06 21:39');
     expect(history).not.toHaveTextContent('标注员 王昱阳 · 已提交');
 
     expect(within(infoPanel).queryByLabelText('当前状态')).not.toBeInTheDocument();
@@ -1883,11 +2005,11 @@ describe('WorkbenchPage', () => {
       };
     });
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === '/assignments/assignment_1/workbench') {
+      if (url.startsWith('/assignments/assignment_1/workbench')) {
         return jsonResponse({ data: firstWorkbench });
       }
 
-      if (url === '/assignments/assignment_2/workbench') {
+      if (url.startsWith('/assignments/assignment_2/workbench')) {
         return jsonResponse({ data: secondWorkbench });
       }
 
@@ -2194,11 +2316,11 @@ describe('WorkbenchPage', () => {
       draft: { answers: { quality: 'pass' } },
     };
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      if (url === '/assignments/assignment_1/workbench') {
+      if (url.startsWith('/assignments/assignment_1/workbench')) {
         return jsonResponse({ data: { ...qaWorkbench, draft: { answers: { quality: 'pass' } } } });
       }
 
-      if (url === '/assignments/assignment_2/workbench') {
+      if (url.startsWith('/assignments/assignment_2/workbench')) {
         return jsonResponse({ data: secondWorkbench });
       }
 

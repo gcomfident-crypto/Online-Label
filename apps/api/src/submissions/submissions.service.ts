@@ -48,6 +48,11 @@ type DraftRecord = {
   updatedAt: Date;
 };
 
+type TaskItemReportSummary = {
+  id: string;
+  status: 'PENDING' | 'INVALIDATED' | 'REOPENED' | 'REJECTED';
+};
+
 type AssignmentRecord = {
   id: string;
   taskId: string;
@@ -76,6 +81,7 @@ type AssignmentRecord = {
   };
   submissions: SubmissionRecord[];
   drafts: DraftRecord[];
+  itemReports: TaskItemReportSummary[];
 };
 
 type AssignmentTaskSummaryRecord = {
@@ -112,6 +118,7 @@ type AssignmentTaskSummaryRecord = {
     updatedAt: Date;
     reviewRecords?: ReviewRecordSummary[];
   }>;
+  itemReports: TaskItemReportSummary[];
 };
 
 type TaskDisplayRecord = {
@@ -194,6 +201,7 @@ export type LabelerAssignmentDto = {
   latestReviewStage: string | null;
   latestReviewerType: string | null;
   latestReviewDecision: string | null;
+  itemReport: TaskItemReportSummary | null;
   draftAnswers: Record<string, unknown> | null;
   draftUpdatedAt: string | null;
   round: number;
@@ -283,6 +291,11 @@ const ASSIGNMENT_INCLUDE = {
     orderBy: { updatedAt: 'desc' },
     take: 1,
   },
+  itemReports: {
+    where: { status: 'PENDING' },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+  },
 } as const;
 
 const ASSIGNMENT_TASK_SUMMARY_INCLUDE = {
@@ -330,6 +343,15 @@ const ASSIGNMENT_TASK_SUMMARY_INCLUDE = {
           createdAt: true,
         },
       },
+    },
+  },
+  itemReports: {
+    where: { status: 'PENDING' },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+    select: {
+      id: true,
+      status: true,
     },
   },
 } as const;
@@ -382,6 +404,7 @@ export class SubmissionsService {
           message: '已取消的领取记录不能提交。',
         });
       }
+      assertNoPendingTaskItemReport(assignment);
 
       const schema = assignment.task.template.schema as LabelHubSchema;
       const validation = this.schemaService.validate(schema, input.answers);
@@ -417,20 +440,28 @@ export class SubmissionsService {
     const taskIdempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
 
     return runInTransaction(this.prisma, async (client) => {
-      const assignments = (await client.assignment.findMany({
+      const submittableAssignments = (await client.assignment.findMany({
         where: {
           taskId: input.taskId,
           assigneeId: input.labelerId,
         },
         include: ASSIGNMENT_INCLUDE,
       }))
-        .filter((assignment) => TASK_SUBMITTABLE_ASSIGNMENT_STATUSES.has(assignment.status))
+        .filter((assignment) => TASK_SUBMITTABLE_ASSIGNMENT_STATUSES.has(assignment.status));
+      const assignments = submittableAssignments
+        .filter((assignment) => !hasPendingTaskItemReport(assignment))
         .sort(compareAssignmentsByTaskItem);
 
-      if (assignments.length === 0) {
+      if (submittableAssignments.length === 0) {
         throw new NotFoundException({
           code: 'TASK_ASSIGNMENTS_NOT_FOUND',
           message: '当前任务没有可提交的领取题目。',
+        });
+      }
+      if (assignments.length === 0) {
+        throw new BadRequestException({
+          code: 'TASK_SUBMISSION_ONLY_REPORTED_ITEMS',
+          message: '当前任务的可提交题目均已上报给 Owner 处理，暂时不能提交。',
         });
       }
 
@@ -734,6 +765,7 @@ function toLabelerAssignmentDto(
     latestReviewStage: latestReviewRecord?.stage ?? null,
     latestReviewerType: latestReviewRecord?.reviewerType ?? null,
     latestReviewDecision: latestReviewRecord?.decision ?? null,
+    itemReport: assignment.itemReports[0] ?? null,
     draftAnswers: options.includeDraftAnswers ? latestDraft?.answers ?? null : null,
     draftUpdatedAt: latestDraft?.updatedAt.toISOString() ?? null,
     round: latestSubmission?.round ?? 0,
@@ -765,6 +797,7 @@ function toLabelerAssignmentTaskSummaryItem(
     latestReviewStage: latestReviewRecord?.stage ?? null,
     latestReviewerType: latestReviewRecord?.reviewerType ?? null,
     latestReviewDecision: latestReviewRecord?.decision ?? null,
+    itemReport: assignment.itemReports[0] ?? null,
     draftAnswers: null,
     draftUpdatedAt: null,
     round: latestSubmission?.round ?? 0,
@@ -928,6 +961,23 @@ function resolveTaskSubmissionAnswers(
     assignmentId: assignment.id,
     externalId: assignment.taskItem.externalId,
   });
+}
+
+function assertNoPendingTaskItemReport(assignment: AssignmentRecord): void {
+  if (!hasPendingTaskItemReport(assignment)) {
+    return;
+  }
+
+  throw new BadRequestException({
+    code: 'TASK_ITEM_REPORT_PENDING',
+    message: `题目 ${assignment.taskItem.externalId} 已上报给 Owner 处理，暂时不能提交。`,
+    assignmentId: assignment.id,
+    externalId: assignment.taskItem.externalId,
+  });
+}
+
+function hasPendingTaskItemReport(assignment: { itemReports?: TaskItemReportSummary[] }): boolean {
+  return assignment.itemReports?.some((report) => report.status === 'PENDING') ?? false;
 }
 
 function compareAssignmentsByTaskItem(first: AssignmentRecord, second: AssignmentRecord): number {

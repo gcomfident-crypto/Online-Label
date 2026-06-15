@@ -50,6 +50,7 @@ describe('Prisma schema', () => {
       'Assignment',
       'Draft',
       'Submission',
+      'TaskItemReport',
       'ReviewRule',
       'ReviewRecord',
       'AiReviewJob',
@@ -124,6 +125,7 @@ describe('Prisma schema', () => {
 
   it('keeps dataset identity and submission schema snapshots', () => {
     expect(enumValues('TaskItemStatus')).toEqual(['UNASSIGNED', 'ASSIGNED', 'COMPLETED']);
+    expect(enumValues('TaskItemReportStatus')).toEqual(['PENDING', 'INVALIDATED', 'REOPENED', 'REJECTED']);
     expect(modelBlock('TaskItem')).toMatch(/\bexternalId\s+String\b/);
     expect(modelBlock('TaskItem')).toMatch(/\bdatasetKind\s+DatasetKind\b/);
     expect(modelBlock('TaskItem')).toMatch(
@@ -134,6 +136,12 @@ describe('Prisma schema', () => {
     expect(modelBlock('Submission')).toMatch(
       /@@unique\(\[assignmentId, round\]\)/,
     );
+    expect(modelBlock('TaskItemReport')).toMatch(/\bstatus\s+TaskItemReportStatus\s+@default\(PENDING\)/);
+    expect(modelBlock('TaskItemReport')).toMatch(/\breason\s+String\b/);
+    expect(modelBlock('TaskItemReport')).toMatch(/\bownerComment\s+String\?/);
+    expect(modelBlock('TaskItemReport')).toMatch(/\bresolvedAt\s+DateTime\?/);
+    expect(modelBlock('TaskItemReport')).toMatch(/@@index\(\[taskId\]\)/);
+    expect(modelBlock('TaskItemReport')).toMatch(/@@index\(\[assignmentId\]\)/);
   });
 
   it('avoids redundant draft and submission ownership columns', () => {

@@ -21,6 +21,17 @@ export type DraftDto = {
   updatedAt: string;
 };
 
+export type WorkbenchItemReportDto = {
+  id: string;
+  status: 'PENDING' | 'INVALIDATED' | 'REOPENED' | 'REJECTED';
+  reason: string;
+  ownerComment: string | null;
+  resolution: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type WorkbenchDto = {
   assignment: {
     id: string;
@@ -54,6 +65,7 @@ export type WorkbenchDto = {
     sortOrder: number;
   };
   draft: DraftDto | null;
+  itemReport: WorkbenchItemReportDto | null;
   rejectionNotice: {
     submissionId: string;
     round: number;

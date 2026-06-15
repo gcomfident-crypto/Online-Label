@@ -13,6 +13,7 @@ import { RejectNotice } from '../../features/labeler/RejectNotice';
 import { listLabelerAssignments, type AssignmentStatus, type LabelerAssignmentDto } from '../../api/assignments';
 import { getAssignmentWorkbench, saveDraft, type WorkbenchDto } from '../../api/drafts';
 import { getLabelerStats, submitTask, type LabelerStatsDto, type TaskSubmissionDto } from '../../api/submissions';
+import { reportTaskItem, type TaskItemReportDto } from '../../api/taskItemReports';
 import { useSession } from '../../stores/sessionStore';
 import { formatClockTime, formatDateTimeMinute, formatMonthDayTimeMinute } from '../../utils/dateTime';
 
@@ -58,6 +59,9 @@ export const WorkbenchPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [isReportingItem, setIsReportingItem] = useState(false);
+  const [reportReason, setReportReason] = useState('');
   const [activeCanvasTab, setActiveCanvasTab] = useState<WorkbenchCanvasTab>('annotation');
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const [taskIdentity, setTaskIdentity] = useState<WorkbenchTaskIdentity | null>(null);
@@ -70,7 +74,6 @@ export const WorkbenchPage = () => {
   const validationFocusTimerRef = useRef<number | null>(null);
   const workbenchCacheRef = useRef<Map<string, WorkbenchDto>>(new Map());
   const workbenchPreloadRequestsRef = useRef<Map<string, Promise<WorkbenchDto>>>(new Map());
-  const workbenchPreloadErrorNotifiedRef = useRef(false);
   const taskAssignmentsCacheRef = useRef<Map<string, LabelerAssignmentDto[]>>(new Map());
   const labelerStatsCacheRef = useRef<Map<string, LabelerStatsDto>>(new Map());
   const localAnswersByAssignmentRef = useRef<Map<string, Record<string, unknown>>>(new Map());
@@ -109,7 +112,7 @@ export const WorkbenchPage = () => {
       nextTaskAssignments: LabelerAssignmentDto[],
     ) => {
       const sortedTaskAssignments = [...nextTaskAssignments].sort(compareLabelerAssignments);
-      const nextLocalCacheKey = createLocalDraftCacheKey(nextWorkbench.assignment.id);
+      const nextLocalCacheKey = createLocalDraftCacheKey(labelerId, nextWorkbench.assignment.id);
       const trackedAnswers = localAnswersByAssignmentRef.current.get(nextWorkbench.assignment.id);
       const cachedAnswers = readLocalDraft(nextLocalCacheKey);
       const initialAnswers = trackedAnswers ?? cachedAnswers ?? nextWorkbench.draft?.answers ?? {};
@@ -160,11 +163,15 @@ export const WorkbenchPage = () => {
       lastSavedSnapshotRef.current = JSON.stringify(initialAnswers);
       hydratedRef.current = true;
       setDraftStatus(
-        cachedAnswers ? '检测到本地未同步草稿，已恢复到当前表单。' : '草稿已载入',
+        nextWorkbench.itemReport?.status === 'PENDING'
+          ? '当前题目已上报，等待 Owner 处理。'
+          : cachedAnswers
+            ? '检测到本地未同步草稿，已恢复到当前表单。'
+            : '草稿已载入',
       );
       setFatalErrorMessage(null);
     },
-    [workbenchNavigationState],
+    [labelerId, workbenchNavigationState],
   );
 
   const loadTaskContextSnapshot = useCallback(async (taskId: string) => {
@@ -249,20 +256,10 @@ export const WorkbenchPage = () => {
           continue;
         }
 
-        void fetchAndCacheWorkbench(assignment.assignmentId)
-          .catch((error) => {
-            if (workbenchPreloadErrorNotifiedRef.current) {
-              return;
-            }
-
-            workbenchPreloadErrorNotifiedRef.current = true;
-            showErrorToast(error instanceof Error
-              ? `题目预加载失败：${error.message}`
-              : '题目预加载失败。');
-          });
+        void fetchAndCacheWorkbench(assignment.assignmentId).catch(() => undefined);
       }
     },
-    [fetchAndCacheWorkbench, showErrorToast],
+    [fetchAndCacheWorkbench],
   );
 
   useEffect(() => {
@@ -400,6 +397,14 @@ export const WorkbenchPage = () => {
         return false;
       }
 
+      if (isPendingWorkbenchItemReport(workbench)) {
+        if (source === 'manual') {
+          showInfoToast('当前题目已上报给 Owner 处理，暂不支持保存草稿。');
+        }
+
+        return false;
+      }
+
       setIsSaving(true);
       try {
         const draft = await saveDraft(workbench.assignment.id, {
@@ -492,10 +497,12 @@ export const WorkbenchPage = () => {
     [taskAssignments, workbench],
   );
   const isCurrentQuestionEditable = workbench
-    ? isEditableAssignmentStatus(workbench.assignment.status)
+    ? isEditableAssignmentStatus(workbench.assignment.status) && !isPendingWorkbenchItemReport(workbench)
     : false;
   const isTaskSubmitDisabled =
-    isSubmitting || !hasSubmittableCurrentTask || !isCurrentQuestionEditable;
+    isSubmitting ||
+    !hasSubmittableCurrentTask ||
+    (!isCurrentQuestionEditable && !(workbench && isPendingWorkbenchItemReport(workbench)));
 
   const orderedTaskAssignments = useMemo(
     () => [...taskAssignments].sort(compareLabelerAssignments),
@@ -518,8 +525,9 @@ export const WorkbenchPage = () => {
       localAnswersByAssignmentRef.current,
     );
     const draftSnapshotsToSync = draftSnapshots.filter(({ assignment, answers: snapshotAnswers }) =>
-      assignment.assignmentId === workbench.assignment.id ||
-      !areAnswerRecordsEqual(snapshotAnswers, assignment.draftAnswers ?? {}),
+      !isPendingAssignmentReport(assignment) &&
+      (assignment.assignmentId === workbench.assignment.id ||
+        !areAnswerRecordsEqual(snapshotAnswers, assignment.draftAnswers ?? {})),
     );
 
     if (draftSnapshotsToSync.length === 0) {
@@ -543,7 +551,9 @@ export const WorkbenchPage = () => {
               draft,
             };
           } catch (error) {
-            throw new Error(formatTaskDraftSyncErrorMessage(snapshot.externalId, error));
+            throw new Error(formatTaskDraftSyncErrorMessage(snapshot.externalId, error), {
+              cause: error,
+            });
           }
         }),
       );
@@ -998,6 +1008,82 @@ export const WorkbenchPage = () => {
     workbench,
   ]);
 
+  const handleOpenReportDialog = useCallback(() => {
+    if (!workbench) {
+      return;
+    }
+    if (isPendingWorkbenchItemReport(workbench)) {
+      showInfoToast('当前题目已上报，等待 Owner 处理。');
+      return;
+    }
+    if (!isEditableAssignmentStatus(workbench.assignment.status)) {
+      showInfoToast('当前题目已提交，暂不支持上报。');
+      return;
+    }
+
+    setReportReason('');
+    setIsReportDialogOpen(true);
+  }, [showInfoToast, workbench]);
+
+  const handleReportSubmit = useCallback(async () => {
+    if (!workbench) {
+      return;
+    }
+    if (!labelerId) {
+      showErrorToast('缺少当前标注员身份，无法上报题目。请重新登录。');
+      return;
+    }
+
+    const reason = reportReason.trim();
+    if (reason.length < 6) {
+      showErrorToast('请说明具体问题，至少输入 6 个字。');
+      return;
+    }
+
+    setIsReportingItem(true);
+    try {
+      const report = await reportTaskItem({
+        assignmentId: workbench.assignment.id,
+        reporterId: labelerId,
+        reason,
+      });
+      const itemReport = toWorkbenchItemReport(report);
+
+      setWorkbench((current) =>
+        current && current.assignment.id === workbench.assignment.id
+          ? cacheWorkbenchSnapshot({
+              ...current,
+              itemReport,
+            }, workbenchCacheRef.current)
+          : current,
+      );
+      setTaskAssignments((current) => {
+        const nextAssignments = current.map((assignment) =>
+          assignment.assignmentId === workbench.assignment.id
+            ? {
+                ...assignment,
+                itemReport: {
+                  id: report.id,
+                  status: report.status,
+                },
+              }
+            : assignment,
+        );
+        taskAssignmentsCacheRef.current.set(workbench.assignment.taskId, nextAssignments);
+        return nextAssignments;
+      });
+      setDraftStatus('当前题目已上报，等待 Owner 处理。');
+      setDraftStatusRevision((current) => current + 1);
+      setIsReportDialogOpen(false);
+      setReportReason('');
+      showStatusToast('题目问题已上报给 Owner。');
+    } catch (error) {
+      showErrorToast(error instanceof Error ? error.message : '题目上报失败。');
+    } finally {
+      setIsReportingItem(false);
+    }
+  }, [labelerId, reportReason, showErrorToast, showStatusToast, workbench]);
+
   const handlePrevious = useCallback(() => {
     const previousAssignment = orderedTaskAssignments[routeQuestionIndex - 1];
     if (!previousAssignment) {
@@ -1264,6 +1350,13 @@ export const WorkbenchPage = () => {
             ) : (
               <>
                 <RejectNotice notice={workbench.rejectionNotice} suggestion={reviewerRejectionSuggestion} />
+                {isPendingWorkbenchItemReport(workbench) ? (
+                  <section className="workbench-item-report-banner" aria-label="题目上报状态">
+                    <strong>已上报给 Owner</strong>
+                    <p>{workbench.itemReport?.reason}</p>
+                    <small>Owner 处理前，本题暂停编辑；你仍可继续处理并提交任务内其他题目。</small>
+                  </section>
+                ) : null}
                 <SchemaRenderer
                   schema={workbench.task.schema}
                   rawData={workbench.taskItem.rawData}
@@ -1292,6 +1385,13 @@ export const WorkbenchPage = () => {
             <div className="annotation-submit-bar__actions">
               <button
                 type="button"
+                disabled={isReportingItem || !isCurrentQuestionEditable}
+                onClick={handleOpenReportDialog}
+              >
+                上报问题
+              </button>
+              <button
+                type="button"
                 disabled={isSaving || !isCurrentQuestionEditable}
                 onClick={() => void saveDraftNow('manual')}
               >
@@ -1312,6 +1412,52 @@ export const WorkbenchPage = () => {
 
         <LabelerWorkbenchInfoPanel workbench={workbench} />
       </div>
+      {isReportDialogOpen ? (
+        <section
+          className="workbench-item-report-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="workbench-item-report-title"
+        >
+          <div className="workbench-item-report-dialog__panel">
+            <header>
+              <div>
+                <h2 id="workbench-item-report-title">上报题目问题</h2>
+                <p>题目 {workbench.taskItem.externalId}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="关闭上报题目问题"
+                onClick={() => setIsReportDialogOpen(false)}
+              >
+                ×
+              </button>
+            </header>
+            <label>
+              <span>问题说明</span>
+              <textarea
+                value={reportReason}
+                rows={5}
+                placeholder="例如：原始数据缺少回答 B，无法判断偏好。"
+                onChange={(event) => setReportReason(event.target.value)}
+              />
+            </label>
+            <footer>
+              <button type="button" onClick={() => setIsReportDialogOpen(false)}>
+                取消
+              </button>
+              <button
+                className="primary-action"
+                type="button"
+                disabled={isReportingItem || reportReason.trim().length < 6}
+                onClick={() => void handleReportSubmit()}
+              >
+                {isReportingItem ? '上报中...' : '确认上报'}
+              </button>
+            </footer>
+          </div>
+        </section>
+      ) : null}
     </section>
   );
 };
@@ -2018,7 +2164,7 @@ function getAnswerFields(fields: readonly SchemaField[]): SchemaField[] {
 }
 
 type QuestionProgressState = 'empty' | 'draft' | 'complete';
-type QuestionFlowStatusLabel = '待标注' | '待提交' | 'AI预审中' | '待人工审核' | '待修改' | '已完成' | '异常';
+type QuestionFlowStatusLabel = '待标注' | '待提交' | '待Owner处理' | 'AI预审中' | '待人工审核' | '待修改' | '已完成' | '异常';
 
 const AI_REVIEWING_SUBMISSION_STATUSES = new Set(['AI_QUEUED', 'AI_REVIEWING', 'SUBMITTED']);
 const AI_FAILED_SUBMISSION_STATUSES = new Set(['AI_FAILED', 'FAILED']);
@@ -2036,7 +2182,6 @@ const REVIEWER_REVIEWING_SUBMISSION_STATUSES = new Set([
 ]);
 const COMPLETED_SUBMISSION_STATUSES = new Set(['FINAL_APPROVED']);
 const REVIEWER_REJECTED_SUBMISSION_STATUSES = new Set(['RECHECK_REJECTED', 'FINAL_REJECTED']);
-const REVIEWER_REVIEW_STAGES = new Set(['RECHECK', 'FINAL']);
 
 type TaskSubmissionValidationIssue = {
   assignmentId: string;
@@ -2111,7 +2256,11 @@ function collectTaskSubmissionDraftSnapshots(
   const snapshotsByAssignmentId = new Map<string, TaskSubmissionDraftSnapshot>();
 
   for (const assignment of taskAssignments) {
-    if (assignment.taskId !== workbench.assignment.taskId || !isSubmittableAssignmentStatus(assignment.status)) {
+    if (
+      assignment.taskId !== workbench.assignment.taskId ||
+      !isSubmittableAssignmentStatus(assignment.status) ||
+      isPendingAssignmentReport(assignment)
+    ) {
       continue;
     }
 
@@ -2132,6 +2281,7 @@ function collectTaskSubmissionDraftSnapshots(
 
   if (
     isSubmittableAssignmentStatus(workbench.assignment.status) &&
+    !isPendingWorkbenchItemReport(workbench) &&
     !snapshotsByAssignmentId.has(workbench.assignment.id)
   ) {
     snapshotsByAssignmentId.set(workbench.assignment.id, {
@@ -2181,6 +2331,12 @@ function createCurrentWorkbenchAssignmentSnapshot(workbench: WorkbenchDto): Labe
     latestReviewStage: latestReviewRecordByCreatedAt(latestSubmission?.reviewRecords ?? [])?.stage ?? null,
     latestReviewerType: latestReviewRecordByCreatedAt(latestSubmission?.reviewRecords ?? [])?.reviewerType ?? null,
     latestReviewDecision: latestReviewRecordByCreatedAt(latestSubmission?.reviewRecords ?? [])?.decision ?? null,
+    itemReport: workbench.itemReport
+      ? {
+          id: workbench.itemReport.id,
+          status: workbench.itemReport.status,
+        }
+      : null,
     draftAnswers: workbench.draft?.answers ?? null,
     draftUpdatedAt: workbench.draft?.updatedAt ?? null,
     round: latestSubmission?.round ?? 0,
@@ -2300,6 +2456,10 @@ function resolveCurrentQuestionFlowStatusLabel(
   const status = workbench.assignment.status;
   const latestSubmission = latestSubmissionByRound(workbench.submissionHistory);
 
+  if (isPendingWorkbenchItemReport(workbench)) {
+    return '待Owner处理';
+  }
+
   if (status === 'FINAL_APPROVED' || COMPLETED_SUBMISSION_STATUSES.has(latestSubmission?.status ?? '')) {
     return '已完成';
   }
@@ -2333,6 +2493,10 @@ function resolveNavigationQuestionFlowStatusLabel(
   schema?: WorkbenchDto['task']['schema'],
 ): QuestionFlowStatusLabel {
   const progress = resolveNavigationQuestionProgressState(assignment, locallyProgress, schema);
+
+  if (isPendingAssignmentReport(assignment)) {
+    return '待Owner处理';
+  }
 
   if (
     assignment.status === 'FINAL_APPROVED' ||
@@ -2508,22 +2672,6 @@ function latestReviewRecordByCreatedAt(
   );
 }
 
-function isReviewerRejectionSource(input: {
-  stage?: string | null;
-  reviewerType?: string | null;
-  submissionStatus?: string | null;
-}): boolean {
-  if (input.reviewerType === 'HUMAN') {
-    return true;
-  }
-
-  if (input.stage && REVIEWER_REVIEW_STAGES.has(input.stage)) {
-    return true;
-  }
-
-  return REVIEWER_REJECTED_SUBMISSION_STATUSES.has(input.submissionStatus ?? '');
-}
-
 function isEmptyAnswerValue(value: unknown): boolean {
   return value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0);
 }
@@ -2545,8 +2693,10 @@ function hasSubmittableTaskAssignments(
   taskAssignments: readonly LabelerAssignmentDto[],
 ): boolean {
   return (
-    isSubmittableAssignmentStatus(workbench.assignment.status) ||
-    taskAssignments.some((assignment) => isSubmittableAssignmentStatus(assignment.status))
+    (isSubmittableAssignmentStatus(workbench.assignment.status) && !isPendingWorkbenchItemReport(workbench)) ||
+    taskAssignments.some((assignment) =>
+      isSubmittableAssignmentStatus(assignment.status) && !isPendingAssignmentReport(assignment),
+    )
   );
 }
 
@@ -2556,6 +2706,27 @@ function isEditableAssignmentStatus(status: AssignmentStatus): boolean {
 
 function isSubmittableAssignmentStatus(status: AssignmentStatus): boolean {
   return status === 'ASSIGNED' || status === 'IN_PROGRESS' || status === 'NEEDS_REVISION';
+}
+
+function isPendingWorkbenchItemReport(workbench: WorkbenchDto): boolean {
+  return workbench.itemReport?.status === 'PENDING';
+}
+
+function isPendingAssignmentReport(assignment: LabelerAssignmentDto): boolean {
+  return assignment.itemReport?.status === 'PENDING';
+}
+
+function toWorkbenchItemReport(report: TaskItemReportDto): NonNullable<WorkbenchDto['itemReport']> {
+  return {
+    id: report.id,
+    status: report.status,
+    reason: report.reason,
+    ownerComment: report.ownerComment,
+    resolution: report.resolution,
+    resolvedAt: report.resolvedAt,
+    createdAt: report.createdAt,
+    updatedAt: report.updatedAt,
+  };
 }
 
 function createTaskSubmissionIdempotencyKey(

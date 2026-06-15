@@ -28,6 +28,7 @@ import { SchemaController } from './schema/schema.controller.ts';
 import { SchemaService } from './schema/schema.service.ts';
 import { StateMachineService } from './state-machine/state-machine.service.ts';
 import { SubmissionsModule } from './submissions/submissions.module.ts';
+import { TaskItemReportsModule } from './task-item-reports/task-item-reports.module.ts';
 import { TaskFlowsModule } from './task-flows/task-flows.module.ts';
 import { TemplatesModule } from './templates/templates.module.ts';
 import { TasksModule } from './tasks/tasks.module.ts';
@@ -65,6 +66,7 @@ class ResponseEnvelopeInterceptor implements NestInterceptor {
     AiReviewModule,
     ReviewsModule,
     ExportsModule,
+    TaskItemReportsModule,
     TaskFlowsModule,
   ],
   controllers: [

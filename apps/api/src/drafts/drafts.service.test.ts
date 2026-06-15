@@ -22,6 +22,17 @@ type DraftRecord = {
   updatedAt: Date;
 };
 
+type TaskItemReportSummary = {
+  id: string;
+  status: 'PENDING' | 'INVALIDATED' | 'REOPENED' | 'REJECTED';
+  reason: string;
+  ownerComment: string | null;
+  resolution: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  resolvedAt: Date | null;
+};
+
 type AssignmentRecord = {
   id: string;
   taskId: string;
@@ -55,6 +66,7 @@ type AssignmentRecord = {
     sortOrder: number;
   };
   drafts: DraftRecord[];
+  itemReports: TaskItemReportSummary[];
   submissions: Array<{
     id: string;
     status: 'SUBMITTED' | 'AI_QUEUED' | 'AI_PASSED' | 'HUMAN_PENDING' | 'NEEDS_REVISION';
@@ -150,7 +162,7 @@ describe('DraftsService', () => {
       ],
     });
 
-    await expect(service.getWorkbench('assignment_1')).resolves.toEqual(
+    await expect(service.getWorkbench('assignment_1', 'user_labeler_li_lei')).resolves.toEqual(
       expect.objectContaining({
         assignment: expect.objectContaining({ id: 'assignment_1', status: 'ASSIGNED' }),
         task: expect.objectContaining({ title: '问答质量标注', schemaVersion: 'r1' }),
@@ -181,6 +193,26 @@ describe('DraftsService', () => {
     );
   });
 
+  it('工作台查询返回当前待处理题目上报信息', async () => {
+    const { service } = createService({
+      itemReports: [
+        createTaskItemReport({
+          reason: '回答 B 缺失，无法判断。',
+        }),
+      ],
+    });
+
+    await expect(service.getWorkbench('assignment_1', 'user_labeler_li_lei')).resolves.toEqual(
+      expect.objectContaining({
+        itemReport: expect.objectContaining({
+          id: 'report_1',
+          status: 'PENDING',
+          reason: '回答 B 缺失，无法判断。',
+        }),
+      }),
+    );
+  });
+
   it('上一轮打回原因优先展示审核记录 comment', async () => {
     const { service } = createService({
       submissions: [
@@ -203,7 +235,7 @@ describe('DraftsService', () => {
       ],
     });
 
-    await expect(service.getWorkbench('assignment_1')).resolves.toEqual(
+    await expect(service.getWorkbench('assignment_1', 'user_labeler_li_lei')).resolves.toEqual(
       expect.objectContaining({
         rejectionNotice: expect.objectContaining({
           reason: '人工复审认为依据不足，请补充说明。',
@@ -250,7 +282,7 @@ describe('DraftsService', () => {
       ],
     });
 
-    await expect(service.getWorkbench('assignment_1')).resolves.toEqual(
+    await expect(service.getWorkbench('assignment_1', 'user_labeler_li_lei')).resolves.toEqual(
       expect.objectContaining({
         rejectionNotice: null,
       }),
@@ -295,6 +327,25 @@ describe('DraftsService', () => {
     expect(auditLogs).toHaveLength(0);
     expect(assignments.slice(1).map((assignment) => assignment.status)).toEqual(lockedStatuses);
   });
+
+  it('存在待处理题目上报时拒绝继续保存草稿', async () => {
+    const { service, drafts, auditLogs } = createService({
+      itemReports: [createTaskItemReport()],
+    });
+
+    await expect(
+      service.saveDraft('assignment_1', {
+        actorId: 'user_labeler_li_lei',
+        answers: { quality: 'excellent' },
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'TASK_ITEM_REPORT_PENDING',
+      }),
+    });
+    expect(drafts).toHaveLength(0);
+    expect(auditLogs).toHaveLength(0);
+  });
 });
 
 function createService(
@@ -302,6 +353,7 @@ function createService(
     assignments?: Array<Partial<AssignmentRecord> & { id: string }>;
     drafts?: Array<Partial<DraftRecord>>;
     submissions?: AssignmentRecord['submissions'];
+    itemReports?: TaskItemReportSummary[];
   } = {},
 ) {
   const now = new Date('2026-05-21T00:00:00.000Z');
@@ -310,6 +362,7 @@ function createService(
       id: 'assignment_1',
       drafts: overrides.drafts?.map((draft, index) => createDraft(now, draft, index + 1)) ?? [],
       submissions: overrides.submissions ?? [],
+      itemReports: overrides.itemReports ?? [],
     }),
     ...(overrides.assignments?.map((assignment) =>
       createAssignment(now, {
@@ -379,6 +432,7 @@ function createAssignment(
     id: string;
     status?: AssignmentStatus;
     drafts: DraftRecord[];
+    itemReports?: TaskItemReportSummary[];
     submissions: AssignmentRecord['submissions'];
   },
 ): AssignmentRecord {
@@ -430,7 +484,23 @@ function createAssignment(
       sortOrder: 1,
     },
     drafts: input.drafts,
+    itemReports: input.itemReports ?? [],
     submissions: input.submissions,
+  };
+}
+
+function createTaskItemReport(input: Partial<TaskItemReportSummary> = {}): TaskItemReportSummary {
+  const now = new Date('2026-05-21T00:00:00.000Z');
+
+  return {
+    id: input.id ?? 'report_1',
+    status: input.status ?? 'PENDING',
+    reason: input.reason ?? '题目数据异常。',
+    ownerComment: input.ownerComment ?? null,
+    resolution: input.resolution ?? null,
+    createdAt: input.createdAt ?? now,
+    updatedAt: input.updatedAt ?? now,
+    resolvedAt: input.resolvedAt ?? null,
   };
 }
 

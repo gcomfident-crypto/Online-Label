@@ -49,6 +49,13 @@ enum TaskItemStatus {
   COMPLETED
 }
 
+enum TaskItemReportStatus {
+  PENDING
+  INVALIDATED
+  REOPENED
+  REJECTED
+}
+
 enum SubmissionStatus {
   DRAFT
   SUBMITTED
@@ -133,6 +140,8 @@ model User {
   auditLogs          AuditLog[]     @relation("AuditActor")
   taskFlowEvents     TaskFlowEvent[] @relation("TaskFlowEventActor")
   exportJobs         ExportJob[]    @relation("ExportJobRequester")
+  reportedTaskItems  TaskItemReport[] @relation("TaskItemReportReporter")
+  resolvedTaskReports TaskItemReport[] @relation("TaskItemReportResolver")
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
@@ -196,6 +205,7 @@ model Task {
   auditLogs            AuditLog[]
   flowEvents           TaskFlowEvent[]
   exportJobs           ExportJob[]
+  itemReports          TaskItemReport[]
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
@@ -214,6 +224,7 @@ model TaskItem {
   status      TaskItemStatus @default(UNASSIGNED)
   sortOrder   Int            @default(0)
   assignments Assignment[]
+  reports     TaskItemReport[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -235,6 +246,7 @@ model Assignment {
   claimedAt   DateTime         @default(now())
   drafts      Draft[]
   submissions Submission[]
+  itemReports TaskItemReport[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -243,6 +255,34 @@ model Assignment {
   @@index([assigneeId])
   @@index([status])
   @@map("assignments")
+}
+
+model TaskItemReport {
+  id            String               @id @default(cuid())
+  taskId        String
+  task          Task                 @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskItemId    String
+  taskItem      TaskItem             @relation(fields: [taskItemId, taskId], references: [id, taskId], onDelete: Cascade)
+  assignmentId  String?
+  assignment    Assignment?          @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  reporterId    String?
+  reporter      User?                @relation("TaskItemReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  status        TaskItemReportStatus @default(PENDING)
+  reason        String
+  ownerComment  String?
+  resolution    String?
+  resolvedById  String?
+  resolvedBy    User?                @relation("TaskItemReportResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedAt    DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([taskId])
+  @@index([taskItemId])
+  @@index([assignmentId])
+  @@index([reporterId])
+  @@index([status])
+  @@map("task_item_reports")
 }
 
 model Draft {

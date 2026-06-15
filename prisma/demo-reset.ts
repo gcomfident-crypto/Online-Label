@@ -12,6 +12,7 @@ export async function resetDemoData(): Promise<void> {
     await prisma.reviewRecord.deleteMany();
     await prisma.submission.deleteMany();
     await prisma.draft.deleteMany();
+    await prisma.taskItemReport.deleteMany();
     await prisma.assignment.deleteMany();
     await prisma.taskItem.deleteMany();
     await prisma.reviewRule.deleteMany();

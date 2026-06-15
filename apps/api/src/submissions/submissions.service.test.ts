@@ -45,6 +45,11 @@ type DraftRecord = {
   updatedAt: Date;
 };
 
+type TaskItemReportSummary = {
+  id: string;
+  status: 'PENDING' | 'INVALIDATED' | 'REOPENED' | 'REJECTED';
+};
+
 type AssignmentRecord = {
   id: string;
   taskId: string;
@@ -73,6 +78,7 @@ type AssignmentRecord = {
   };
   submissions: SubmissionRecord[];
   drafts: DraftRecord[];
+  itemReports: TaskItemReportSummary[];
 };
 
 type MockSubmissionsPrisma = {
@@ -429,6 +435,65 @@ describe('SubmissionsService', () => {
     expect(aiReviewJobs).toHaveLength(0);
   });
 
+  it('单题存在待处理上报时拒绝提交且不创建副作用', async () => {
+    const { service, submissions, assignments, auditLogs, completedItems, aiReviewJobs } = createService({
+      itemReports: [{ id: 'report_1', status: 'PENDING' }],
+    });
+
+    await expect(
+      service.submit({
+        assignmentId: 'assignment_1',
+        actorId: 'user_labeler_li_lei',
+        answers: { quality: 'pass', comment: '当前题答案。' },
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'TASK_ITEM_REPORT_PENDING',
+      }),
+    });
+    expect(submissions).toHaveLength(0);
+    expect(assignments[0].status).toBe('IN_PROGRESS');
+    expect(completedItems).toHaveLength(0);
+    expect(auditLogs).toHaveLength(0);
+    expect(aiReviewJobs).toHaveLength(0);
+  });
+
+  it('任务级提交会跳过待处理上报题，继续提交其他可提交题目', async () => {
+    const now = new Date('2026-05-21T00:00:00.000Z');
+    const secondAssignment = createAssignment(now, {
+      id: 'assignment_2',
+      taskItemId: 'item_qa_2',
+      sortOrder: 2,
+      externalId: 'qa_2',
+      status: 'IN_PROGRESS',
+      drafts: [
+        createDraft(now, {
+          id: 'draft_2',
+          assignmentId: 'assignment_2',
+          answers: { quality: 'excellent', comment: '第二题已保存草稿。' },
+        }),
+      ],
+    });
+    const { service, submissions, assignments, completedItems } = createService({
+      itemReports: [{ id: 'report_1', status: 'PENDING' }],
+      assignments: [secondAssignment],
+    });
+
+    const result = await service.submitTask({
+      taskId: 'task_qa',
+      labelerId: 'user_labeler_li_lei',
+      actorId: 'user_labeler_li_lei',
+      currentAssignmentId: 'assignment_1',
+      currentAnswers: { quality: 'pass', comment: '被上报题的当前答案不会提交。' },
+    });
+
+    expect(result.submittedCount).toBe(1);
+    expect(result.submissions.map((submission) => submission.assignmentId)).toEqual(['assignment_2']);
+    expect(submissions).toHaveLength(1);
+    expect(assignments.map((assignment) => assignment.status)).toEqual(['IN_PROGRESS', 'SUBMITTED']);
+    expect(completedItems).toEqual(['item_qa_2']);
+  });
+
   it('后端 Schema 校验会阻止缺必填字段提交', async () => {
     const { service } = createService();
 
@@ -626,6 +691,7 @@ function createService(
     assignments?: AssignmentRecord[];
     aiPreReviewEnabled?: boolean;
     submissions?: SubmissionRecord[];
+    itemReports?: TaskItemReportSummary[];
   } = {},
 ) {
   const now = new Date('2026-05-21T00:00:00.000Z');
@@ -633,6 +699,7 @@ function createService(
     createAssignment(now, {
       aiPreReviewEnabled: overrides.aiPreReviewEnabled,
       submissions: overrides.submissions ?? [],
+      itemReports: overrides.itemReports ?? [],
     }),
     ...(overrides.assignments ?? []),
   ];
@@ -744,6 +811,7 @@ function createAssignment(
     aiPreReviewEnabled?: boolean;
     submissions?: SubmissionRecord[];
     drafts?: DraftRecord[];
+    itemReports?: TaskItemReportSummary[];
   } = {},
 ): AssignmentRecord {
   const datasetKind = input.datasetKind ?? 'qa_quality';
@@ -776,6 +844,7 @@ function createAssignment(
     },
     submissions: input.submissions ?? [],
     drafts: input.drafts ?? [],
+    itemReports: input.itemReports ?? [],
   };
 }
 

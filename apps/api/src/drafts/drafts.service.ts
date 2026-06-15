@@ -24,6 +24,17 @@ type DraftRecord = {
   updatedAt: Date;
 };
 
+type TaskItemReportSummary = {
+  id: string;
+  status: 'PENDING' | 'INVALIDATED' | 'REOPENED' | 'REJECTED';
+  reason: string;
+  ownerComment: string | null;
+  resolution: string | null;
+  resolvedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 type ReviewRecordSummary = {
   stage?: string;
   reviewerId?: string | null;
@@ -81,6 +92,7 @@ type AssignmentWorkbenchRecord = {
     sortOrder: number;
   };
   drafts: DraftRecord[];
+  itemReports: TaskItemReportSummary[];
   submissions: SubmissionSummary[];
 };
 
@@ -98,6 +110,17 @@ export type RejectionNoticeDto = {
   round: number;
   reason: string;
   createdAt: string;
+} | null;
+
+export type WorkbenchItemReportDto = {
+  id: string;
+  status: TaskItemReportSummary['status'];
+  reason: string;
+  ownerComment: string | null;
+  resolution: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 } | null;
 
 export type WorkbenchDto = {
@@ -133,6 +156,7 @@ export type WorkbenchDto = {
     sortOrder: number;
   };
   draft: DraftDto | null;
+  itemReport: WorkbenchItemReportDto;
   rejectionNotice: RejectionNoticeDto;
   submissionHistory: Array<{
     id: string;
@@ -192,6 +216,11 @@ const WORKBENCH_INCLUDE = {
   taskItem: true,
   drafts: {
     orderBy: { updatedAt: 'desc' },
+    take: 1,
+  },
+  itemReports: {
+    where: { status: 'PENDING' },
+    orderBy: { createdAt: 'desc' },
     take: 1,
   },
   submissions: {
@@ -266,6 +295,7 @@ export class DraftsService {
         message: `当前领取记录状态为 ${assignment.status}，不能保存草稿。`,
       });
     }
+    assertNoPendingTaskItemReport(assignment);
 
     const draft = await this.prisma.draft.upsert({
       where: { assignmentId },
@@ -382,6 +412,7 @@ function toWorkbenchDto(assignment: AssignmentWorkbenchRecord): WorkbenchDto {
       sortOrder: assignment.taskItem.sortOrder,
     },
     draft: assignment.drafts[0] ? toDraftDto(assignment.drafts[0]) : null,
+    itemReport: assignment.itemReports[0] ? toWorkbenchItemReportDto(assignment.itemReports[0]) : null,
     rejectionNotice: resolveRejectionNotice(assignment.submissions),
     submissionHistory: assignment.submissions.map((submission) => ({
       id: submission.id,
@@ -404,6 +435,33 @@ function toWorkbenchDto(assignment: AssignmentWorkbenchRecord): WorkbenchDto {
         createdAt: reviewRecord.createdAt.toISOString(),
       })),
     })),
+  };
+}
+
+function assertNoPendingTaskItemReport(assignment: AssignmentWorkbenchRecord): void {
+  const report = assignment.itemReports.find((itemReport) => itemReport.status === 'PENDING');
+  if (!report) {
+    return;
+  }
+
+  throw new BadRequestException({
+    code: 'TASK_ITEM_REPORT_PENDING',
+    message: '当前题目已上报给 Owner 处理，暂时不能保存草稿。',
+    assignmentId: assignment.id,
+    reportId: report.id,
+  });
+}
+
+function toWorkbenchItemReportDto(report: TaskItemReportSummary): NonNullable<WorkbenchItemReportDto> {
+  return {
+    id: report.id,
+    status: report.status,
+    reason: report.reason,
+    ownerComment: report.ownerComment,
+    resolution: report.resolution,
+    resolvedAt: report.resolvedAt?.toISOString() ?? null,
+    createdAt: report.createdAt.toISOString(),
+    updatedAt: report.updatedAt.toISOString(),
   };
 }
 

@@ -113,6 +113,22 @@ describe('ExportsService', () => {
     expect(JSON.stringify(preview.rows)).not.toContain('qa_pending');
   });
 
+  it('Owner 确认作废的题目即使存在历史通过提交也不会进入导出', async () => {
+    const { service, db } = createService();
+    db.task.assignments.push(
+      createAssignment('assignment_invalidated', 'qa_invalidated', 'FINAL_APPROVED', 3, [
+        { id: 'report_invalidated', status: 'INVALIDATED' },
+      ]),
+    );
+
+    const preview = await service.previewTaskExport('task_qa', {
+      includeReviews: true,
+    });
+
+    expect(preview.totalFinalApproved).toBe(1);
+    expect(JSON.stringify(preview.rows)).not.toContain('qa_invalidated');
+  });
+
   it('includeReviews=false 时预览不包含审核字段', async () => {
     const { service } = createService();
 
@@ -447,7 +463,7 @@ function createExportDb() {
     },
   };
 
-  return db;
+  return { ...db, task };
 }
 
 function createGenericUploadedConflictTask() {
@@ -708,9 +724,16 @@ function createUnorderedAssignment(id: string, externalId: string, sortOrder: nu
   };
 }
 
-function createAssignment(id: string, externalId: string, status: string, sortOrder = 0) {
+function createAssignment(
+  id: string,
+  externalId: string,
+  status: string,
+  sortOrder = 0,
+  itemReports: Array<{ id: string; status: 'PENDING' | 'INVALIDATED' | 'REOPENED' | 'REJECTED' }> = [],
+) {
   return {
     id,
+    itemReports,
     taskItem: {
       id: `item_${externalId}`,
       externalId,

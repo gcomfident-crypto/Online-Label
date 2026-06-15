@@ -51,6 +51,35 @@ describe('TaskDetailPage', () => {
             },
           ],
         }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: [
+            {
+              id: 'report_1',
+              taskId: 'task_1',
+              taskItemId: 'item_1',
+              assignmentId: 'assignment_1',
+              reporterId: 'user_labeler_li_lei',
+              status: 'PENDING',
+              reason: '回答 B 缺失，无法判断偏好。',
+              ownerComment: null,
+              resolution: null,
+              resolvedById: null,
+              resolvedAt: null,
+              createdAt: '2026-05-21T10:00:00.000Z',
+              updatedAt: '2026-05-21T10:00:00.000Z',
+              taskItem: {
+                id: 'item_1',
+                externalId: 'P0001',
+                rawData: {},
+                status: 'ASSIGNED',
+              },
+              reporter: { id: 'user_labeler_li_lei', name: 'Labeler 演示账号' },
+              resolvedBy: null,
+            },
+          ],
+        }),
       );
     vi.stubGlobal('fetch', fetchMock);
 
@@ -70,9 +99,17 @@ describe('TaskDetailPage', () => {
     const auditRegion = screen.getByRole('region', { name: '审计日志' });
     expect(within(auditRegion).getByText('TASK_PUBLISHED')).toBeInTheDocument();
     expect(within(auditRegion).getByText('草稿 → 进行中')).toBeInTheDocument();
+    const reportRegion = screen.getByRole('region', { name: '题目上报处理' });
+    expect(within(reportRegion).getByText('P0001')).toBeInTheDocument();
+    expect(within(reportRegion).getByText('回答 B 缺失，无法判断偏好。')).toBeInTheDocument();
+    expect(within(reportRegion).getByRole('button', { name: '确认作废' })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/tasks/task_1', expect.objectContaining({ method: 'GET' }));
     expect(fetchMock).toHaveBeenCalledWith(
       '/tasks/task_1/audit-logs',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/tasks/task_1/item-reports',
       expect.objectContaining({ method: 'GET' }),
     );
   });

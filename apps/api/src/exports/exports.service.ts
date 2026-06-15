@@ -71,6 +71,10 @@ type ExportTaskRecord = {
   };
   assignments: Array<{
     id: string;
+    itemReports?: Array<{
+      id: string;
+      status: 'PENDING' | 'INVALIDATED' | 'REOPENED' | 'REJECTED';
+    }>;
     taskItem: {
       id: string;
       externalId: string;
@@ -132,6 +136,12 @@ const EXPORT_TASK_INCLUDE = {
   template: { select: { datasetKind: true, schema: true } },
   assignments: {
     include: {
+      itemReports: {
+        select: {
+          id: true,
+          status: true,
+        },
+      },
       taskItem: true,
       submissions: {
         include: {
@@ -372,17 +382,24 @@ function normalizeFormat(value: string): ExportFormat {
 }
 
 function collectFinalApprovedSources(task: ExportTaskRecord): ExportSourceRow[] {
-  return [...task.assignments].sort(compareExportAssignments).flatMap((assignment) =>
-    [...assignment.submissions]
-      .filter((submission) => submission.status === 'FINAL_APPROVED')
-      .sort(compareExportSubmissions)
-      .map((submission) => ({
-        externalId: assignment.taskItem.externalId,
-        rawData: assignment.taskItem.rawData,
-        answers: submission.answers,
-        review: buildReviewSnapshot(submission),
-      })),
-  );
+  return [...task.assignments]
+    .filter((assignment) => !hasInvalidatedItemReport(assignment))
+    .sort(compareExportAssignments)
+    .flatMap((assignment) =>
+      [...assignment.submissions]
+        .filter((submission) => submission.status === 'FINAL_APPROVED')
+        .sort(compareExportSubmissions)
+        .map((submission) => ({
+          externalId: assignment.taskItem.externalId,
+          rawData: assignment.taskItem.rawData,
+          answers: submission.answers,
+          review: buildReviewSnapshot(submission),
+        })),
+    );
+}
+
+function hasInvalidatedItemReport(assignment: ExportTaskRecord['assignments'][number]): boolean {
+  return assignment.itemReports?.some((report) => report.status === 'INVALIDATED') ?? false;
 }
 
 function compareExportAssignments(
@@ -686,9 +703,12 @@ function buildExportDownloadFileName(taskTitle: string, format: ExportFormat): s
   return `${safeTitle} 任务导出结果.${format}`;
 }
 
+const RESERVED_FILE_NAME_CHARS = new Set(['<', '>', ':', '"', '/', '\\', '|', '?', '*']);
+
 function sanitizeFileNameSegment(value: string): string {
-  return value
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, ' ')
+  return Array.from(value, (char) =>
+    RESERVED_FILE_NAME_CHARS.has(char) || char.charCodeAt(0) <= 31 ? ' ' : char,
+  ).join('')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/[. ]+$/g, '');
