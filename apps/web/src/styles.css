@@ -9914,6 +9914,28 @@ button.task-table__sortable-header.is-active:focus-visible:not(:disabled) .task-
   gap: 14px;
 }
 
+.task-publish-drawer__detail-link {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #c7d7f4;
+  border-radius: 10px;
+  padding: 0 14px;
+  color: #306df7;
+  background: #f7faff;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.task-publish-drawer__detail-link:hover,
+.task-publish-drawer__detail-link:focus-visible {
+  border-color: #306df7;
+  background: #edf4ff;
+  outline: none;
+}
+
 .task-progress-timeline {
   flex: 0 0 auto;
   display: grid;

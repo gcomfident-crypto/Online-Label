@@ -1127,6 +1127,7 @@ export const TaskListPage = () => {
             onTemplatePickerOpen={handleTemplatePickerOpen}
             onViewTemplate={handleViewTemplate}
             onCreateTemplateFromDataset={canCreateTemplateFromDataset ? handleCreateTemplateFromDataset : undefined}
+            taskDetailHref={drawerMode === 'existing' ? `/owner/tasks/${selectedTask.id}` : undefined}
             onDatasetFileChange={handleDatasetFileChange}
             onPreviewDataset={() => void handlePreviewDataset()}
             onSaveDraft={handleSaveDraft}

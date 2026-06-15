@@ -635,6 +635,7 @@ describe('TaskListPage', () => {
 
     expect(screen.getByRole('complementary', { name: '发布任务抽屉' })).toBeInTheDocument();
     expect(screen.getByLabelText('任务标题')).toHaveValue('商品标题清洗 v3 · 抖音电商');
+    expect(screen.getByRole('link', { name: '题目上报处理' })).toHaveAttribute('href', '/owner/tasks/task_1');
   });
 
   it('进行中任务重新打开抽屉时显示已导入题目但不显示预览入口', async () => {

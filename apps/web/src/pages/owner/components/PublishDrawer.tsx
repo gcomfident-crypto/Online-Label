@@ -50,6 +50,7 @@ type PublishDrawerProps = {
   onTemplatePickerOpen?: () => void;
   onViewTemplate?: (templateId: string) => void;
   onCreateTemplateFromDataset?: () => void;
+  taskDetailHref?: string;
   onDatasetFileChange: (file: File | null) => void;
   onPreviewDataset: () => void;
   onSaveDraft: () => void;
@@ -73,6 +74,7 @@ export const PublishDrawer = ({
   onTemplatePickerOpen,
   onViewTemplate,
   onCreateTemplateFromDataset,
+  taskDetailHref,
   onDatasetFileChange,
   onPreviewDataset,
   onSaveDraft,
@@ -282,6 +284,11 @@ export const PublishDrawer = ({
         <TaskProgressTimeline task={task} />
       </div>
       <div className="task-publish-drawer__footer">
+        {taskDetailHref ? (
+          <Link className="task-publish-drawer__detail-link" to={taskDetailHref}>
+            题目上报处理
+          </Link>
+        ) : null}
         <div className="task-publish-drawer__actions">
           <button type="button" disabled={isSaving || isReadOnly} onClick={onSaveDraft}>
             存为草稿
