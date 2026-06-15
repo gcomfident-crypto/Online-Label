@@ -459,6 +459,7 @@ export const WorkbenchPage = () => {
               : `提交前草稿已同步 ${formatTime(draft.updatedAt)}`,
         );
         setDraftStatusRevision((current) => current + 1);
+        window.localStorage.removeItem(localCacheKey);
         if (source === 'manual') {
           showStatusToast('草稿已保存。');
         }
@@ -523,6 +524,7 @@ export const WorkbenchPage = () => {
       orderedTaskAssignments,
       answers,
       localAnswersByAssignmentRef.current,
+      labelerId,
     );
     const draftSnapshotsToSync = draftSnapshots.filter(({ assignment, answers: snapshotAnswers }) =>
       !isPendingAssignmentReport(assignment) &&
@@ -560,6 +562,7 @@ export const WorkbenchPage = () => {
 
       for (const syncedDraft of syncedDrafts) {
         localAnswersByAssignmentRef.current.set(syncedDraft.assignment.assignmentId, syncedDraft.answers);
+        window.localStorage.removeItem(createLocalDraftCacheKey(labelerId, syncedDraft.assignment.assignmentId));
 
         const cachedWorkbench = workbenchCacheRef.current.get(syncedDraft.assignment.assignmentId);
         if (cachedWorkbench) {
@@ -894,6 +897,7 @@ export const WorkbenchPage = () => {
       orderedTaskAssignments,
       answers,
       localAnswersByAssignmentRef.current,
+      labelerId,
     );
     if (validationIssues.length > 0) {
       const firstIssue = validationIssues[0];
@@ -2209,12 +2213,14 @@ function collectTaskSubmissionValidationIssues(
   taskAssignments: readonly LabelerAssignmentDto[],
   currentAnswers: Record<string, unknown>,
   localAnswerSnapshots: ReadonlyMap<string, Record<string, unknown>>,
+  labelerId: string,
 ): TaskSubmissionValidationIssue[] {
   const snapshots = collectTaskSubmissionDraftSnapshots(
     workbench,
     taskAssignments,
     currentAnswers,
     localAnswerSnapshots,
+    labelerId,
   );
   const fieldOrderByKey = new Map(
     getFlattenedSchemaFields(workbench.task.schema.fields).map((field, index) => [
@@ -2253,6 +2259,7 @@ function collectTaskSubmissionDraftSnapshots(
   taskAssignments: readonly LabelerAssignmentDto[],
   currentAnswers: Record<string, unknown>,
   localAnswerSnapshots: ReadonlyMap<string, Record<string, unknown>>,
+  labelerId: string,
 ): TaskSubmissionDraftSnapshot[] {
   const snapshotsByAssignmentId = new Map<string, TaskSubmissionDraftSnapshot>();
 
@@ -2276,6 +2283,7 @@ function collectTaskSubmissionDraftSnapshots(
         assignment,
         currentAnswers,
         localAnswerSnapshots,
+        labelerId,
       ),
     });
   }
@@ -2303,12 +2311,19 @@ function resolveSubmissionValidationAnswers(
   assignment: LabelerAssignmentDto,
   currentAnswers: Record<string, unknown>,
   localAnswerSnapshots: ReadonlyMap<string, Record<string, unknown>>,
+  labelerId: string,
 ): Record<string, unknown> {
   if (assignment.assignmentId === workbench.assignment.id) {
     return currentAnswers;
   }
 
-  return localAnswerSnapshots.get(assignment.assignmentId) ?? assignment.draftAnswers ?? {};
+  const localAnswers = localAnswerSnapshots.get(assignment.assignmentId);
+  if (localAnswers) {
+    return localAnswers;
+  }
+
+  const cachedAnswers = readLocalDraft(createLocalDraftCacheKey(labelerId, assignment.assignmentId));
+  return cachedAnswers ?? assignment.draftAnswers ?? {};
 }
 
 function createCurrentWorkbenchAssignmentSnapshot(workbench: WorkbenchDto): LabelerAssignmentDto {

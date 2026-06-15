@@ -806,6 +806,123 @@ describe('WorkbenchPage', () => {
     expect(submitCallIndex).toBeGreaterThan(secondDraftCallIndex);
   });
 
+  it('提交任务前会读取非当前题的本地临时草稿，避免必须先点进该题才能提交', async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(
+      'labelhub.local-draft.user_labeler_li_lei.assignment_2',
+      JSON.stringify({ quality: 'excellent' }),
+    );
+
+    const firstWorkbench = {
+      ...qaWorkbench,
+      draft: {
+        id: 'draft_assignment_1',
+        assignmentId: 'assignment_1',
+        answers: { quality: 'pass' },
+        schemaVersion: 'r1',
+        createdAt: '2026-05-21T00:00:00.000Z',
+        updatedAt: '2026-05-21T08:00:00.000Z',
+      },
+    };
+    const assignmentsWithStaleSecondDraft = taskAssignments.map((assignment) =>
+      assignment.assignmentId === 'assignment_2'
+        ? {
+            ...assignment,
+            status: 'IN_PROGRESS' as const,
+            draftAnswers: {},
+            draftUpdatedAt: '2026-05-21T08:00:00.000Z',
+          }
+        : {
+            ...assignment,
+            draftAnswers: { quality: 'pass' },
+            draftUpdatedAt: '2026-05-21T08:00:00.000Z',
+          },
+    );
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.startsWith('/assignments/assignment_1/workbench')) {
+        return jsonResponse({ data: firstWorkbench });
+      }
+
+      if (url.startsWith('/labeler/stats')) {
+        return jsonResponse({ data: { ...stats, totalAssignments: 2 } });
+      }
+
+      if (url.startsWith('/labeler/assignments')) {
+        return jsonResponse({ data: assignmentsWithStaleSecondDraft });
+      }
+
+      if (url === '/tasks') {
+        return jsonResponse({ data: taskList });
+      }
+
+      if (url.startsWith('/drafts/')) {
+        const assignmentId = url.split('/')[2] ?? 'assignment_1';
+
+        return jsonResponse({
+          data: {
+            id: `draft_${assignmentId}`,
+            assignmentId,
+            answers: JSON.parse(String(init?.body ?? '{}')).answers,
+            schemaVersion: 'r1',
+            createdAt: '2026-05-21T00:00:00.000Z',
+            updatedAt: '2026-05-21T08:05:00.000Z',
+          },
+        });
+      }
+
+      if (url === '/submissions/task') {
+        return jsonResponse({
+          data: {
+            taskId: 'task_qa',
+            labelerId: 'user_labeler_li_lei',
+            submittedCount: 2,
+            submissions: [
+              {
+                id: 'submission_1',
+                assignmentId: 'assignment_1',
+                status: 'AI_QUEUED',
+                round: 1,
+                answers: { quality: 'pass' },
+                schemaVersion: 'r1',
+                submittedAt: '2026-05-21T08:06:00.000Z',
+                createdAt: '2026-05-21T08:06:00.000Z',
+                updatedAt: '2026-05-21T08:06:00.000Z',
+              },
+              {
+                id: 'submission_2',
+                assignmentId: 'assignment_2',
+                status: 'AI_QUEUED',
+                round: 1,
+                answers: { quality: 'excellent' },
+                schemaVersion: 'r1',
+                submittedAt: '2026-05-21T08:06:00.000Z',
+                createdAt: '2026-05-21T08:06:00.000Z',
+                updatedAt: '2026-05-21T08:06:00.000Z',
+              },
+            ],
+          },
+        });
+      }
+
+      return jsonResponse({ data: null });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkbenchPage();
+
+    await screen.findByRole('heading', { name: /问答质量标注/ });
+    await user.click(screen.getByRole('button', { name: '提交任务' }));
+
+    expect(await screen.findByText('提交任务成功，2 条标注已进入 AI 预审队列')).toBeInTheDocument();
+    const secondDraftCall = fetchMock.mock.calls.find(([url]) => url === '/drafts/assignment_2');
+    expect(secondDraftCall?.[1]?.body).toEqual(JSON.stringify({
+      actorId: 'user_labeler_li_lei',
+      answers: { quality: 'excellent' },
+    }));
+    expect(window.localStorage.getItem('labelhub.local-draft.user_labeler_li_lei.assignment_2')).toBeNull();
+    expect(screen.queryByText('题目 qa_2：整体质量为必填项')).not.toBeInTheDocument();
+  });
+
   it('直接打开标注台时也从任务列表恢复任务名和任务ID', async () => {
     const rawTaskIdTitle = 'cmpzo8u7h0002v6peylj249qy';
     vi.stubGlobal(
