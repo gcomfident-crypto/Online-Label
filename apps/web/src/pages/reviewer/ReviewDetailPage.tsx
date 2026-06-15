@@ -720,7 +720,6 @@ export const ReviewTaskDetailContent = ({
           orderedFields={orderedSubmitFields}
           selectedField={selectedCommentField}
           stats={reviewStats}
-          task={task}
           onCancelFieldComment={handleCancelFieldComment}
           onFieldCommentDraftChange={setFieldCommentDraft}
           onSendFieldComment={handleSendFieldComment}
@@ -986,7 +985,6 @@ const ReviewSidePanel = ({
   orderedFields,
   selectedField,
   stats,
-  task,
 }: {
   activeTab: ManualReviewSideTab;
   deadlineCountdown: DeadlineCountdownState;
@@ -997,7 +995,6 @@ const ReviewSidePanel = ({
   orderedFields: ReviewSubmitField[];
   selectedField: ReviewSubmitField | null;
   stats: ManualReviewStats;
-  task: ManualReviewTask | null;
   onCancelFieldComment: () => void;
   onFieldCommentDraftChange: (comment: string) => void;
   onSendFieldComment: () => void;
@@ -1421,20 +1418,6 @@ function isReviewableQueueItem(item: ReviewQueueItemDto): boolean {
   return REVIEW_ITEM_REVIEWABLE_STATUSES.has(item.status) && !item.humanDecision;
 }
 
-function resolveManualReviewDecisionLabel(
-  humanDecision: string | null,
-): { text: string; type: 'pass' | 'reject' } | null {
-  if (humanDecision === 'recheck_pass' || humanDecision === 'revise_pass') {
-    return { text: '通过', type: 'pass' };
-  }
-
-  if (humanDecision === 'reject') {
-    return { text: '打回', type: 'reject' };
-  }
-
-  return null;
-}
-
 const reviewQueueItemSorter = new Intl.Collator('zh-Hans-CN', {
   numeric: true,
   sensitivity: 'base',
@@ -1539,7 +1522,7 @@ function resolveManualReviewDecisionLabelByRound(
       return null;
     }
 
-    return { text: queueItem.round > 1 ? '待人工复审' : '待决策', type: 'reject' };
+    return { text: '待人工复审', type: 'reject' };
   }
 
   if (queueItem.humanDecision === 'reject' || queueItem.status === 'NEEDS_REVISION') {
@@ -1791,19 +1774,6 @@ function fieldReviewsFromComments(
       value: fieldComment.value,
     }))
     .filter((fieldComment) => fieldComment.comment.length > 0);
-}
-
-function scoreValue(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return Math.max(0, Math.min(100, Math.round(value)));
-  }
-
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? Math.max(0, Math.min(100, Math.round(parsed))) : null;
-  }
-
-  return null;
 }
 
 function scoreLabel(key: string): string {

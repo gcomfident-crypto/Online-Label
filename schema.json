@@ -1,0 +1,111 @@
+  {
+    "datasetKind": "generic_json",
+    "schemaVersion": "v9",
+    "fields": [
+      {
+        "key": "auto_show_item",
+        "type": "show_item",
+        "label": "preference_compare.xlsx",
+        "sourceKeys": ["id", "task_type", "lang", "prompt", "response_a", "model_a",
+        "response_b", "model_b"],
+        "displayConfig": {
+          "layout": "table",
+          "fields": [
+            { "sourceKey": "id", "label": "ID", "area": "meta", "format": "text",
+            "maxLines": 1 },
+            { "sourceKey": "task_type", "label": "任务类型", "area": "meta",
+            "format": "badge", "maxLines": 1 },
+            { "sourceKey": "lang", "label": "语言", "area": "meta", "format":
+            "badge", "maxLines": 1 },
+            { "sourceKey": "prompt", "label": "Prompt", "area": "content", "format":
+            "long_text", "maxLines": 6 },
+            { "sourceKey": "response_a", "label": "回答 A", "area": "content",
+            "format": "long_text", "maxLines": 6 },
+            { "sourceKey": "model_a", "label": "模型 A", "area": "meta", "format":
+            "badge", "maxLines": 1 },
+            { "sourceKey": "response_b", "label": "回答 B", "area": "content",
+            "format": "long_text", "maxLines": 6 },
+            { "sourceKey": "model_b", "label": "模型 B", "area": "meta", "format":
+            "badge", "maxLines": 1 }
+          ]
+        }
+      },
+      {
+        "key": "preferred",
+        "type": "radio",
+        "label": "偏好选择",
+        "fieldKey": "preferred",
+        "sourceKey": "preferred",
+        "validation": { "required": true },
+        "description": "选择更优的回答",
+        "options": [
+          { "label": "A", "value": "A" },
+          { "label": "B", "value": "B" },
+          { "label": "tie", "value": "tie" }
+        ],
+        "linkageRules": [
+          {
+            "conditions": [{ "fieldKey": "preferred", "operator": "equals", "value":
+            "tie" }],
+            "actions": [{ "type": "setValue", "targetFieldKey": "margin", "value":
+            "相当" }]
+          }
+        ]
+      },
+      {
+        "key": "margin",
+        "type": "radio",
+        "label": "优劣程度",
+        "fieldKey": "margin",
+        "sourceKey": "margin",
+        "validation": { "required": true },
+        "description": "选择优劣程度",
+        "options": [
+          { "label": "明显优于", "value": "明显优于" },
+          { "label": "略优于", "value": "略优于" },
+          { "label": "相当", "value": "相当" }
+        ]
+      },
+      {
+        "key": "tag_select_7",
+        "type": "tag_select",
+        "label": "评估维度",
+        "fieldKey": "dimensions",
+        "validation": { "required": true },
+        "description": "请输入你的评估维度",
+        "aiReview": {
+          "enabled": true,
+          "role": "annotation_answer",
+          "requirement": "校验标签（Label）是否归属于预设的维度属性词（如：准确性、安全性、地道性等），严禁出现无关或违规词汇"
+        }
+      },
+      {
+        "key": "safety_flag",
+        "type": "radio",
+        "label": "安全标记",
+        "fieldKey": "safety_flag",
+        "sourceKey": "safety_flag",
+        "validation": { "required": true },
+        "description": "模型输出是否涉及安全违规",
+        "options": [
+          { "label": "是", "value": "是" },
+          { "label": "否", "value": "否" }
+        ]
+      },
+      {
+        "key": "annotator_note",
+        "type": "textarea",
+        "label": "标注备注",
+        "fieldKey": "annotator_note",
+        "sourceKey": "annotator_note",
+        "validation": { "required": true, "minLength": 20 },
+        "description": "填写判断理由",
+        "promptTemplate": "基于标注数据，生成>20字解释，说明优选模型优于备选或水平相当的原因",
+        "aiReview": {
+          "enabled": true,
+          "role": "annotation_answer",
+          "requirement": "标注原因需具备逻辑自洽性与事实依据，严禁主观臆断或虚构理由"
+        }
+      }
+    ]
+  }

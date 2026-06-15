@@ -31,6 +31,7 @@ FETCH_HEAD
 submission/
 *qrcode*.png
 2026-06-05T150600-labelhub-observability/
+/docs/verify/2026-06-10-full-system-test/
 
 # pi agent 本地配置
 .pi/

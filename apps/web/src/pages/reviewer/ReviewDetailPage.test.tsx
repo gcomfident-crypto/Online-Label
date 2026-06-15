@@ -60,7 +60,7 @@ describe('ReviewDetailPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const rendered = render(
+    render(
       <MemoryRouter initialEntries={['/reviewer/reviews/task_real']}>
         <Routes>
           <Route path="/reviewer/reviews/:taskId" element={<ReviewDetailPage />} />
@@ -387,7 +387,7 @@ describe('ReviewDetailPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    render(
+    const rendered = render(
       <MemoryRouter initialEntries={['/reviewer/reviews/task_real']}>
         <Routes>
           <Route path="/reviewer/reviews/:taskId" element={<ReviewDetailPage />} />
@@ -595,9 +595,9 @@ describe('ReviewDetailPage', () => {
       comment: '',
       submissionIds: ['submission_1', 'submission_2', 'submission_3'],
     });
-    expect(within(queue).getByRole('button', { name: /P0001/ })).toHaveTextContent('待决策');
-    expect(within(queue).getByRole('button', { name: /P0002/ })).toHaveTextContent('待决策');
-    expect(within(queue).getByRole('button', { name: /P0003/ })).toHaveTextContent('待决策');
+    expect(within(queue).getByRole('button', { name: /P0001/ })).toHaveTextContent('待人工复审');
+    expect(within(queue).getByRole('button', { name: /P0002/ })).toHaveTextContent('待人工复审');
+    expect(within(queue).getByRole('button', { name: /P0003/ })).toHaveTextContent('待人工复审');
   });
 
   it('单题通过后列表保留任务内全部题目，当前题立即已通过并自动切到下一题', async () => {
@@ -672,9 +672,9 @@ describe('ReviewDetailPage', () => {
 
     const refreshedQueue = await screen.findByLabelText('当前任务题目列表');
     expect(refreshedQueue.querySelectorAll('article button')).toHaveLength(3);
-    expect(within(refreshedQueue).getByRole('button', { name: /P0001/ })).toHaveTextContent('待决策');
+    expect(within(refreshedQueue).getByRole('button', { name: /P0001/ })).toHaveTextContent('待人工复审');
     expect(within(refreshedQueue).getByRole('button', { name: /P0002/ })).toHaveTextContent('已通过');
-    expect(within(refreshedQueue).getByRole('button', { name: /P0003/ })).toHaveTextContent('待决策');
+    expect(within(refreshedQueue).getByRole('button', { name: /P0003/ })).toHaveTextContent('待人工复审');
     expect(await screen.findByText('P0003 · 第三题')).toBeInTheDocument();
   });
 
